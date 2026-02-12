@@ -8,6 +8,7 @@ import { healthResponseSchema } from '@synqit/shared';
 import Fastify from 'fastify';
 
 import { registerAuthRoutes } from './auth/routes';
+import { registerIntegrationRoutes } from './integrations/routes';
 
 const APP_VERSION = process.env.APP_VERSION ?? '0.1.0';
 const PORT = Number(process.env.PORT ?? 3001);
@@ -95,6 +96,7 @@ export const buildServer = async () => {
   app.register(
     async (v1) => {
       await registerAuthRoutes(v1);
+      await registerIntegrationRoutes(v1);
       v1.get('/version', async () => ({
         service: 'api',
         version: APP_VERSION,

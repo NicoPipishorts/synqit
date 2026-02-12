@@ -50,6 +50,56 @@ export const refreshResponseSchema = z.object({
 
 export type RefreshResponse = z.infer<typeof refreshResponseSchema>;
 
+export const providerConnectionStatusSchema = z.enum(['connected', 'not_connected']);
+export type ProviderConnectionStatus = z.infer<typeof providerConnectionStatusSchema>;
+
+export const integrationStatusSchema = z.object({
+  provider: providerSchema,
+  status: providerConnectionStatusSchema,
+  connectedAt: z.string().nullable(),
+  expiresAt: z.string().nullable(),
+});
+
+export type IntegrationStatus = z.infer<typeof integrationStatusSchema>;
+
+export const integrationListResponseSchema = z.object({
+  integrations: z.array(integrationStatusSchema),
+});
+
+export type IntegrationListResponse = z.infer<typeof integrationListResponseSchema>;
+
+export const oauthStartResponseSchema = z.object({
+  provider: providerSchema,
+  state: z.string(),
+  authorizationUrl: z.string().url(),
+});
+
+export type OauthStartResponse = z.infer<typeof oauthStartResponseSchema>;
+
+export const oauthCallbackQuerySchema = z.object({
+  state: z.string().min(10),
+  code: z.string().min(1),
+});
+
+export type OauthCallbackQuery = z.infer<typeof oauthCallbackQuerySchema>;
+
+export const oauthCallbackResponseSchema = z.object({
+  ok: z.literal(true),
+  provider: providerSchema,
+  connectedAt: z.string(),
+  expiresAt: z.string().nullable(),
+});
+
+export type OauthCallbackResponse = z.infer<typeof oauthCallbackResponseSchema>;
+
+export const integrationDisconnectResponseSchema = z.object({
+  ok: z.literal(true),
+  provider: providerSchema,
+  disconnected: z.boolean(),
+});
+
+export type IntegrationDisconnectResponse = z.infer<typeof integrationDisconnectResponseSchema>;
+
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   service: z.string(),

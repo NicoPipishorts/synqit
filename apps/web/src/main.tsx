@@ -2,6 +2,10 @@ import {
   ApiError,
   authResponseSchema,
   authUserSchema,
+  integrationDisconnectResponseSchema,
+  integrationListResponseSchema,
+  oauthCallbackResponseSchema,
+  oauthStartResponseSchema,
   providerSchema,
   refreshTokenRequestSchema,
 } from '@synqit/shared';
@@ -103,6 +107,8 @@ const callApi = async <TResponse,>(
 
   return parser(payload);
 };
+
+const getAccessToken = (): string | null => loadAuth()?.accessToken ?? null;
 
 const AuthForm = ({
   endpoint,
@@ -246,6 +252,173 @@ const DashboardPage = () => {
   );
 };
 
+const ProviderConnectionsPage = () => {
+  const [status, setStatus] = useState<string>('Not loaded.');
+  const [oauthState, setOauthState] = useState<string>('');
+  const [authUrl, setAuthUrl] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadIntegrationStatus = async () => {
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setStatus('Login required to manage provider connections.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await callApi(
+        '/v1/integrations',
+        {
+          method: 'GET',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+        (payload) => integrationListResponseSchema.parse(payload),
+      );
+
+      const spotifyStatus = result.integrations.find((item) => item.provider === 'spotify');
+      if (!spotifyStatus || spotifyStatus.status === 'not_connected') {
+        setStatus('Spotify is not connected.');
+      } else {
+        setStatus(`Spotify connected. Expires at: ${spotifyStatus.expiresAt ?? 'unknown'}`);
+      }
+    } catch (error) {
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const startSpotifyConnect = async () => {
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setStatus('Login required to start provider connection.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await callApi(
+        '/v1/auth/spotify/start',
+        {
+          method: 'GET',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+        (payload) => oauthStartResponseSchema.parse(payload),
+      );
+
+      setOauthState(result.state);
+      setAuthUrl(result.authorizationUrl);
+      setStatus('OAuth start created. Use callback step to complete connection.');
+    } catch (error) {
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const completeMockCallback = async () => {
+    if (!oauthState) {
+      setStatus('Start OAuth first to generate state.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const query = new URLSearchParams({
+        state: oauthState,
+        code: 'demo-auth-code',
+      });
+      const result = await callApi(
+        `/v1/auth/spotify/callback?${query.toString()}`,
+        {
+          method: 'GET',
+        },
+        (payload) => oauthCallbackResponseSchema.parse(payload),
+      );
+      setStatus(
+        `${result.provider} connected at ${result.connectedAt}. Expires at: ${
+          result.expiresAt ?? 'unknown'
+        }`,
+      );
+      setOauthState('');
+      await loadIntegrationStatus();
+    } catch (error) {
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const disconnectSpotify = async () => {
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setStatus('Login required to disconnect provider.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await callApi(
+        '/v1/auth/spotify/disconnect',
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+        (payload) => integrationDisconnectResponseSchema.parse(payload),
+      );
+      setStatus(
+        result.disconnected ? 'Spotify disconnected.' : 'Spotify was already disconnected.',
+      );
+      await loadIntegrationStatus();
+    } catch (error) {
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: '0.75rem' }}>
+      <h2>Provider Connections</h2>
+      <p>{status}</p>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <button disabled={isLoading} onClick={() => void loadIntegrationStatus()} type="button">
+          {isLoading ? 'Loading...' : 'Load status'}
+        </button>
+        <button disabled={isLoading} onClick={() => void startSpotifyConnect()} type="button">
+          Start Spotify OAuth
+        </button>
+        <button disabled={isLoading} onClick={() => void completeMockCallback()} type="button">
+          Complete Callback (Mock)
+        </button>
+        <button disabled={isLoading} onClick={() => void disconnectSpotify()} type="button">
+          Disconnect Spotify
+        </button>
+      </div>
+      {authUrl ? (
+        <p>
+          Spotify authorize URL:{' '}
+          <a href={authUrl} rel="noreferrer" target="_blank">
+            Open authorization page
+          </a>
+        </p>
+      ) : null}
+      <p>Supported providers in v1: {providerSchema.options.join(', ')}</p>
+    </div>
+  );
+};
+
 const rootRoute = createRootRoute({
   component: () => (
     <div style={{ fontFamily: 'ui-sans-serif, system-ui', margin: '2rem' }}>
@@ -277,19 +450,7 @@ const homeRoute = createRoute({
 const providersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/providers',
-  component: () => {
-    const providers = providerSchema.options;
-    return (
-      <div>
-        <h2>Supported providers (v1)</h2>
-        <ul>
-          {providers.map((provider) => (
-            <li key={provider}>{provider}</li>
-          ))}
-        </ul>
-      </div>
-    );
-  },
+  component: ProviderConnectionsPage,
 });
 
 const registerRoute = createRoute({
