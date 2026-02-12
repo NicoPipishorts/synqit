@@ -1,0 +1,46 @@
+{
+  "name": "synqit",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "yarn@1.22.22",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build:shared": "yarn workspace @synqit/shared build",
+    "dev": "yarn build:shared && concurrently -n shared,api,worker,web -c yellow,cyan,magenta,green \"yarn workspace @synqit/shared dev\" \"yarn workspace @synqit/api dev\" \"yarn workspace @synqit/worker dev\" \"yarn workspace @synqit/web dev\"",
+    "dev:api": "yarn build:shared && yarn workspace @synqit/api dev",
+    "dev:worker": "yarn build:shared && yarn workspace @synqit/worker dev",
+    "dev:web": "yarn build:shared && yarn workspace @synqit/web dev",
+    "build": "yarn workspaces run build",
+    "lint": "yarn workspaces run lint",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "typecheck": "yarn workspaces run typecheck",
+    "test": "yarn workspaces run test",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.24.1",
+    "@typescript-eslint/parser": "^8.24.1",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.21.0",
+    "eslint-config-prettier": "^10.0.1",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.4.3",
+    "prettier": "^3.5.3",
+    "typescript": "^5.8.2"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,md,yml,yaml}": [
+      "prettier --write"
+    ],
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix"
+    ]
+  }
+}
