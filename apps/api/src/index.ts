@@ -7,6 +7,8 @@ import swaggerUi from '@fastify/swagger-ui';
 import { healthResponseSchema } from '@synqit/shared';
 import Fastify from 'fastify';
 
+import { registerAuthRoutes } from './auth/routes';
+
 const APP_VERSION = process.env.APP_VERSION ?? '0.1.0';
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -23,7 +25,7 @@ const parseCorsOrigins = (raw: string | undefined): string[] => {
     .filter(Boolean);
 };
 
-const buildServer = async () => {
+export const buildServer = async () => {
   const app = Fastify({
     logger: true,
   });
@@ -53,9 +55,14 @@ const buildServer = async () => {
   });
 
   app.setErrorHandler((error, _request, reply) => {
-    reply.status(error.statusCode ?? 500).send({
-      code: error.code ?? 'internal_error',
-      message: error.message,
+    const normalizedError =
+      error && typeof error === 'object'
+        ? (error as { statusCode?: number; code?: string; message?: string })
+        : undefined;
+
+    reply.status(normalizedError?.statusCode ?? 500).send({
+      code: normalizedError?.code ?? 'internal_error',
+      message: normalizedError?.message ?? 'Unexpected server error.',
     });
   });
 
@@ -87,6 +94,7 @@ const buildServer = async () => {
 
   app.register(
     async (v1) => {
+      await registerAuthRoutes(v1);
       v1.get('/version', async () => ({
         service: 'api',
         version: APP_VERSION,
@@ -99,7 +107,7 @@ const buildServer = async () => {
   return app;
 };
 
-const start = async () => {
+export const start = async () => {
   const app = await buildServer();
 
   try {
@@ -110,4 +118,6 @@ const start = async () => {
   }
 };
 
-void start();
+if (require.main === module) {
+  void start();
+}
