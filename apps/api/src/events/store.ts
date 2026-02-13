@@ -1,7 +1,7 @@
-import { EventStatus, Provider } from '@synqit/shared';
+import { EventStatus, Provider, eventStatusSchema, providerSchema } from '@synqit/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { query, withTransaction } from '../db';
+import { prisma } from '../db/prisma';
 
 type EventRecord = {
   id: string;
@@ -33,9 +33,9 @@ type EventTrackRecord = {
 type EventRow = {
   id: string;
   host_user_id: string;
-  provider: Provider;
+  provider: string;
   provider_playlist_id: string;
-  status: EventStatus;
+  status: string;
   name: string;
   description: string;
   magic_link_token: string;
@@ -70,9 +70,9 @@ const toEventTrackRecord = (row: EventTrackRow): EventTrackRecord => ({
 const toEventRecord = (row: EventRow): EventRecord => ({
   id: row.id,
   hostUserId: row.host_user_id,
-  provider: row.provider,
+  provider: providerSchema.parse(row.provider),
   providerPlaylistId: row.provider_playlist_id,
-  status: row.status,
+  status: eventStatusSchema.parse(row.status),
   name: row.name,
   description: row.description,
   magicLinkToken: row.magic_link_token,
@@ -95,6 +95,14 @@ const toEventWithTracks = async (event: EventRecord): Promise<EventRecord> => {
 
 const generateMagicLinkToken = (): string => randomBytes(24).toString('base64url');
 
+const isUniqueConstraintViolation = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  return 'code' in error && (error as { code?: string }).code === 'P2002';
+};
+
 export const eventsStore = {
   async createEvent(params: {
     hostUserId: string;
@@ -104,104 +112,47 @@ export const eventsStore = {
     description: string;
   }): Promise<EventRecord> {
     const eventId = randomUUID();
+    const now = new Date();
 
-    const result = await query<EventRow>(
-      `
-        INSERT INTO events (
-          id,
-          host_user_id,
-          provider,
-          provider_playlist_id,
-          status,
-          name,
-          description,
-          magic_link_token,
-          magic_link_revoked_at,
-          created_at,
-          updated_at,
-          closed_at
-        )
-        VALUES ($1, $2, $3, $4, 'open', $5, $6, $7, NULL, NOW(), NOW(), NULL)
-        RETURNING
-          id,
-          host_user_id,
-          provider,
-          provider_playlist_id,
-          status,
-          name,
-          description,
-          magic_link_token,
-          magic_link_revoked_at,
-          created_at,
-          updated_at,
-          closed_at
-      `,
-      [
-        eventId,
-        params.hostUserId,
-        params.provider,
-        params.providerPlaylistId,
-        params.name,
-        params.description,
-        generateMagicLinkToken(),
-      ],
-    );
+    const row = await prisma.events.create({
+      data: {
+        id: eventId,
+        host_user_id: params.hostUserId,
+        provider: params.provider,
+        provider_playlist_id: params.providerPlaylistId,
+        status: 'open',
+        name: params.name,
+        description: params.description,
+        magic_link_token: generateMagicLinkToken(),
+        magic_link_revoked_at: null,
+        created_at: now,
+        updated_at: now,
+        closed_at: null,
+      },
+    });
 
-    return toEventWithTracks(toEventRecord(result.rows[0]));
+    return toEventWithTracks(toEventRecord(row));
   },
 
   async listEventsByHost(hostUserId: string): Promise<EventRecord[]> {
-    const result = await query<EventRow>(
-      `
-        SELECT
-          id,
-          host_user_id,
-          provider,
-          provider_playlist_id,
-          status,
-          name,
-          description,
-          magic_link_token,
-          magic_link_revoked_at,
-          created_at,
-          updated_at,
-          closed_at
-        FROM events
-        WHERE host_user_id = $1
-        ORDER BY created_at DESC
-      `,
-      [hostUserId],
-    );
+    const rows = await prisma.events.findMany({
+      where: {
+        host_user_id: hostUserId,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
 
-    const baseEvents = mapRowsToEvents(result.rows);
+    const baseEvents = mapRowsToEvents(rows);
     const eventsWithTracks = await Promise.all(baseEvents.map(toEventWithTracks));
     return eventsWithTracks;
   },
 
   async findEventById(eventId: string): Promise<EventRecord | null> {
-    const result = await query<EventRow>(
-      `
-        SELECT
-          id,
-          host_user_id,
-          provider,
-          provider_playlist_id,
-          status,
-          name,
-          description,
-          magic_link_token,
-          magic_link_revoked_at,
-          created_at,
-          updated_at,
-          closed_at
-        FROM events
-        WHERE id = $1
-        LIMIT 1
-      `,
-      [eventId],
-    );
-
-    const row = result.rows[0];
+    const row = await prisma.events.findUnique({
+      where: { id: eventId },
+    });
     if (!row) {
       return null;
     }
@@ -210,29 +161,9 @@ export const eventsStore = {
   },
 
   async findEventByMagicLinkToken(magicLinkToken: string): Promise<EventRecord | null> {
-    const result = await query<EventRow>(
-      `
-        SELECT
-          id,
-          host_user_id,
-          provider,
-          provider_playlist_id,
-          status,
-          name,
-          description,
-          magic_link_token,
-          magic_link_revoked_at,
-          created_at,
-          updated_at,
-          closed_at
-        FROM events
-        WHERE magic_link_token = $1
-        LIMIT 1
-      `,
-      [magicLinkToken],
-    );
-
-    const row = result.rows[0];
+    const row = await prisma.events.findUnique({
+      where: { magic_link_token: magicLinkToken },
+    });
     if (!row) {
       return null;
     }
@@ -241,40 +172,38 @@ export const eventsStore = {
   },
 
   async listTracksByEventId(eventId: string): Promise<EventTrackRecord[]> {
-    const result = await query<EventTrackRow>(
-      `
-        SELECT
-          provider_track_id,
-          name,
-          artist,
-          album,
-          duration_ms,
-          artwork_url,
-          added_at,
-          added_by
-        FROM event_tracks
-        WHERE event_id = $1
-        ORDER BY added_at DESC
-      `,
-      [eventId],
-    );
+    const rows = await prisma.event_tracks.findMany({
+      where: { event_id: eventId },
+      orderBy: { added_at: 'desc' },
+      select: {
+        provider_track_id: true,
+        name: true,
+        artist: true,
+        album: true,
+        duration_ms: true,
+        artwork_url: true,
+        added_at: true,
+        added_by: true,
+      },
+    });
 
-    return result.rows.map(toEventTrackRecord);
+    return rows.map(toEventTrackRecord);
   },
 
   async hasTrack(params: { eventId: string; providerTrackId: string }): Promise<boolean> {
-    const result = await query<{ exists: boolean }>(
-      `
-        SELECT EXISTS(
-          SELECT 1
-          FROM event_tracks
-          WHERE event_id = $1 AND provider_track_id = $2
-        ) AS exists
-      `,
-      [params.eventId, params.providerTrackId],
-    );
+    const existing = await prisma.event_tracks.findUnique({
+      where: {
+        event_id_provider_track_id: {
+          event_id: params.eventId,
+          provider_track_id: params.providerTrackId,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
 
-    return Boolean(result.rows[0]?.exists);
+    return Boolean(existing);
   },
 
   async addTrackToEvent(params: {
@@ -287,57 +216,51 @@ export const eventsStore = {
     artworkUrl: string | null;
     addedBy: string;
   }): Promise<EventTrackRecord | null> {
-    return withTransaction(async (client) => {
-      const insertResult = await client.query<EventTrackRow>(
-        `
-          INSERT INTO event_tracks (
-            event_id,
-            provider_track_id,
-            name,
-            artist,
-            album,
-            duration_ms,
-            artwork_url,
-            added_at,
-            added_by
-          )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8)
-          ON CONFLICT (event_id, provider_track_id) DO NOTHING
-          RETURNING
-            provider_track_id,
-            name,
-            artist,
-            album,
-            duration_ms,
-            artwork_url,
-            added_at,
-            added_by
-        `,
-        [
-          params.eventId,
-          params.providerTrackId,
-          params.name,
-          params.artist,
-          params.album,
-          params.durationMs,
-          params.artworkUrl,
-          params.addedBy,
-        ],
-      );
+    return prisma.$transaction(async (tx) => {
+      const now = new Date();
+      let insertedRow: EventTrackRow | null = null;
 
-      const insertedRow = insertResult.rows[0];
+      try {
+        insertedRow = await tx.event_tracks.create({
+          data: {
+            event_id: params.eventId,
+            provider_track_id: params.providerTrackId,
+            name: params.name,
+            artist: params.artist,
+            album: params.album,
+            duration_ms: params.durationMs,
+            artwork_url: params.artworkUrl,
+            added_at: now,
+            added_by: params.addedBy,
+          },
+          select: {
+            provider_track_id: true,
+            name: true,
+            artist: true,
+            album: true,
+            duration_ms: true,
+            artwork_url: true,
+            added_at: true,
+            added_by: true,
+          },
+        });
+      } catch (error) {
+        if (isUniqueConstraintViolation(error)) {
+          return null;
+        }
+        throw error;
+      }
+
       if (!insertedRow) {
         return null;
       }
 
-      await client.query(
-        `
-          UPDATE events
-          SET updated_at = NOW()
-          WHERE id = $1
-        `,
-        [params.eventId],
-      );
+      await tx.events.update({
+        where: { id: params.eventId },
+        data: {
+          updated_at: now,
+        },
+      });
 
       return toEventTrackRecord(insertedRow);
     });
@@ -347,66 +270,58 @@ export const eventsStore = {
     eventId: string;
     providerTrackId: string;
   }): Promise<EventTrackRecord | null> {
-    return withTransaction(async (client) => {
-      const removedResult = await client.query<EventTrackRow>(
-        `
-          DELETE FROM event_tracks
-          WHERE event_id = $1 AND provider_track_id = $2
-          RETURNING
-            provider_track_id,
-            name,
-            artist,
-            album,
-            duration_ms,
-            artwork_url,
-            added_at,
-            added_by
-        `,
-        [params.eventId, params.providerTrackId],
-      );
-
-      const removedRow = removedResult.rows[0];
+    return prisma.$transaction(async (tx) => {
+      const removedRow = await tx.event_tracks.findUnique({
+        where: {
+          event_id_provider_track_id: {
+            event_id: params.eventId,
+            provider_track_id: params.providerTrackId,
+          },
+        },
+        select: {
+          provider_track_id: true,
+          name: true,
+          artist: true,
+          album: true,
+          duration_ms: true,
+          artwork_url: true,
+          added_at: true,
+          added_by: true,
+        },
+      });
       if (!removedRow) {
         return null;
       }
 
-      await client.query(
-        `
-          UPDATE events
-          SET updated_at = NOW()
-          WHERE id = $1
-        `,
-        [params.eventId],
-      );
+      const deleted = await tx.event_tracks.deleteMany({
+        where: {
+          event_id: params.eventId,
+          provider_track_id: params.providerTrackId,
+        },
+      });
+      if (deleted.count !== 1) {
+        return null;
+      }
+
+      await tx.events.update({
+        where: { id: params.eventId },
+        data: {
+          updated_at: new Date(),
+        },
+      });
 
       return toEventTrackRecord(removedRow);
     });
   },
 
   async closeEvent(params: { eventId: string; hostUserId: string }): Promise<EventRecord | null> {
-    const existing = await query<EventRow>(
-      `
-        SELECT
-          id,
-          host_user_id,
-          provider,
-          provider_playlist_id,
-          status,
-          name,
-          description,
-          magic_link_token,
-          magic_link_revoked_at,
-          created_at,
-          updated_at,
-          closed_at
-        FROM events
-        WHERE id = $1 AND host_user_id = $2
-        LIMIT 1
-      `,
-      [params.eventId, params.hostUserId],
-    );
+    const existingRow = await prisma.events.findFirst({
+      where: {
+        id: params.eventId,
+        host_user_id: params.hostUserId,
+      },
+    });
 
-    const existingRow = existing.rows[0];
     if (!existingRow) {
       return null;
     }
@@ -415,30 +330,17 @@ export const eventsStore = {
       return toEventWithTracks(toEventRecord(existingRow));
     }
 
-    const result = await query<EventRow>(
-      `
-        UPDATE events
-        SET status = 'closed', closed_at = NOW(), updated_at = NOW()
-        WHERE id = $1 AND host_user_id = $2
-        RETURNING
-          id,
-          host_user_id,
-          provider,
-          provider_playlist_id,
-          status,
-          name,
-          description,
-          magic_link_token,
-          magic_link_revoked_at,
-          created_at,
-          updated_at,
-          closed_at
-      `,
-      [params.eventId, params.hostUserId],
-    );
+    const now = new Date();
+    const updated = await prisma.events.update({
+      where: { id: existingRow.id },
+      data: {
+        status: 'closed',
+        closed_at: now,
+        updated_at: now,
+      },
+    });
 
-    const row = result.rows[0];
-    return row ? toEventWithTracks(toEventRecord(row)) : null;
+    return toEventWithTracks(toEventRecord(updated));
   },
 
   async updateEvent(params: {
@@ -447,73 +349,65 @@ export const eventsStore = {
     name: string;
     description: string;
   }): Promise<EventRecord | null> {
-    const result = await query<EventRow>(
-      `
-        UPDATE events
-        SET name = $3, description = $4, updated_at = NOW()
-        WHERE id = $1 AND host_user_id = $2
-        RETURNING
-          id,
-          host_user_id,
-          provider,
-          provider_playlist_id,
-          status,
-          name,
-          description,
-          magic_link_token,
-          magic_link_revoked_at,
-          created_at,
-          updated_at,
-          closed_at
-      `,
-      [params.eventId, params.hostUserId, params.name, params.description],
-    );
+    const existing = await prisma.events.findFirst({
+      where: {
+        id: params.eventId,
+        host_user_id: params.hostUserId,
+      },
+      select: {
+        id: true,
+      },
+    });
+    if (!existing) {
+      return null;
+    }
 
-    const row = result.rows[0];
-    return row ? toEventWithTracks(toEventRecord(row)) : null;
+    const updated = await prisma.events.update({
+      where: { id: existing.id },
+      data: {
+        name: params.name,
+        description: params.description,
+        updated_at: new Date(),
+      },
+    });
+
+    return toEventWithTracks(toEventRecord(updated));
   },
 
   async deleteEvent(params: { eventId: string; hostUserId: string }): Promise<boolean> {
-    const result = await query<{ id: string }>(
-      `
-        DELETE FROM events
-        WHERE id = $1 AND host_user_id = $2
-        RETURNING id
-      `,
-      [params.eventId, params.hostUserId],
-    );
+    const result = await prisma.events.deleteMany({
+      where: {
+        id: params.eventId,
+        host_user_id: params.hostUserId,
+      },
+    });
 
-    return result.rows.length > 0;
+    return result.count > 0;
   },
 
   async revokeMagicLink(params: {
     eventId: string;
     hostUserId: string;
   }): Promise<EventRecord | null> {
-    const result = await query<EventRow>(
-      `
-        UPDATE events
-        SET magic_link_revoked_at = COALESCE(magic_link_revoked_at, NOW()), updated_at = NOW()
-        WHERE id = $1 AND host_user_id = $2
-        RETURNING
-          id,
-          host_user_id,
-          provider,
-          provider_playlist_id,
-          status,
-          name,
-          description,
-          magic_link_token,
-          magic_link_revoked_at,
-          created_at,
-          updated_at,
-          closed_at
-      `,
-      [params.eventId, params.hostUserId],
-    );
+    const existing = await prisma.events.findFirst({
+      where: {
+        id: params.eventId,
+        host_user_id: params.hostUserId,
+      },
+    });
+    if (!existing) {
+      return null;
+    }
 
-    const row = result.rows[0];
-    return row ? toEventWithTracks(toEventRecord(row)) : null;
+    const updated = await prisma.events.update({
+      where: { id: existing.id },
+      data: {
+        magic_link_revoked_at: existing.magic_link_revoked_at ?? new Date(),
+        updated_at: new Date(),
+      },
+    });
+
+    return toEventWithTracks(toEventRecord(updated));
   },
 
   async regenerateMagicLink(params: {
@@ -521,30 +415,29 @@ export const eventsStore = {
     hostUserId: string;
   }): Promise<EventRecord | null> {
     const nextToken = generateMagicLinkToken();
-    const result = await query<EventRow>(
-      `
-        UPDATE events
-        SET magic_link_token = $3, magic_link_revoked_at = NULL, updated_at = NOW()
-        WHERE id = $1 AND host_user_id = $2
-        RETURNING
-          id,
-          host_user_id,
-          provider,
-          provider_playlist_id,
-          status,
-          name,
-          description,
-          magic_link_token,
-          magic_link_revoked_at,
-          created_at,
-          updated_at,
-          closed_at
-      `,
-      [params.eventId, params.hostUserId, nextToken],
-    );
+    const existing = await prisma.events.findFirst({
+      where: {
+        id: params.eventId,
+        host_user_id: params.hostUserId,
+      },
+      select: {
+        id: true,
+      },
+    });
+    if (!existing) {
+      return null;
+    }
 
-    const row = result.rows[0];
-    return row ? toEventWithTracks(toEventRecord(row)) : null;
+    const updated = await prisma.events.update({
+      where: { id: existing.id },
+      data: {
+        magic_link_token: nextToken,
+        magic_link_revoked_at: null,
+        updated_at: new Date(),
+      },
+    });
+
+    return toEventWithTracks(toEventRecord(updated));
   },
 };
 

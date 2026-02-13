@@ -49,4 +49,4 @@ Use this before shipping changes to the event collaboration flow.
 ## Regression Notes
 
 - Deleting an event in Synqit currently does not delete the provider playlist.
-- No DB migration yet: stores are file-backed JSON in `apps/api/data`.
+- DB persistence is PostgreSQL + Prisma migrations.

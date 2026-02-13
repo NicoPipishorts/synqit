@@ -12,6 +12,9 @@
     "prisma:pull": "prisma db pull",
     "prisma:generate": "prisma generate",
     "prisma:studio": "prisma studio",
+    "prisma:migrate:dev": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:migrate:status": "prisma migrate status",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "echo \"No tests yet for @synqit/api\""

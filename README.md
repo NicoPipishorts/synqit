@@ -21,6 +21,8 @@ Playlist sync platform scaffold for the v1 scope.
 
 ```bash
 yarn install
+yarn infra:up:core
+yarn prisma:migrate:deploy
 yarn dev
 ```
 
@@ -38,6 +40,8 @@ yarn db:check
 yarn prisma:pull
 yarn prisma:generate
 yarn prisma:studio
+yarn prisma:migrate:status
+yarn prisma:migrate:deploy
 yarn infra:up
 yarn infra:up:core
 yarn infra:ps
@@ -89,19 +93,10 @@ yarn infra:up:core
 - `DATABASE_URL=postgresql://synqit:synqit@localhost:5435/synqit`
 - `REDIS_URL=redis://localhost:6380`
 
-On API startup, schema is created automatically if missing.
+On API startup, the API verifies DB connectivity.
+Schema changes are managed by Prisma migrations (not runtime SQL bootstrap).
 
 When running fully containerized (`yarn infra:up`), API and worker automatically use internal Docker service URLs (`postgres:5432`, `redis:6379`).
-
-### One-time legacy JSON import
-
-On first DB bootstrap, the API imports existing JSON data **if target tables are empty** from:
-
-- `apps/api/data/auth-store.json`
-- `apps/api/data/integrations-store.json`
-- `apps/api/data/events-store.json`
-
-Legacy fallback paths under `apps/api/apps/api/data/*` are also checked.
 
 ### Access DB from terminal
 
@@ -130,6 +125,8 @@ yarn db:check
 Prisma is installed in `apps/api` and introspected from the existing DB schema.
 
 ```bash
+yarn prisma:migrate:status
+yarn prisma:migrate:deploy
 yarn prisma:pull
 yarn prisma:generate
 yarn prisma:studio
