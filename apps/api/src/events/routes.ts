@@ -8,6 +8,7 @@ import {
   eventResponseSchema,
   eventTrackSearchResponseSchema,
   eventTracksResponseSchema,
+  type Provider,
   removeEventTrackResponseSchema,
   updateEventRequestSchema,
 } from '@synqit/shared';
@@ -79,6 +80,9 @@ const buildEventMagicLinkUrl = (magicLinkToken: string): string => {
   const url = new URL(`/event/${magicLinkToken}`, eventLinkBaseUrl);
   return url.toString();
 };
+
+const usesSpotifyLiveProvider = (provider: Provider): boolean =>
+  provider === 'spotify' && isSpotifyOauthLiveMode();
 
 const toEventResponse = (event: EventRecord) =>
   eventResponseSchema.parse({
@@ -202,19 +206,20 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    const selectedProvider = parsedBody.data.provider;
     const integration = await integrationStore.findIntegration({
       userId,
-      provider: 'spotify',
+      provider: selectedProvider,
     });
     if (!integration) {
       return reply.status(400).send({
         code: 'provider_not_connected',
-        message: 'Connect Spotify before creating an event.',
+        message: `Connect ${selectedProvider} before creating an event.`,
       });
     }
 
     let providerPlaylistId: string;
-    if (isSpotifyOauthLiveMode()) {
+    if (usesSpotifyLiveProvider(selectedProvider)) {
       try {
         const createdPlaylist = await withSpotifyAccessTokenRetry({
           userId,
@@ -252,12 +257,15 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         });
       }
     } else {
-      providerPlaylistId = `mock-playlist-${randomUUID()}`;
+      providerPlaylistId =
+        selectedProvider === 'apple'
+          ? `apple-mock-playlist-${randomUUID()}`
+          : `mock-playlist-${randomUUID()}`;
     }
 
     const event = await eventsStore.createEvent({
       hostUserId: userId,
-      provider: 'spotify',
+      provider: selectedProvider,
       providerPlaylistId,
       name: parsedBody.data.name,
       description: parsedBody.data.description,
@@ -346,7 +354,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    if (!isSpotifyOauthLiveMode()) {
+    if (!usesSpotifyLiveProvider(event.provider)) {
       const normalizedQuery = query.toLowerCase();
       const results = MOCK_TRACKS.filter((track) => {
         const searchable = `${track.name} ${track.artist} ${track.album}`.toLowerCase();
@@ -446,7 +454,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    if (isSpotifyOauthLiveMode()) {
+    if (usesSpotifyLiveProvider(event.provider)) {
       let providerAccessTokenForDiagnostics: string | null = null;
       try {
         await withSpotifyAccessTokenRetry({
@@ -689,7 +697,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    if (isSpotifyOauthLiveMode()) {
+    if (usesSpotifyLiveProvider(event.provider)) {
       try {
         await withSpotifyAccessTokenRetry({
           userId: event.hostUserId,

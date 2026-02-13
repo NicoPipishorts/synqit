@@ -1,3 +1,4 @@
+import { providerSchema } from '@synqit/shared';
 import type { FastifyInstance } from 'fastify';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -49,11 +50,14 @@ const registerUser = async (app: FastifyInstance, email: string) => {
   };
 };
 
-const connectSpotify = async (app: FastifyInstance, accessToken: string) => {
+const connectProvider = async (
+  app: FastifyInstance,
+  params: { provider: (typeof providerSchema.options)[number]; accessToken: string },
+) => {
   const startResponse = await app.inject({
     method: 'GET',
-    url: '/v1/auth/spotify/start',
-    headers: authHeader(accessToken),
+    url: `/v1/auth/${params.provider}/start`,
+    headers: authHeader(params.accessToken),
   });
   assert.equal(startResponse.statusCode, 200);
   const startBody = parseBody(startResponse.body) as {
@@ -65,7 +69,7 @@ const connectSpotify = async (app: FastifyInstance, accessToken: string) => {
 
   const callbackResponse = await app.inject({
     method: 'GET',
-    url: `/v1/auth/spotify/callback?state=${encodeURIComponent(startBody.state)}&code=test-code&response_mode=json`,
+    url: `/v1/auth/${params.provider}/callback?state=${encodeURIComponent(startBody.state)}&code=test-code&response_mode=json`,
   });
   assert.equal(callbackResponse.statusCode, 200);
   const callbackBody = parseBody(callbackResponse.body) as { ok: boolean };
@@ -189,8 +193,11 @@ describe('API regression', () => {
     const initialListBody = parseBody(initialListResponse.body) as {
       integrations: Array<{ provider: string; status: string }>;
     };
-    assert.equal(initialListBody.integrations[0]?.provider, 'spotify');
-    assert.equal(initialListBody.integrations[0]?.status, 'not_connected');
+    for (const provider of providerSchema.options) {
+      const current = initialListBody.integrations.find((item) => item.provider === provider);
+      assert.ok(current);
+      assert.equal(current?.status, 'not_connected');
+    }
 
     const startResponse = await app.inject({
       method: 'GET',
@@ -221,7 +228,14 @@ describe('API regression', () => {
     const connectedListBody = parseBody(connectedListResponse.body) as {
       integrations: Array<{ provider: string; status: string }>;
     };
-    assert.equal(connectedListBody.integrations[0]?.status, 'connected');
+    assert.equal(
+      connectedListBody.integrations.find((item) => item.provider === 'spotify')?.status,
+      'connected',
+    );
+    assert.equal(
+      connectedListBody.integrations.find((item) => item.provider === 'apple')?.status,
+      'not_connected',
+    );
 
     const disconnectResponse = await app.inject({
       method: 'POST',
@@ -238,7 +252,10 @@ describe('API regression', () => {
     const registerBody = await registerUser(app, email);
     const hostAccessToken = registerBody.tokens.accessToken;
 
-    await connectSpotify(app, hostAccessToken);
+    await connectProvider(app, {
+      provider: 'spotify',
+      accessToken: hostAccessToken,
+    });
 
     const createEventResponse = await app.inject({
       method: 'POST',
@@ -380,6 +397,67 @@ describe('API regression', () => {
     assert.equal(deletedEventGetResponse.statusCode, 404);
   });
 
+  it('events: apple host flow supports guest add/remove with provider selection', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const registerBody = await registerUser(app, email);
+    const hostAccessToken = registerBody.tokens.accessToken;
+
+    await connectProvider(app, {
+      provider: 'apple',
+      accessToken: hostAccessToken,
+    });
+
+    const createEventResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/events',
+      headers: authHeader(hostAccessToken),
+      payload: {
+        provider: 'apple',
+        name: 'Apple Event',
+        description: 'Apple provider event flow test',
+      },
+    });
+    assert.equal(createEventResponse.statusCode, 200);
+    const createEventBody = parseBody(createEventResponse.body) as {
+      event: { id: string; provider: string; magicLinkToken: string };
+    };
+    assert.equal(createEventBody.event.provider, 'apple');
+    assert.ok(createEventBody.event.magicLinkToken);
+
+    const addTrackResponse = await app.inject({
+      method: 'POST',
+      url: `/v1/events/link/${createEventBody.event.magicLinkToken}/tracks`,
+      payload: {
+        providerTrackId: 'mock-track-2',
+        name: 'Golden Hour',
+        artist: 'Summer Static',
+        album: 'Sunset Signals',
+        durationMs: 187000,
+        artworkUrl: null,
+      },
+    });
+    assert.equal(addTrackResponse.statusCode, 200);
+
+    const hostTracksResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/events/${createEventBody.event.id}/tracks`,
+      headers: authHeader(hostAccessToken),
+    });
+    assert.equal(hostTracksResponse.statusCode, 200);
+    const hostTracksBody = parseBody(hostTracksResponse.body) as {
+      tracks: Array<{ providerTrackId: string }>;
+    };
+    assert.equal(hostTracksBody.tracks.length, 1);
+    assert.equal(hostTracksBody.tracks[0]?.providerTrackId, 'mock-track-2');
+
+    const removeTrackResponse = await app.inject({
+      method: 'DELETE',
+      url: `/v1/events/${createEventBody.event.id}/tracks/mock-track-2`,
+      headers: authHeader(hostAccessToken),
+    });
+    assert.equal(removeTrackResponse.statusCode, 200);
+  });
+
   it('events: missing provider playlist is reconciled by closing the event', async () => {
     const previousClientId = process.env.SPOTIFY_CLIENT_ID;
     const previousClientSecret = process.env.SPOTIFY_CLIENT_SECRET;
@@ -456,7 +534,10 @@ describe('API regression', () => {
       const registerBody = await registerUser(app, email);
       const hostAccessToken = registerBody.tokens.accessToken;
 
-      await connectSpotify(app, hostAccessToken);
+      await connectProvider(app, {
+        provider: 'spotify',
+        accessToken: hostAccessToken,
+      });
 
       const createEventResponse = await app.inject({
         method: 'POST',

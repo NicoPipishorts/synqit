@@ -6,6 +6,7 @@ import {
   oauthStartResponseSchema,
   providerSchema,
 } from '@synqit/shared';
+import type { Provider } from '@synqit/shared';
 import { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { encryptToken } from './crypto';
@@ -19,6 +20,7 @@ import { integrationStore } from './store';
 const DEFAULT_OAUTH_STATE_TTL_SECONDS = 10 * 60;
 const DEFAULT_SPOTIFY_SCOPES =
   'playlist-read-private playlist-modify-private playlist-modify-public';
+const DEFAULT_APPLE_SCOPES = 'music-library-read music-library-modify';
 const DEFAULT_API_BASE_URL = 'http://localhost:3001';
 const DEFAULT_WEB_APP_URL = 'http://127.0.0.1:5173';
 
@@ -37,6 +39,55 @@ const parsePositiveNumber = (raw: string | undefined, fallback: number): number 
 
 const oauthStateTtlMs =
   parsePositiveNumber(process.env.OAUTH_STATE_TTL_SECONDS, DEFAULT_OAUTH_STATE_TTL_SECONDS) * 1000;
+
+const buildMockAuthorizationUrl = (params: { provider: Provider; state: string }): string => {
+  const baseUrl = process.env.API_BASE_URL ?? DEFAULT_API_BASE_URL;
+  return `${baseUrl}/v1/auth/${params.provider}/callback?${new URLSearchParams({
+    state: params.state,
+    code: 'mock-code',
+  }).toString()}`;
+};
+
+const getProviderScopes = (provider: Provider): string[] => {
+  if (provider === 'spotify') {
+    return (process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES).split(/\s+/).filter(Boolean);
+  }
+
+  return (process.env.APPLE_SCOPES ?? DEFAULT_APPLE_SCOPES).split(/\s+/).filter(Boolean);
+};
+
+const getProviderAuthorizationUrl = (params: { provider: Provider; state: string }): string => {
+  if (params.provider === 'spotify' && isSpotifyOauthLiveMode()) {
+    return buildSpotifyAuthorizationUrl({
+      state: params.state,
+      scopes: process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES,
+    });
+  }
+
+  // Apple connect currently uses local mock callback flow until MusicKit auth is implemented.
+  return buildMockAuthorizationUrl(params);
+};
+
+const exchangeProviderAuthorizationCode = async (params: {
+  provider: Provider;
+  code: string;
+}): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  expiresAt: Date | null;
+  scopes: string[];
+}> => {
+  if (params.provider === 'spotify' && isSpotifyOauthLiveMode()) {
+    return exchangeSpotifyAuthorizationCode(params.code);
+  }
+
+  return {
+    accessToken: `mock-${params.provider}-access-${params.code}`,
+    refreshToken: `mock-${params.provider}-refresh-${params.code}`,
+    scopes: getProviderScopes(params.provider),
+    expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+  };
+};
 
 const verifyAndGetUserId = async (
   app: FastifyInstance,
@@ -137,17 +188,10 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       ttlMs: oauthStateTtlMs,
     });
 
-    const authorizationUrl = isSpotifyOauthLiveMode()
-      ? buildSpotifyAuthorizationUrl({
-          state: oauthState.state,
-          scopes: process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES,
-        })
-      : `${process.env.API_BASE_URL ?? DEFAULT_API_BASE_URL}/v1/auth/${
-          providerResult.data
-        }/callback?${new URLSearchParams({
-          state: oauthState.state,
-          code: 'mock-code',
-        }).toString()}`;
+    const authorizationUrl = getProviderAuthorizationUrl({
+      provider: providerResult.data,
+      state: oauthState.state,
+    });
 
     return oauthStartResponseSchema.parse({
       provider: providerResult.data,
@@ -195,23 +239,17 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       scopes: string[];
     };
 
-    if (isSpotifyOauthLiveMode()) {
-      try {
-        tokenExchangeResult = await exchangeSpotifyAuthorizationCode(queryResult.data.code);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Token exchange failed.';
-        return reply.status(502).send({
-          code: 'provider_token_exchange_failed',
-          message,
-        });
-      }
-    } else {
-      tokenExchangeResult = {
-        accessToken: `mock-${providerResult.data}-access-${queryResult.data.code}`,
-        refreshToken: `mock-${providerResult.data}-refresh-${queryResult.data.code}`,
-        scopes: (process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES).split(' '),
-        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
-      };
+    try {
+      tokenExchangeResult = await exchangeProviderAuthorizationCode({
+        provider: providerResult.data,
+        code: queryResult.data.code,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Token exchange failed.';
+      return reply.status(502).send({
+        code: 'provider_token_exchange_failed',
+        message,
+      });
     }
 
     const integration = await integrationStore.upsertIntegration({

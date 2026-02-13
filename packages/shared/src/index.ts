@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const providerSchema = z.enum(['spotify']);
+export const providerSchema = z.enum(['spotify', 'apple']);
 export type Provider = z.infer<typeof providerSchema>;
 
 export const authCredentialsSchema = z.object({
@@ -105,6 +105,7 @@ export const eventStatusSchema = z.enum(['open', 'closed']);
 export type EventStatus = z.infer<typeof eventStatusSchema>;
 
 export const createEventRequestSchema = z.object({
+  provider: providerSchema.optional().default('spotify'),
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional().default(''),
 });

@@ -5,7 +5,8 @@ This guide maps Spotify and Apple Developer portal setup to the current Synqit c
 ## Current code status
 
 - Spotify provider connect is implemented in API routes.
-- Apple provider connect is not implemented yet (prep steps only for now).
+- Apple provider connect is implemented in local mock mode for event flow scaffolding.
+- Apple live MusicKit auth/token exchange is still pending (next slice).
 
 ---
 
@@ -57,7 +58,7 @@ Portal: <https://developer.spotify.com/dashboard>
 
 ---
 
-## Apple Developer Portal Setup (prep for upcoming implementation)
+## Apple Developer Portal Setup (for live connector implementation)
 
 Portals:
 
@@ -86,12 +87,13 @@ Portals:
 - MusicKit Identifier.
 - Downloaded `.p8` private key file.
 
-5. Plan for Synqit env (next implementation step)
+5. Configure Synqit env (already scaffolded; used fully once live connector lands)
 
-- We will add env variables like:
+- `apps/api/.env` now supports:
 - `APPLE_TEAM_ID`
 - `APPLE_KEY_ID`
 - `APPLE_MUSICKIT_IDENTIFIER`
 - `APPLE_PRIVATE_KEY_P8`
+- `APPLE_SCOPES` (default: `music-library-read music-library-modify`)
 
-When we implement Apple auth, these will be used to generate Apple developer tokens server-side and complete Apple Music connection flows.
+When live Apple auth is implemented, these will be used to generate Apple developer tokens server-side and complete Apple Music connection flows.

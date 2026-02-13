@@ -34,6 +34,7 @@ import { createRoot } from 'react-dom/client';
 const queryClient = new QueryClient();
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 const AUTH_STORAGE_KEY = 'synqit.auth.v1';
+type Provider = (typeof providerSchema.options)[number];
 
 type StoredAuth = {
   accessToken: string;
@@ -266,6 +267,10 @@ const DashboardPage = () => {
 
 const ProviderConnectionsPage = () => {
   const [status, setStatus] = useState<string>('Not loaded.');
+  const [selectedProvider, setSelectedProvider] = useState<Provider>('spotify');
+  const [integrationStatusByProvider, setIntegrationStatusByProvider] = useState<
+    Partial<Record<Provider, 'connected' | 'not_connected'>>
+  >({});
   const [oauthState, setOauthState] = useState<string>('');
   const [authUrl, setAuthUrl] = useState<string>('');
   const [isMockMode, setIsMockMode] = useState(false);
@@ -291,11 +296,20 @@ const ProviderConnectionsPage = () => {
         (payload) => integrationListResponseSchema.parse(payload),
       );
 
-      const spotifyStatus = result.integrations.find((item) => item.provider === 'spotify');
-      if (!spotifyStatus || spotifyStatus.status === 'not_connected') {
-        setStatus('Spotify is not connected.');
+      const nextStatusByProvider: Partial<Record<Provider, 'connected' | 'not_connected'>> = {};
+      for (const provider of providerSchema.options) {
+        const current = result.integrations.find((item) => item.provider === provider);
+        nextStatusByProvider[provider] = current?.status ?? 'not_connected';
+      }
+      setIntegrationStatusByProvider(nextStatusByProvider);
+
+      const selectedStatus = result.integrations.find((item) => item.provider === selectedProvider);
+      if (!selectedStatus || selectedStatus.status === 'not_connected') {
+        setStatus(`${selectedProvider} is not connected.`);
       } else {
-        setStatus(`Spotify connected. Expires at: ${spotifyStatus.expiresAt ?? 'unknown'}`);
+        setStatus(
+          `${selectedProvider} connected. Expires at: ${selectedStatus.expiresAt ?? 'unknown'}`,
+        );
       }
     } catch (error) {
       const apiError = toApiError(error);
@@ -303,9 +317,9 @@ const ProviderConnectionsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [selectedProvider]);
 
-  const startSpotifyConnect = async () => {
+  const startProviderConnect = async () => {
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus('Login required to start provider connection.');
@@ -315,7 +329,7 @@ const ProviderConnectionsPage = () => {
     setIsLoading(true);
     try {
       const result = await callApi(
-        '/v1/auth/spotify/start',
+        `/v1/auth/${selectedProvider}/start`,
         {
           method: 'GET',
           headers: {
@@ -327,12 +341,12 @@ const ProviderConnectionsPage = () => {
 
       setOauthState(result.state);
       setAuthUrl(result.authorizationUrl);
-      const mockMode = result.authorizationUrl.includes('/v1/auth/spotify/callback?');
+      const mockMode = result.authorizationUrl.includes(`/v1/auth/${selectedProvider}/callback?`);
       setIsMockMode(mockMode);
       setStatus(
         mockMode
-          ? 'OAuth start created in mock mode. Use callback step to complete connection.'
-          : 'OAuth start created. Open authorization page, approve, then reload status.',
+          ? `${selectedProvider} connect started in mock mode. Use callback step to complete connection.`
+          : `${selectedProvider} OAuth start created. Open authorization page, approve, then reload status.`,
       );
     } catch (error) {
       const apiError = toApiError(error);
@@ -356,7 +370,7 @@ const ProviderConnectionsPage = () => {
         response_mode: 'json',
       });
       const result = await callApi(
-        `/v1/auth/spotify/callback?${query.toString()}`,
+        `/v1/auth/${selectedProvider}/callback?${query.toString()}`,
         {
           method: 'GET',
         },
@@ -379,8 +393,14 @@ const ProviderConnectionsPage = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('provider') === 'spotify' && params.get('status') === 'connected') {
-      setStatus('Spotify OAuth completed. Loading latest connection state...');
+    const providerParam = params.get('provider');
+    if (
+      providerParam &&
+      providerSchema.options.includes(providerParam as Provider) &&
+      params.get('status') === 'connected'
+    ) {
+      setSelectedProvider(providerParam as Provider);
+      setStatus(`${providerParam} OAuth completed. Loading latest connection state...`);
       void loadIntegrationStatus();
       params.delete('provider');
       params.delete('status');
@@ -393,7 +413,7 @@ const ProviderConnectionsPage = () => {
     }
   }, [loadIntegrationStatus]);
 
-  const disconnectSpotify = async () => {
+  const disconnectProvider = async () => {
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus('Login required to disconnect provider.');
@@ -403,7 +423,7 @@ const ProviderConnectionsPage = () => {
     setIsLoading(true);
     try {
       const result = await callApi(
-        '/v1/auth/spotify/disconnect',
+        `/v1/auth/${selectedProvider}/disconnect`,
         {
           method: 'POST',
           headers: {
@@ -413,7 +433,9 @@ const ProviderConnectionsPage = () => {
         (payload) => integrationDisconnectResponseSchema.parse(payload),
       );
       setStatus(
-        result.disconnected ? 'Spotify disconnected.' : 'Spotify was already disconnected.',
+        result.disconnected
+          ? `${selectedProvider} disconnected.`
+          : `${selectedProvider} was already disconnected.`,
       );
       await loadIntegrationStatus();
     } catch (error) {
@@ -427,26 +449,51 @@ const ProviderConnectionsPage = () => {
   return (
     <div style={{ display: 'grid', gap: '0.75rem' }}>
       <h2>Provider Connections</h2>
+      <label>
+        Provider
+        <select
+          value={selectedProvider}
+          onChange={(event) => {
+            setSelectedProvider(event.target.value as Provider);
+            setOauthState('');
+            setAuthUrl('');
+            setIsMockMode(false);
+          }}
+          style={{ marginLeft: '0.5rem' }}
+        >
+          {providerSchema.options.map((provider) => (
+            <option key={provider} value={provider}>
+              {provider}
+            </option>
+          ))}
+        </select>
+      </label>
       <p>{status}</p>
+      <p>
+        Status snapshot:{' '}
+        {providerSchema.options
+          .map((provider) => `${provider}: ${integrationStatusByProvider[provider] ?? 'unknown'}`)
+          .join(' | ')}
+      </p>
       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
         <button disabled={isLoading} onClick={() => void loadIntegrationStatus()} type="button">
           {isLoading ? 'Loading...' : 'Load status'}
         </button>
-        <button disabled={isLoading} onClick={() => void startSpotifyConnect()} type="button">
-          Start Spotify OAuth
+        <button disabled={isLoading} onClick={() => void startProviderConnect()} type="button">
+          Start {selectedProvider} OAuth
         </button>
         {isMockMode ? (
           <button disabled={isLoading} onClick={() => void completeMockCallback()} type="button">
             Complete Callback (Mock)
           </button>
         ) : null}
-        <button disabled={isLoading} onClick={() => void disconnectSpotify()} type="button">
-          Disconnect Spotify
+        <button disabled={isLoading} onClick={() => void disconnectProvider()} type="button">
+          Disconnect {selectedProvider}
         </button>
       </div>
       {authUrl ? (
         <p>
-          Spotify authorize URL:{' '}
+          {selectedProvider} authorize URL:{' '}
           <a href={authUrl} rel="noreferrer" target="_blank">
             Open authorization page
           </a>
@@ -458,6 +505,7 @@ const ProviderConnectionsPage = () => {
 };
 
 const EventCreatePage = () => {
+  const [provider, setProvider] = useState<Provider>('spotify');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('Create an event to generate a magic link.');
@@ -483,6 +531,7 @@ const EventCreatePage = () => {
             authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({
+            provider,
             name,
             description,
           }),
@@ -506,6 +555,20 @@ const EventCreatePage = () => {
     <div style={{ display: 'grid', gap: '0.75rem', maxWidth: '36rem' }}>
       <h2>Create Event Playlist</h2>
       <form onSubmit={createEvent} style={{ display: 'grid', gap: '0.75rem' }}>
+        <label>
+          Provider
+          <select
+            value={provider}
+            onChange={(event) => setProvider(event.target.value as Provider)}
+            style={{ marginLeft: '0.5rem' }}
+          >
+            {providerSchema.options.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           Event name
           <input

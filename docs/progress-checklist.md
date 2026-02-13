@@ -23,10 +23,13 @@ Use this as the implementation tracker (what is done vs pending).
 - [x] API regression tests added for auth/integrations/events routes.
 - [x] GitHub Actions workflow added to run API regression tests on push/PR.
 - [x] Provider playlist-missing reconciliation added (close event + explicit API error).
+- [x] Apple provider added to provider schema + integrations API (mock connector path).
+- [x] Event creation supports explicit provider selection (Spotify or Apple).
+- [x] Apple-hosted event contribute/remove flow works in mock mode.
 
 ## Pending (Next)
 
 - [ ] Wire real BullMQ sync jobs from API actions.
 - [ ] Implement sync run/status model and endpoints.
 - [ ] Add job retry/idempotency tests for worker behavior.
-- [ ] Add Apple Music provider support (post-MVP if scope stays Spotify-first).
+- [ ] Implement live Apple Music auth/token exchange and provider API calls.
