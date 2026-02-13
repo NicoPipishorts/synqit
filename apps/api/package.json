@@ -17,7 +17,7 @@
     "prisma:migrate:status": "prisma migrate status",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "echo \"No tests yet for @synqit/api\""
+    "test": "node --import tsx --test src/regression.test.ts"
   },
   "dependencies": {
     "@fastify/cors": "^10.0.2",

@@ -1,0 +1,383 @@
+import type { FastifyInstance } from 'fastify';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { after, before, beforeEach, describe, it } from 'node:test';
+
+
+import { closeDatabase } from './db';
+import { prisma } from './db/prisma';
+import { buildServer } from './index';
+
+const TEST_EMAIL_PREFIX = 'regression+';
+const TEST_PASSWORD = 'Password123!';
+
+const authHeader = (accessToken: string): Record<string, string> => ({
+  authorization: `Bearer ${accessToken}`,
+});
+
+const parseBody = (rawBody: string): unknown => {
+  try {
+    return JSON.parse(rawBody);
+  } catch {
+    return rawBody;
+  }
+};
+
+const cleanupTestData = async (): Promise<void> => {
+  await prisma.users.deleteMany({
+    where: {
+      email: {
+        startsWith: TEST_EMAIL_PREFIX,
+      },
+    },
+  });
+};
+
+const registerUser = async (app: FastifyInstance, email: string) => {
+  const response = await app.inject({
+    method: 'POST',
+    url: '/v1/auth/register',
+    payload: {
+      email,
+      password: TEST_PASSWORD,
+    },
+  });
+
+  assert.equal(response.statusCode, 200);
+  return parseBody(response.body) as {
+    user: { id: string; email: string };
+    tokens: { accessToken: string; refreshToken: string };
+  };
+};
+
+const connectSpotify = async (app: FastifyInstance, accessToken: string) => {
+  const startResponse = await app.inject({
+    method: 'GET',
+    url: '/v1/auth/spotify/start',
+    headers: authHeader(accessToken),
+  });
+  assert.equal(startResponse.statusCode, 200);
+  const startBody = parseBody(startResponse.body) as {
+    state: string;
+    authorizationUrl: string;
+  };
+  assert.ok(startBody.state);
+  assert.ok(startBody.authorizationUrl);
+
+  const callbackResponse = await app.inject({
+    method: 'GET',
+    url: `/v1/auth/spotify/callback?state=${encodeURIComponent(startBody.state)}&code=test-code&response_mode=json`,
+  });
+  assert.equal(callbackResponse.statusCode, 200);
+  const callbackBody = parseBody(callbackResponse.body) as { ok: boolean };
+  assert.equal(callbackBody.ok, true);
+};
+
+describe('API regression', () => {
+  let app: FastifyInstance;
+
+  before(async () => {
+    process.env.SPOTIFY_CLIENT_ID = 'replace-me';
+    process.env.SPOTIFY_CLIENT_SECRET = 'replace-me';
+    process.env.SPOTIFY_SCOPES =
+      process.env.SPOTIFY_SCOPES ??
+      'playlist-read-private playlist-modify-private playlist-modify-public';
+
+    app = await buildServer();
+  });
+
+  beforeEach(async () => {
+    await cleanupTestData();
+  });
+
+  after(async () => {
+    await cleanupTestData();
+    await app.close();
+    await prisma.$disconnect();
+    await closeDatabase();
+  });
+
+  it('auth: register/login/refresh/logout flow works', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+
+    const registerBody = await registerUser(app, email);
+    assert.equal(registerBody.user.email, email);
+    assert.ok(registerBody.tokens.accessToken);
+    assert.ok(registerBody.tokens.refreshToken);
+
+    const loginBadResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: {
+        email,
+        password: 'wrong-password',
+      },
+    });
+    assert.equal(loginBadResponse.statusCode, 401);
+
+    const loginGoodResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: {
+        email,
+        password: TEST_PASSWORD,
+      },
+    });
+    assert.equal(loginGoodResponse.statusCode, 200);
+    const loginGoodBody = parseBody(loginGoodResponse.body) as {
+      tokens: { accessToken: string; refreshToken: string };
+    };
+
+    const meResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/me',
+      headers: authHeader(loginGoodBody.tokens.accessToken),
+    });
+    assert.equal(meResponse.statusCode, 200);
+    const meBody = parseBody(meResponse.body) as { email: string };
+    assert.equal(meBody.email, email);
+
+    const refreshResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      payload: {
+        refreshToken: loginGoodBody.tokens.refreshToken,
+      },
+    });
+    assert.equal(refreshResponse.statusCode, 200);
+    const refreshBody = parseBody(refreshResponse.body) as {
+      tokens: { refreshToken: string };
+    };
+
+    const oldRefreshAgainResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      payload: {
+        refreshToken: loginGoodBody.tokens.refreshToken,
+      },
+    });
+    assert.equal(oldRefreshAgainResponse.statusCode, 401);
+
+    const logoutResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/logout',
+      payload: {
+        refreshToken: refreshBody.tokens.refreshToken,
+      },
+    });
+    assert.equal(logoutResponse.statusCode, 200);
+
+    const refreshAfterLogoutResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      payload: {
+        refreshToken: refreshBody.tokens.refreshToken,
+      },
+    });
+    assert.equal(refreshAfterLogoutResponse.statusCode, 401);
+  });
+
+  it('integrations: oauth state, connect, list, disconnect', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const registerBody = await registerUser(app, email);
+
+    const initialListResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/integrations',
+      headers: authHeader(registerBody.tokens.accessToken),
+    });
+    assert.equal(initialListResponse.statusCode, 200);
+    const initialListBody = parseBody(initialListResponse.body) as {
+      integrations: Array<{ provider: string; status: string }>;
+    };
+    assert.equal(initialListBody.integrations[0]?.provider, 'spotify');
+    assert.equal(initialListBody.integrations[0]?.status, 'not_connected');
+
+    const startResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/auth/spotify/start',
+      headers: authHeader(registerBody.tokens.accessToken),
+    });
+    assert.equal(startResponse.statusCode, 200);
+    const startBody = parseBody(startResponse.body) as { state: string };
+    assert.ok(startBody.state);
+
+    const oauthState = await prisma.oauth_states.findUnique({
+      where: { state: startBody.state },
+    });
+    assert.ok(oauthState);
+
+    const callbackResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/auth/spotify/callback?state=${encodeURIComponent(startBody.state)}&code=test-code&response_mode=json`,
+    });
+    assert.equal(callbackResponse.statusCode, 200);
+
+    const connectedListResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/integrations',
+      headers: authHeader(registerBody.tokens.accessToken),
+    });
+    assert.equal(connectedListResponse.statusCode, 200);
+    const connectedListBody = parseBody(connectedListResponse.body) as {
+      integrations: Array<{ provider: string; status: string }>;
+    };
+    assert.equal(connectedListBody.integrations[0]?.status, 'connected');
+
+    const disconnectResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/spotify/disconnect',
+      headers: authHeader(registerBody.tokens.accessToken),
+    });
+    assert.equal(disconnectResponse.statusCode, 200);
+    const disconnectBody = parseBody(disconnectResponse.body) as { disconnected: boolean };
+    assert.equal(disconnectBody.disconnected, true);
+  });
+
+  it('events: host and guest flow with magic link and tracks', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const registerBody = await registerUser(app, email);
+    const hostAccessToken = registerBody.tokens.accessToken;
+
+    await connectSpotify(app, hostAccessToken);
+
+    const createEventResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/events',
+      headers: authHeader(hostAccessToken),
+      payload: {
+        name: 'Regression Event',
+        description: 'Event for API regression tests',
+      },
+    });
+    assert.equal(createEventResponse.statusCode, 200);
+    const createEventBody = parseBody(createEventResponse.body) as {
+      event: { id: string; magicLinkToken: string; name: string };
+    };
+    assert.equal(createEventBody.event.name, 'Regression Event');
+
+    const eventId = createEventBody.event.id;
+    const firstMagicLinkToken = createEventBody.event.magicLinkToken;
+    assert.ok(eventId);
+    assert.ok(firstMagicLinkToken);
+
+    const updateEventResponse = await app.inject({
+      method: 'PATCH',
+      url: `/v1/events/${eventId}`,
+      headers: authHeader(hostAccessToken),
+      payload: {
+        name: 'Regression Event Updated',
+        description: 'Updated description',
+      },
+    });
+    assert.equal(updateEventResponse.statusCode, 200);
+
+    const addTrackResponse = await app.inject({
+      method: 'POST',
+      url: `/v1/events/link/${firstMagicLinkToken}/tracks`,
+      payload: {
+        providerTrackId: 'mock-track-1',
+        name: 'Midnight Drive',
+        artist: 'Neon Avenue',
+        album: 'City Lights',
+        durationMs: 203000,
+        artworkUrl: null,
+      },
+    });
+    assert.equal(addTrackResponse.statusCode, 200);
+
+    const addDuplicateTrackResponse = await app.inject({
+      method: 'POST',
+      url: `/v1/events/link/${firstMagicLinkToken}/tracks`,
+      payload: {
+        providerTrackId: 'mock-track-1',
+        name: 'Midnight Drive',
+        artist: 'Neon Avenue',
+        album: 'City Lights',
+        durationMs: 203000,
+        artworkUrl: null,
+      },
+    });
+    assert.equal(addDuplicateTrackResponse.statusCode, 409);
+
+    const hostTracksResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/events/${eventId}/tracks`,
+      headers: authHeader(hostAccessToken),
+    });
+    assert.equal(hostTracksResponse.statusCode, 200);
+    const hostTracksBody = parseBody(hostTracksResponse.body) as {
+      tracks: Array<{ providerTrackId: string }>;
+    };
+    assert.equal(hostTracksBody.tracks.length, 1);
+    assert.equal(hostTracksBody.tracks[0]?.providerTrackId, 'mock-track-1');
+
+    const removeTrackResponse = await app.inject({
+      method: 'DELETE',
+      url: `/v1/events/${eventId}/tracks/mock-track-1`,
+      headers: authHeader(hostAccessToken),
+    });
+    assert.equal(removeTrackResponse.statusCode, 200);
+
+    const revokeMagicLinkResponse = await app.inject({
+      method: 'POST',
+      url: `/v1/events/${eventId}/magic-link/revoke`,
+      headers: authHeader(hostAccessToken),
+    });
+    assert.equal(revokeMagicLinkResponse.statusCode, 200);
+
+    const revokedLinkResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/events/link/${firstMagicLinkToken}`,
+    });
+    assert.equal(revokedLinkResponse.statusCode, 410);
+
+    const regenerateMagicLinkResponse = await app.inject({
+      method: 'POST',
+      url: `/v1/events/${eventId}/magic-link/regenerate`,
+      headers: authHeader(hostAccessToken),
+    });
+    assert.equal(regenerateMagicLinkResponse.statusCode, 200);
+    const regenerateMagicLinkBody = parseBody(regenerateMagicLinkResponse.body) as {
+      event: { magicLinkToken: string };
+    };
+    const secondMagicLinkToken = regenerateMagicLinkBody.event.magicLinkToken;
+    assert.ok(secondMagicLinkToken);
+    assert.notEqual(secondMagicLinkToken, firstMagicLinkToken);
+
+    const closeEventResponse = await app.inject({
+      method: 'POST',
+      url: `/v1/events/${eventId}/close`,
+      headers: authHeader(hostAccessToken),
+    });
+    assert.equal(closeEventResponse.statusCode, 200);
+
+    const closedEventAddTrackResponse = await app.inject({
+      method: 'POST',
+      url: `/v1/events/link/${secondMagicLinkToken}/tracks`,
+      payload: {
+        providerTrackId: 'mock-track-2',
+        name: 'Golden Hour',
+        artist: 'Summer Static',
+        album: 'Sunset Signals',
+        durationMs: 187000,
+        artworkUrl: null,
+      },
+    });
+    assert.equal(closedEventAddTrackResponse.statusCode, 409);
+
+    const deleteEventResponse = await app.inject({
+      method: 'DELETE',
+      url: `/v1/events/${eventId}`,
+      headers: authHeader(hostAccessToken),
+    });
+    assert.equal(deleteEventResponse.statusCode, 200);
+
+    const deletedEventGetResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/events/${eventId}`,
+      headers: authHeader(hostAccessToken),
+    });
+    assert.equal(deletedEventGetResponse.statusCode, 404);
+  });
+});

@@ -1,0 +1,59 @@
+name: API Regression Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  api-regression:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: synqit
+          POSTGRES_PASSWORD: synqit
+          POSTGRES_DB: synqit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synqit -d synqit"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://synqit:synqit@localhost:5432/synqit
+      JWT_ACCESS_SECRET: test-access-secret
+      JWT_REFRESH_SECRET: test-refresh-secret
+      TOKEN_ENC_KEY: test-token-enc-key
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Setup Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Generate Prisma client
+        run: yarn workspace @synqit/api prisma:generate
+
+      - name: Apply Prisma migrations
+        run: yarn workspace @synqit/api prisma:migrate:deploy
+
+      - name: Run API regression tests
+        run: yarn workspace @synqit/api test
