@@ -1,5 +1,7 @@
 Here’s a practical roadmap for Option A: Fastify + Postgres + Redis + BullMQ, built for a VPS and future growth. It’s ordered so you can ship something usable early, without painting yourself into a corner.
 
+Backlog for deferred items: `docs/backlog.md`
+
 ⸻
 
 Phase 0 — Decisions you lock in (30–60 min)
