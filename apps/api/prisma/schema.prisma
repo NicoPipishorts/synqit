@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model event_tracks {
+  id                BigInt   @id @default(autoincrement())
+  event_id          String
+  provider_track_id String
+  name              String
+  artist            String
+  album             String
+  duration_ms       Int
+  artwork_url       String?
+  added_at          DateTime @db.Timestamptz(6)
+  added_by          String
+  events            events   @relation(fields: [event_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([event_id, provider_track_id])
+  @@index([event_id], map: "idx_event_tracks_event_id")
+}
+
+model events {
+  id                    String         @id
+  host_user_id          String
+  provider              String
+  provider_playlist_id  String
+  status                String
+  name                  String
+  description           String
+  magic_link_token      String         @unique
+  magic_link_revoked_at DateTime?      @db.Timestamptz(6)
+  created_at            DateTime       @db.Timestamptz(6)
+  updated_at            DateTime       @db.Timestamptz(6)
+  closed_at             DateTime?      @db.Timestamptz(6)
+  event_tracks          event_tracks[]
+  users                 users          @relation(fields: [host_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([host_user_id], map: "idx_events_host_user_id")
+}
+
+model integrations {
+  id                 String    @id
+  user_id            String
+  provider           String
+  access_token_json  Json
+  refresh_token_json Json
+  scopes             String[]  @default([])
+  expires_at         DateTime? @db.Timestamptz(6)
+  last_refresh_at    DateTime? @db.Timestamptz(6)
+  last_error         String?
+  created_at         DateTime  @db.Timestamptz(6)
+  updated_at         DateTime  @db.Timestamptz(6)
+  users              users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, provider])
+  @@index([user_id, provider], map: "idx_integrations_user_id_provider")
+}
+
+model oauth_states {
+  id         String   @id
+  state      String   @unique
+  user_id    String
+  provider   String
+  created_at DateTime @db.Timestamptz(6)
+  expires_at DateTime @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model refresh_tokens {
+  id                   String    @id
+  user_id              String
+  token_hash           String    @unique
+  created_at           DateTime  @db.Timestamptz(6)
+  expires_at           DateTime  @db.Timestamptz(6)
+  revoked_at           DateTime? @db.Timestamptz(6)
+  replaced_by_token_id String?
+  users                users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model users {
+  id             String           @id
+  email          String           @unique
+  password_hash  String
+  created_at     DateTime         @db.Timestamptz(6)
+  events         events[]
+  integrations   integrations[]
+  oauth_states   oauth_states[]
+  refresh_tokens refresh_tokens[]
+}

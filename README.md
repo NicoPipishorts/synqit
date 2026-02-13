@@ -35,6 +35,9 @@ This starts:
 ```bash
 yarn dev
 yarn db:check
+yarn prisma:pull
+yarn prisma:generate
+yarn prisma:studio
 yarn infra:up
 yarn infra:up:core
 yarn infra:ps
@@ -121,6 +124,19 @@ Quick count check via script:
 ```bash
 yarn db:check
 ```
+
+### Prisma
+
+Prisma is installed in `apps/api` and introspected from the existing DB schema.
+
+```bash
+yarn prisma:pull
+yarn prisma:generate
+yarn prisma:studio
+```
+
+- Prisma schema: `apps/api/prisma/schema.prisma`
+- Prisma config: `apps/api/prisma.config.ts` (loads `.env.local` first)
 
 ### Access DB from GUI (TablePlus, DBeaver, Postico)
 

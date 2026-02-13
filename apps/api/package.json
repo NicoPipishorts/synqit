@@ -9,6 +9,9 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "db:check": "node scripts/dbCheck.mjs",
+    "prisma:pull": "prisma db pull",
+    "prisma:generate": "prisma generate",
+    "prisma:studio": "prisma studio",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "echo \"No tests yet for @synqit/api\""
@@ -20,6 +23,7 @@
     "@fastify/rate-limit": "^10.3.0",
     "@fastify/swagger": "^9.5.1",
     "@fastify/swagger-ui": "^5.2.2",
+    "@prisma/client": "^7.4.0",
     "@synqit/shared": "0.1.0",
     "fastify": "^5.2.1",
     "pg": "^8.18.0",
@@ -28,6 +32,9 @@
   "devDependencies": {
     "@types/node": "^22.13.10",
     "@types/pg": "^8.16.0",
+    "dotenv": "^17.3.1",
+    "dotenv-cli": "^11.0.0",
+    "prisma": "^7.4.0",
     "tsx": "^4.19.3"
   }
 }
