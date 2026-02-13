@@ -1,7 +1,7 @@
 import { EventStatus, Provider } from '@synqit/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+
+import { query, withTransaction } from '../db';
 
 type EventRecord = {
   id: string;
@@ -30,170 +30,254 @@ type EventTrackRecord = {
   addedBy: string;
 };
 
-type PersistedEventRecord = Omit<
-  EventRecord,
-  'createdAt' | 'updatedAt' | 'closedAt' | 'tracks' | 'magicLinkRevokedAt'
-> & {
-  createdAt: string;
-  updatedAt: string;
-  closedAt: string | null;
-  magicLinkRevokedAt: string | null;
-  tracks: PersistedEventTrackRecord[];
+type EventRow = {
+  id: string;
+  host_user_id: string;
+  provider: Provider;
+  provider_playlist_id: string;
+  status: EventStatus;
+  name: string;
+  description: string;
+  magic_link_token: string;
+  magic_link_revoked_at: Date | null;
+  created_at: Date;
+  updated_at: Date;
+  closed_at: Date | null;
 };
 
-type PersistedEventTrackRecord = Omit<EventTrackRecord, 'addedAt'> & {
-  addedAt: string;
+type EventTrackRow = {
+  provider_track_id: string;
+  name: string;
+  artist: string;
+  album: string;
+  duration_ms: number;
+  artwork_url: string | null;
+  added_at: Date;
+  added_by: string;
 };
 
-type PersistedEventsStore = {
-  events: PersistedEventRecord[];
-};
-
-type EventsStoreState = {
-  events: EventRecord[];
-};
-
-const DEFAULT_EVENTS_STORE_FILE = 'apps/api/data/events-store.json';
-const EVENTS_STORE_FILE = resolve(
-  process.cwd(),
-  process.env.EVENTS_STORE_FILE ?? DEFAULT_EVENTS_STORE_FILE,
-);
-
-const toEventRecord = (event: PersistedEventRecord): EventRecord => ({
-  ...event,
-  createdAt: new Date(event.createdAt),
-  updatedAt: new Date(event.updatedAt),
-  closedAt: event.closedAt ? new Date(event.closedAt) : null,
-  magicLinkRevokedAt: event.magicLinkRevokedAt ? new Date(event.magicLinkRevokedAt) : null,
-  tracks: Array.isArray(event.tracks)
-    ? event.tracks.map((track) => ({
-        ...track,
-        addedAt: new Date(track.addedAt),
-      }))
-    : [],
+const toEventTrackRecord = (row: EventTrackRow): EventTrackRecord => ({
+  providerTrackId: row.provider_track_id,
+  name: row.name,
+  artist: row.artist,
+  album: row.album,
+  durationMs: row.duration_ms,
+  artworkUrl: row.artwork_url,
+  addedAt: new Date(row.added_at),
+  addedBy: row.added_by,
 });
 
-const toPersistedEventRecord = (event: EventRecord): PersistedEventRecord => ({
-  ...event,
-  createdAt: event.createdAt.toISOString(),
-  updatedAt: event.updatedAt.toISOString(),
-  closedAt: event.closedAt ? event.closedAt.toISOString() : null,
-  magicLinkRevokedAt: event.magicLinkRevokedAt ? event.magicLinkRevokedAt.toISOString() : null,
-  tracks: event.tracks.map((track) => ({
-    ...track,
-    addedAt: track.addedAt.toISOString(),
-  })),
+const toEventRecord = (row: EventRow): EventRecord => ({
+  id: row.id,
+  hostUserId: row.host_user_id,
+  provider: row.provider,
+  providerPlaylistId: row.provider_playlist_id,
+  status: row.status,
+  name: row.name,
+  description: row.description,
+  magicLinkToken: row.magic_link_token,
+  magicLinkRevokedAt: row.magic_link_revoked_at ? new Date(row.magic_link_revoked_at) : null,
+  createdAt: new Date(row.created_at),
+  updatedAt: new Date(row.updated_at),
+  closedAt: row.closed_at ? new Date(row.closed_at) : null,
+  tracks: [],
 });
 
-const cloneEvent = (event: EventRecord): EventRecord => ({
-  ...event,
-  createdAt: new Date(event.createdAt),
-  updatedAt: new Date(event.updatedAt),
-  closedAt: event.closedAt ? new Date(event.closedAt) : null,
-  magicLinkRevokedAt: event.magicLinkRevokedAt ? new Date(event.magicLinkRevokedAt) : null,
-  tracks: event.tracks.map((track) => ({
-    ...track,
-    addedAt: new Date(track.addedAt),
-  })),
-});
+const mapRowsToEvents = (rows: EventRow[]): EventRecord[] => rows.map(toEventRecord);
 
-const readInitialState = (): EventsStoreState => {
-  if (!existsSync(EVENTS_STORE_FILE)) {
-    return {
-      events: [],
-    };
-  }
-
-  try {
-    const fileContents = readFileSync(EVENTS_STORE_FILE, 'utf8');
-    const parsed = JSON.parse(fileContents) as Partial<PersistedEventsStore>;
-    const events = Array.isArray(parsed.events) ? parsed.events.map(toEventRecord) : [];
-    return { events };
-  } catch {
-    return { events: [] };
-  }
-};
-
-const persistState = (state: EventsStoreState): void => {
-  mkdirSync(dirname(EVENTS_STORE_FILE), { recursive: true });
-  const persisted: PersistedEventsStore = {
-    events: state.events.map(toPersistedEventRecord),
+const toEventWithTracks = async (event: EventRecord): Promise<EventRecord> => {
+  const tracks = await eventsStore.listTracksByEventId(event.id);
+  return {
+    ...event,
+    tracks,
   };
-  const tempFile = `${EVENTS_STORE_FILE}.tmp`;
-  writeFileSync(tempFile, JSON.stringify(persisted, null, 2), 'utf8');
-  renameSync(tempFile, EVENTS_STORE_FILE);
 };
 
-const state = readInitialState();
+const generateMagicLinkToken = (): string => randomBytes(24).toString('base64url');
 
 export const eventsStore = {
-  createEvent(params: {
+  async createEvent(params: {
     hostUserId: string;
     provider: Provider;
     providerPlaylistId: string;
     name: string;
     description: string;
-  }): EventRecord {
-    const now = new Date();
-    const event: EventRecord = {
-      id: randomUUID(),
-      hostUserId: params.hostUserId,
-      provider: params.provider,
-      providerPlaylistId: params.providerPlaylistId,
-      status: 'open',
-      name: params.name,
-      description: params.description,
-      magicLinkToken: randomBytes(24).toString('base64url'),
-      magicLinkRevokedAt: null,
-      createdAt: now,
-      updatedAt: now,
-      closedAt: null,
-      tracks: [],
-    };
+  }): Promise<EventRecord> {
+    const eventId = randomUUID();
 
-    state.events.push(event);
-    persistState(state);
-    return cloneEvent(event);
+    const result = await query<EventRow>(
+      `
+        INSERT INTO events (
+          id,
+          host_user_id,
+          provider,
+          provider_playlist_id,
+          status,
+          name,
+          description,
+          magic_link_token,
+          magic_link_revoked_at,
+          created_at,
+          updated_at,
+          closed_at
+        )
+        VALUES ($1, $2, $3, $4, 'open', $5, $6, $7, NULL, NOW(), NOW(), NULL)
+        RETURNING
+          id,
+          host_user_id,
+          provider,
+          provider_playlist_id,
+          status,
+          name,
+          description,
+          magic_link_token,
+          magic_link_revoked_at,
+          created_at,
+          updated_at,
+          closed_at
+      `,
+      [
+        eventId,
+        params.hostUserId,
+        params.provider,
+        params.providerPlaylistId,
+        params.name,
+        params.description,
+        generateMagicLinkToken(),
+      ],
+    );
+
+    return toEventWithTracks(toEventRecord(result.rows[0]));
   },
 
-  listEventsByHost(hostUserId: string): EventRecord[] {
-    return state.events
-      .filter((event) => event.hostUserId === hostUserId)
-      .map(cloneEvent)
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  async listEventsByHost(hostUserId: string): Promise<EventRecord[]> {
+    const result = await query<EventRow>(
+      `
+        SELECT
+          id,
+          host_user_id,
+          provider,
+          provider_playlist_id,
+          status,
+          name,
+          description,
+          magic_link_token,
+          magic_link_revoked_at,
+          created_at,
+          updated_at,
+          closed_at
+        FROM events
+        WHERE host_user_id = $1
+        ORDER BY created_at DESC
+      `,
+      [hostUserId],
+    );
+
+    const baseEvents = mapRowsToEvents(result.rows);
+    const eventsWithTracks = await Promise.all(baseEvents.map(toEventWithTracks));
+    return eventsWithTracks;
   },
 
-  findEventById(eventId: string): EventRecord | null {
-    const event = state.events.find((item) => item.id === eventId);
-    return event ? cloneEvent(event) : null;
-  },
+  async findEventById(eventId: string): Promise<EventRecord | null> {
+    const result = await query<EventRow>(
+      `
+        SELECT
+          id,
+          host_user_id,
+          provider,
+          provider_playlist_id,
+          status,
+          name,
+          description,
+          magic_link_token,
+          magic_link_revoked_at,
+          created_at,
+          updated_at,
+          closed_at
+        FROM events
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [eventId],
+    );
 
-  findEventByMagicLinkToken(magicLinkToken: string): EventRecord | null {
-    const event = state.events.find((item) => item.magicLinkToken === magicLinkToken);
-    return event ? cloneEvent(event) : null;
-  },
-
-  listTracksByEventId(eventId: string): EventTrackRecord[] {
-    const event = state.events.find((item) => item.id === eventId);
-    if (!event) {
-      return [];
+    const row = result.rows[0];
+    if (!row) {
+      return null;
     }
 
-    return event.tracks
-      .map((track) => ({ ...track, addedAt: new Date(track.addedAt) }))
-      .sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime());
+    return toEventWithTracks(toEventRecord(row));
   },
 
-  hasTrack(params: { eventId: string; providerTrackId: string }): boolean {
-    const event = state.events.find((item) => item.id === params.eventId);
-    if (!event) {
-      return false;
+  async findEventByMagicLinkToken(magicLinkToken: string): Promise<EventRecord | null> {
+    const result = await query<EventRow>(
+      `
+        SELECT
+          id,
+          host_user_id,
+          provider,
+          provider_playlist_id,
+          status,
+          name,
+          description,
+          magic_link_token,
+          magic_link_revoked_at,
+          created_at,
+          updated_at,
+          closed_at
+        FROM events
+        WHERE magic_link_token = $1
+        LIMIT 1
+      `,
+      [magicLinkToken],
+    );
+
+    const row = result.rows[0];
+    if (!row) {
+      return null;
     }
 
-    return event.tracks.some((track) => track.providerTrackId === params.providerTrackId);
+    return toEventWithTracks(toEventRecord(row));
   },
 
-  addTrackToEvent(params: {
+  async listTracksByEventId(eventId: string): Promise<EventTrackRecord[]> {
+    const result = await query<EventTrackRow>(
+      `
+        SELECT
+          provider_track_id,
+          name,
+          artist,
+          album,
+          duration_ms,
+          artwork_url,
+          added_at,
+          added_by
+        FROM event_tracks
+        WHERE event_id = $1
+        ORDER BY added_at DESC
+      `,
+      [eventId],
+    );
+
+    return result.rows.map(toEventTrackRecord);
+  },
+
+  async hasTrack(params: { eventId: string; providerTrackId: string }): Promise<boolean> {
+    const result = await query<{ exists: boolean }>(
+      `
+        SELECT EXISTS(
+          SELECT 1
+          FROM event_tracks
+          WHERE event_id = $1 AND provider_track_id = $2
+        ) AS exists
+      `,
+      [params.eventId, params.providerTrackId],
+    );
+
+    return Boolean(result.rows[0]?.exists);
+  },
+
+  async addTrackToEvent(params: {
     eventId: string;
     providerTrackId: string;
     name: string;
@@ -202,149 +286,265 @@ export const eventsStore = {
     durationMs: number;
     artworkUrl: string | null;
     addedBy: string;
-  }): EventTrackRecord | null {
-    const event = state.events.find((item) => item.id === params.eventId);
-    if (!event) {
-      return null;
-    }
+  }): Promise<EventTrackRecord | null> {
+    return withTransaction(async (client) => {
+      const insertResult = await client.query<EventTrackRow>(
+        `
+          INSERT INTO event_tracks (
+            event_id,
+            provider_track_id,
+            name,
+            artist,
+            album,
+            duration_ms,
+            artwork_url,
+            added_at,
+            added_by
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8)
+          ON CONFLICT (event_id, provider_track_id) DO NOTHING
+          RETURNING
+            provider_track_id,
+            name,
+            artist,
+            album,
+            duration_ms,
+            artwork_url,
+            added_at,
+            added_by
+        `,
+        [
+          params.eventId,
+          params.providerTrackId,
+          params.name,
+          params.artist,
+          params.album,
+          params.durationMs,
+          params.artworkUrl,
+          params.addedBy,
+        ],
+      );
 
-    if (event.tracks.some((track) => track.providerTrackId === params.providerTrackId)) {
-      return null;
-    }
+      const insertedRow = insertResult.rows[0];
+      if (!insertedRow) {
+        return null;
+      }
 
-    const nextTrack: EventTrackRecord = {
-      providerTrackId: params.providerTrackId,
-      name: params.name,
-      artist: params.artist,
-      album: params.album,
-      durationMs: params.durationMs,
-      artworkUrl: params.artworkUrl,
-      addedAt: new Date(),
-      addedBy: params.addedBy,
-    };
+      await client.query(
+        `
+          UPDATE events
+          SET updated_at = NOW()
+          WHERE id = $1
+        `,
+        [params.eventId],
+      );
 
-    event.tracks.push(nextTrack);
-    event.updatedAt = new Date();
-    persistState(state);
-
-    return {
-      ...nextTrack,
-      addedAt: new Date(nextTrack.addedAt),
-    };
+      return toEventTrackRecord(insertedRow);
+    });
   },
 
-  removeTrackFromEvent(params: {
+  async removeTrackFromEvent(params: {
     eventId: string;
     providerTrackId: string;
-  }): EventTrackRecord | null {
-    const event = state.events.find((item) => item.id === params.eventId);
-    if (!event) {
-      return null;
-    }
+  }): Promise<EventTrackRecord | null> {
+    return withTransaction(async (client) => {
+      const removedResult = await client.query<EventTrackRow>(
+        `
+          DELETE FROM event_tracks
+          WHERE event_id = $1 AND provider_track_id = $2
+          RETURNING
+            provider_track_id,
+            name,
+            artist,
+            album,
+            duration_ms,
+            artwork_url,
+            added_at,
+            added_by
+        `,
+        [params.eventId, params.providerTrackId],
+      );
 
-    const existingTrack = event.tracks.find(
-      (track) => track.providerTrackId === params.providerTrackId,
-    );
-    if (!existingTrack) {
-      return null;
-    }
+      const removedRow = removedResult.rows[0];
+      if (!removedRow) {
+        return null;
+      }
 
-    event.tracks = event.tracks.filter((track) => track.providerTrackId !== params.providerTrackId);
-    event.updatedAt = new Date();
-    persistState(state);
+      await client.query(
+        `
+          UPDATE events
+          SET updated_at = NOW()
+          WHERE id = $1
+        `,
+        [params.eventId],
+      );
 
-    return {
-      ...existingTrack,
-      addedAt: new Date(existingTrack.addedAt),
-    };
+      return toEventTrackRecord(removedRow);
+    });
   },
 
-  closeEvent(params: { eventId: string; hostUserId: string }): EventRecord | null {
-    const event = state.events.find(
-      (item) => item.id === params.eventId && item.hostUserId === params.hostUserId,
+  async closeEvent(params: { eventId: string; hostUserId: string }): Promise<EventRecord | null> {
+    const existing = await query<EventRow>(
+      `
+        SELECT
+          id,
+          host_user_id,
+          provider,
+          provider_playlist_id,
+          status,
+          name,
+          description,
+          magic_link_token,
+          magic_link_revoked_at,
+          created_at,
+          updated_at,
+          closed_at
+        FROM events
+        WHERE id = $1 AND host_user_id = $2
+        LIMIT 1
+      `,
+      [params.eventId, params.hostUserId],
     );
-    if (!event) {
+
+    const existingRow = existing.rows[0];
+    if (!existingRow) {
       return null;
     }
 
-    if (event.status === 'closed') {
-      return cloneEvent(event);
+    if (existingRow.status === 'closed') {
+      return toEventWithTracks(toEventRecord(existingRow));
     }
 
-    event.status = 'closed';
-    event.closedAt = new Date();
-    event.updatedAt = new Date();
-    persistState(state);
+    const result = await query<EventRow>(
+      `
+        UPDATE events
+        SET status = 'closed', closed_at = NOW(), updated_at = NOW()
+        WHERE id = $1 AND host_user_id = $2
+        RETURNING
+          id,
+          host_user_id,
+          provider,
+          provider_playlist_id,
+          status,
+          name,
+          description,
+          magic_link_token,
+          magic_link_revoked_at,
+          created_at,
+          updated_at,
+          closed_at
+      `,
+      [params.eventId, params.hostUserId],
+    );
 
-    return cloneEvent(event);
+    const row = result.rows[0];
+    return row ? toEventWithTracks(toEventRecord(row)) : null;
   },
 
-  updateEvent(params: {
+  async updateEvent(params: {
     eventId: string;
     hostUserId: string;
     name: string;
     description: string;
-  }): EventRecord | null {
-    const event = state.events.find(
-      (item) => item.id === params.eventId && item.hostUserId === params.hostUserId,
+  }): Promise<EventRecord | null> {
+    const result = await query<EventRow>(
+      `
+        UPDATE events
+        SET name = $3, description = $4, updated_at = NOW()
+        WHERE id = $1 AND host_user_id = $2
+        RETURNING
+          id,
+          host_user_id,
+          provider,
+          provider_playlist_id,
+          status,
+          name,
+          description,
+          magic_link_token,
+          magic_link_revoked_at,
+          created_at,
+          updated_at,
+          closed_at
+      `,
+      [params.eventId, params.hostUserId, params.name, params.description],
     );
-    if (!event) {
-      return null;
-    }
 
-    event.name = params.name;
-    event.description = params.description;
-    event.updatedAt = new Date();
-    persistState(state);
-
-    return cloneEvent(event);
+    const row = result.rows[0];
+    return row ? toEventWithTracks(toEventRecord(row)) : null;
   },
 
-  deleteEvent(params: { eventId: string; hostUserId: string }): boolean {
-    const beforeLength = state.events.length;
-    state.events = state.events.filter(
-      (item) => !(item.id === params.eventId && item.hostUserId === params.hostUserId),
+  async deleteEvent(params: { eventId: string; hostUserId: string }): Promise<boolean> {
+    const result = await query<{ id: string }>(
+      `
+        DELETE FROM events
+        WHERE id = $1 AND host_user_id = $2
+        RETURNING id
+      `,
+      [params.eventId, params.hostUserId],
     );
 
-    if (beforeLength === state.events.length) {
-      return false;
-    }
-
-    persistState(state);
-    return true;
+    return result.rows.length > 0;
   },
 
-  revokeMagicLink(params: { eventId: string; hostUserId: string }): EventRecord | null {
-    const event = state.events.find(
-      (item) => item.id === params.eventId && item.hostUserId === params.hostUserId,
+  async revokeMagicLink(params: {
+    eventId: string;
+    hostUserId: string;
+  }): Promise<EventRecord | null> {
+    const result = await query<EventRow>(
+      `
+        UPDATE events
+        SET magic_link_revoked_at = COALESCE(magic_link_revoked_at, NOW()), updated_at = NOW()
+        WHERE id = $1 AND host_user_id = $2
+        RETURNING
+          id,
+          host_user_id,
+          provider,
+          provider_playlist_id,
+          status,
+          name,
+          description,
+          magic_link_token,
+          magic_link_revoked_at,
+          created_at,
+          updated_at,
+          closed_at
+      `,
+      [params.eventId, params.hostUserId],
     );
-    if (!event) {
-      return null;
-    }
 
-    if (!event.magicLinkRevokedAt) {
-      event.magicLinkRevokedAt = new Date();
-      event.updatedAt = new Date();
-      persistState(state);
-    }
-
-    return cloneEvent(event);
+    const row = result.rows[0];
+    return row ? toEventWithTracks(toEventRecord(row)) : null;
   },
 
-  regenerateMagicLink(params: { eventId: string; hostUserId: string }): EventRecord | null {
-    const event = state.events.find(
-      (item) => item.id === params.eventId && item.hostUserId === params.hostUserId,
+  async regenerateMagicLink(params: {
+    eventId: string;
+    hostUserId: string;
+  }): Promise<EventRecord | null> {
+    const nextToken = generateMagicLinkToken();
+    const result = await query<EventRow>(
+      `
+        UPDATE events
+        SET magic_link_token = $3, magic_link_revoked_at = NULL, updated_at = NOW()
+        WHERE id = $1 AND host_user_id = $2
+        RETURNING
+          id,
+          host_user_id,
+          provider,
+          provider_playlist_id,
+          status,
+          name,
+          description,
+          magic_link_token,
+          magic_link_revoked_at,
+          created_at,
+          updated_at,
+          closed_at
+      `,
+      [params.eventId, params.hostUserId, nextToken],
     );
-    if (!event) {
-      return null;
-    }
 
-    event.magicLinkToken = randomBytes(24).toString('base64url');
-    event.magicLinkRevokedAt = null;
-    event.updatedAt = new Date();
-    persistState(state);
-
-    return cloneEvent(event);
+    const row = result.rows[0];
+    return row ? toEventWithTracks(toEventRecord(row)) : null;
   },
 };
 

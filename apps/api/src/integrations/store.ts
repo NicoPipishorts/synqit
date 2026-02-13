@@ -1,8 +1,7 @@
 import { Provider } from '@synqit/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
 
+import { query } from '../db';
 import { EncryptedToken } from './crypto';
 
 type IntegrationRecord = {
@@ -28,226 +27,195 @@ type PendingOauthStateRecord = {
   expiresAt: Date;
 };
 
-type PersistedIntegrationRecord = Omit<
-  IntegrationRecord,
-  'expiresAt' | 'lastRefreshAt' | 'createdAt' | 'updatedAt'
-> & {
-  expiresAt: string | null;
-  lastRefreshAt: string | null;
-  createdAt: string;
-  updatedAt: string;
+type IntegrationRow = {
+  id: string;
+  user_id: string;
+  provider: Provider;
+  access_token_json: EncryptedToken;
+  refresh_token_json: EncryptedToken;
+  scopes: string[];
+  expires_at: Date | null;
+  last_refresh_at: Date | null;
+  last_error: string | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
-type PersistedPendingOauthStateRecord = Omit<PendingOauthStateRecord, 'createdAt' | 'expiresAt'> & {
-  createdAt: string;
-  expiresAt: string;
+type PendingOauthStateRow = {
+  id: string;
+  state: string;
+  user_id: string;
+  provider: Provider;
+  created_at: Date;
+  expires_at: Date;
 };
 
-type PersistedIntegrationStore = {
-  integrations: PersistedIntegrationRecord[];
-  oauthStates: PersistedPendingOauthStateRecord[];
-};
-
-type IntegrationStoreState = {
-  integrations: IntegrationRecord[];
-  oauthStates: PendingOauthStateRecord[];
-};
-
-const DEFAULT_INTEGRATION_STORE_FILE = 'apps/api/data/integrations-store.json';
-const INTEGRATION_STORE_FILE = resolve(
-  process.cwd(),
-  process.env.INTEGRATION_STORE_FILE ?? DEFAULT_INTEGRATION_STORE_FILE,
-);
-
-const toIntegrationRecord = (integration: PersistedIntegrationRecord): IntegrationRecord => ({
-  ...integration,
-  expiresAt: integration.expiresAt ? new Date(integration.expiresAt) : null,
-  lastRefreshAt: integration.lastRefreshAt ? new Date(integration.lastRefreshAt) : null,
-  createdAt: new Date(integration.createdAt),
-  updatedAt: new Date(integration.updatedAt),
+const toIntegrationRecord = (row: IntegrationRow): IntegrationRecord => ({
+  id: row.id,
+  userId: row.user_id,
+  provider: row.provider,
+  accessToken: row.access_token_json,
+  refreshToken: row.refresh_token_json,
+  scopes: Array.isArray(row.scopes) ? row.scopes : [],
+  expiresAt: row.expires_at ? new Date(row.expires_at) : null,
+  lastRefreshAt: row.last_refresh_at ? new Date(row.last_refresh_at) : null,
+  lastError: row.last_error,
+  createdAt: new Date(row.created_at),
+  updatedAt: new Date(row.updated_at),
 });
 
-const toPendingOauthStateRecord = (
-  oauthState: PersistedPendingOauthStateRecord,
-): PendingOauthStateRecord => ({
-  ...oauthState,
-  createdAt: new Date(oauthState.createdAt),
-  expiresAt: new Date(oauthState.expiresAt),
+const toPendingOauthStateRecord = (row: PendingOauthStateRow): PendingOauthStateRecord => ({
+  id: row.id,
+  state: row.state,
+  userId: row.user_id,
+  provider: row.provider,
+  createdAt: new Date(row.created_at),
+  expiresAt: new Date(row.expires_at),
 });
 
-const toPersistedIntegrationRecord = (
-  integration: IntegrationRecord,
-): PersistedIntegrationRecord => ({
-  ...integration,
-  expiresAt: integration.expiresAt?.toISOString() ?? null,
-  lastRefreshAt: integration.lastRefreshAt?.toISOString() ?? null,
-  createdAt: integration.createdAt.toISOString(),
-  updatedAt: integration.updatedAt.toISOString(),
-});
-
-const toPersistedPendingOauthStateRecord = (
-  oauthState: PendingOauthStateRecord,
-): PersistedPendingOauthStateRecord => ({
-  ...oauthState,
-  createdAt: oauthState.createdAt.toISOString(),
-  expiresAt: oauthState.expiresAt.toISOString(),
-});
-
-const cloneEncryptedToken = (token: EncryptedToken): EncryptedToken => ({
-  ...token,
-});
-
-const cloneIntegration = (integration: IntegrationRecord): IntegrationRecord => ({
-  ...integration,
-  accessToken: cloneEncryptedToken(integration.accessToken),
-  refreshToken: cloneEncryptedToken(integration.refreshToken),
-  scopes: [...integration.scopes],
-  expiresAt: integration.expiresAt ? new Date(integration.expiresAt) : null,
-  lastRefreshAt: integration.lastRefreshAt ? new Date(integration.lastRefreshAt) : null,
-  createdAt: new Date(integration.createdAt),
-  updatedAt: new Date(integration.updatedAt),
-});
-
-const clonePendingOauthState = (oauthState: PendingOauthStateRecord): PendingOauthStateRecord => ({
-  ...oauthState,
-  createdAt: new Date(oauthState.createdAt),
-  expiresAt: new Date(oauthState.expiresAt),
-});
-
-const readInitialState = (): IntegrationStoreState => {
-  if (!existsSync(INTEGRATION_STORE_FILE)) {
-    return {
-      integrations: [],
-      oauthStates: [],
-    };
-  }
-
-  try {
-    const fileContents = readFileSync(INTEGRATION_STORE_FILE, 'utf8');
-    const parsed = JSON.parse(fileContents) as Partial<PersistedIntegrationStore>;
-    const integrations = Array.isArray(parsed.integrations)
-      ? parsed.integrations.map(toIntegrationRecord)
-      : [];
-    const oauthStates = Array.isArray(parsed.oauthStates)
-      ? parsed.oauthStates.map(toPendingOauthStateRecord)
-      : [];
-
-    return {
-      integrations,
-      oauthStates,
-    };
-  } catch {
-    return {
-      integrations: [],
-      oauthStates: [],
-    };
-  }
-};
-
-const persistState = (state: IntegrationStoreState): void => {
-  mkdirSync(dirname(INTEGRATION_STORE_FILE), { recursive: true });
-
-  const persisted: PersistedIntegrationStore = {
-    integrations: state.integrations.map(toPersistedIntegrationRecord),
-    oauthStates: state.oauthStates.map(toPersistedPendingOauthStateRecord),
-  };
-
-  const nextData = JSON.stringify(persisted, null, 2);
-  const tempFile = `${INTEGRATION_STORE_FILE}.tmp`;
-
-  writeFileSync(tempFile, nextData, 'utf8');
-  renameSync(tempFile, INTEGRATION_STORE_FILE);
-};
-
-const state = readInitialState();
-
-const purgeExpiredOauthStates = (): void => {
-  const now = Date.now();
-  const nextOauthStates = state.oauthStates.filter((item) => item.expiresAt.getTime() > now);
-
-  if (nextOauthStates.length !== state.oauthStates.length) {
-    state.oauthStates = nextOauthStates;
-    persistState(state);
-  }
+const purgeExpiredOauthStates = async (): Promise<void> => {
+  await query(
+    `
+      DELETE FROM oauth_states
+      WHERE expires_at <= NOW()
+    `,
+  );
 };
 
 export const integrationStore = {
-  upsertIntegration(params: {
+  async upsertIntegration(params: {
     userId: string;
     provider: Provider;
     accessToken: EncryptedToken;
     refreshToken: EncryptedToken;
     scopes: string[];
     expiresAt: Date | null;
-  }): IntegrationRecord {
-    const existing = state.integrations.find(
-      (integration) =>
-        integration.userId === params.userId && integration.provider === params.provider,
+  }): Promise<IntegrationRecord> {
+    const nextId = randomUUID();
+    const result = await query<IntegrationRow>(
+      `
+        INSERT INTO integrations (
+          id,
+          user_id,
+          provider,
+          access_token_json,
+          refresh_token_json,
+          scopes,
+          expires_at,
+          last_refresh_at,
+          last_error,
+          created_at,
+          updated_at
+        )
+        VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, NOW(), NULL, NOW(), NOW())
+        ON CONFLICT (user_id, provider)
+        DO UPDATE SET
+          access_token_json = EXCLUDED.access_token_json,
+          refresh_token_json = EXCLUDED.refresh_token_json,
+          scopes = EXCLUDED.scopes,
+          expires_at = EXCLUDED.expires_at,
+          last_refresh_at = NOW(),
+          last_error = NULL,
+          updated_at = NOW()
+        RETURNING
+          id,
+          user_id,
+          provider,
+          access_token_json,
+          refresh_token_json,
+          scopes,
+          expires_at,
+          last_refresh_at,
+          last_error,
+          created_at,
+          updated_at
+      `,
+      [
+        nextId,
+        params.userId,
+        params.provider,
+        JSON.stringify(params.accessToken),
+        JSON.stringify(params.refreshToken),
+        params.scopes,
+        params.expiresAt,
+      ],
     );
 
-    if (existing) {
-      existing.accessToken = cloneEncryptedToken(params.accessToken);
-      existing.refreshToken = cloneEncryptedToken(params.refreshToken);
-      existing.scopes = [...params.scopes];
-      existing.expiresAt = params.expiresAt ? new Date(params.expiresAt) : null;
-      existing.lastRefreshAt = new Date();
-      existing.lastError = null;
-      existing.updatedAt = new Date();
-      persistState(state);
-      return cloneIntegration(existing);
-    }
-
-    const nextIntegration: IntegrationRecord = {
-      id: randomUUID(),
-      userId: params.userId,
-      provider: params.provider,
-      accessToken: cloneEncryptedToken(params.accessToken),
-      refreshToken: cloneEncryptedToken(params.refreshToken),
-      scopes: [...params.scopes],
-      expiresAt: params.expiresAt ? new Date(params.expiresAt) : null,
-      lastRefreshAt: new Date(),
-      lastError: null,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    state.integrations.push(nextIntegration);
-    persistState(state);
-
-    return cloneIntegration(nextIntegration);
+    return toIntegrationRecord(result.rows[0]);
   },
 
-  findIntegration(params: { userId: string; provider: Provider }): IntegrationRecord | null {
-    const integration = state.integrations.find(
-      (item) => item.userId === params.userId && item.provider === params.provider,
-    );
-    return integration ? cloneIntegration(integration) : null;
-  },
-
-  listIntegrationsByUser(userId: string): IntegrationRecord[] {
-    return state.integrations.filter((item) => item.userId === userId).map(cloneIntegration);
-  },
-
-  disconnectIntegration(params: { userId: string; provider: Provider }): boolean {
-    const before = state.integrations.length;
-    state.integrations = state.integrations.filter(
-      (item) => item.userId !== params.userId || item.provider !== params.provider,
+  async findIntegration(params: {
+    userId: string;
+    provider: Provider;
+  }): Promise<IntegrationRecord | null> {
+    const result = await query<IntegrationRow>(
+      `
+        SELECT
+          id,
+          user_id,
+          provider,
+          access_token_json,
+          refresh_token_json,
+          scopes,
+          expires_at,
+          last_refresh_at,
+          last_error,
+          created_at,
+          updated_at
+        FROM integrations
+        WHERE user_id = $1 AND provider = $2
+        LIMIT 1
+      `,
+      [params.userId, params.provider],
     );
 
-    if (before !== state.integrations.length) {
-      persistState(state);
-      return true;
-    }
-
-    return false;
+    const row = result.rows[0];
+    return row ? toIntegrationRecord(row) : null;
   },
 
-  createPendingOauthState(params: {
+  async listIntegrationsByUser(userId: string): Promise<IntegrationRecord[]> {
+    const result = await query<IntegrationRow>(
+      `
+        SELECT
+          id,
+          user_id,
+          provider,
+          access_token_json,
+          refresh_token_json,
+          scopes,
+          expires_at,
+          last_refresh_at,
+          last_error,
+          created_at,
+          updated_at
+        FROM integrations
+        WHERE user_id = $1
+      `,
+      [userId],
+    );
+
+    return result.rows.map(toIntegrationRecord);
+  },
+
+  async disconnectIntegration(params: { userId: string; provider: Provider }): Promise<boolean> {
+    const result = await query<{ id: string }>(
+      `
+        DELETE FROM integrations
+        WHERE user_id = $1 AND provider = $2
+        RETURNING id
+      `,
+      [params.userId, params.provider],
+    );
+
+    return result.rows.length > 0;
+  },
+
+  async createPendingOauthState(params: {
     userId: string;
     provider: Provider;
     ttlMs: number;
-  }): PendingOauthStateRecord {
-    purgeExpiredOauthStates();
+  }): Promise<PendingOauthStateRecord> {
+    await purgeExpiredOauthStates();
 
     const now = Date.now();
     const oauthState: PendingOauthStateRecord = {
@@ -259,28 +227,66 @@ export const integrationStore = {
       expiresAt: new Date(now + params.ttlMs),
     };
 
-    state.oauthStates.push(oauthState);
-    persistState(state);
+    const result = await query<PendingOauthStateRow>(
+      `
+        INSERT INTO oauth_states (
+          id,
+          state,
+          user_id,
+          provider,
+          created_at,
+          expires_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING
+          id,
+          state,
+          user_id,
+          provider,
+          created_at,
+          expires_at
+      `,
+      [
+        oauthState.id,
+        oauthState.state,
+        oauthState.userId,
+        oauthState.provider,
+        oauthState.createdAt,
+        oauthState.expiresAt,
+      ],
+    );
 
-    return clonePendingOauthState(oauthState);
+    return toPendingOauthStateRecord(result.rows[0]);
   },
 
-  consumePendingOauthState(params: {
+  async consumePendingOauthState(params: {
     state: string;
     provider: Provider;
-  }): PendingOauthStateRecord | null {
-    purgeExpiredOauthStates();
+  }): Promise<PendingOauthStateRecord | null> {
+    await purgeExpiredOauthStates();
 
-    const index = state.oauthStates.findIndex(
-      (item) => item.state === params.state && item.provider === params.provider,
+    const result = await query<PendingOauthStateRow>(
+      `
+        DELETE FROM oauth_states
+        WHERE id = (
+          SELECT id
+          FROM oauth_states
+          WHERE state = $1 AND provider = $2
+          LIMIT 1
+        )
+        RETURNING
+          id,
+          state,
+          user_id,
+          provider,
+          created_at,
+          expires_at
+      `,
+      [params.state, params.provider],
     );
-    if (index === -1) {
-      return null;
-    }
 
-    const [oauthState] = state.oauthStates.splice(index, 1);
-    persistState(state);
-    return clonePendingOauthState(oauthState);
+    const row = result.rows[0];
+    return row ? toPendingOauthStateRecord(row) : null;
   },
 };
 

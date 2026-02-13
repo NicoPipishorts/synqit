@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+
+import { query, withTransaction } from '../db';
 
 type UserRecord = {
   id: string;
@@ -19,215 +19,222 @@ type RefreshTokenRecord = {
   replacedByTokenId: string | null;
 };
 
-type PersistedUserRecord = Omit<UserRecord, 'createdAt'> & {
-  createdAt: string;
+type UserRow = {
+  id: string;
+  email: string;
+  password_hash: string;
+  created_at: Date;
 };
 
-type PersistedRefreshTokenRecord = Omit<
-  RefreshTokenRecord,
-  'createdAt' | 'expiresAt' | 'revokedAt'
-> & {
-  createdAt: string;
-  expiresAt: string;
-  revokedAt: string | null;
+type RefreshTokenRow = {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  created_at: Date;
+  expires_at: Date;
+  revoked_at: Date | null;
+  replaced_by_token_id: string | null;
 };
 
-type PersistedAuthStore = {
-  users: PersistedUserRecord[];
-  refreshTokens: PersistedRefreshTokenRecord[];
-};
-
-type AuthStoreState = {
-  users: UserRecord[];
-  refreshTokens: RefreshTokenRecord[];
-};
-
-const DEFAULT_AUTH_STORE_FILE = 'apps/api/data/auth-store.json';
-const AUTH_STORE_FILE = resolve(
-  process.cwd(),
-  process.env.AUTH_STORE_FILE ?? DEFAULT_AUTH_STORE_FILE,
-);
-
-const toUserRecord = (user: PersistedUserRecord): UserRecord => ({
-  ...user,
-  createdAt: new Date(user.createdAt),
+const toUserRecord = (row: UserRow): UserRecord => ({
+  id: row.id,
+  email: row.email,
+  passwordHash: row.password_hash,
+  createdAt: new Date(row.created_at),
 });
 
-const toRefreshTokenRecord = (token: PersistedRefreshTokenRecord): RefreshTokenRecord => ({
-  ...token,
-  createdAt: new Date(token.createdAt),
-  expiresAt: new Date(token.expiresAt),
-  revokedAt: token.revokedAt ? new Date(token.revokedAt) : null,
+const toRefreshTokenRecord = (row: RefreshTokenRow): RefreshTokenRecord => ({
+  id: row.id,
+  userId: row.user_id,
+  tokenHash: row.token_hash,
+  createdAt: new Date(row.created_at),
+  expiresAt: new Date(row.expires_at),
+  revokedAt: row.revoked_at ? new Date(row.revoked_at) : null,
+  replacedByTokenId: row.replaced_by_token_id,
 });
-
-const toPersistedUserRecord = (user: UserRecord): PersistedUserRecord => ({
-  ...user,
-  createdAt: user.createdAt.toISOString(),
-});
-
-const toPersistedRefreshTokenRecord = (token: RefreshTokenRecord): PersistedRefreshTokenRecord => ({
-  ...token,
-  createdAt: token.createdAt.toISOString(),
-  expiresAt: token.expiresAt.toISOString(),
-  revokedAt: token.revokedAt ? token.revokedAt.toISOString() : null,
-});
-
-const cloneUser = (user: UserRecord): UserRecord => ({
-  ...user,
-  createdAt: new Date(user.createdAt),
-});
-
-const cloneRefreshToken = (token: RefreshTokenRecord): RefreshTokenRecord => ({
-  ...token,
-  createdAt: new Date(token.createdAt),
-  expiresAt: new Date(token.expiresAt),
-  revokedAt: token.revokedAt ? new Date(token.revokedAt) : null,
-});
-
-const readInitialState = (): AuthStoreState => {
-  if (!existsSync(AUTH_STORE_FILE)) {
-    return {
-      users: [],
-      refreshTokens: [],
-    };
-  }
-
-  try {
-    const fileContents = readFileSync(AUTH_STORE_FILE, 'utf8');
-    const parsed = JSON.parse(fileContents) as Partial<PersistedAuthStore>;
-    const users = Array.isArray(parsed.users) ? parsed.users.map(toUserRecord) : [];
-    const refreshTokens = Array.isArray(parsed.refreshTokens)
-      ? parsed.refreshTokens.map(toRefreshTokenRecord)
-      : [];
-
-    return {
-      users,
-      refreshTokens,
-    };
-  } catch {
-    return {
-      users: [],
-      refreshTokens: [],
-    };
-  }
-};
-
-const persistState = (state: AuthStoreState): void => {
-  mkdirSync(dirname(AUTH_STORE_FILE), { recursive: true });
-
-  const persisted: PersistedAuthStore = {
-    users: state.users.map(toPersistedUserRecord),
-    refreshTokens: state.refreshTokens.map(toPersistedRefreshTokenRecord),
-  };
-
-  const nextData = JSON.stringify(persisted, null, 2);
-  const tempFile = `${AUTH_STORE_FILE}.tmp`;
-
-  writeFileSync(tempFile, nextData, 'utf8');
-  renameSync(tempFile, AUTH_STORE_FILE);
-};
-
-const state = readInitialState();
 
 export const authStore = {
-  createUser(params: { email: string; passwordHash: string }): UserRecord | null {
+  async createUser(params: { email: string; passwordHash: string }): Promise<UserRecord | null> {
     const normalizedEmail = params.email.trim().toLowerCase();
-    const existing = state.users.find((user) => user.email === normalizedEmail);
-    if (existing) {
-      return null;
-    }
+    const result = await query<UserRow>(
+      `
+        INSERT INTO users (id, email, password_hash, created_at)
+        VALUES ($1, $2, $3, NOW())
+        ON CONFLICT (email) DO NOTHING
+        RETURNING id, email, password_hash, created_at
+      `,
+      [randomUUID(), normalizedEmail, params.passwordHash],
+    );
 
-    const user: UserRecord = {
-      id: randomUUID(),
-      email: normalizedEmail,
-      passwordHash: params.passwordHash,
-      createdAt: new Date(),
-    };
-
-    state.users.push(user);
-    persistState(state);
-
-    return cloneUser(user);
+    const row = result.rows[0];
+    return row ? toUserRecord(row) : null;
   },
 
-  findUserByEmail(email: string): UserRecord | null {
+  async findUserByEmail(email: string): Promise<UserRecord | null> {
     const normalizedEmail = email.trim().toLowerCase();
-    const user = state.users.find((item) => item.email === normalizedEmail);
-    return user ? cloneUser(user) : null;
+    const result = await query<UserRow>(
+      `
+        SELECT id, email, password_hash, created_at
+        FROM users
+        WHERE email = $1
+        LIMIT 1
+      `,
+      [normalizedEmail],
+    );
+
+    const row = result.rows[0];
+    return row ? toUserRecord(row) : null;
   },
 
-  findUserById(id: string): UserRecord | null {
-    const user = state.users.find((item) => item.id === id);
-    return user ? cloneUser(user) : null;
+  async findUserById(id: string): Promise<UserRecord | null> {
+    const result = await query<UserRow>(
+      `
+        SELECT id, email, password_hash, created_at
+        FROM users
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [id],
+    );
+
+    const row = result.rows[0];
+    return row ? toUserRecord(row) : null;
   },
 
-  createRefreshToken(params: {
+  async createRefreshToken(params: {
     userId: string;
     tokenHash: string;
     expiresAt: Date;
-  }): RefreshTokenRecord {
-    const record: RefreshTokenRecord = {
-      id: randomUUID(),
-      userId: params.userId,
-      tokenHash: params.tokenHash,
-      createdAt: new Date(),
-      expiresAt: new Date(params.expiresAt),
-      revokedAt: null,
-      replacedByTokenId: null,
-    };
+  }): Promise<RefreshTokenRecord> {
+    const nextId = randomUUID();
+    const result = await query<RefreshTokenRow>(
+      `
+        INSERT INTO refresh_tokens (
+          id,
+          user_id,
+          token_hash,
+          created_at,
+          expires_at,
+          revoked_at,
+          replaced_by_token_id
+        )
+        VALUES ($1, $2, $3, NOW(), $4, NULL, NULL)
+        RETURNING
+          id,
+          user_id,
+          token_hash,
+          created_at,
+          expires_at,
+          revoked_at,
+          replaced_by_token_id
+      `,
+      [nextId, params.userId, params.tokenHash, params.expiresAt],
+    );
 
-    state.refreshTokens.push(record);
-    persistState(state);
-
-    return cloneRefreshToken(record);
+    return toRefreshTokenRecord(result.rows[0]);
   },
 
-  findRefreshTokenByHash(tokenHash: string): RefreshTokenRecord | null {
-    const record = state.refreshTokens.find((item) => item.tokenHash === tokenHash);
-    return record ? cloneRefreshToken(record) : null;
+  async findRefreshTokenByHash(tokenHash: string): Promise<RefreshTokenRecord | null> {
+    const result = await query<RefreshTokenRow>(
+      `
+        SELECT
+          id,
+          user_id,
+          token_hash,
+          created_at,
+          expires_at,
+          revoked_at,
+          replaced_by_token_id
+        FROM refresh_tokens
+        WHERE token_hash = $1
+        LIMIT 1
+      `,
+      [tokenHash],
+    );
+
+    const row = result.rows[0];
+    return row ? toRefreshTokenRecord(row) : null;
   },
 
-  rotateRefreshToken(params: {
+  async rotateRefreshToken(params: {
     oldTokenHash: string;
     newTokenHash: string;
     expiresAt: Date;
-  }): RefreshTokenRecord | null {
-    const oldRecord = state.refreshTokens.find((item) => item.tokenHash === params.oldTokenHash);
-    if (!oldRecord || oldRecord.revokedAt) {
-      return null;
-    }
+  }): Promise<RefreshTokenRecord | null> {
+    return withTransaction(async (client) => {
+      const oldResult = await client.query<RefreshTokenRow>(
+        `
+          SELECT
+            id,
+            user_id,
+            token_hash,
+            created_at,
+            expires_at,
+            revoked_at,
+            replaced_by_token_id
+          FROM refresh_tokens
+          WHERE token_hash = $1
+          LIMIT 1
+          FOR UPDATE
+        `,
+        [params.oldTokenHash],
+      );
 
-    oldRecord.revokedAt = new Date();
+      const oldRow = oldResult.rows[0];
+      if (!oldRow || oldRow.revoked_at) {
+        return null;
+      }
 
-    const newRecord: RefreshTokenRecord = {
-      id: randomUUID(),
-      userId: oldRecord.userId,
-      tokenHash: params.newTokenHash,
-      createdAt: new Date(),
-      expiresAt: new Date(params.expiresAt),
-      revokedAt: null,
-      replacedByTokenId: null,
-    };
+      const nextId = randomUUID();
+      await client.query(
+        `
+          UPDATE refresh_tokens
+          SET revoked_at = NOW(), replaced_by_token_id = $2
+          WHERE token_hash = $1
+        `,
+        [params.oldTokenHash, nextId],
+      );
 
-    oldRecord.replacedByTokenId = newRecord.id;
-    state.refreshTokens.push(newRecord);
-    persistState(state);
+      const newResult = await client.query<RefreshTokenRow>(
+        `
+          INSERT INTO refresh_tokens (
+            id,
+            user_id,
+            token_hash,
+            created_at,
+            expires_at,
+            revoked_at,
+            replaced_by_token_id
+          )
+          VALUES ($1, $2, $3, NOW(), $4, NULL, NULL)
+          RETURNING
+            id,
+            user_id,
+            token_hash,
+            created_at,
+            expires_at,
+            revoked_at,
+            replaced_by_token_id
+        `,
+        [nextId, oldRow.user_id, params.newTokenHash, params.expiresAt],
+      );
 
-    return cloneRefreshToken(newRecord);
+      return toRefreshTokenRecord(newResult.rows[0]);
+    });
   },
 
-  revokeRefreshTokenByHash(tokenHash: string): boolean {
-    const record = state.refreshTokens.find((item) => item.tokenHash === tokenHash);
-    if (!record) {
-      return false;
-    }
+  async revokeRefreshTokenByHash(tokenHash: string): Promise<boolean> {
+    const result = await query<{ id: string }>(
+      `
+        UPDATE refresh_tokens
+        SET revoked_at = COALESCE(revoked_at, NOW())
+        WHERE token_hash = $1
+        RETURNING id
+      `,
+      [tokenHash],
+    );
 
-    if (!record.revokedAt) {
-      record.revokedAt = new Date();
-      persistState(state);
-    }
-
-    return true;
+    return result.rows.length > 0;
   },
 };
 

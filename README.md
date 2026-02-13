@@ -34,6 +34,11 @@ This starts:
 
 ```bash
 yarn dev
+yarn db:check
+yarn infra:up
+yarn infra:up:core
+yarn infra:ps
+yarn infra:down
 yarn build
 yarn lint
 yarn format
@@ -51,8 +56,7 @@ Create env files from examples:
 ## Infra (early bootstrap)
 
 ```bash
-cd infra
-docker compose up -d
+yarn infra:up
 ```
 
 Services included:
@@ -63,3 +67,67 @@ Services included:
 - `worker`
 - `web`
 - `caddy`
+
+All infra services are grouped under the Compose project name `synqit`, so they stay isolated from other local Docker projects.
+
+## Database (local)
+
+The API now uses PostgreSQL for auth, integrations, and events.
+
+### Start only DB + Redis
+
+```bash
+yarn infra:up:core
+```
+
+### API database config
+
+- `apps/api/.env.local` (or `.env`) should contain:
+- `DATABASE_URL=postgresql://synqit:synqit@localhost:5435/synqit`
+- `REDIS_URL=redis://localhost:6380`
+
+On API startup, schema is created automatically if missing.
+
+When running fully containerized (`yarn infra:up`), API and worker automatically use internal Docker service URLs (`postgres:5432`, `redis:6379`).
+
+### One-time legacy JSON import
+
+On first DB bootstrap, the API imports existing JSON data **if target tables are empty** from:
+
+- `apps/api/data/auth-store.json`
+- `apps/api/data/integrations-store.json`
+- `apps/api/data/events-store.json`
+
+Legacy fallback paths under `apps/api/apps/api/data/*` are also checked.
+
+### Access DB from terminal
+
+```bash
+docker compose -f infra/docker-compose.yml exec postgres psql -U synqit -d synqit
+```
+
+Useful SQL:
+
+```sql
+\dt
+SELECT COUNT(*) FROM users;
+SELECT COUNT(*) FROM integrations;
+SELECT COUNT(*) FROM events;
+SELECT COUNT(*) FROM event_tracks;
+```
+
+Quick count check via script:
+
+```bash
+yarn db:check
+```
+
+### Access DB from GUI (TablePlus, DBeaver, Postico)
+
+GUI access from host machine:
+
+1. Host: `localhost`
+2. Port: `5435`
+3. Database: `synqit`
+4. User: `synqit`
+5. Password: `synqit`

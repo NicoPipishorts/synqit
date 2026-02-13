@@ -95,7 +95,7 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       });
     }
 
-    const existingIntegrations = integrationStore.listIntegrationsByUser(userId);
+    const existingIntegrations = await integrationStore.listIntegrationsByUser(userId);
 
     const integrations = providerSchema.options.map((provider) => {
       const integration = existingIntegrations.find((item) => item.provider === provider);
@@ -131,7 +131,7 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       });
     }
 
-    const oauthState = integrationStore.createPendingOauthState({
+    const oauthState = await integrationStore.createPendingOauthState({
       userId,
       provider: providerResult.data,
       ttlMs: oauthStateTtlMs,
@@ -176,7 +176,7 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       });
     }
 
-    const oauthState = integrationStore.consumePendingOauthState({
+    const oauthState = await integrationStore.consumePendingOauthState({
       state: queryResult.data.state,
       provider: providerResult.data,
     });
@@ -214,7 +214,7 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       };
     }
 
-    const integration = integrationStore.upsertIntegration({
+    const integration = await integrationStore.upsertIntegration({
       userId: oauthState.userId,
       provider: providerResult.data,
       accessToken: encryptToken(tokenExchangeResult.accessToken),
@@ -259,7 +259,7 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       });
     }
 
-    const disconnected = integrationStore.disconnectIntegration({
+    const disconnected = await integrationStore.disconnectIntegration({
       userId,
       provider: providerResult.data,
     });

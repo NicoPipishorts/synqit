@@ -116,8 +116,11 @@ const sendIntegrationError = (reply: FastifyReply, error: IntegrationError) => {
   });
 };
 
-const findEventForHost = (params: { eventId: string; hostUserId: string }): EventRecord | null => {
-  const event = eventsStore.findEventById(params.eventId);
+const findEventForHost = async (params: {
+  eventId: string;
+  hostUserId: string;
+}): Promise<EventRecord | null> => {
+  const event = await eventsStore.findEventById(params.eventId);
   if (!event || event.hostUserId !== params.hostUserId) {
     return null;
   }
@@ -125,11 +128,11 @@ const findEventForHost = (params: { eventId: string; hostUserId: string }): Even
   return event;
 };
 
-const requireActiveMagicLinkEvent = (
+const requireActiveMagicLinkEvent = async (
   reply: FastifyReply,
   magicLinkToken: string,
-): EventRecord | null => {
-  const event = eventsStore.findEventByMagicLinkToken(magicLinkToken);
+): Promise<EventRecord | null> => {
+  const event = await eventsStore.findEventByMagicLinkToken(magicLinkToken);
   if (!event) {
     reply.status(404).send({
       code: 'event_not_found',
@@ -168,7 +171,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    const integration = integrationStore.findIntegration({
+    const integration = await integrationStore.findIntegration({
       userId,
       provider: 'spotify',
     });
@@ -221,7 +224,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       providerPlaylistId = `mock-playlist-${randomUUID()}`;
     }
 
-    const event = eventsStore.createEvent({
+    const event = await eventsStore.createEvent({
       hostUserId: userId,
       provider: 'spotify',
       providerPlaylistId,
@@ -241,7 +244,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    const events = eventsStore.listEventsByHost(userId);
+    const events = await eventsStore.listEventsByHost(userId);
     return eventListResponseSchema.parse({
       events: events.map((event) => ({
         ...event,
@@ -257,7 +260,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
   app.get('/events/link/:magicLinkToken', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = requireActiveMagicLinkEvent(reply, magicLinkToken);
+    const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
       return;
     }
@@ -276,12 +279,12 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
   app.get('/events/link/:magicLinkToken/tracks', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = requireActiveMagicLinkEvent(reply, magicLinkToken);
+    const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
       return;
     }
 
-    const tracks = eventsStore.listTracksByEventId(event.id);
+    const tracks = await eventsStore.listTracksByEventId(event.id);
     return eventTracksResponseSchema.parse({
       tracks: tracks.map((track) => ({
         ...track,
@@ -292,7 +295,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
   app.get('/events/link/:magicLinkToken/search', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = requireActiveMagicLinkEvent(reply, magicLinkToken);
+    const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
       return;
     }
@@ -368,7 +371,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
   app.post('/events/link/:magicLinkToken/tracks', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = requireActiveMagicLinkEvent(reply, magicLinkToken);
+    const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
       return;
     }
@@ -390,7 +393,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     if (
-      eventsStore.hasTrack({
+      await eventsStore.hasTrack({
         eventId: event.id,
         providerTrackId: parsedBody.data.providerTrackId,
       })
@@ -401,7 +404,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    const integration = integrationStore.findIntegration({
+    const integration = await integrationStore.findIntegration({
       userId: event.hostUserId,
       provider: event.provider,
     });
@@ -522,7 +525,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       }
     }
 
-    const addedTrack = eventsStore.addTrackToEvent({
+    const addedTrack = await eventsStore.addTrackToEvent({
       eventId: event.id,
       providerTrackId: parsedBody.data.providerTrackId,
       name: parsedBody.data.name,
@@ -559,7 +562,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = findEventForHost({
+    const event = await findEventForHost({
       eventId,
       hostUserId: userId,
     });
@@ -583,7 +586,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = findEventForHost({
+    const event = await findEventForHost({
       eventId,
       hostUserId: userId,
     });
@@ -594,7 +597,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    const tracks = eventsStore.listTracksByEventId(event.id);
+    const tracks = await eventsStore.listTracksByEventId(event.id);
     return eventTracksResponseSchema.parse({
       tracks: tracks.map((track) => ({
         ...track,
@@ -614,7 +617,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
     const providerTrackId = (request.params as { providerTrackId?: string }).providerTrackId ?? '';
-    const event = findEventForHost({
+    const event = await findEventForHost({
       eventId,
       hostUserId: userId,
     });
@@ -626,10 +629,10 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     if (
-      !eventsStore.hasTrack({
+      !(await eventsStore.hasTrack({
         eventId: event.id,
         providerTrackId,
-      })
+      }))
     ) {
       return reply.status(404).send({
         code: 'track_not_found',
@@ -683,7 +686,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       }
     }
 
-    const removedTrack = eventsStore.removeTrackFromEvent({
+    const removedTrack = await eventsStore.removeTrackFromEvent({
       eventId: event.id,
       providerTrackId,
     });
@@ -720,7 +723,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = eventsStore.updateEvent({
+    const event = await eventsStore.updateEvent({
       eventId,
       hostUserId: userId,
       name: parsedBody.data.name,
@@ -746,7 +749,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const deleted = eventsStore.deleteEvent({
+    const deleted = await eventsStore.deleteEvent({
       eventId,
       hostUserId: userId,
     });
@@ -774,7 +777,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = eventsStore.closeEvent({
+    const event = await eventsStore.closeEvent({
       eventId,
       hostUserId: userId,
     });
@@ -798,7 +801,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = eventsStore.revokeMagicLink({
+    const event = await eventsStore.revokeMagicLink({
       eventId,
       hostUserId: userId,
     });
@@ -822,7 +825,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = eventsStore.regenerateMagicLink({
+    const event = await eventsStore.regenerateMagicLink({
       eventId,
       hostUserId: userId,
     });

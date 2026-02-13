@@ -28,7 +28,7 @@ export const withSpotifyAccessTokenRetry = async <T>(params: {
   userId: string;
   run: (accessToken: string) => Promise<T>;
 }): Promise<{ result: T; accessToken: string; refreshed: boolean }> => {
-  const integration = integrationStore.findIntegration({
+  const integration = await integrationStore.findIntegration({
     userId: params.userId,
     provider: 'spotify',
   });
@@ -84,7 +84,7 @@ export const withSpotifyAccessTokenRetry = async <T>(params: {
     }
 
     const nextRefreshToken = refreshedTokens.refreshToken ?? storedRefreshToken;
-    integrationStore.upsertIntegration({
+    await integrationStore.upsertIntegration({
       userId: integration.userId,
       provider: 'spotify',
       accessToken: encryptToken(refreshedTokens.accessToken),

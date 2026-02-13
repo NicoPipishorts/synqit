@@ -1,9 +1,24 @@
 import { JOBS, QUEUES } from '@synqit/shared';
 import { Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
+import { resolve } from 'node:path';
 
+const loadEnvFileIfPresent = (filePath: string): void => {
+  try {
+    process.loadEnvFile(filePath);
+  } catch (error) {
+    const normalizedError = error as { code?: string } | undefined;
+    if (normalizedError?.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+};
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6379';
+// .env.local takes precedence when both files exist.
+loadEnvFileIfPresent(resolve(process.cwd(), '.env.local'));
+loadEnvFileIfPresent(resolve(process.cwd(), '.env'));
+
+const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6380';
 
 const connection = new IORedis(REDIS_URL, {
   maxRetriesPerRequest: null,

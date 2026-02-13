@@ -50,11 +50,11 @@ const formatPublicUser = (user: UserRecord) =>
     createdAt: user.createdAt.toISOString(),
   });
 
-const issueTokens = (app: FastifyInstance, user: UserRecord) => {
+const issueTokens = async (app: FastifyInstance, user: UserRecord) => {
   const refreshToken = createRefreshToken();
   const refreshTokenHash = hashToken(refreshToken);
 
-  authStore.createRefreshToken({
+  await authStore.createRefreshToken({
     userId: user.id,
     tokenHash: refreshTokenHash,
     expiresAt: new Date(Date.now() + refreshTokenTtlMs),
@@ -86,7 +86,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
-    const user = authStore.createUser({
+    const user = await authStore.createUser({
       email: parsed.data.email,
       passwordHash,
     });
@@ -98,7 +98,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       });
     }
 
-    const tokens = issueTokens(app, user);
+    const tokens = await issueTokens(app, user);
 
     return authResponseSchema.parse({
       user: formatPublicUser(user),
@@ -112,7 +112,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       return sendValidationError(reply, parsed.error.flatten());
     }
 
-    const user = authStore.findUserByEmail(parsed.data.email);
+    const user = await authStore.findUserByEmail(parsed.data.email);
     if (!user) {
       return reply.status(401).send({
         code: 'invalid_credentials',
@@ -128,7 +128,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       });
     }
 
-    const tokens = issueTokens(app, user);
+    const tokens = await issueTokens(app, user);
 
     return authResponseSchema.parse({
       user: formatPublicUser(user),
@@ -143,7 +143,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     }
 
     const oldTokenHash = hashToken(parsed.data.refreshToken);
-    const tokenRecord = authStore.findRefreshTokenByHash(oldTokenHash);
+    const tokenRecord = await authStore.findRefreshTokenByHash(oldTokenHash);
     if (!tokenRecord) {
       return reply.status(401).send({
         code: 'invalid_refresh_token',
@@ -152,16 +152,16 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     }
 
     if (tokenRecord.revokedAt || tokenRecord.expiresAt.getTime() <= Date.now()) {
-      authStore.revokeRefreshTokenByHash(oldTokenHash);
+      await authStore.revokeRefreshTokenByHash(oldTokenHash);
       return reply.status(401).send({
         code: 'invalid_refresh_token',
         message: 'Refresh token is invalid.',
       });
     }
 
-    const user = authStore.findUserById(tokenRecord.userId);
+    const user = await authStore.findUserById(tokenRecord.userId);
     if (!user) {
-      authStore.revokeRefreshTokenByHash(oldTokenHash);
+      await authStore.revokeRefreshTokenByHash(oldTokenHash);
       return reply.status(401).send({
         code: 'invalid_refresh_token',
         message: 'Refresh token is invalid.',
@@ -170,7 +170,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
 
     const nextRefreshToken = createRefreshToken();
     const nextRefreshTokenHash = hashToken(nextRefreshToken);
-    const rotatedTokenRecord = authStore.rotateRefreshToken({
+    const rotatedTokenRecord = await authStore.rotateRefreshToken({
       oldTokenHash,
       newTokenHash: nextRefreshTokenHash,
       expiresAt: new Date(Date.now() + refreshTokenTtlMs),
@@ -209,7 +209,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       return sendValidationError(reply, parsed.error.flatten());
     }
 
-    authStore.revokeRefreshTokenByHash(hashToken(parsed.data.refreshToken));
+    await authStore.revokeRefreshTokenByHash(hashToken(parsed.data.refreshToken));
 
     return reply.status(200).send({
       ok: true,
@@ -239,7 +239,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       }
 
       const userId = String(request.user.sub);
-      const user = authStore.findUserById(userId);
+      const user = await authStore.findUserById(userId);
       if (!user) {
         return reply.status(401).send({
           code: 'unauthorized',

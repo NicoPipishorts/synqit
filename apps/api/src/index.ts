@@ -9,6 +9,7 @@ import Fastify from 'fastify';
 import { resolve } from 'node:path';
 
 import { registerAuthRoutes } from './auth/routes';
+import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
 
@@ -44,6 +45,8 @@ const parseCorsOrigins = (raw: string | undefined): string[] => {
 };
 
 export const buildServer = async () => {
+  await initializeDatabase();
+
   const app = Fastify({
     logger: true,
   });
