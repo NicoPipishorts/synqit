@@ -9,6 +9,7 @@ import Fastify from 'fastify';
 import { resolve } from 'node:path';
 
 import { registerAuthRoutes } from './auth/routes';
+import { registerEventRoutes } from './events/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
 
 const loadEnvFileIfPresent = (filePath: string): void => {
@@ -113,6 +114,7 @@ export const buildServer = async () => {
     async (v1) => {
       await registerAuthRoutes(v1);
       await registerIntegrationRoutes(v1);
+      await registerEventRoutes(v1);
       v1.get('/version', async () => ({
         service: 'api',
         version: APP_VERSION,

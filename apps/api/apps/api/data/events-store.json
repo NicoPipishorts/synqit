@@ -1,0 +1,17 @@
+{
+  "events": [
+    {
+      "id": "6439d7bb-0b91-42fa-9423-15fd7076dec5",
+      "hostUserId": "d887e9e5-bd52-4905-b8af-50558c86e453",
+      "provider": "spotify",
+      "providerPlaylistId": "46WGRuh6JldINRcHjohIpN",
+      "status": "open",
+      "name": "test 1",
+      "description": "",
+      "magicLinkToken": "AHrI1JkWk2ePntQwoV-l5aPO0shFKNfw",
+      "createdAt": "2026-02-13T13:08:32.387Z",
+      "updatedAt": "2026-02-13T13:08:32.387Z",
+      "closedAt": null
+    }
+  ]
+}

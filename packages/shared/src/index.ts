@@ -101,6 +101,56 @@ export const integrationDisconnectResponseSchema = z.object({
 
 export type IntegrationDisconnectResponse = z.infer<typeof integrationDisconnectResponseSchema>;
 
+export const eventStatusSchema = z.enum(['open', 'closed']);
+export type EventStatus = z.infer<typeof eventStatusSchema>;
+
+export const createEventRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional().default(''),
+});
+export type CreateEventRequest = z.infer<typeof createEventRequestSchema>;
+
+export const eventSchema = z.object({
+  id: z.string(),
+  hostUserId: z.string(),
+  provider: providerSchema,
+  providerPlaylistId: z.string(),
+  status: eventStatusSchema,
+  name: z.string(),
+  description: z.string(),
+  magicLinkToken: z.string(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  closedAt: z.string().nullable(),
+});
+export type Event = z.infer<typeof eventSchema>;
+
+export const eventResponseSchema = z.object({
+  event: eventSchema,
+  magicLinkUrl: z.string().url(),
+});
+export type EventResponse = z.infer<typeof eventResponseSchema>;
+
+export const eventListResponseSchema = z.object({
+  events: z.array(eventSchema),
+});
+export type EventListResponse = z.infer<typeof eventListResponseSchema>;
+
+export const eventPublicSchema = z.object({
+  id: z.string(),
+  provider: providerSchema,
+  status: eventStatusSchema,
+  name: z.string(),
+  description: z.string(),
+  createdAt: z.string(),
+});
+export type EventPublic = z.infer<typeof eventPublicSchema>;
+
+export const eventPublicResponseSchema = z.object({
+  event: eventPublicSchema,
+});
+export type EventPublicResponse = z.infer<typeof eventPublicResponseSchema>;
+
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   service: z.string(),

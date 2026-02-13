@@ -2,6 +2,9 @@ import {
   ApiError,
   authResponseSchema,
   authUserSchema,
+  eventListResponseSchema,
+  eventPublicResponseSchema,
+  eventResponseSchema,
   integrationDisconnectResponseSchema,
   integrationListResponseSchema,
   oauthCallbackResponseSchema,
@@ -17,6 +20,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  useParams,
 } from '@tanstack/react-router';
 import { FormEvent, StrictMode, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -445,6 +449,204 @@ const ProviderConnectionsPage = () => {
   );
 };
 
+const EventCreatePage = () => {
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [status, setStatus] = useState('Create an event to generate a magic link.');
+  const [magicLinkUrl, setMagicLinkUrl] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const createEvent = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setStatus('Login required to create events.');
+      return;
+    }
+
+    setIsLoading(true);
+    setMagicLinkUrl('');
+    try {
+      const result = await callApi(
+        '/v1/events',
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            name,
+            description,
+          }),
+        },
+        (payload) => eventResponseSchema.parse(payload),
+      );
+
+      setStatus(`Event "${result.event.name}" created.`);
+      setMagicLinkUrl(result.magicLinkUrl);
+      setName('');
+      setDescription('');
+    } catch (error) {
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: '0.75rem', maxWidth: '36rem' }}>
+      <h2>Create Event Playlist</h2>
+      <form onSubmit={createEvent} style={{ display: 'grid', gap: '0.75rem' }}>
+        <label>
+          Event name
+          <input
+            required
+            maxLength={100}
+            value={name}
+            onChange={(nextEvent) => setName(nextEvent.target.value)}
+            style={{ width: '100%' }}
+          />
+        </label>
+        <label>
+          Description
+          <textarea
+            maxLength={500}
+            value={description}
+            onChange={(nextEvent) => setDescription(nextEvent.target.value)}
+            style={{ width: '100%', minHeight: '5rem' }}
+          />
+        </label>
+        <button disabled={isLoading} type="submit">
+          {isLoading ? 'Creating...' : 'Create event'}
+        </button>
+      </form>
+      <p>{status}</p>
+      {magicLinkUrl ? (
+        <p>
+          Magic link: <a href={magicLinkUrl}>{magicLinkUrl}</a>
+        </p>
+      ) : null}
+    </div>
+  );
+};
+
+const HostEventsPage = () => {
+  const [status, setStatus] = useState('Load your events.');
+  const [events, setEvents] = useState<
+    Array<{ id: string; name: string; status: string; link: string }>
+  >([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadEvents = async () => {
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setStatus('Login required to view events.');
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await callApi(
+        '/v1/events',
+        {
+          method: 'GET',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+        (payload) => eventListResponseSchema.parse(payload),
+      );
+
+      setEvents(
+        result.events.map((event) => ({
+          id: event.id,
+          name: event.name,
+          status: event.status,
+          link: `${window.location.origin}/event/${event.magicLinkToken}`,
+        })),
+      );
+      setStatus(`Loaded ${result.events.length} events.`);
+    } catch (error) {
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div style={{ display: 'grid', gap: '0.75rem' }}>
+      <h2>My Events</h2>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <button disabled={isLoading} onClick={() => void loadEvents()} type="button">
+          {isLoading ? 'Loading...' : 'Load events'}
+        </button>
+        <Link to="/events/new">Create new event</Link>
+      </div>
+      <p>{status}</p>
+      {events.length > 0 ? (
+        <ul>
+          {events.map((event) => (
+            <li key={event.id}>
+              {event.name} ({event.status}) - <a href={event.link}>{event.link}</a>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+};
+
+const EventPublicPage = () => {
+  const params = useParams({ from: '/event/$magicLinkToken' });
+  const [status, setStatus] = useState('Loading event...');
+  const [eventName, setEventName] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventState, setEventState] = useState('');
+
+  useEffect(() => {
+    const loadEvent = async () => {
+      try {
+        const result = await callApi(
+          `/v1/events/link/${encodeURIComponent(params.magicLinkToken)}`,
+          {
+            method: 'GET',
+          },
+          (payload) => eventPublicResponseSchema.parse(payload),
+        );
+
+        setEventName(result.event.name);
+        setEventDescription(result.event.description);
+        setEventState(result.event.status);
+        setStatus('Event loaded.');
+      } catch (error) {
+        const apiError = toApiError(error);
+        setStatus(`Error: ${apiError.message}`);
+      }
+    };
+
+    void loadEvent();
+  }, [params.magicLinkToken]);
+
+  return (
+    <div style={{ display: 'grid', gap: '0.75rem', maxWidth: '42rem' }}>
+      <h2>Event Playlist</h2>
+      <p>{status}</p>
+      {eventName ? (
+        <>
+          <p>
+            <strong>{eventName}</strong>
+          </p>
+          <p>{eventDescription || 'No description provided.'}</p>
+          <p>Status: {eventState}</p>
+          <p>Guest contribution UI is the next build step.</p>
+        </>
+      ) : null}
+    </div>
+  );
+};
+
 const rootRoute = createRootRoute({
   component: () => (
     <div style={{ fontFamily: 'ui-sans-serif, system-ui', margin: '2rem' }}>
@@ -452,6 +654,8 @@ const rootRoute = createRootRoute({
       <nav style={{ display: 'flex', gap: '1rem' }}>
         <Link to="/">Home</Link>
         <Link to="/providers">Providers</Link>
+        <Link to="/events">Events</Link>
+        <Link to="/events/new">Create Event</Link>
         <Link to="/auth/register">Register</Link>
         <Link to="/auth/login">Login</Link>
         <Link to="/dashboard">Dashboard</Link>
@@ -479,6 +683,24 @@ const providersRoute = createRoute({
   component: ProviderConnectionsPage,
 });
 
+const eventsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/events',
+  component: HostEventsPage,
+});
+
+const eventCreateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/events/new',
+  component: EventCreatePage,
+});
+
+const eventPublicRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/event/$magicLinkToken',
+  component: EventPublicPage,
+});
+
 const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/register',
@@ -500,6 +722,9 @@ const dashboardRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   homeRoute,
   providersRoute,
+  eventsRoute,
+  eventCreateRoute,
+  eventPublicRoute,
   registerRoute,
   loginRoute,
   dashboardRoute,

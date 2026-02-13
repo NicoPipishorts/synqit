@@ -5,21 +5,21 @@
       "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
       "provider": "spotify",
       "accessToken": {
-        "iv": "unA46XFlvafLva7N",
-        "ciphertext": "ln2PF4Uax_qP23PAb53hyrpagiIXQCPhstWr8elwcVQPXj8cT2ti5WcAOU4EJlh8h-SQpJO_18unQPGKuBS5dasFmvAAq8mXkhll44GfnnfHPQcMMYM5v2msb2pJuE5SEOreN2-rZTr2J1jPZuM3kTITk01wyarWxyevUAtFi3_BFGZfoA3oDHaB3Z7ybktRuv10cum3MZ1oit5ukvVsh3sVSlQfXGVotdEXNpCxi8qALCH6gl49VJF0unn3J9Ar6ux0Ru6FggnUJazN98RAzLAIC26mVgLJeXajd3WsfYWracI6TnLrfgpY28N-qMJ5xecdgbvAGqU85EFBliP9fyfNw32YH9C_E2MUfA2bjl0FuQ9y2GYghFL58dS-DrD2Haq_sF9s1OZTo1VZT0NFWpk9gPVFuBSKDpSmkHoK",
-        "authTag": "o5I_ooinlXUmPzLxPhcjgQ"
+        "iv": "SyhQ3IywrhxlxVe2",
+        "ciphertext": "ljoante_WXuUPds5eml-dZHfIp8gnMmwJOk6O8rRJW2gFyB6125umexKL9co-kcWzhkSdqgrt0HpJgE-_YVqaNGuYhMZjz_pZDFf_wJKskre9jLiZXWDjUSPDeFycc-3Ae-0HGCGBoZAuiQiSVgznTAtJdDpjihXMVpaxb-CLTIedFM8d9OfgT-H_n8LULsYGg0yjAc40oE78oOjj-pY2CSzYrSzWPUUIdK5yHQ9u02htLze9TlIAoGAuBx1olMToF_bf81tEssDAzVCzbPk64JUjgCufEHl5Awk8vHhrWBQBVAaiTUyl507NASsf90TXnZqLvB35bnJyyLcIx_EMOe5ZxNaahcyvrJkfEWftlqyA-Xxg972bBwC1UR4sJOU91TRhfPJixeEwENC19InSTDYdJAPClnEZ4D_GBNe",
+        "authTag": "wqMjjvqx7lM3kYJc52o5Yw"
       },
       "refreshToken": {
-        "iv": "yn91mmqEdSJV6cMI",
-        "ciphertext": "Sjr4YzSkRA63Cv6YztXoB4D3OTihRk-Us9Hab3-9tMfeJz3DIXxbQxFzDpZTEOaJm1kvPHyUWj4zwvLyDM6Pe5fI7ImzQRg2yDR4Pjv_4onNWt1X_Sywv62dPnRHybH6_c2-3nvBO8ZZSD0DDu1wAMGkz2P8T3j-4GpB-pOOxZZ45Ac",
-        "authTag": "WeUg3F2hi2PFWUJyrdDbPg"
+        "iv": "JozPSCTP1JcRlTxD",
+        "ciphertext": "L5BDFCwfPquicLCDy9Inv87skUuLXlMVBe6hXnNxVWxl0Bi7OBtRPV5x0ji6cRKKytM40YkufI7vtZ4Fg96FqQLTuNo0XnaQgnPKTI-KQxAwWTYYUYNS_3utYkSM_OJToWqKYT1LSXYGdkjBO2wdEy_6QyI1f-3G108V5qlOd5xbfQU",
+        "authTag": "vtNydnBMhkVAQtMd0Brv4w"
       },
       "scopes": ["playlist-read-private", "playlist-modify-private", "playlist-modify-public"],
-      "expiresAt": "2026-02-13T13:54:31.470Z",
-      "lastRefreshAt": "2026-02-13T12:54:31.470Z",
+      "expiresAt": "2026-02-13T14:08:57.757Z",
+      "lastRefreshAt": "2026-02-13T13:08:57.758Z",
       "lastError": null,
       "createdAt": "2026-02-13T12:49:18.689Z",
-      "updatedAt": "2026-02-13T12:54:31.470Z"
+      "updatedAt": "2026-02-13T13:08:57.758Z"
     },
     {
       "id": "6719c700-9aba-4c4f-a788-de28c34c7469",
@@ -43,22 +43,5 @@
       "updatedAt": "2026-02-13T12:53:54.873Z"
     }
   ],
-  "oauthStates": [
-    {
-      "id": "bd35ba22-65e4-4739-9dc0-2100dcd94b86",
-      "state": "XxgSt2LD7BDXTnFjOVKeYQU7NAfCa5S8",
-      "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
-      "provider": "spotify",
-      "createdAt": "2026-02-13T12:48:03.362Z",
-      "expiresAt": "2026-02-13T12:58:03.362Z"
-    },
-    {
-      "id": "544ccecf-8f7a-4b03-bac4-924780b26548",
-      "state": "yeX3-j1aT0zsz_vGHGXbwBfhInBsShok",
-      "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
-      "provider": "spotify",
-      "createdAt": "2026-02-13T12:53:28.765Z",
-      "expiresAt": "2026-02-13T13:03:28.765Z"
-    }
-  ]
+  "oauthStates": []
 }
