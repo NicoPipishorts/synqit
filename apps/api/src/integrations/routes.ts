@@ -9,12 +9,18 @@ import {
 import { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { encryptToken } from './crypto';
+import {
+  buildSpotifyAuthorizationUrl,
+  exchangeSpotifyAuthorizationCode,
+  isSpotifyOauthLiveMode,
+} from './spotify';
 import { integrationStore } from './store';
 
 const DEFAULT_OAUTH_STATE_TTL_SECONDS = 10 * 60;
-const DEFAULT_SPOTIFY_AUTH_BASE_URL = 'https://accounts.spotify.com/authorize';
 const DEFAULT_SPOTIFY_SCOPES =
   'playlist-read-private playlist-modify-private playlist-modify-public';
+const DEFAULT_API_BASE_URL = 'http://localhost:3001';
+const DEFAULT_WEB_APP_URL = 'http://127.0.0.1:5173';
 
 const parsePositiveNumber = (raw: string | undefined, fallback: number): number => {
   if (!raw) {
@@ -55,25 +61,31 @@ const verifyAndGetUserId = async (
   return userId;
 };
 
-const buildAuthorizationUrl = (params: { provider: 'spotify'; state: string }): string => {
-  const spotifyClientId = process.env.SPOTIFY_CLIENT_ID ?? 'mock-spotify-client-id';
-  const spotifyRedirectUri =
-    process.env.SPOTIFY_REDIRECT_URI ?? 'http://localhost:3001/v1/auth/spotify/callback';
-  const spotifyScopes = process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES;
-  const baseUrl = process.env.SPOTIFY_AUTH_BASE_URL ?? DEFAULT_SPOTIFY_AUTH_BASE_URL;
-
-  const authorizationUrl = new URL(baseUrl);
-  authorizationUrl.searchParams.set('response_type', 'code');
-  authorizationUrl.searchParams.set('client_id', spotifyClientId);
-  authorizationUrl.searchParams.set('redirect_uri', spotifyRedirectUri);
-  authorizationUrl.searchParams.set('scope', spotifyScopes);
-  authorizationUrl.searchParams.set('state', params.state);
-  authorizationUrl.searchParams.set('show_dialog', 'true');
-
-  return authorizationUrl.toString();
-};
-
 export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<void> => {
+  const shouldReturnJsonFromCallback = (request: FastifyRequest): boolean => {
+    const responseMode = (request.query as { response_mode?: string }).response_mode;
+    if (responseMode === 'json') {
+      return true;
+    }
+    if (responseMode === 'redirect') {
+      return false;
+    }
+
+    const acceptHeader = request.headers.accept ?? '';
+    return !acceptHeader.includes('text/html');
+  };
+
+  const buildProvidersRedirectUrl = (params: {
+    provider: string;
+    status: 'connected' | 'error';
+  }): string => {
+    const baseUrl = process.env.WEB_APP_URL ?? DEFAULT_WEB_APP_URL;
+    const redirectUrl = new URL('/providers', baseUrl);
+    redirectUrl.searchParams.set('provider', params.provider);
+    redirectUrl.searchParams.set('status', params.status);
+    return redirectUrl.toString();
+  };
+
   app.get('/integrations', async (request, reply) => {
     const userId = await verifyAndGetUserId(app, request);
     if (!userId) {
@@ -125,10 +137,17 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       ttlMs: oauthStateTtlMs,
     });
 
-    const authorizationUrl = buildAuthorizationUrl({
-      provider: providerResult.data,
-      state: oauthState.state,
-    });
+    const authorizationUrl = isSpotifyOauthLiveMode()
+      ? buildSpotifyAuthorizationUrl({
+          state: oauthState.state,
+          scopes: process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES,
+        })
+      : `${process.env.API_BASE_URL ?? DEFAULT_API_BASE_URL}/v1/auth/${
+          providerResult.data
+        }/callback?${new URLSearchParams({
+          state: oauthState.state,
+          code: 'mock-code',
+        }).toString()}`;
 
     return oauthStartResponseSchema.parse({
       provider: providerResult.data,
@@ -169,25 +188,56 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       });
     }
 
-    const accessToken = `mock-${providerResult.data}-access-${queryResult.data.code}`;
-    const refreshToken = `mock-${providerResult.data}-refresh-${queryResult.data.code}`;
-    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    let tokenExchangeResult: {
+      accessToken: string;
+      refreshToken: string;
+      expiresAt: Date | null;
+      scopes: string[];
+    };
+
+    if (isSpotifyOauthLiveMode()) {
+      try {
+        tokenExchangeResult = await exchangeSpotifyAuthorizationCode(queryResult.data.code);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Token exchange failed.';
+        return reply.status(502).send({
+          code: 'provider_token_exchange_failed',
+          message,
+        });
+      }
+    } else {
+      tokenExchangeResult = {
+        accessToken: `mock-${providerResult.data}-access-${queryResult.data.code}`,
+        refreshToken: `mock-${providerResult.data}-refresh-${queryResult.data.code}`,
+        scopes: (process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES).split(' '),
+        expiresAt: new Date(Date.now() + 60 * 60 * 1000),
+      };
+    }
 
     const integration = integrationStore.upsertIntegration({
       userId: oauthState.userId,
       provider: providerResult.data,
-      accessToken: encryptToken(accessToken),
-      refreshToken: encryptToken(refreshToken),
-      scopes: (process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES).split(' '),
-      expiresAt,
+      accessToken: encryptToken(tokenExchangeResult.accessToken),
+      refreshToken: encryptToken(tokenExchangeResult.refreshToken),
+      scopes: tokenExchangeResult.scopes,
+      expiresAt: tokenExchangeResult.expiresAt,
     });
 
-    return oauthCallbackResponseSchema.parse({
+    const callbackResponse = oauthCallbackResponseSchema.parse({
       ok: true,
       provider: integration.provider,
       connectedAt: integration.createdAt.toISOString(),
       expiresAt: integration.expiresAt?.toISOString() ?? null,
     });
+
+    if (shouldReturnJsonFromCallback(request)) {
+      return callbackResponse;
+    }
+
+    return reply.redirect(
+      buildProvidersRedirectUrl({ provider: integration.provider, status: 'connected' }),
+      302,
+    );
   });
 
   app.post('/auth/:provider/disconnect', async (request, reply) => {

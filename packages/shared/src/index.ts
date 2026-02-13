@@ -79,6 +79,7 @@ export type OauthStartResponse = z.infer<typeof oauthStartResponseSchema>;
 export const oauthCallbackQuerySchema = z.object({
   state: z.string().min(10),
   code: z.string().min(1),
+  response_mode: z.enum(['json', 'redirect']).optional(),
 });
 
 export type OauthCallbackQuery = z.infer<typeof oauthCallbackQuerySchema>;

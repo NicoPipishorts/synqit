@@ -18,7 +18,7 @@ import {
   createRoute,
   createRouter,
 } from '@tanstack/react-router';
-import { FormEvent, StrictMode, useState } from 'react';
+import { FormEvent, StrictMode, useCallback, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 
 const queryClient = new QueryClient();
@@ -256,9 +256,10 @@ const ProviderConnectionsPage = () => {
   const [status, setStatus] = useState<string>('Not loaded.');
   const [oauthState, setOauthState] = useState<string>('');
   const [authUrl, setAuthUrl] = useState<string>('');
+  const [isMockMode, setIsMockMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const loadIntegrationStatus = async () => {
+  const loadIntegrationStatus = useCallback(async () => {
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus('Login required to manage provider connections.');
@@ -290,7 +291,7 @@ const ProviderConnectionsPage = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   const startSpotifyConnect = async () => {
     const accessToken = getAccessToken();
@@ -314,7 +315,13 @@ const ProviderConnectionsPage = () => {
 
       setOauthState(result.state);
       setAuthUrl(result.authorizationUrl);
-      setStatus('OAuth start created. Use callback step to complete connection.');
+      const mockMode = result.authorizationUrl.includes('/v1/auth/spotify/callback?');
+      setIsMockMode(mockMode);
+      setStatus(
+        mockMode
+          ? 'OAuth start created in mock mode. Use callback step to complete connection.'
+          : 'OAuth start created. Open authorization page, approve, then reload status.',
+      );
     } catch (error) {
       const apiError = toApiError(error);
       setStatus(`Error: ${apiError.message}`);
@@ -334,6 +341,7 @@ const ProviderConnectionsPage = () => {
       const query = new URLSearchParams({
         state: oauthState,
         code: 'demo-auth-code',
+        response_mode: 'json',
       });
       const result = await callApi(
         `/v1/auth/spotify/callback?${query.toString()}`,
@@ -356,6 +364,22 @@ const ProviderConnectionsPage = () => {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('provider') === 'spotify' && params.get('status') === 'connected') {
+      setStatus('Spotify OAuth completed. Loading latest connection state...');
+      void loadIntegrationStatus();
+      params.delete('provider');
+      params.delete('status');
+      const nextQuery = params.toString();
+      window.history.replaceState(
+        null,
+        '',
+        `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`,
+      );
+    }
+  }, [loadIntegrationStatus]);
 
   const disconnectSpotify = async () => {
     const accessToken = getAccessToken();
@@ -399,9 +423,11 @@ const ProviderConnectionsPage = () => {
         <button disabled={isLoading} onClick={() => void startSpotifyConnect()} type="button">
           Start Spotify OAuth
         </button>
-        <button disabled={isLoading} onClick={() => void completeMockCallback()} type="button">
-          Complete Callback (Mock)
-        </button>
+        {isMockMode ? (
+          <button disabled={isLoading} onClick={() => void completeMockCallback()} type="button">
+            Complete Callback (Mock)
+          </button>
+        ) : null}
         <button disabled={isLoading} onClick={() => void disconnectSpotify()} type="button">
           Disconnect Spotify
         </button>

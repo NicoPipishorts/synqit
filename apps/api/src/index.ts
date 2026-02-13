@@ -6,9 +6,25 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { healthResponseSchema } from '@synqit/shared';
 import Fastify from 'fastify';
+import { resolve } from 'node:path';
 
 import { registerAuthRoutes } from './auth/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
+
+const loadEnvFileIfPresent = (filePath: string): void => {
+  try {
+    process.loadEnvFile(filePath);
+  } catch (error) {
+    const normalizedError = error as { code?: string } | undefined;
+    if (normalizedError?.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+};
+
+// .env.local takes precedence when both files exist.
+loadEnvFileIfPresent(resolve(process.cwd(), '.env.local'));
+loadEnvFileIfPresent(resolve(process.cwd(), '.env'));
 
 const APP_VERSION = process.env.APP_VERSION ?? '0.1.0';
 const PORT = Number(process.env.PORT ?? 3001);
@@ -17,7 +33,7 @@ const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret';
 
 const parseCorsOrigins = (raw: string | undefined): string[] => {
   if (!raw) {
-    return ['http://localhost:5173'];
+    return ['http://localhost:5173', 'http://127.0.0.1:5173'];
   }
 
   return raw

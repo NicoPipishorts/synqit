@@ -1,0 +1,93 @@
+{
+  "users": [
+    {
+      "id": "a275f5dd-f26e-4318-87b0-ee3809045964",
+      "email": "debug-1770923203154@example.com",
+      "passwordHash": "scrypt$292463e8f485b396ce8e649ab898faf9$3d84a2fde378909d3204bb0bcf949a84b29d08c6059265918a67b49f627faa56107f812b8a32f45e9928fc2431ac5280aca77fa2ab77eff6595e5b5cfb39bd85",
+      "createdAt": "2026-02-12T19:06:43.194Z"
+    },
+    {
+      "id": "d887e9e5-bd52-4905-b8af-50558c86e453",
+      "email": "shamanproto@gmail.com",
+      "passwordHash": "scrypt$2f7a7cac5b82a90fc38bf394fd5cbbf1$535ea76e7c12ca731f1f63ec883eb935143d005a21b9a435aa2a5de3f95a7839f20156dd9db26ee0a9f6d745ffc3b817fe080ea03c98c387e01435933d0083b5",
+      "createdAt": "2026-02-12T19:12:52.801Z"
+    },
+    {
+      "id": "41a93536-b951-4898-9a0f-ca74aacd30b6",
+      "email": "redir-1770987221709@example.com",
+      "passwordHash": "scrypt$9929397ca09610a10c2d5274afc43434$bcea5854126cea46671a5eb3e96535a34fbc57c1902b4937e9bc8484bb85599dfa10c3a81508a088945b5c6aac1a0db373623d3658d7432a4b5a016011f099a9",
+      "createdAt": "2026-02-13T12:53:41.751Z"
+    },
+    {
+      "id": "872813c5-8d18-462b-978d-6aec7e2003ed",
+      "email": "redir2-1770987234830@example.com",
+      "passwordHash": "scrypt$598e16b2157a7aa123f336e70cbff299$c3faac5de61682fe548962b845966b99a571d3b00ad83efdc4e5c770ec8e33f8d1314141f2cf5492deded58776e3f5a7359a9e715fd8e7326b63ca28700e90c0",
+      "createdAt": "2026-02-13T12:53:54.866Z"
+    }
+  ],
+  "refreshTokens": [
+    {
+      "id": "90c18a4d-1c58-4c0a-827a-fe77773c8878",
+      "userId": "a275f5dd-f26e-4318-87b0-ee3809045964",
+      "tokenHash": "e57b00b88e60d3d903ee306c743f0bed232076f348d04cb9546436e5f01bbd54",
+      "createdAt": "2026-02-12T19:06:43.195Z",
+      "expiresAt": "2026-03-14T19:06:43.195Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
+    },
+    {
+      "id": "c64d99c6-5cfb-4638-9f3c-7d16950055f4",
+      "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
+      "tokenHash": "a1bddd44af70ecebf8dc7d5ece768f0312fe7308f240d10aa96dc1d8ed91b0ed",
+      "createdAt": "2026-02-12T19:12:52.801Z",
+      "expiresAt": "2026-03-14T19:12:52.801Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
+    },
+    {
+      "id": "98e276aa-3a20-4dd8-a3bd-3ffdf3c599ec",
+      "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
+      "tokenHash": "0d861462c43c90408d41c5798f5d7359106b36a8d1948f82cda5d47c3af8fcda",
+      "createdAt": "2026-02-12T19:13:03.771Z",
+      "expiresAt": "2026-03-14T19:13:03.771Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
+    },
+    {
+      "id": "cf13fae8-9132-4a09-aeb2-cd5ce97800da",
+      "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
+      "tokenHash": "d0c2404690950a9cd8224daf21b7d946425c700445f578fd2c07aafd924dc59b",
+      "createdAt": "2026-02-13T12:47:54.441Z",
+      "expiresAt": "2026-03-15T12:47:54.441Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
+    },
+    {
+      "id": "83b3256d-f9f9-4cd7-8962-d28ab570a0e8",
+      "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
+      "tokenHash": "01e49806c8557794a499068f2c0c5a3a9c45cc9715cbb25d15cf206ee05fde8b",
+      "createdAt": "2026-02-13T12:47:59.674Z",
+      "expiresAt": "2026-03-15T12:47:59.674Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
+    },
+    {
+      "id": "694ae73a-8430-4502-bd12-36e2b1dd7df1",
+      "userId": "41a93536-b951-4898-9a0f-ca74aacd30b6",
+      "tokenHash": "9f3aa8ab325ebf2cf400b98daf6902ba097ffc867fc825ee8802367fab057244",
+      "createdAt": "2026-02-13T12:53:41.753Z",
+      "expiresAt": "2026-03-15T12:53:41.753Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
+    },
+    {
+      "id": "349e64c1-f975-4fc8-9c10-161165de774d",
+      "userId": "872813c5-8d18-462b-978d-6aec7e2003ed",
+      "tokenHash": "37e450af099749c3b5297d3c5fc3fdd848a5f16a9744b6f10f7aca977e7532cf",
+      "createdAt": "2026-02-13T12:53:54.867Z",
+      "expiresAt": "2026-03-15T12:53:54.867Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
+    }
+  ]
+}
