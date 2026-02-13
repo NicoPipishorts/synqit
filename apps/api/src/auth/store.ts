@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { query, withTransaction } from '../db';
+import { prisma } from '../db/prisma';
 
 type UserRecord = {
   id: string;
@@ -53,51 +53,48 @@ const toRefreshTokenRecord = (row: RefreshTokenRow): RefreshTokenRecord => ({
   replacedByTokenId: row.replaced_by_token_id,
 });
 
+const isUniqueConstraintViolation = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  return 'code' in error && (error as { code?: string }).code === 'P2002';
+};
+
 export const authStore = {
   async createUser(params: { email: string; passwordHash: string }): Promise<UserRecord | null> {
     const normalizedEmail = params.email.trim().toLowerCase();
-    const result = await query<UserRow>(
-      `
-        INSERT INTO users (id, email, password_hash, created_at)
-        VALUES ($1, $2, $3, NOW())
-        ON CONFLICT (email) DO NOTHING
-        RETURNING id, email, password_hash, created_at
-      `,
-      [randomUUID(), normalizedEmail, params.passwordHash],
-    );
+    try {
+      const row = await prisma.users.create({
+        data: {
+          id: randomUUID(),
+          email: normalizedEmail,
+          password_hash: params.passwordHash,
+          created_at: new Date(),
+        },
+      });
 
-    const row = result.rows[0];
-    return row ? toUserRecord(row) : null;
+      return toUserRecord(row);
+    } catch (error) {
+      if (isUniqueConstraintViolation(error)) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   async findUserByEmail(email: string): Promise<UserRecord | null> {
     const normalizedEmail = email.trim().toLowerCase();
-    const result = await query<UserRow>(
-      `
-        SELECT id, email, password_hash, created_at
-        FROM users
-        WHERE email = $1
-        LIMIT 1
-      `,
-      [normalizedEmail],
-    );
-
-    const row = result.rows[0];
+    const row = await prisma.users.findUnique({
+      where: { email: normalizedEmail },
+    });
     return row ? toUserRecord(row) : null;
   },
 
   async findUserById(id: string): Promise<UserRecord | null> {
-    const result = await query<UserRow>(
-      `
-        SELECT id, email, password_hash, created_at
-        FROM users
-        WHERE id = $1
-        LIMIT 1
-      `,
-      [id],
-    );
-
-    const row = result.rows[0];
+    const row = await prisma.users.findUnique({
+      where: { id },
+    });
     return row ? toUserRecord(row) : null;
   },
 
@@ -107,52 +104,25 @@ export const authStore = {
     expiresAt: Date;
   }): Promise<RefreshTokenRecord> {
     const nextId = randomUUID();
-    const result = await query<RefreshTokenRow>(
-      `
-        INSERT INTO refresh_tokens (
-          id,
-          user_id,
-          token_hash,
-          created_at,
-          expires_at,
-          revoked_at,
-          replaced_by_token_id
-        )
-        VALUES ($1, $2, $3, NOW(), $4, NULL, NULL)
-        RETURNING
-          id,
-          user_id,
-          token_hash,
-          created_at,
-          expires_at,
-          revoked_at,
-          replaced_by_token_id
-      `,
-      [nextId, params.userId, params.tokenHash, params.expiresAt],
-    );
+    const row = await prisma.refresh_tokens.create({
+      data: {
+        id: nextId,
+        user_id: params.userId,
+        token_hash: params.tokenHash,
+        created_at: new Date(),
+        expires_at: params.expiresAt,
+        revoked_at: null,
+        replaced_by_token_id: null,
+      },
+    });
 
-    return toRefreshTokenRecord(result.rows[0]);
+    return toRefreshTokenRecord(row);
   },
 
   async findRefreshTokenByHash(tokenHash: string): Promise<RefreshTokenRecord | null> {
-    const result = await query<RefreshTokenRow>(
-      `
-        SELECT
-          id,
-          user_id,
-          token_hash,
-          created_at,
-          expires_at,
-          revoked_at,
-          replaced_by_token_id
-        FROM refresh_tokens
-        WHERE token_hash = $1
-        LIMIT 1
-      `,
-      [tokenHash],
-    );
-
-    const row = result.rows[0];
+    const row = await prisma.refresh_tokens.findUnique({
+      where: { token_hash: tokenHash },
+    });
     return row ? toRefreshTokenRecord(row) : null;
   },
 
@@ -161,80 +131,68 @@ export const authStore = {
     newTokenHash: string;
     expiresAt: Date;
   }): Promise<RefreshTokenRecord | null> {
-    return withTransaction(async (client) => {
-      const oldResult = await client.query<RefreshTokenRow>(
-        `
-          SELECT
-            id,
-            user_id,
-            token_hash,
-            created_at,
-            expires_at,
-            revoked_at,
-            replaced_by_token_id
-          FROM refresh_tokens
-          WHERE token_hash = $1
-          LIMIT 1
-          FOR UPDATE
-        `,
-        [params.oldTokenHash],
-      );
+    return prisma.$transaction(async (tx) => {
+      const oldRow = await tx.refresh_tokens.findUnique({
+        where: { token_hash: params.oldTokenHash },
+      });
 
-      const oldRow = oldResult.rows[0];
       if (!oldRow || oldRow.revoked_at) {
         return null;
       }
 
       const nextId = randomUUID();
-      await client.query(
-        `
-          UPDATE refresh_tokens
-          SET revoked_at = NOW(), replaced_by_token_id = $2
-          WHERE token_hash = $1
-        `,
-        [params.oldTokenHash, nextId],
-      );
+      const revokeResult = await tx.refresh_tokens.updateMany({
+        where: {
+          id: oldRow.id,
+          revoked_at: null,
+        },
+        data: {
+          revoked_at: new Date(),
+          replaced_by_token_id: nextId,
+        },
+      });
+      if (revokeResult.count !== 1) {
+        return null;
+      }
 
-      const newResult = await client.query<RefreshTokenRow>(
-        `
-          INSERT INTO refresh_tokens (
-            id,
-            user_id,
-            token_hash,
-            created_at,
-            expires_at,
-            revoked_at,
-            replaced_by_token_id
-          )
-          VALUES ($1, $2, $3, NOW(), $4, NULL, NULL)
-          RETURNING
-            id,
-            user_id,
-            token_hash,
-            created_at,
-            expires_at,
-            revoked_at,
-            replaced_by_token_id
-        `,
-        [nextId, oldRow.user_id, params.newTokenHash, params.expiresAt],
-      );
+      const newRow = await tx.refresh_tokens.create({
+        data: {
+          id: nextId,
+          user_id: oldRow.user_id,
+          token_hash: params.newTokenHash,
+          created_at: new Date(),
+          expires_at: params.expiresAt,
+          revoked_at: null,
+          replaced_by_token_id: null,
+        },
+      });
 
-      return toRefreshTokenRecord(newResult.rows[0]);
+      return toRefreshTokenRecord(newRow);
     });
   },
 
   async revokeRefreshTokenByHash(tokenHash: string): Promise<boolean> {
-    const result = await query<{ id: string }>(
-      `
-        UPDATE refresh_tokens
-        SET revoked_at = COALESCE(revoked_at, NOW())
-        WHERE token_hash = $1
-        RETURNING id
-      `,
-      [tokenHash],
-    );
+    const existing = await prisma.refresh_tokens.findUnique({
+      where: { token_hash: tokenHash },
+      select: {
+        id: true,
+        revoked_at: true,
+      },
+    });
+    if (!existing) {
+      return false;
+    }
 
-    return result.rows.length > 0;
+    if (!existing.revoked_at) {
+      await prisma.refresh_tokens.update({
+        where: { id: existing.id },
+        data: {
+          revoked_at: new Date(),
+        },
+      });
+    }
+
+    return true;
   },
 };
 

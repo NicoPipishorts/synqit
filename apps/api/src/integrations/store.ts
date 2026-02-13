@@ -1,8 +1,8 @@
-import { Provider } from '@synqit/shared';
+import { Provider, providerSchema } from '@synqit/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { query } from '../db';
 import { EncryptedToken } from './crypto';
+import { prisma } from '../db/prisma';
 
 type IntegrationRecord = {
   id: string;
@@ -30,9 +30,9 @@ type PendingOauthStateRecord = {
 type IntegrationRow = {
   id: string;
   user_id: string;
-  provider: Provider;
-  access_token_json: EncryptedToken;
-  refresh_token_json: EncryptedToken;
+  provider: string;
+  access_token_json: unknown;
+  refresh_token_json: unknown;
   scopes: string[];
   expires_at: Date | null;
   last_refresh_at: Date | null;
@@ -45,7 +45,7 @@ type PendingOauthStateRow = {
   id: string;
   state: string;
   user_id: string;
-  provider: Provider;
+  provider: string;
   created_at: Date;
   expires_at: Date;
 };
@@ -53,9 +53,9 @@ type PendingOauthStateRow = {
 const toIntegrationRecord = (row: IntegrationRow): IntegrationRecord => ({
   id: row.id,
   userId: row.user_id,
-  provider: row.provider,
-  accessToken: row.access_token_json,
-  refreshToken: row.refresh_token_json,
+  provider: providerSchema.parse(row.provider),
+  accessToken: parseEncryptedToken(row.access_token_json),
+  refreshToken: parseEncryptedToken(row.refresh_token_json),
   scopes: Array.isArray(row.scopes) ? row.scopes : [],
   expiresAt: row.expires_at ? new Date(row.expires_at) : null,
   lastRefreshAt: row.last_refresh_at ? new Date(row.last_refresh_at) : null,
@@ -68,18 +68,40 @@ const toPendingOauthStateRecord = (row: PendingOauthStateRow): PendingOauthState
   id: row.id,
   state: row.state,
   userId: row.user_id,
-  provider: row.provider,
+  provider: providerSchema.parse(row.provider),
   createdAt: new Date(row.created_at),
   expiresAt: new Date(row.expires_at),
 });
 
-const purgeExpiredOauthStates = async (): Promise<void> => {
-  await query(
-    `
-      DELETE FROM oauth_states
-      WHERE expires_at <= NOW()
-    `,
+const isEncryptedToken = (value: unknown): value is EncryptedToken => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Partial<EncryptedToken>;
+  return (
+    typeof candidate.iv === 'string' &&
+    typeof candidate.ciphertext === 'string' &&
+    typeof candidate.authTag === 'string'
   );
+};
+
+const parseEncryptedToken = (value: unknown): EncryptedToken => {
+  if (!isEncryptedToken(value)) {
+    throw new Error('Integration token payload is invalid');
+  }
+
+  return value;
+};
+
+const purgeExpiredOauthStates = async (): Promise<void> => {
+  await prisma.oauth_states.deleteMany({
+    where: {
+      expires_at: {
+        lte: new Date(),
+      },
+    },
+  });
 };
 
 export const integrationStore = {
@@ -92,122 +114,73 @@ export const integrationStore = {
     expiresAt: Date | null;
   }): Promise<IntegrationRecord> {
     const nextId = randomUUID();
-    const result = await query<IntegrationRow>(
-      `
-        INSERT INTO integrations (
-          id,
-          user_id,
-          provider,
-          access_token_json,
-          refresh_token_json,
-          scopes,
-          expires_at,
-          last_refresh_at,
-          last_error,
-          created_at,
-          updated_at
-        )
-        VALUES ($1, $2, $3, $4::jsonb, $5::jsonb, $6, $7, NOW(), NULL, NOW(), NOW())
-        ON CONFLICT (user_id, provider)
-        DO UPDATE SET
-          access_token_json = EXCLUDED.access_token_json,
-          refresh_token_json = EXCLUDED.refresh_token_json,
-          scopes = EXCLUDED.scopes,
-          expires_at = EXCLUDED.expires_at,
-          last_refresh_at = NOW(),
-          last_error = NULL,
-          updated_at = NOW()
-        RETURNING
-          id,
-          user_id,
-          provider,
-          access_token_json,
-          refresh_token_json,
-          scopes,
-          expires_at,
-          last_refresh_at,
-          last_error,
-          created_at,
-          updated_at
-      `,
-      [
-        nextId,
-        params.userId,
-        params.provider,
-        JSON.stringify(params.accessToken),
-        JSON.stringify(params.refreshToken),
-        params.scopes,
-        params.expiresAt,
-      ],
-    );
+    const now = new Date();
+    const row = await prisma.integrations.upsert({
+      where: {
+        user_id_provider: {
+          user_id: params.userId,
+          provider: params.provider,
+        },
+      },
+      create: {
+        id: nextId,
+        user_id: params.userId,
+        provider: params.provider,
+        access_token_json: params.accessToken,
+        refresh_token_json: params.refreshToken,
+        scopes: params.scopes,
+        expires_at: params.expiresAt,
+        last_refresh_at: now,
+        last_error: null,
+        created_at: now,
+        updated_at: now,
+      },
+      update: {
+        access_token_json: params.accessToken,
+        refresh_token_json: params.refreshToken,
+        scopes: params.scopes,
+        expires_at: params.expiresAt,
+        last_refresh_at: now,
+        last_error: null,
+        updated_at: now,
+      },
+    });
 
-    return toIntegrationRecord(result.rows[0]);
+    return toIntegrationRecord(row);
   },
 
   async findIntegration(params: {
     userId: string;
     provider: Provider;
   }): Promise<IntegrationRecord | null> {
-    const result = await query<IntegrationRow>(
-      `
-        SELECT
-          id,
-          user_id,
-          provider,
-          access_token_json,
-          refresh_token_json,
-          scopes,
-          expires_at,
-          last_refresh_at,
-          last_error,
-          created_at,
-          updated_at
-        FROM integrations
-        WHERE user_id = $1 AND provider = $2
-        LIMIT 1
-      `,
-      [params.userId, params.provider],
-    );
-
-    const row = result.rows[0];
+    const row = await prisma.integrations.findUnique({
+      where: {
+        user_id_provider: {
+          user_id: params.userId,
+          provider: params.provider,
+        },
+      },
+    });
     return row ? toIntegrationRecord(row) : null;
   },
 
   async listIntegrationsByUser(userId: string): Promise<IntegrationRecord[]> {
-    const result = await query<IntegrationRow>(
-      `
-        SELECT
-          id,
-          user_id,
-          provider,
-          access_token_json,
-          refresh_token_json,
-          scopes,
-          expires_at,
-          last_refresh_at,
-          last_error,
-          created_at,
-          updated_at
-        FROM integrations
-        WHERE user_id = $1
-      `,
-      [userId],
-    );
+    const rows = await prisma.integrations.findMany({
+      where: { user_id: userId },
+    });
 
-    return result.rows.map(toIntegrationRecord);
+    return rows.map(toIntegrationRecord);
   },
 
   async disconnectIntegration(params: { userId: string; provider: Provider }): Promise<boolean> {
-    const result = await query<{ id: string }>(
-      `
-        DELETE FROM integrations
-        WHERE user_id = $1 AND provider = $2
-        RETURNING id
-      `,
-      [params.userId, params.provider],
-    );
+    const result = await prisma.integrations.deleteMany({
+      where: {
+        user_id: params.userId,
+        provider: params.provider,
+      },
+    });
 
-    return result.rows.length > 0;
+    return result.count > 0;
   },
 
   async createPendingOauthState(params: {
@@ -227,36 +200,18 @@ export const integrationStore = {
       expiresAt: new Date(now + params.ttlMs),
     };
 
-    const result = await query<PendingOauthStateRow>(
-      `
-        INSERT INTO oauth_states (
-          id,
-          state,
-          user_id,
-          provider,
-          created_at,
-          expires_at
-        )
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING
-          id,
-          state,
-          user_id,
-          provider,
-          created_at,
-          expires_at
-      `,
-      [
-        oauthState.id,
-        oauthState.state,
-        oauthState.userId,
-        oauthState.provider,
-        oauthState.createdAt,
-        oauthState.expiresAt,
-      ],
-    );
+    const row = await prisma.oauth_states.create({
+      data: {
+        id: oauthState.id,
+        state: oauthState.state,
+        user_id: oauthState.userId,
+        provider: oauthState.provider,
+        created_at: oauthState.createdAt,
+        expires_at: oauthState.expiresAt,
+      },
+    });
 
-    return toPendingOauthStateRecord(result.rows[0]);
+    return toPendingOauthStateRecord(row);
   },
 
   async consumePendingOauthState(params: {
@@ -265,28 +220,31 @@ export const integrationStore = {
   }): Promise<PendingOauthStateRecord | null> {
     await purgeExpiredOauthStates();
 
-    const result = await query<PendingOauthStateRow>(
-      `
-        DELETE FROM oauth_states
-        WHERE id = (
-          SELECT id
-          FROM oauth_states
-          WHERE state = $1 AND provider = $2
-          LIMIT 1
-        )
-        RETURNING
-          id,
-          state,
-          user_id,
-          provider,
-          created_at,
-          expires_at
-      `,
-      [params.state, params.provider],
-    );
+    return prisma.$transaction(async (tx) => {
+      const row = await tx.oauth_states.findFirst({
+        where: {
+          state: params.state,
+          provider: params.provider,
+        },
+      });
 
-    const row = result.rows[0];
-    return row ? toPendingOauthStateRecord(row) : null;
+      if (!row) {
+        return null;
+      }
+
+      const deleted = await tx.oauth_states.deleteMany({
+        where: {
+          id: row.id,
+          provider: params.provider,
+        },
+      });
+
+      if (deleted.count !== 1) {
+        return null;
+      }
+
+      return toPendingOauthStateRecord(row);
+    });
   },
 };
 

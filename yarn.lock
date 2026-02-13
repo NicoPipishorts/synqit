@@ -784,6 +784,15 @@
   resolved "https://registry.yarnpkg.com/@pinojs/redact/-/redact-0.4.0.tgz#c3de060dd12640dcc838516aa2a6803cc7b2e9d6"
   integrity sha512-k2ENnmBugE/rzQfEcdWHcCY+/FM3VLzH9cYEsbdsoqrvzAKRhUZeRNhAZvB8OitQJ1TBed3yqWtdjzS6wJKBwg==
 
+"@prisma/adapter-pg@^7.4.0":
+  version "7.4.0"
+  resolved "https://registry.yarnpkg.com/@prisma/adapter-pg/-/adapter-pg-7.4.0.tgz#61591a22c189d3f9b56f524c46cc3a905350fe2e"
+  integrity sha512-LWwTHaio0bMxvzahmpwpWqsZM0vTfMqwF8zo06YvILL/o47voaSfKzCVxZw/o9awf4fRgS5Vgthobikj9Dusaw==
+  dependencies:
+    "@prisma/driver-adapter-utils" "7.4.0"
+    pg "^8.16.3"
+    postgres-array "3.0.4"
+
 "@prisma/client-runtime-utils@7.4.0":
   version "7.4.0"
   resolved "https://registry.yarnpkg.com/@prisma/client-runtime-utils/-/client-runtime-utils-7.4.0.tgz#feeb5a09f247ce1f0f8ef4cc817e9ccd6c8f46c3"
@@ -838,6 +847,13 @@
     std-env "3.10.0"
     valibot "1.2.0"
     zeptomatch "2.1.0"
+
+"@prisma/driver-adapter-utils@7.4.0":
+  version "7.4.0"
+  resolved "https://registry.yarnpkg.com/@prisma/driver-adapter-utils/-/driver-adapter-utils-7.4.0.tgz#d4a865a59d8aa64d77a10d21279976ae6a054b91"
+  integrity sha512-jEyE5LkqZ27Ba/DIOfCGOQl6nKMLxuwJNRceCfh7/LRs46UkIKn3bmkI97MEH2t7zkYV3PGBrUr+6sMJaHvc0A==
+  dependencies:
+    "@prisma/debug" "7.4.0"
 
 "@prisma/engines-version@7.4.0-20.ab56fe763f921d033a6c195e7ddeb3e255bdbb57":
   version "7.4.0-20.ab56fe763f921d033a6c195e7ddeb3e255bdbb57"
@@ -3562,7 +3578,7 @@ pg-types@2.2.0, pg-types@^2.2.0:
     postgres-date "~1.0.4"
     postgres-interval "^1.1.0"
 
-pg@^8.18.0:
+pg@^8.16.3, pg@^8.18.0:
   version "8.18.0"
   resolved "https://registry.yarnpkg.com/pg/-/pg-8.18.0.tgz#e9ee214206f5d9231240f1b82f22d2fa9de5cb75"
   integrity sha512-xqrUDL1b9MbkydY/s+VZ6v+xiMUmOUk7SS9d/1kpyQxoJ6U9AO1oIJyUWVZojbfe5Cc/oluutcgFG4L9RDP1iQ==
@@ -3653,6 +3669,11 @@ postcss@^8.5.3:
     nanoid "^3.3.11"
     picocolors "^1.1.1"
     source-map-js "^1.2.1"
+
+postgres-array@3.0.4:
+  version "3.0.4"
+  resolved "https://registry.yarnpkg.com/postgres-array/-/postgres-array-3.0.4.tgz#4efcaf4d2c688d8bcaa8620ed13f35f299f7528c"
+  integrity sha512-nAUSGfSDGOaOAEGwqsRY27GPOea7CNipJPOA7lPbdEpx5Kg3qzdP0AaWC5MlhTWV9s4hFX39nomVZ+C4tnGOJQ==
 
 postgres-array@~2.0.0:
   version "2.0.0"
