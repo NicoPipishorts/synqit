@@ -15,12 +15,29 @@ type EventRecord = {
   createdAt: Date;
   updatedAt: Date;
   closedAt: Date | null;
+  tracks: EventTrackRecord[];
 };
 
-type PersistedEventRecord = Omit<EventRecord, 'createdAt' | 'updatedAt' | 'closedAt'> & {
+type EventTrackRecord = {
+  providerTrackId: string;
+  name: string;
+  artist: string;
+  album: string;
+  durationMs: number;
+  artworkUrl: string | null;
+  addedAt: Date;
+  addedBy: string;
+};
+
+type PersistedEventRecord = Omit<EventRecord, 'createdAt' | 'updatedAt' | 'closedAt' | 'tracks'> & {
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
+  tracks: PersistedEventTrackRecord[];
+};
+
+type PersistedEventTrackRecord = Omit<EventTrackRecord, 'addedAt'> & {
+  addedAt: string;
 };
 
 type PersistedEventsStore = {
@@ -42,6 +59,12 @@ const toEventRecord = (event: PersistedEventRecord): EventRecord => ({
   createdAt: new Date(event.createdAt),
   updatedAt: new Date(event.updatedAt),
   closedAt: event.closedAt ? new Date(event.closedAt) : null,
+  tracks: Array.isArray(event.tracks)
+    ? event.tracks.map((track) => ({
+        ...track,
+        addedAt: new Date(track.addedAt),
+      }))
+    : [],
 });
 
 const toPersistedEventRecord = (event: EventRecord): PersistedEventRecord => ({
@@ -49,6 +72,10 @@ const toPersistedEventRecord = (event: EventRecord): PersistedEventRecord => ({
   createdAt: event.createdAt.toISOString(),
   updatedAt: event.updatedAt.toISOString(),
   closedAt: event.closedAt ? event.closedAt.toISOString() : null,
+  tracks: event.tracks.map((track) => ({
+    ...track,
+    addedAt: track.addedAt.toISOString(),
+  })),
 });
 
 const cloneEvent = (event: EventRecord): EventRecord => ({
@@ -56,6 +83,10 @@ const cloneEvent = (event: EventRecord): EventRecord => ({
   createdAt: new Date(event.createdAt),
   updatedAt: new Date(event.updatedAt),
   closedAt: event.closedAt ? new Date(event.closedAt) : null,
+  tracks: event.tracks.map((track) => ({
+    ...track,
+    addedAt: new Date(track.addedAt),
+  })),
 });
 
 const readInitialState = (): EventsStoreState => {
@@ -108,6 +139,7 @@ export const eventsStore = {
       createdAt: now,
       updatedAt: now,
       closedAt: null,
+      tracks: [],
     };
 
     state.events.push(event);
@@ -132,6 +164,66 @@ export const eventsStore = {
     return event ? cloneEvent(event) : null;
   },
 
+  listTracksByEventId(eventId: string): EventTrackRecord[] {
+    const event = state.events.find((item) => item.id === eventId);
+    if (!event) {
+      return [];
+    }
+
+    return event.tracks
+      .map((track) => ({ ...track, addedAt: new Date(track.addedAt) }))
+      .sort((a, b) => b.addedAt.getTime() - a.addedAt.getTime());
+  },
+
+  hasTrack(params: { eventId: string; providerTrackId: string }): boolean {
+    const event = state.events.find((item) => item.id === params.eventId);
+    if (!event) {
+      return false;
+    }
+
+    return event.tracks.some((track) => track.providerTrackId === params.providerTrackId);
+  },
+
+  addTrackToEvent(params: {
+    eventId: string;
+    providerTrackId: string;
+    name: string;
+    artist: string;
+    album: string;
+    durationMs: number;
+    artworkUrl: string | null;
+    addedBy: string;
+  }): EventTrackRecord | null {
+    const event = state.events.find((item) => item.id === params.eventId);
+    if (!event) {
+      return null;
+    }
+
+    if (event.tracks.some((track) => track.providerTrackId === params.providerTrackId)) {
+      return null;
+    }
+
+    const nextTrack: EventTrackRecord = {
+      providerTrackId: params.providerTrackId,
+      name: params.name,
+      artist: params.artist,
+      album: params.album,
+      durationMs: params.durationMs,
+      artworkUrl: params.artworkUrl,
+      addedAt: new Date(),
+      addedBy: params.addedBy,
+    };
+
+    event.tracks.push(nextTrack);
+    event.updatedAt = new Date();
+    persistState(state);
+
+    return {
+      ...nextTrack,
+      addedAt: new Date(nextTrack.addedAt),
+    };
+  },
+
   closeEvent(params: { eventId: string; hostUserId: string }): EventRecord | null {
     const event = state.events.find(
       (item) => item.id === params.eventId && item.hostUserId === params.hostUserId,
@@ -153,4 +245,4 @@ export const eventsStore = {
   },
 };
 
-export type { EventRecord };
+export type { EventRecord, EventTrackRecord };

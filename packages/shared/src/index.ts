@@ -151,6 +151,54 @@ export const eventPublicResponseSchema = z.object({
 });
 export type EventPublicResponse = z.infer<typeof eventPublicResponseSchema>;
 
+export const eventTrackSchema = z.object({
+  providerTrackId: z.string(),
+  name: z.string(),
+  artist: z.string(),
+  album: z.string(),
+  durationMs: z.number().int().nonnegative(),
+  artworkUrl: z.string().url().nullable(),
+  addedAt: z.string(),
+  addedBy: z.string(),
+});
+export type EventTrack = z.infer<typeof eventTrackSchema>;
+
+export const eventTracksResponseSchema = z.object({
+  tracks: z.array(eventTrackSchema),
+});
+export type EventTracksResponse = z.infer<typeof eventTracksResponseSchema>;
+
+export const eventTrackSearchResultSchema = z.object({
+  providerTrackId: z.string(),
+  name: z.string(),
+  artist: z.string(),
+  album: z.string(),
+  durationMs: z.number().int().nonnegative(),
+  artworkUrl: z.string().url().nullable(),
+});
+export type EventTrackSearchResult = z.infer<typeof eventTrackSearchResultSchema>;
+
+export const eventTrackSearchResponseSchema = z.object({
+  results: z.array(eventTrackSearchResultSchema),
+});
+export type EventTrackSearchResponse = z.infer<typeof eventTrackSearchResponseSchema>;
+
+export const addEventTrackRequestSchema = z.object({
+  providerTrackId: z.string().min(1),
+  name: z.string().min(1),
+  artist: z.string().min(1),
+  album: z.string().min(1),
+  durationMs: z.number().int().nonnegative(),
+  artworkUrl: z.string().url().nullable().optional().default(null),
+});
+export type AddEventTrackRequest = z.infer<typeof addEventTrackRequestSchema>;
+
+export const addEventTrackResponseSchema = z.object({
+  ok: z.literal(true),
+  track: eventTrackSchema,
+});
+export type AddEventTrackResponse = z.infer<typeof addEventTrackResponseSchema>;
+
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   service: z.string(),
