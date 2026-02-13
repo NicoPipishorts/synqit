@@ -53,7 +53,7 @@ const spotifySearchResponseSchema = z.object({
 });
 
 const toSpotifyApiError = (params: {
-  action: 'search' | 'add_track';
+  action: 'search' | 'add_track' | 'remove_track';
   statusCode: number;
   payload: unknown;
   wwwAuthenticate: string | null;
@@ -61,7 +61,9 @@ const toSpotifyApiError = (params: {
   const fallbackMessage =
     params.action === 'search'
       ? `Spotify track search failed with status ${params.statusCode}.`
-      : `Spotify add-track failed with status ${params.statusCode}.`;
+      : params.action === 'add_track'
+        ? `Spotify add-track failed with status ${params.statusCode}.`
+        : `Spotify remove-track failed with status ${params.statusCode}.`;
 
   let message = fallbackMessage;
   if (
@@ -142,6 +144,37 @@ export const addSpotifyTrackToPlaylist = async (params: {
     },
     body: JSON.stringify({
       uris: [`spotify:track:${params.providerTrackId}`],
+    }),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as unknown;
+  if (!response.ok) {
+    throw toSpotifyApiError({
+      action: 'remove_track',
+      statusCode: response.status,
+      payload,
+      wwwAuthenticate: response.headers.get('www-authenticate'),
+    });
+  }
+};
+
+export const removeSpotifyTrackFromPlaylist = async (params: {
+  accessToken: string;
+  providerPlaylistId: string;
+  providerTrackId: string;
+}): Promise<void> => {
+  const url = `https://api.spotify.com/v1/playlists/${encodeURIComponent(
+    params.providerPlaylistId,
+  )}/items`;
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      authorization: `Bearer ${params.accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      tracks: [{ uri: `spotify:track:${params.providerTrackId}` }],
     }),
   });
 

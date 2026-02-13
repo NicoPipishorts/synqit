@@ -15,6 +15,7 @@ import {
   oauthStartResponseSchema,
   providerSchema,
   refreshTokenRequestSchema,
+  removeEventTrackResponseSchema,
   updateEventRequestSchema,
 } from '@synqit/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -547,6 +548,7 @@ const HostEventsPage = () => {
       description: string;
       status: 'open' | 'closed';
       magicLinkToken: string;
+      magicLinkRevokedAt: string | null;
       updatedAt: string;
     }>
   >([]);
@@ -555,6 +557,24 @@ const HostEventsPage = () => {
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [actionEventId, setActionEventId] = useState<string | null>(null);
+  const [expandedTracksEventId, setExpandedTracksEventId] = useState<string | null>(null);
+  const [tracksByEventId, setTracksByEventId] = useState<
+    Record<
+      string,
+      Array<{
+        providerTrackId: string;
+        name: string;
+        artist: string;
+        album: string;
+        durationMs: number;
+        artworkUrl: string | null;
+        addedAt: string;
+        addedBy: string;
+      }>
+    >
+  >({});
+  const [loadingTracksEventId, setLoadingTracksEventId] = useState<string | null>(null);
+  const [trackActionKey, setTrackActionKey] = useState<string | null>(null);
 
   const loadEvents = async () => {
     const accessToken = getAccessToken();
@@ -583,6 +603,7 @@ const HostEventsPage = () => {
           description: event.description,
           status: event.status,
           magicLinkToken: event.magicLinkToken,
+          magicLinkRevokedAt: event.magicLinkRevokedAt,
           updatedAt: event.updatedAt,
         })),
       );
@@ -696,6 +717,168 @@ const HostEventsPage = () => {
     }
   };
 
+  const revokeMagicLink = async (eventId: string) => {
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setStatus('Login required to revoke links.');
+      return;
+    }
+
+    setActionEventId(eventId);
+    try {
+      const result = await callApi(
+        `/v1/events/${encodeURIComponent(eventId)}/magic-link/revoke`,
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+        (responsePayload) => eventResponseSchema.parse(responsePayload),
+      );
+
+      setEvents((previousEvents) =>
+        previousEvents.map((event) =>
+          event.id === eventId
+            ? {
+                ...event,
+                magicLinkToken: result.event.magicLinkToken,
+                magicLinkRevokedAt: result.event.magicLinkRevokedAt,
+                updatedAt: result.event.updatedAt,
+              }
+            : event,
+        ),
+      );
+      setStatus(`Revoked magic link for "${result.event.name}".`);
+    } catch (error) {
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message}`);
+    } finally {
+      setActionEventId(null);
+    }
+  };
+
+  const regenerateMagicLink = async (eventId: string) => {
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setStatus('Login required to regenerate links.');
+      return;
+    }
+
+    setActionEventId(eventId);
+    try {
+      const result = await callApi(
+        `/v1/events/${encodeURIComponent(eventId)}/magic-link/regenerate`,
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+        (responsePayload) => eventResponseSchema.parse(responsePayload),
+      );
+
+      setEvents((previousEvents) =>
+        previousEvents.map((event) =>
+          event.id === eventId
+            ? {
+                ...event,
+                magicLinkToken: result.event.magicLinkToken,
+                magicLinkRevokedAt: result.event.magicLinkRevokedAt,
+                updatedAt: result.event.updatedAt,
+              }
+            : event,
+        ),
+      );
+      setStatus(`Generated new magic link for "${result.event.name}".`);
+    } catch (error) {
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message}`);
+    } finally {
+      setActionEventId(null);
+    }
+  };
+
+  const loadTracksForEvent = async (eventId: string) => {
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setStatus('Login required to view event tracks.');
+      return;
+    }
+
+    setLoadingTracksEventId(eventId);
+    try {
+      const result = await callApi(
+        `/v1/events/${encodeURIComponent(eventId)}/tracks`,
+        {
+          method: 'GET',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+        (responsePayload) => eventTracksResponseSchema.parse(responsePayload),
+      );
+
+      setTracksByEventId((previousTracks) => ({
+        ...previousTracks,
+        [eventId]: result.tracks,
+      }));
+    } catch (error) {
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message}`);
+    } finally {
+      setLoadingTracksEventId(null);
+    }
+  };
+
+  const toggleTracks = async (eventId: string) => {
+    if (expandedTracksEventId === eventId) {
+      setExpandedTracksEventId(null);
+      return;
+    }
+
+    setExpandedTracksEventId(eventId);
+    if (!tracksByEventId[eventId]) {
+      await loadTracksForEvent(eventId);
+    }
+  };
+
+  const removeTrack = async (eventId: string, providerTrackId: string) => {
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setStatus('Login required to remove tracks.');
+      return;
+    }
+
+    const actionKey = `${eventId}:${providerTrackId}`;
+    setTrackActionKey(actionKey);
+    try {
+      await callApi(
+        `/v1/events/${encodeURIComponent(eventId)}/tracks/${encodeURIComponent(providerTrackId)}`,
+        {
+          method: 'DELETE',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+        (responsePayload) => removeEventTrackResponseSchema.parse(responsePayload),
+      );
+
+      setTracksByEventId((previousTracks) => ({
+        ...previousTracks,
+        [eventId]: (previousTracks[eventId] ?? []).filter(
+          (track) => track.providerTrackId !== providerTrackId,
+        ),
+      }));
+      setStatus('Track removed.');
+    } catch (error) {
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message}`);
+    } finally {
+      setTrackActionKey(null);
+    }
+  };
+
   const deleteEvent = async (eventId: string) => {
     const accessToken = getAccessToken();
     if (!accessToken) {
@@ -794,9 +977,13 @@ const HostEventsPage = () => {
                   <span>Status: {event.status}</span>
                   <span>
                     Guest link:{' '}
-                    <a href={`${window.location.origin}/event/${event.magicLinkToken}`}>
-                      {`${window.location.origin}/event/${event.magicLinkToken}`}
-                    </a>
+                    {event.magicLinkRevokedAt ? (
+                      'Revoked'
+                    ) : (
+                      <a href={`${window.location.origin}/event/${event.magicLinkToken}`}>
+                        {`${window.location.origin}/event/${event.magicLinkToken}`}
+                      </a>
+                    )}
                   </span>
                   <span>Last updated: {new Date(event.updatedAt).toLocaleString()}</span>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -821,7 +1008,56 @@ const HostEventsPage = () => {
                     >
                       {actionEventId === event.id ? 'Working...' : 'Delete'}
                     </button>
+                    <button
+                      disabled={actionEventId === event.id || Boolean(event.magicLinkRevokedAt)}
+                      onClick={() => void revokeMagicLink(event.id)}
+                      type="button"
+                    >
+                      {actionEventId === event.id ? 'Working...' : 'Revoke Link'}
+                    </button>
+                    <button
+                      disabled={actionEventId === event.id}
+                      onClick={() => void regenerateMagicLink(event.id)}
+                      type="button"
+                    >
+                      {actionEventId === event.id ? 'Working...' : 'Regenerate Link'}
+                    </button>
+                    <button
+                      disabled={loadingTracksEventId === event.id}
+                      onClick={() => void toggleTracks(event.id)}
+                      type="button"
+                    >
+                      {expandedTracksEventId === event.id ? 'Hide Tracks' : 'Manage Tracks'}
+                    </button>
                   </div>
+                  {expandedTracksEventId === event.id ? (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <p style={{ margin: 0 }}>Tracks ({tracksByEventId[event.id]?.length ?? 0})</p>
+                      {loadingTracksEventId === event.id ? <p>Loading tracks...</p> : null}
+                      {(tracksByEventId[event.id] ?? []).length > 0 ? (
+                        <ul>
+                          {(tracksByEventId[event.id] ?? []).map((track) => {
+                            const nextActionKey = `${event.id}:${track.providerTrackId}`;
+                            return (
+                              <li key={track.providerTrackId} style={{ marginBottom: '0.25rem' }}>
+                                {track.name} - {track.artist}
+                                {' · '}
+                                <button
+                                  disabled={trackActionKey === nextActionKey}
+                                  onClick={() => void removeTrack(event.id, track.providerTrackId)}
+                                  type="button"
+                                >
+                                  {trackActionKey === nextActionKey ? 'Removing...' : 'Remove'}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : loadingTracksEventId !== event.id ? (
+                        <p>No tracks in this event yet.</p>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               )}
             </li>

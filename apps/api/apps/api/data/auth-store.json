@@ -214,6 +214,24 @@
       "expiresAt": "2026-03-15T19:47:34.603Z",
       "revokedAt": null,
       "replacedByTokenId": null
+    },
+    {
+      "id": "c9ebdd83-c56b-4ce7-bc8a-8a43f7d1140b",
+      "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
+      "tokenHash": "975574b0c522b3de505e85cdf62acdb51dee4a3fb15f7291c70059acebdbc457",
+      "createdAt": "2026-02-13T20:08:14.804Z",
+      "expiresAt": "2026-03-15T20:08:14.804Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
+    },
+    {
+      "id": "856e6e39-932c-44ff-944b-d044eda524f2",
+      "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
+      "tokenHash": "2187c76442fe9ddf02b97fe7a60facde4765d936bd81c89c1e2d76b4cabfd5f8",
+      "createdAt": "2026-02-13T20:08:15.956Z",
+      "expiresAt": "2026-03-15T20:08:15.956Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
     }
   ]
 }

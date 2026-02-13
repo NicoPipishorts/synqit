@@ -8,14 +8,16 @@ import {
   eventResponseSchema,
   eventTrackSearchResponseSchema,
   eventTracksResponseSchema,
+  removeEventTrackResponseSchema,
   updateEventRequestSchema,
 } from '@synqit/shared';
-import { FastifyInstance, FastifyRequest } from 'fastify';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 
 import { eventsStore, EventRecord } from './store';
-import { decryptToken } from '../integrations/crypto';
+import { mapProviderApiError } from '../integrations/provider-errors';
 import { isSpotifyOauthLiveMode } from '../integrations/spotify';
+import { withSpotifyAccessTokenRetry, IntegrationError } from '../integrations/spotify-client';
 import {
   createSpotifyPlaylist,
   getSpotifyCurrentUser,
@@ -24,6 +26,7 @@ import {
 import {
   addSpotifyTrackToPlaylist,
   ProviderApiError,
+  removeSpotifyTrackFromPlaylist,
   searchSpotifyTracks,
 } from '../integrations/spotify-tracks';
 import { integrationStore } from '../integrations/store';
@@ -81,12 +84,70 @@ const toEventResponse = (event: EventRecord) =>
   eventResponseSchema.parse({
     event: {
       ...event,
+      magicLinkRevokedAt: event.magicLinkRevokedAt ? event.magicLinkRevokedAt.toISOString() : null,
       createdAt: event.createdAt.toISOString(),
       updatedAt: event.updatedAt.toISOString(),
       closedAt: event.closedAt ? event.closedAt.toISOString() : null,
     },
     magicLinkUrl: buildEventMagicLinkUrl(event.magicLinkToken),
   });
+
+const sendIntegrationError = (reply: FastifyReply, error: IntegrationError) => {
+  if (error.code === 'provider_not_connected') {
+    return reply.status(400).send({
+      code: error.code,
+      message: error.message,
+    });
+  }
+
+  if (
+    error.code === 'token_decrypt_failed' ||
+    error.code === 'provider_refresh_token_decrypt_failed'
+  ) {
+    return reply.status(500).send({
+      code: error.code,
+      message: error.message,
+    });
+  }
+
+  return reply.status(502).send({
+    code: error.code,
+    message: error.message,
+  });
+};
+
+const findEventForHost = (params: { eventId: string; hostUserId: string }): EventRecord | null => {
+  const event = eventsStore.findEventById(params.eventId);
+  if (!event || event.hostUserId !== params.hostUserId) {
+    return null;
+  }
+
+  return event;
+};
+
+const requireActiveMagicLinkEvent = (
+  reply: FastifyReply,
+  magicLinkToken: string,
+): EventRecord | null => {
+  const event = eventsStore.findEventByMagicLinkToken(magicLinkToken);
+  if (!event) {
+    reply.status(404).send({
+      code: 'event_not_found',
+      message: 'No event found for this link.',
+    });
+    return null;
+  }
+
+  if (event.magicLinkRevokedAt) {
+    reply.status(410).send({
+      code: 'magic_link_revoked',
+      message: 'This magic link has been revoked by the host.',
+    });
+    return null;
+  }
+
+  return event;
+};
 
 export const registerEventRoutes = async (app: FastifyInstance): Promise<void> => {
   app.post('/events', async (request, reply) => {
@@ -120,24 +181,36 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
     let providerPlaylistId: string;
     if (isSpotifyOauthLiveMode()) {
-      let accessToken: string;
       try {
-        accessToken = decryptToken(integration.accessToken);
-      } catch {
-        return reply.status(500).send({
-          code: 'token_decrypt_failed',
-          message: 'Stored provider token could not be decrypted.',
+        const createdPlaylist = await withSpotifyAccessTokenRetry({
+          userId,
+          run: async (accessToken) =>
+            createSpotifyPlaylist({
+              accessToken,
+              name: parsedBody.data.name,
+              description: parsedBody.data.description,
+            }),
         });
-      }
-
-      try {
-        const createdPlaylist = await createSpotifyPlaylist({
-          accessToken,
-          name: parsedBody.data.name,
-          description: parsedBody.data.description,
-        });
-        providerPlaylistId = createdPlaylist.providerPlaylistId;
+        providerPlaylistId = createdPlaylist.result.providerPlaylistId;
       } catch (error) {
+        if (error instanceof IntegrationError) {
+          return sendIntegrationError(reply, error);
+        }
+
+        if (error instanceof ProviderApiError) {
+          app.log.warn(
+            {
+              provider: error.provider,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+              userId,
+            },
+            'provider create playlist failed',
+          );
+          const mapped = mapProviderApiError(error);
+          return reply.status(502).send(mapped);
+        }
+
         const message = error instanceof Error ? error.message : 'Provider API error.';
         return reply.status(502).send({
           code: 'provider_playlist_create_failed',
@@ -172,6 +245,9 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     return eventListResponseSchema.parse({
       events: events.map((event) => ({
         ...event,
+        magicLinkRevokedAt: event.magicLinkRevokedAt
+          ? event.magicLinkRevokedAt.toISOString()
+          : null,
         createdAt: event.createdAt.toISOString(),
         updatedAt: event.updatedAt.toISOString(),
         closedAt: event.closedAt ? event.closedAt.toISOString() : null,
@@ -181,13 +257,9 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
   app.get('/events/link/:magicLinkToken', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = eventsStore.findEventByMagicLinkToken(magicLinkToken);
-
+    const event = requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
-      return reply.status(404).send({
-        code: 'event_not_found',
-        message: 'No event found for this link.',
-      });
+      return;
     }
 
     return eventPublicResponseSchema.parse({
@@ -204,13 +276,9 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
   app.get('/events/link/:magicLinkToken/tracks', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = eventsStore.findEventByMagicLinkToken(magicLinkToken);
-
+    const event = requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
-      return reply.status(404).send({
-        code: 'event_not_found',
-        message: 'No event found for this link.',
-      });
+      return;
     }
 
     const tracks = eventsStore.listTracksByEventId(event.id);
@@ -224,13 +292,9 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
   app.get('/events/link/:magicLinkToken/search', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = eventsStore.findEventByMagicLinkToken(magicLinkToken);
-
+    const event = requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
-      return reply.status(404).send({
-        code: 'event_not_found',
-        message: 'No event found for this link.',
-      });
+      return;
     }
 
     if (event.status !== 'open') {
@@ -248,17 +312,6 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    const integration = integrationStore.findIntegration({
-      userId: event.hostUserId,
-      provider: event.provider,
-    });
-    if (!integration) {
-      return reply.status(400).send({
-        code: 'provider_not_connected',
-        message: 'Host provider is not connected.',
-      });
-    }
-
     if (!isSpotifyOauthLiveMode()) {
       const normalizedQuery = query.toLowerCase();
       const results = MOCK_TRACKS.filter((track) => {
@@ -271,26 +324,24 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    let accessToken: string;
     try {
-      accessToken = decryptToken(integration.accessToken);
-    } catch {
-      return reply.status(500).send({
-        code: 'token_decrypt_failed',
-        message: 'Stored provider token could not be decrypted.',
-      });
-    }
-
-    try {
-      const results = await searchSpotifyTracks({
-        accessToken,
-        query,
+      const response = await withSpotifyAccessTokenRetry({
+        userId: event.hostUserId,
+        run: (accessToken) =>
+          searchSpotifyTracks({
+            accessToken,
+            query,
+          }),
       });
 
       return eventTrackSearchResponseSchema.parse({
-        results,
+        results: response.result,
       });
     } catch (error) {
+      if (error instanceof IntegrationError) {
+        return sendIntegrationError(reply, error);
+      }
+
       if (error instanceof ProviderApiError) {
         app.log.warn(
           {
@@ -303,13 +354,8 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
           },
           'provider track search failed',
         );
-
-        if (error.statusCode === 401) {
-          return reply.status(502).send({
-            code: 'provider_token_invalid',
-            message: 'Host Spotify session expired. Reconnect Spotify and try again.',
-          });
-        }
+        const mapped = mapProviderApiError(error);
+        return reply.status(502).send(mapped);
       }
 
       const message = error instanceof Error ? error.message : 'Provider API error.';
@@ -322,13 +368,9 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
   app.post('/events/link/:magicLinkToken/tracks', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = eventsStore.findEventByMagicLinkToken(magicLinkToken);
-
+    const event = requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
-      return reply.status(404).send({
-        code: 'event_not_found',
-        message: 'No event found for this link.',
-      });
+      return;
     }
 
     if (event.status !== 'open') {
@@ -371,23 +413,24 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     if (isSpotifyOauthLiveMode()) {
-      let accessToken: string;
+      let providerAccessTokenForDiagnostics: string | null = null;
       try {
-        accessToken = decryptToken(integration.accessToken);
-      } catch {
-        return reply.status(500).send({
-          code: 'token_decrypt_failed',
-          message: 'Stored provider token could not be decrypted.',
-        });
-      }
-
-      try {
-        await addSpotifyTrackToPlaylist({
-          accessToken,
-          providerPlaylistId: event.providerPlaylistId,
-          providerTrackId: parsedBody.data.providerTrackId,
+        await withSpotifyAccessTokenRetry({
+          userId: event.hostUserId,
+          run: async (accessToken) => {
+            providerAccessTokenForDiagnostics = accessToken;
+            await addSpotifyTrackToPlaylist({
+              accessToken,
+              providerPlaylistId: event.providerPlaylistId,
+              providerTrackId: parsedBody.data.providerTrackId,
+            });
+          },
         });
       } catch (error) {
+        if (error instanceof IntegrationError) {
+          return sendIntegrationError(reply, error);
+        }
+
         if (error instanceof ProviderApiError) {
           app.log.warn(
             {
@@ -402,21 +445,14 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             'provider add track failed',
           );
 
-          if (error.statusCode === 401) {
-            return reply.status(502).send({
-              code: 'provider_token_invalid',
-              message: 'Host Spotify session expired. Reconnect Spotify and try again.',
-            });
-          }
-
-          if (error.statusCode === 403) {
+          if (error.statusCode === 403 && providerAccessTokenForDiagnostics) {
             try {
               const [currentUser, playlist] = await Promise.all([
                 getSpotifyCurrentUser({
-                  accessToken,
+                  accessToken: providerAccessTokenForDiagnostics,
                 }),
                 getSpotifyPlaylistSummary({
-                  accessToken,
+                  accessToken: providerAccessTokenForDiagnostics,
                   providerPlaylistId: event.providerPlaylistId,
                 }),
               ]);
@@ -466,20 +502,16 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
                 'provider add track diagnostics lookup failed',
               );
             }
+          }
 
-            return reply.status(502).send({
+          const mapped = mapProviderApiError(error, {
+            403: {
               code: 'provider_forbidden',
               message:
                 'Spotify denied this track add. Try a different track; if it still fails, reconnect Spotify and create a new event.',
-            });
-          }
-
-          if (error.statusCode === 404) {
-            return reply.status(502).send({
-              code: 'provider_resource_not_found',
-              message: 'Spotify playlist or track was not found. Create a new event and retry.',
-            });
-          }
+            },
+          });
+          return reply.status(502).send(mapped);
         }
 
         const message = error instanceof Error ? error.message : 'Provider API error.';
@@ -527,8 +559,11 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = eventsStore.findEventById(eventId);
-    if (!event || event.hostUserId !== userId) {
+    const event = findEventForHost({
+      eventId,
+      hostUserId: userId,
+    });
+    if (!event) {
       return reply.status(404).send({
         code: 'event_not_found',
         message: 'Event not found.',
@@ -536,6 +571,134 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     return toEventResponse(event);
+  });
+
+  app.get('/events/:eventId/tracks', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const event = findEventForHost({
+      eventId,
+      hostUserId: userId,
+    });
+    if (!event) {
+      return reply.status(404).send({
+        code: 'event_not_found',
+        message: 'Event not found.',
+      });
+    }
+
+    const tracks = eventsStore.listTracksByEventId(event.id);
+    return eventTracksResponseSchema.parse({
+      tracks: tracks.map((track) => ({
+        ...track,
+        addedAt: track.addedAt.toISOString(),
+      })),
+    });
+  });
+
+  app.delete('/events/:eventId/tracks/:providerTrackId', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const providerTrackId = (request.params as { providerTrackId?: string }).providerTrackId ?? '';
+    const event = findEventForHost({
+      eventId,
+      hostUserId: userId,
+    });
+    if (!event) {
+      return reply.status(404).send({
+        code: 'event_not_found',
+        message: 'Event not found.',
+      });
+    }
+
+    if (
+      !eventsStore.hasTrack({
+        eventId: event.id,
+        providerTrackId,
+      })
+    ) {
+      return reply.status(404).send({
+        code: 'track_not_found',
+        message: 'Track not found for this event.',
+      });
+    }
+
+    if (isSpotifyOauthLiveMode()) {
+      try {
+        await withSpotifyAccessTokenRetry({
+          userId: event.hostUserId,
+          run: async (accessToken) => {
+            await removeSpotifyTrackFromPlaylist({
+              accessToken,
+              providerPlaylistId: event.providerPlaylistId,
+              providerTrackId,
+            });
+          },
+        });
+      } catch (error) {
+        if (error instanceof IntegrationError) {
+          return sendIntegrationError(reply, error);
+        }
+
+        if (error instanceof ProviderApiError) {
+          app.log.warn(
+            {
+              provider: error.provider,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+              eventId: event.id,
+              providerPlaylistId: event.providerPlaylistId,
+              providerTrackId,
+            },
+            'provider remove track failed',
+          );
+          const mapped = mapProviderApiError(error, {
+            403: {
+              code: 'provider_forbidden',
+              message: 'Spotify denied track removal for this playlist.',
+            },
+          });
+          return reply.status(502).send(mapped);
+        }
+
+        const message = error instanceof Error ? error.message : 'Provider API error.';
+        return reply.status(502).send({
+          code: 'provider_remove_track_failed',
+          message,
+        });
+      }
+    }
+
+    const removedTrack = eventsStore.removeTrackFromEvent({
+      eventId: event.id,
+      providerTrackId,
+    });
+    if (!removedTrack) {
+      return reply.status(404).send({
+        code: 'track_not_found',
+        message: 'Track not found for this event.',
+      });
+    }
+
+    return removeEventTrackResponseSchema.parse({
+      ok: true,
+      removed: true,
+      providerTrackId,
+    });
   });
 
   app.patch('/events/:eventId', async (request, reply) => {
@@ -612,6 +775,54 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
     const event = eventsStore.closeEvent({
+      eventId,
+      hostUserId: userId,
+    });
+    if (!event) {
+      return reply.status(404).send({
+        code: 'event_not_found',
+        message: 'Event not found.',
+      });
+    }
+
+    return toEventResponse(event);
+  });
+
+  app.post('/events/:eventId/magic-link/revoke', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const event = eventsStore.revokeMagicLink({
+      eventId,
+      hostUserId: userId,
+    });
+    if (!event) {
+      return reply.status(404).send({
+        code: 'event_not_found',
+        message: 'Event not found.',
+      });
+    }
+
+    return toEventResponse(event);
+  });
+
+  app.post('/events/:eventId/magic-link/regenerate', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const event = eventsStore.regenerateMagicLink({
       eventId,
       hostUserId: userId,
     });

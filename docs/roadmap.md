@@ -1,6 +1,7 @@
 Here’s a practical roadmap for Option A: Fastify + Postgres + Redis + BullMQ, built for a VPS and future growth. It’s ordered so you can ship something usable early, without painting yourself into a corner.
 
 Backlog for deferred items: `docs/backlog.md`
+Release QA checklist: `docs/qa-checklist.md`
 
 ⸻
 

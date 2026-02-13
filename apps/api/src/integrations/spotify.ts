@@ -7,6 +7,13 @@ type SpotifyOauthTokens = {
   expiresAt: Date | null;
 };
 
+type SpotifyRefreshTokens = {
+  accessToken: string;
+  refreshToken: string | null;
+  scopes: string[];
+  expiresAt: Date | null;
+};
+
 const spotifyTokenResponseSchema = z.object({
   access_token: z.string().min(1),
   token_type: z.string().min(1),
@@ -99,4 +106,54 @@ export const exchangeSpotifyAuthorizationCode = async (
   };
 };
 
-export type { SpotifyOauthTokens };
+export const refreshSpotifyAccessToken = async (
+  refreshToken: string,
+): Promise<SpotifyRefreshTokens> => {
+  if (!isSpotifyOauthLiveMode()) {
+    throw new Error(
+      'Spotify OAuth is not configured. Set SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET.',
+    );
+  }
+
+  const tokenUrl = process.env.SPOTIFY_TOKEN_URL ?? 'https://accounts.spotify.com/api/token';
+  const clientId = getSpotifyClientId();
+  const clientSecret = getSpotifyClientSecret();
+
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
+  });
+
+  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+  const response = await fetch(tokenUrl, {
+    method: 'POST',
+    headers: {
+      authorization: `Basic ${basicAuth}`,
+      'content-type': 'application/x-www-form-urlencoded',
+    },
+    body,
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as unknown;
+  if (!response.ok) {
+    const parsedError = spotifyErrorResponseSchema.safeParse(payload);
+    if (parsedError.success) {
+      throw new Error(
+        parsedError.data.error_description ?? `Spotify token error: ${parsedError.data.error}`,
+      );
+    }
+
+    throw new Error('Spotify token refresh failed.');
+  }
+
+  const parsed = spotifyTokenResponseSchema.parse(payload);
+  return {
+    accessToken: parsed.access_token,
+    refreshToken: parsed.refresh_token ?? null,
+    scopes: parsed.scope.trim() ? parsed.scope.split(/\s+/) : [],
+    expiresAt: new Date(Date.now() + parsed.expires_in * 1000),
+  };
+};
+
+export type { SpotifyOauthTokens, SpotifyRefreshTokens };

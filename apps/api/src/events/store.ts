@@ -12,6 +12,7 @@ type EventRecord = {
   name: string;
   description: string;
   magicLinkToken: string;
+  magicLinkRevokedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   closedAt: Date | null;
@@ -29,10 +30,14 @@ type EventTrackRecord = {
   addedBy: string;
 };
 
-type PersistedEventRecord = Omit<EventRecord, 'createdAt' | 'updatedAt' | 'closedAt' | 'tracks'> & {
+type PersistedEventRecord = Omit<
+  EventRecord,
+  'createdAt' | 'updatedAt' | 'closedAt' | 'tracks' | 'magicLinkRevokedAt'
+> & {
   createdAt: string;
   updatedAt: string;
   closedAt: string | null;
+  magicLinkRevokedAt: string | null;
   tracks: PersistedEventTrackRecord[];
 };
 
@@ -59,6 +64,7 @@ const toEventRecord = (event: PersistedEventRecord): EventRecord => ({
   createdAt: new Date(event.createdAt),
   updatedAt: new Date(event.updatedAt),
   closedAt: event.closedAt ? new Date(event.closedAt) : null,
+  magicLinkRevokedAt: event.magicLinkRevokedAt ? new Date(event.magicLinkRevokedAt) : null,
   tracks: Array.isArray(event.tracks)
     ? event.tracks.map((track) => ({
         ...track,
@@ -72,6 +78,7 @@ const toPersistedEventRecord = (event: EventRecord): PersistedEventRecord => ({
   createdAt: event.createdAt.toISOString(),
   updatedAt: event.updatedAt.toISOString(),
   closedAt: event.closedAt ? event.closedAt.toISOString() : null,
+  magicLinkRevokedAt: event.magicLinkRevokedAt ? event.magicLinkRevokedAt.toISOString() : null,
   tracks: event.tracks.map((track) => ({
     ...track,
     addedAt: track.addedAt.toISOString(),
@@ -83,6 +90,7 @@ const cloneEvent = (event: EventRecord): EventRecord => ({
   createdAt: new Date(event.createdAt),
   updatedAt: new Date(event.updatedAt),
   closedAt: event.closedAt ? new Date(event.closedAt) : null,
+  magicLinkRevokedAt: event.magicLinkRevokedAt ? new Date(event.magicLinkRevokedAt) : null,
   tracks: event.tracks.map((track) => ({
     ...track,
     addedAt: new Date(track.addedAt),
@@ -136,6 +144,7 @@ export const eventsStore = {
       name: params.name,
       description: params.description,
       magicLinkToken: randomBytes(24).toString('base64url'),
+      magicLinkRevokedAt: null,
       createdAt: now,
       updatedAt: now,
       closedAt: null,
@@ -224,6 +233,32 @@ export const eventsStore = {
     };
   },
 
+  removeTrackFromEvent(params: {
+    eventId: string;
+    providerTrackId: string;
+  }): EventTrackRecord | null {
+    const event = state.events.find((item) => item.id === params.eventId);
+    if (!event) {
+      return null;
+    }
+
+    const existingTrack = event.tracks.find(
+      (track) => track.providerTrackId === params.providerTrackId,
+    );
+    if (!existingTrack) {
+      return null;
+    }
+
+    event.tracks = event.tracks.filter((track) => track.providerTrackId !== params.providerTrackId);
+    event.updatedAt = new Date();
+    persistState(state);
+
+    return {
+      ...existingTrack,
+      addedAt: new Date(existingTrack.addedAt),
+    };
+  },
+
   closeEvent(params: { eventId: string; hostUserId: string }): EventRecord | null {
     const event = state.events.find(
       (item) => item.id === params.eventId && item.hostUserId === params.hostUserId,
@@ -277,6 +312,39 @@ export const eventsStore = {
 
     persistState(state);
     return true;
+  },
+
+  revokeMagicLink(params: { eventId: string; hostUserId: string }): EventRecord | null {
+    const event = state.events.find(
+      (item) => item.id === params.eventId && item.hostUserId === params.hostUserId,
+    );
+    if (!event) {
+      return null;
+    }
+
+    if (!event.magicLinkRevokedAt) {
+      event.magicLinkRevokedAt = new Date();
+      event.updatedAt = new Date();
+      persistState(state);
+    }
+
+    return cloneEvent(event);
+  },
+
+  regenerateMagicLink(params: { eventId: string; hostUserId: string }): EventRecord | null {
+    const event = state.events.find(
+      (item) => item.id === params.eventId && item.hostUserId === params.hostUserId,
+    );
+    if (!event) {
+      return null;
+    }
+
+    event.magicLinkToken = randomBytes(24).toString('base64url');
+    event.magicLinkRevokedAt = null;
+    event.updatedAt = new Date();
+    persistState(state);
+
+    return cloneEvent(event);
   },
 };
 

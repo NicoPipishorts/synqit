@@ -125,6 +125,7 @@ export const eventSchema = z.object({
   name: z.string(),
   description: z.string(),
   magicLinkToken: z.string(),
+  magicLinkRevokedAt: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
   closedAt: z.string().nullable(),
@@ -204,6 +205,13 @@ export const addEventTrackResponseSchema = z.object({
   track: eventTrackSchema,
 });
 export type AddEventTrackResponse = z.infer<typeof addEventTrackResponseSchema>;
+
+export const removeEventTrackResponseSchema = z.object({
+  ok: z.literal(true),
+  removed: z.literal(true),
+  providerTrackId: z.string(),
+});
+export type RemoveEventTrackResponse = z.infer<typeof removeEventTrackResponseSchema>;
 
 export const deleteEventResponseSchema = z.object({
   ok: z.literal(true),
