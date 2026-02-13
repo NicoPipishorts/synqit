@@ -2,11 +2,13 @@ import {
   addEventTrackRequestSchema,
   addEventTrackResponseSchema,
   createEventRequestSchema,
+  deleteEventResponseSchema,
   eventListResponseSchema,
   eventPublicResponseSchema,
   eventResponseSchema,
   eventTrackSearchResponseSchema,
   eventTracksResponseSchema,
+  updateEventRequestSchema,
 } from '@synqit/shared';
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
@@ -534,6 +536,69 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     return toEventResponse(event);
+  });
+
+  app.patch('/events/:eventId', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const parsedBody = updateEventRequestSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Event payload is invalid.',
+        details: parsedBody.error.flatten(),
+      });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const event = eventsStore.updateEvent({
+      eventId,
+      hostUserId: userId,
+      name: parsedBody.data.name,
+      description: parsedBody.data.description,
+    });
+    if (!event) {
+      return reply.status(404).send({
+        code: 'event_not_found',
+        message: 'Event not found.',
+      });
+    }
+
+    return toEventResponse(event);
+  });
+
+  app.delete('/events/:eventId', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const deleted = eventsStore.deleteEvent({
+      eventId,
+      hostUserId: userId,
+    });
+    if (!deleted) {
+      return reply.status(404).send({
+        code: 'event_not_found',
+        message: 'Event not found.',
+      });
+    }
+
+    return deleteEventResponseSchema.parse({
+      ok: true,
+      deleted: true,
+      eventId,
+    });
   });
 
   app.post('/events/:eventId/close', async (request, reply) => {

@@ -110,6 +110,12 @@ export const createEventRequestSchema = z.object({
 });
 export type CreateEventRequest = z.infer<typeof createEventRequestSchema>;
 
+export const updateEventRequestSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500).optional().default(''),
+});
+export type UpdateEventRequest = z.infer<typeof updateEventRequestSchema>;
+
 export const eventSchema = z.object({
   id: z.string(),
   hostUserId: z.string(),
@@ -198,6 +204,13 @@ export const addEventTrackResponseSchema = z.object({
   track: eventTrackSchema,
 });
 export type AddEventTrackResponse = z.infer<typeof addEventTrackResponseSchema>;
+
+export const deleteEventResponseSchema = z.object({
+  ok: z.literal(true),
+  deleted: z.literal(true),
+  eventId: z.string(),
+});
+export type DeleteEventResponse = z.infer<typeof deleteEventResponseSchema>;
 
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),

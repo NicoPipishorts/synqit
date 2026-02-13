@@ -1,76 +1,6 @@
 {
   "events": [
     {
-      "id": "6439d7bb-0b91-42fa-9423-15fd7076dec5",
-      "hostUserId": "d887e9e5-bd52-4905-b8af-50558c86e453",
-      "provider": "spotify",
-      "providerPlaylistId": "46WGRuh6JldINRcHjohIpN",
-      "status": "open",
-      "name": "test 1",
-      "description": "",
-      "magicLinkToken": "AHrI1JkWk2ePntQwoV-l5aPO0shFKNfw",
-      "createdAt": "2026-02-13T13:08:32.387Z",
-      "updatedAt": "2026-02-13T13:08:32.387Z",
-      "closedAt": null,
-      "tracks": []
-    },
-    {
-      "id": "19cf6a4c-e5a2-4d40-9c7f-ee296b84f952",
-      "hostUserId": "d887e9e5-bd52-4905-b8af-50558c86e453",
-      "provider": "spotify",
-      "providerPlaylistId": "60UlEqINfzDxgQwnrZGo7m",
-      "status": "open",
-      "name": "test mvp",
-      "description": "",
-      "magicLinkToken": "6h7Spt8K4ifzhrNgdYmle9Gh48A9yx-7",
-      "createdAt": "2026-02-13T13:44:31.582Z",
-      "updatedAt": "2026-02-13T13:44:31.582Z",
-      "closedAt": null,
-      "tracks": []
-    },
-    {
-      "id": "5477d705-de0f-4891-a750-c69a896fdcf1",
-      "hostUserId": "d887e9e5-bd52-4905-b8af-50558c86e453",
-      "provider": "spotify",
-      "providerPlaylistId": "0qqFvM6s0Lx5BgxLVSFbYS",
-      "status": "open",
-      "name": "Text MVP",
-      "description": "",
-      "magicLinkToken": "Yi5UX03-hM8WxRWf16CXrnfu1LbzcJU4",
-      "createdAt": "2026-02-13T13:54:32.709Z",
-      "updatedAt": "2026-02-13T13:54:32.709Z",
-      "closedAt": null,
-      "tracks": []
-    },
-    {
-      "id": "709c28cb-2892-4379-a32f-ffe2ab75e41a",
-      "hostUserId": "d887e9e5-bd52-4905-b8af-50558c86e453",
-      "provider": "spotify",
-      "providerPlaylistId": "2BLUx4QRP8ptBBuYeyO9qQ",
-      "status": "open",
-      "name": "Test MVP Again",
-      "description": "",
-      "magicLinkToken": "gl4rpcJwJihHoziXhHD279iJA_uJJg72",
-      "createdAt": "2026-02-13T14:00:21.524Z",
-      "updatedAt": "2026-02-13T14:00:21.524Z",
-      "closedAt": null,
-      "tracks": []
-    },
-    {
-      "id": "9c2e0acb-0547-4e99-ad3a-93004debc912",
-      "hostUserId": "d887e9e5-bd52-4905-b8af-50558c86e453",
-      "provider": "spotify",
-      "providerPlaylistId": "2i3MxPO6vsL0TLG8HDsJVi",
-      "status": "open",
-      "name": "asdfasdfasd",
-      "description": "",
-      "magicLinkToken": "FHZ4Vg_MGRveeQpSUIfwtbXi73UirQvl",
-      "createdAt": "2026-02-13T14:11:20.887Z",
-      "updatedAt": "2026-02-13T14:11:20.887Z",
-      "closedAt": null,
-      "tracks": []
-    },
-    {
       "id": "b22a95bb-1d14-4308-857c-a4b72d06de12",
       "hostUserId": "d887e9e5-bd52-4905-b8af-50558c86e453",
       "provider": "spotify",
@@ -80,7 +10,7 @@
       "description": "",
       "magicLinkToken": "1Teup89_JiG5XXxf9kGhwvNTKy10cDmQ",
       "createdAt": "2026-02-13T14:30:16.425Z",
-      "updatedAt": "2026-02-13T15:02:32.094Z",
+      "updatedAt": "2026-02-13T19:51:18.073Z",
       "closedAt": null,
       "tracks": [
         {
@@ -91,6 +21,16 @@
           "durationMs": 231013,
           "artworkUrl": "https://i.scdn.co/image/ab67616d0000b273442b53773d50e1b5369bb16c",
           "addedAt": "2026-02-13T15:02:32.094Z",
+          "addedBy": "guest"
+        },
+        {
+          "providerTrackId": "4TQeNHx85xcP9YRkvJC6K1",
+          "name": "Walkin' On The Sun",
+          "artist": "Smash Mouth",
+          "album": "Fush Yu Mang (20th Anniversary Edition)",
+          "durationMs": 207786,
+          "artworkUrl": "https://i.scdn.co/image/ab67616d0000b27366ec7d795b727cd90bd09690",
+          "addedAt": "2026-02-13T19:51:18.073Z",
           "addedBy": "guest"
         }
       ]

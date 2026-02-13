@@ -5,21 +5,21 @@
       "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
       "provider": "spotify",
       "accessToken": {
-        "iv": "Wh9lQIqM_zxddska",
-        "ciphertext": "C4KX3W4Jvq948ATAxxqbU8Mu80eqULzgKsu2OqbcWh3Glr28ueai2_X0MlB4aN4q7IKboRetiTzy60-zJsSzMKNB_IKYGE7leKbJNDUloLwFFfvubXFbZ_mhCdNMTJGnod7FU5Ftj8auc6HHHJSb6gMatYlYSWsOLpdtNxMt8n4QntemljK0oi_N51d4LlhDuuW-KsZ_Sr_P164WE3Jy01aKhMIQklP3b213KyDeNeFygBUwIoKBORitk2BCwzhtnx2_7rwSYaCJcye5ETMaq1uuPG9VdDpGpB1JuZK6wD3A94eOY3B1HbYSqjZ709jJt14k_Mv9KfwlO-Vm41Mz3ieXpqWwOCqwwWZ7OrRamU5sS9JnSEzDkzfJ6vGARoZClp_7pijGXoC1pgnPg0phOwQ8udPPkxZCeI_Pt_Z9",
-        "authTag": "1rDVDe1DStSliVi21_2xrg"
+        "iv": "A7BdA0QfDqmg9zoD",
+        "ciphertext": "V5iof6sunZSX093jiOqd_iXNXmzMZtH326iO0wUQDJfIhTRGtz8pqhMNbghZd22_JaT-abdkZWAsqw7NuBxatU5DNkHu9TSpAF0pbQrhmfaO1c0DeTa4NaLuXBMdyjalRHQRaO8uvsIr17qgcETLQZWv16M2mm-SRIDyz95arit81jcv07qMwXFxzvvm0g5Bg_mWQPORHtS4mQY2M4u13JNnlMoyxppq3JtJMA6lrcFlGj4o9GB1_evY377ZYByvUwn8axxElPHWZoZtjknod_1B2CMA4p927PHR4qyBmTdW3a6_fUbocnPrsLdXX8XfqJBSB44Nt7Sge--8neeXaPaZ6Brq9luDnkqCew4enJ5EBW-8jubryqkvg-3UV4h3jkXBm6cCyrsG5bnSJYgrhNw1pJiBBoI0vdE0hRBz",
+        "authTag": "qIbJbtjRMDBbVeA-D2SOaQ"
       },
       "refreshToken": {
-        "iv": "xWDjo_fEpK-ifao5",
-        "ciphertext": "9N0n8wlOKNksKLgfFgiPpzE1mIXche_CP_PNvCggJYBQLbNkVL5l7x4fxP9_9N-piqzuDDWs4Lwf0EmZfQaTtBVlctD0NdBJjqQ2JXDr_weOY8X33WxemJLVUiIriVDrBtCMExFFSf-sXBU3qSv_8krDwnXO3K1kJqIKdWjlN6Lfl3E",
-        "authTag": "T8ZFxkaSRolvo2aDQlIVvw"
+        "iv": "59cwO3J-D7l3H53D",
+        "ciphertext": "PI3eDvMn4LZXhQJpgvbvmUuV98Z8dxENLtPczP14K7E3XhixH_w1HA-Ly9olm4e6Ac6CH1njpF8g1EobN1mh9CJDF0TbBlgr_Y73zFC5iiaMi9uELHd8unQUELQF5IaUHZ50BPUC5o13x9rZ6VIHgMifj8GIydszg5jC_zjoaJNUKy4",
+        "authTag": "u2ckxXpwZmVf_sWaSe-aAA"
       },
       "scopes": ["playlist-read-private", "playlist-modify-private", "playlist-modify-public"],
-      "expiresAt": "2026-02-13T15:30:05.632Z",
-      "lastRefreshAt": "2026-02-13T14:30:05.632Z",
+      "expiresAt": "2026-02-13T20:51:07.231Z",
+      "lastRefreshAt": "2026-02-13T19:51:07.231Z",
       "lastError": null,
       "createdAt": "2026-02-13T12:49:18.689Z",
-      "updatedAt": "2026-02-13T14:30:05.632Z"
+      "updatedAt": "2026-02-13T19:51:07.231Z"
     },
     {
       "id": "6719c700-9aba-4c4f-a788-de28c34c7469",

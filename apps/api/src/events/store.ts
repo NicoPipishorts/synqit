@@ -243,6 +243,41 @@ export const eventsStore = {
 
     return cloneEvent(event);
   },
+
+  updateEvent(params: {
+    eventId: string;
+    hostUserId: string;
+    name: string;
+    description: string;
+  }): EventRecord | null {
+    const event = state.events.find(
+      (item) => item.id === params.eventId && item.hostUserId === params.hostUserId,
+    );
+    if (!event) {
+      return null;
+    }
+
+    event.name = params.name;
+    event.description = params.description;
+    event.updatedAt = new Date();
+    persistState(state);
+
+    return cloneEvent(event);
+  },
+
+  deleteEvent(params: { eventId: string; hostUserId: string }): boolean {
+    const beforeLength = state.events.length;
+    state.events = state.events.filter(
+      (item) => !(item.id === params.eventId && item.hostUserId === params.hostUserId),
+    );
+
+    if (beforeLength === state.events.length) {
+      return false;
+    }
+
+    persistState(state);
+    return true;
+  },
 };
 
 export type { EventRecord, EventTrackRecord };

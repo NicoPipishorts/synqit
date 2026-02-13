@@ -196,6 +196,24 @@
       "expiresAt": "2026-03-15T15:02:17.434Z",
       "revokedAt": null,
       "replacedByTokenId": null
+    },
+    {
+      "id": "6949f6f2-9158-491c-bec8-219060e6e12b",
+      "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
+      "tokenHash": "28d03e01386d104cf88cedc74f06ca37e4bfa11d4b329ce4565766ef5e18cd5f",
+      "createdAt": "2026-02-13T19:47:33.958Z",
+      "expiresAt": "2026-03-15T19:47:33.958Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
+    },
+    {
+      "id": "a1f3009a-a731-46ff-8905-139bb72fdcfb",
+      "userId": "d887e9e5-bd52-4905-b8af-50558c86e453",
+      "tokenHash": "2b79a13df541b2dd69409deb120baed1eb358f2f5496aa2a534cb3975adbbb95",
+      "createdAt": "2026-02-13T19:47:34.603Z",
+      "expiresAt": "2026-03-15T19:47:34.603Z",
+      "revokedAt": null,
+      "replacedByTokenId": null
     }
   ]
 }
