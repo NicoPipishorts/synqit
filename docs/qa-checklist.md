@@ -44,6 +44,7 @@ Use this before shipping changes to the event collaboration flow.
 
 - Expired provider token auto-refreshes and the request retries once.
 - Provider failures return structured API errors (not generic 500).
+- If linked provider playlist is missing (deleted externally), add/remove returns `provider_playlist_missing` and event is closed.
 - CORS works for local web origin.
 
 ## Regression Notes

@@ -20,12 +20,13 @@ Use this as the implementation tracker (what is done vs pending).
 - [x] Baseline Prisma migration created (`0001_baseline`) and marked applied.
 - [x] API DB startup switched to connection check (schema managed by Prisma migrations).
 - [x] Legacy JSON bootstrap/store references removed from runtime/docs/env examples.
+- [x] API regression tests added for auth/integrations/events routes.
+- [x] GitHub Actions workflow added to run API regression tests on push/PR.
+- [x] Provider playlist-missing reconciliation added (close event + explicit API error).
 
 ## Pending (Next)
 
-- [ ] Add API regression tests for auth/integrations/events routes.
 - [ ] Wire real BullMQ sync jobs from API actions.
 - [ ] Implement sync run/status model and endpoints.
 - [ ] Add job retry/idempotency tests for worker behavior.
-- [ ] Implement provider reconciliation when host playlists are deleted externally.
 - [ ] Add Apple Music provider support (post-MVP if scope stays Spotify-first).

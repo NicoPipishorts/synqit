@@ -150,7 +150,7 @@ export const addSpotifyTrackToPlaylist = async (params: {
   const payload = (await response.json().catch(() => ({}))) as unknown;
   if (!response.ok) {
     throw toSpotifyApiError({
-      action: 'remove_track',
+      action: 'add_track',
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
@@ -181,7 +181,7 @@ export const removeSpotifyTrackFromPlaylist = async (params: {
   const payload = (await response.json().catch(() => ({}))) as unknown;
   if (!response.ok) {
     throw toSpotifyApiError({
-      action: 'add_track',
+      action: 'remove_track',
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),

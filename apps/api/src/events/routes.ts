@@ -116,6 +116,37 @@ const sendIntegrationError = (reply: FastifyReply, error: IntegrationError) => {
   });
 };
 
+const reconcileMissingProviderPlaylist = async (params: {
+  app: FastifyInstance;
+  event: EventRecord;
+  operation: 'add_track' | 'remove_track';
+  providerTrackId: string;
+  providerError: unknown;
+  providerStatusCode: number;
+  magicLinkToken?: string;
+}): Promise<void> => {
+  const closedEvent = await eventsStore.closeEvent({
+    eventId: params.event.id,
+    hostUserId: params.event.hostUserId,
+  });
+
+  params.app.log.warn(
+    {
+      eventId: params.event.id,
+      hostUserId: params.event.hostUserId,
+      provider: params.event.provider,
+      providerPlaylistId: params.event.providerPlaylistId,
+      providerTrackId: params.providerTrackId,
+      providerStatusCode: params.providerStatusCode,
+      providerError: params.providerError,
+      magicLinkToken: params.magicLinkToken ?? null,
+      operation: params.operation,
+      eventClosed: Boolean(closedEvent),
+    },
+    'provider playlist missing; event reconciled as closed',
+  );
+};
+
 const findEventForHost = async (params: {
   eventId: string;
   hostUserId: string;
@@ -448,6 +479,24 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             'provider add track failed',
           );
 
+          if (error.statusCode === 404) {
+            await reconcileMissingProviderPlaylist({
+              app,
+              event,
+              operation: 'add_track',
+              providerTrackId: parsedBody.data.providerTrackId,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+              magicLinkToken,
+            });
+
+            return reply.status(409).send({
+              code: 'provider_playlist_missing',
+              message:
+                'The linked Spotify playlist no longer exists. This event was closed. Ask the host to create a new event.',
+            });
+          }
+
           if (error.statusCode === 403 && providerAccessTokenForDiagnostics) {
             try {
               const [currentUser, playlist] = await Promise.all([
@@ -669,6 +718,24 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             },
             'provider remove track failed',
           );
+
+          if (error.statusCode === 404) {
+            await reconcileMissingProviderPlaylist({
+              app,
+              event,
+              operation: 'remove_track',
+              providerTrackId,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+            });
+
+            return reply.status(409).send({
+              code: 'provider_playlist_missing',
+              message:
+                'The linked Spotify playlist no longer exists. This event was closed. Ask the host to create a new event.',
+            });
+          }
+
           const mapped = mapProviderApiError(error, {
             403: {
               code: 'provider_forbidden',

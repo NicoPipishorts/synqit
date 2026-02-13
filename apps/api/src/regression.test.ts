@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, beforeEach, describe, it } from 'node:test';
 
-
 import { closeDatabase } from './db';
 import { prisma } from './db/prisma';
 import { buildServer } from './index';
@@ -379,5 +378,133 @@ describe('API regression', () => {
       headers: authHeader(hostAccessToken),
     });
     assert.equal(deletedEventGetResponse.statusCode, 404);
+  });
+
+  it('events: missing provider playlist is reconciled by closing the event', async () => {
+    const previousClientId = process.env.SPOTIFY_CLIENT_ID;
+    const previousClientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+    const previousTokenUrl = process.env.SPOTIFY_TOKEN_URL;
+    const originalFetch = globalThis.fetch;
+    const providerPlaylistId = `missing-playlist-${randomUUID()}`;
+
+    process.env.SPOTIFY_CLIENT_ID = 'regression-live-client-id';
+    process.env.SPOTIFY_CLIENT_SECRET = 'regression-live-client-secret';
+    process.env.SPOTIFY_TOKEN_URL = 'https://accounts.spotify.com/api/token';
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const requestUrl = typeof input === 'string' ? input : input.toString();
+      const method = (init?.method ?? 'GET').toUpperCase();
+
+      if (requestUrl === process.env.SPOTIFY_TOKEN_URL && method === 'POST') {
+        return new Response(
+          JSON.stringify({
+            access_token: 'mock-access-token',
+            token_type: 'Bearer',
+            scope: 'playlist-read-private playlist-modify-private playlist-modify-public',
+            expires_in: 3600,
+            refresh_token: 'mock-refresh-token',
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      }
+
+      if (requestUrl === 'https://api.spotify.com/v1/me/playlists' && method === 'POST') {
+        return new Response(
+          JSON.stringify({
+            id: providerPlaylistId,
+          }),
+          {
+            status: 201,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      }
+
+      if (
+        requestUrl ===
+          `https://api.spotify.com/v1/playlists/${encodeURIComponent(providerPlaylistId)}/items` &&
+        method === 'POST'
+      ) {
+        return new Response(
+          JSON.stringify({
+            error: {
+              status: 404,
+              message: 'Not found.',
+            },
+          }),
+          {
+            status: 404,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      }
+
+      throw new Error(`Unexpected provider request in regression test: ${method} ${requestUrl}`);
+    }) as typeof fetch;
+
+    try {
+      const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+      const registerBody = await registerUser(app, email);
+      const hostAccessToken = registerBody.tokens.accessToken;
+
+      await connectSpotify(app, hostAccessToken);
+
+      const createEventResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/events',
+        headers: authHeader(hostAccessToken),
+        payload: {
+          name: 'Missing Playlist Regression Event',
+          description: 'Event used to verify missing playlist reconciliation.',
+        },
+      });
+      assert.equal(createEventResponse.statusCode, 200);
+      const createEventBody = parseBody(createEventResponse.body) as {
+        event: { id: string; magicLinkToken: string };
+      };
+      const eventId = createEventBody.event.id;
+      const magicLinkToken = createEventBody.event.magicLinkToken;
+
+      const addTrackResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/events/link/${magicLinkToken}/tracks`,
+        payload: {
+          providerTrackId: 'spotify-track-missing-playlist',
+          name: 'Any Song',
+          artist: 'Any Artist',
+          album: 'Any Album',
+          durationMs: 180000,
+          artworkUrl: null,
+        },
+      });
+      assert.equal(addTrackResponse.statusCode, 409);
+      const addTrackBody = parseBody(addTrackResponse.body) as { code: string };
+      assert.equal(addTrackBody.code, 'provider_playlist_missing');
+
+      const hostEventResponse = await app.inject({
+        method: 'GET',
+        url: `/v1/events/${eventId}`,
+        headers: authHeader(hostAccessToken),
+      });
+      assert.equal(hostEventResponse.statusCode, 200);
+      const hostEventBody = parseBody(hostEventResponse.body) as {
+        event: { status: string };
+      };
+      assert.equal(hostEventBody.event.status, 'closed');
+    } finally {
+      globalThis.fetch = originalFetch;
+      process.env.SPOTIFY_CLIENT_ID = previousClientId;
+      process.env.SPOTIFY_CLIENT_SECRET = previousClientSecret;
+      process.env.SPOTIFY_TOKEN_URL = previousTokenUrl;
+    }
   });
 });
