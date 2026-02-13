@@ -2,6 +2,7 @@ Here’s a practical roadmap for Option A: Fastify + Postgres + Redis + BullMQ, 
 
 Backlog for deferred items: `docs/backlog.md`
 Release QA checklist: `docs/qa-checklist.md`
+Implementation progress checklist: `docs/progress-checklist.md`
 
 ⸻
 

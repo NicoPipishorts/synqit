@@ -24,7 +24,6 @@ Use this file for deferred work that is intentionally out of the current impleme
 - Provider disconnect hygiene:
   When disconnecting a provider, decide whether to archive, lock, or keep existing events read-only.
 
-## Data Layer Migration
+## Data Layer
 
-- Move file-backed stores to DB:
-  Replace JSON stores for auth, integrations, and events with Prisma/Postgres models and migrations.
+- Keep Prisma schema and migrations as the single source of truth for DB changes.
