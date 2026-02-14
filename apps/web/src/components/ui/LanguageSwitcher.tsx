@@ -25,7 +25,9 @@ const LANGUAGE_OPTIONS: LanguageOption[] = [
   },
 ];
 
-const FLAG_IMAGE_CLASS = 'h-5 w-7 rounded-[2px] object-contain shadow-[0_1px_2px_rgba(0,0,0,0.22)]';
+const FLAG_FRAME_CLASS =
+  'h-5 w-7 overflow-hidden rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.22)]';
+const FLAG_IMAGE_CLASS = 'h-full w-full object-cover';
 
 export const LanguageSwitcher = () => {
   const { locale, setLocale, t } = useI18n();
@@ -65,7 +67,9 @@ export const LanguageSwitcher = () => {
         aria-expanded={isOpen}
         className="relative inline-flex h-12 w-12 items-center justify-center transition hover:opacity-80"
       >
-        <img src={activeOption.iconSrc} alt={activeOption.iconAlt} className={FLAG_IMAGE_CLASS} />
+        <span className={FLAG_FRAME_CLASS}>
+          <img src={activeOption.iconSrc} alt={activeOption.iconAlt} className={FLAG_IMAGE_CLASS} />
+        </span>
       </button>
       {isOpen ? (
         <div className="absolute left-1/2 z-30 mt-2 -translate-x-1/2 rounded-2xl border border-app-border bg-app-elevated p-1.5 shadow-xl dark:border-app-border dark:bg-app-card">
@@ -84,9 +88,10 @@ export const LanguageSwitcher = () => {
                   isActive ? 'bg-brand-lime/20 dark:bg-brand-lime/25' : ''
                 }`}
               >
-                <span className="flex items-center gap-2 h-5 w-7">
-                  <img src={option.iconSrc} alt={option.iconAlt} className={FLAG_IMAGE_CLASS} />
-                  <span className="sr-only">{t(option.nameKey)}</span>
+                <span className="flex items-center gap-2">
+                  <span className={FLAG_FRAME_CLASS}>
+                    <img src={option.iconSrc} alt={option.iconAlt} className={FLAG_IMAGE_CLASS} />
+                  </span>
                 </span>
               </button>
             );

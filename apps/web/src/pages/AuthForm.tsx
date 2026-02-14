@@ -5,6 +5,25 @@ import { useI18n } from '../hooks/useI18n';
 import { callApi, toApiError } from '../lib/api';
 import { storeAuth } from '../lib/auth';
 
+const getPasswordStrengthScore = (password: string): number => {
+  let score = 0;
+
+  if (password.length >= 8) {
+    score += 1;
+  }
+  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) {
+    score += 1;
+  }
+  if (/\d/.test(password)) {
+    score += 1;
+  }
+  if (/[^A-Za-z0-9]/.test(password)) {
+    score += 1;
+  }
+
+  return score;
+};
+
 export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/auth/login' }) => {
   const navigate = useNavigate();
   const { t } = useI18n();
@@ -15,6 +34,25 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<'error' | 'success' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const passwordStrengthScore = isLogin ? 0 : getPasswordStrengthScore(password);
+
+  const passwordStrengthLabelKey =
+    passwordStrengthScore >= 4
+      ? 'auth.passwordStrengthStrong'
+      : passwordStrengthScore >= 3
+        ? 'auth.passwordStrengthGood'
+        : passwordStrengthScore >= 2
+          ? 'auth.passwordStrengthFair'
+          : 'auth.passwordStrengthWeak';
+
+  const passwordStrengthAccentClass =
+    passwordStrengthScore >= 4
+      ? 'text-[#6d9600] dark:text-[#d5ff5c]'
+      : passwordStrengthScore >= 3
+        ? 'text-[#86b300] dark:text-[#d5ff5c]'
+        : passwordStrengthScore >= 2
+          ? 'text-[#b18400] dark:text-[#ffd95a]'
+          : 'text-[#b41563] dark:text-[#ff8ac0]';
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -58,9 +96,6 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
           <p className="text-sm text-app-text-secondary sm:text-base">
             {isLogin ? t('auth.loginLead') : t('auth.registerLead')}
           </p>
-          <Link to="/" className="text-sm font-semibold text-brand-pink hover:text-[#d12074]">
-            {t('auth.backToProduct')}
-          </Link>
         </div>
 
         <form
@@ -99,6 +134,38 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
               className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-app-text outline-none transition focus:border-brand-pink"
               placeholder={t('auth.passwordPlaceholder')}
             />
+            {!isLogin && password.length > 0 ? (
+              <div className="grid gap-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-app-text-secondary">{t('auth.passwordStrengthLabel')}</span>
+                  <span className={`font-semibold ${passwordStrengthAccentClass}`}>
+                    {t(passwordStrengthLabelKey)}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-1">
+                  {Array.from({ length: 4 }, (_, index) => {
+                    const isActive = index < passwordStrengthScore;
+                    const activeClass =
+                      passwordStrengthScore >= 4
+                        ? 'bg-brand-lime'
+                        : passwordStrengthScore >= 3
+                          ? 'bg-brand-lime/70'
+                          : passwordStrengthScore >= 2
+                            ? 'bg-[#ffc400]'
+                            : 'bg-brand-pink';
+
+                    return (
+                      <span
+                        key={index}
+                        className={`h-1.5 rounded-full transition ${
+                          isActive ? activeClass : 'bg-neutral-300/75 dark:bg-neutral-700/75'
+                        }`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </label>
 
           <button
