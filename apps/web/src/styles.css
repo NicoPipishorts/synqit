@@ -1,0 +1,137 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-white: #fefefe;
+  --color-brand-dark: #222222;
+  --color-brand-lime: #c6ff00;
+  --color-brand-pink: #ff2e8b;
+
+  --color-light-bg: #fefefe;
+  --color-light-surface: #f5f5f5;
+  --color-light-elevated: #ffffff;
+  --color-light-inverse: #222222;
+  --color-light-text: #222222;
+  --color-light-text-secondary: #5a5a5a;
+  --color-light-text-muted: #8a8a8a;
+  --color-light-text-inverse: #fefefe;
+  --color-light-border: #eaeaea;
+  --color-light-border-strong: #dddddd;
+
+  --color-dark-bg: #111111;
+  --color-dark-surface: #1a1a1a;
+  --color-dark-card: #1f1f1f;
+  --color-dark-elevated: #222222;
+  --color-dark-text: #fefefe;
+  --color-dark-text-secondary: #cfcfcf;
+  --color-dark-text-muted: #9a9a9a;
+  --color-dark-border: #2a2a2a;
+  --color-dark-border-strong: #333333;
+
+  --color-app-bg: var(--syn-bg);
+  --color-app-surface: var(--syn-surface);
+  --color-app-card: var(--syn-card);
+  --color-app-elevated: var(--syn-elevated);
+  --color-app-text: var(--syn-text);
+  --color-app-text-secondary: var(--syn-text-secondary);
+  --color-app-text-muted: var(--syn-text-muted);
+  --color-app-border: var(--syn-border);
+  --color-app-border-strong: var(--syn-border-strong);
+  --color-app-success: var(--syn-success);
+  --color-app-error: var(--syn-error);
+}
+
+:root {
+  color-scheme: light;
+  --syn-bg: #fefefe;
+  --syn-surface: #f5f5f5;
+  --syn-card: #ffffff;
+  --syn-elevated: #ffffff;
+  --syn-text: #222222;
+  --syn-text-secondary: #5a5a5a;
+  --syn-text-muted: #8a8a8a;
+  --syn-border: #eaeaea;
+  --syn-border-strong: #dddddd;
+  --syn-focus-ring: rgba(198, 255, 0, 0.45);
+  --syn-success: #c6ff00;
+  --syn-error: #ff2e8b;
+  --syn-warning: #ffc400;
+  --syn-info: #3aa0ff;
+  --syn-glow-lime: rgba(198, 255, 0, 0.35);
+  --syn-glow-pink: rgba(255, 46, 139, 0.35);
+}
+
+:root.dark {
+  color-scheme: dark;
+  --syn-bg: #111111;
+  --syn-surface: #1a1a1a;
+  --syn-card: #1f1f1f;
+  --syn-elevated: #222222;
+  --syn-text: #fefefe;
+  --syn-text-secondary: #cfcfcf;
+  --syn-text-muted: #9a9a9a;
+  --syn-border: #2a2a2a;
+  --syn-border-strong: #333333;
+  --syn-focus-ring: rgba(198, 255, 0, 0.5);
+  --syn-success: #c6ff00;
+  --syn-error: #ff2e8b;
+  --syn-warning: #ffc400;
+  --syn-info: #3aa0ff;
+  --syn-glow-lime: rgba(198, 255, 0, 0.35);
+  --syn-glow-pink: rgba(255, 46, 139, 0.35);
+}
+
+@layer utilities {
+  .bg-brand-gradient {
+    background-image: linear-gradient(135deg, #c6ff00 0%, #ff2e8b 100%);
+  }
+
+  .shadow-glow-lime {
+    box-shadow:
+      0 10px 28px -10px var(--syn-glow-lime),
+      0 2px 8px -6px rgba(0, 0, 0, 0.28);
+  }
+
+  .shadow-glow-pink {
+    box-shadow:
+      0 10px 28px -10px var(--syn-glow-pink),
+      0 2px 8px -6px rgba(0, 0, 0, 0.28);
+  }
+
+  .shadow-soft-lift {
+    box-shadow:
+      0 10px 24px -16px rgba(34, 34, 34, 0.35),
+      0 3px 8px -6px rgba(34, 34, 34, 0.28);
+  }
+
+  .focus-ring-brand:focus-visible {
+    outline: 2px solid var(--syn-focus-ring);
+    outline-offset: 2px;
+  }
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--syn-bg);
+  color: var(--syn-text);
+  font-family:
+    "General Sans",
+    "Satoshi",
+    "Manrope",
+    "Avenir Next",
+    "Segoe UI",
+    sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}

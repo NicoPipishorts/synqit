@@ -20,21 +20,38 @@ import {
 } from '@synqit/shared';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
-  Link,
-  Outlet,
-  RouterProvider,
   createRootRoute,
   createRoute,
   createRouter,
+  Link,
+  Outlet,
+  redirect,
+  RouterProvider,
   useParams,
+  useRouterState,
 } from '@tanstack/react-router';
-import { FormEvent, StrictMode, useCallback, useEffect, useState } from 'react';
+import { motion, type Variants } from 'framer-motion';
+import { Moon, Sun, UserRound } from 'lucide-react';
+import {
+  FormEvent,
+  ReactNode,
+  StrictMode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createRoot } from 'react-dom/client';
+import './styles.css';
 
 const queryClient = new QueryClient();
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 const AUTH_STORAGE_KEY = 'synqit.auth.v1';
+const AUTH_CHANGED_EVENT = 'synqit:auth-changed';
+const THEME_STORAGE_KEY = 'synqit.theme.v1';
 type Provider = (typeof providerSchema.options)[number];
+type Theme = 'light' | 'dark';
 
 type AppleDeveloperTokenResponse = {
   provider: 'apple';
@@ -143,6 +160,27 @@ type StoredAuth = {
   userEmail: string;
 };
 
+const emitAuthChanged = (): void => {
+  window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
+};
+
+const loadTheme = (): Theme => {
+  const raw = localStorage.getItem(THEME_STORAGE_KEY);
+  if (raw === 'light' || raw === 'dark') {
+    return raw;
+  }
+
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+};
+
+const applyTheme = (theme: Theme): void => {
+  if (theme === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+};
+
 const loadAuth = (): StoredAuth | null => {
   const raw = localStorage.getItem(AUTH_STORAGE_KEY);
   if (!raw) {
@@ -174,11 +212,13 @@ const storeAuth = (authResponse: unknown): StoredAuth => {
   };
 
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuth));
+  emitAuthChanged();
   return nextAuth;
 };
 
 const clearAuth = (): void => {
   localStorage.removeItem(AUTH_STORAGE_KEY);
+  emitAuthChanged();
 };
 
 const toApiError = (value: unknown): ApiError => {
@@ -230,6 +270,624 @@ const callApi = async <TResponse,>(
 };
 
 const getAccessToken = (): string | null => loadAuth()?.accessToken ?? null;
+
+const isAuthenticated = (): boolean => Boolean(loadAuth()?.accessToken);
+
+const getInitials = (email: string): string => {
+  const trimmed = email.trim();
+  if (!trimmed) {
+    return 'U';
+  }
+  const segments =
+    trimmed
+      .split('@')[0]
+      ?.split(/[._-]+/)
+      .filter(Boolean) ?? [];
+  if (segments.length === 0) {
+    return trimmed.slice(0, 1).toUpperCase();
+  }
+  if (segments.length === 1) {
+    return segments[0].slice(0, 2).toUpperCase();
+  }
+  return `${segments[0][0] ?? ''}${segments[1][0] ?? ''}`.toUpperCase();
+};
+
+type PillVariant = 'lime' | 'pink';
+type CtaVariant = 'lime' | 'outline' | 'pink';
+type HeroCtaSize = 'md' | 'sm';
+
+const HERO_PILL_VARIANTS: Record<PillVariant, string> = {
+  lime: 'border-brand-lime bg-brand-lime/20 text-[#7aa300] dark:text-[#7aa300] shadow-soft-lift dark:shadow-glow-lime',
+  pink: 'border-brand-pink bg-brand-pink/15 text-[#b41563] dark:text-[#ff63ac] shadow-soft-lift dark:shadow-glow-pink',
+};
+
+const HERO_CTA_VARIANTS: Record<CtaVariant, string> = {
+  lime: 'bg-brand-lime text-brand-dark shadow-soft-lift hover:bg-[#b2e600] dark:bg-[#aee000] dark:text-brand-dark dark:hover:bg-[#9fd100] dark:shadow-glow-lime',
+  outline:
+    'border border-app-border bg-app-elevated text-app-text shadow-soft-lift hover:border-brand-pink dark:border-app-border dark:text-brand-white dark:shadow-glow-pink',
+  pink: 'bg-brand-pink text-brand-white shadow-soft-lift hover:bg-[#e0267c] dark:bg-brand-pink dark:text-brand-white dark:hover:bg-[#d12074] dark:shadow-glow-pink',
+};
+
+const HERO_CTA_SIZE_VARIANTS: Record<HeroCtaSize, string> = {
+  md: 'rounded-xl px-5 py-3 text-sm',
+  sm: 'rounded-lg px-3 py-2 text-sm',
+};
+
+const SECTION_REVEAL_VARIANTS: Variants = {
+  hidden: { opacity: 0, y: 42 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.92,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
+
+const GRID_STAGGER_VARIANTS: Variants = {
+  hidden: {},
+  visible: {
+    transition: {
+      staggerChildren: 0.12,
+      delayChildren: 0.12,
+    },
+  },
+};
+
+const GRID_ITEM_VARIANTS: Variants = {
+  hidden: { opacity: 0, y: 18 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.72,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
+
+const HeroPill = ({ variant, children }: { variant: PillVariant; children: ReactNode }) => (
+  <span
+    className={`inline-flex w-fit items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide ${HERO_PILL_VARIANTS[variant]}`}
+  >
+    {children}
+  </span>
+);
+
+const HeroCtaLink = ({
+  to,
+  variant,
+  size = 'md',
+  onClick,
+  className,
+  children,
+}: {
+  to: string;
+  variant: CtaVariant;
+  size?: HeroCtaSize;
+  onClick?: () => void;
+  className?: string;
+  children: ReactNode;
+}) => (
+  <Link
+    to={to}
+    onClick={onClick}
+    className={`${HERO_CTA_SIZE_VARIANTS[size]} font-semibold transition ${HERO_CTA_VARIANTS[variant]} ${
+      className ?? ''
+    }`}
+  >
+    {children}
+  </Link>
+);
+
+const BrandLogo = ({ className }: { className?: string }) => (
+  <img
+    src="/assets/logos/logo-full.png"
+    alt="Synqit"
+    className={className ?? 'h-8 w-auto'}
+    loading="eager"
+    decoding="async"
+  />
+);
+
+const ThemeToggle = () => {
+  const [theme, setTheme] = useState<Theme>(() => loadTheme());
+  const isDark = theme === 'dark';
+
+  useEffect(() => {
+    applyTheme(theme);
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  }, [theme]);
+
+  return (
+    <button
+      onClick={() => setTheme((previousTheme) => (previousTheme === 'dark' ? 'light' : 'dark'))}
+      type="button"
+      className="group inline-flex h-8 w-14 items-center rounded-full border border-app-border bg-app-elevated px-1 shadow-soft-lift transition dark:border-app-border dark:bg-app-elevated dark:shadow-glow-lime"
+      aria-label="Toggle light and dark mode"
+    >
+      <span
+        className={`flex h-6 w-6 items-center justify-center rounded-full bg-brand-dark text-brand-white transition-transform dark:bg-brand-white dark:text-brand-dark ${
+          isDark ? 'translate-x-6' : 'translate-x-0'
+        }`}
+      >
+        {isDark ? <Moon size={14} /> : <Sun size={14} />}
+      </span>
+    </button>
+  );
+};
+
+const AccountMenu = () => {
+  const [auth, setAuth] = useState<StoredAuth | null>(() => loadAuth());
+  const [isOpen, setIsOpen] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const syncAuth = () => setAuth(loadAuth());
+    window.addEventListener(AUTH_CHANGED_EVENT, syncAuth);
+    window.addEventListener('storage', syncAuth);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, syncAuth);
+      window.removeEventListener('storage', syncAuth);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (!containerRef.current) {
+        return;
+      }
+      if (!containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, []);
+
+  const logout = async () => {
+    if (!auth) {
+      clearAuth();
+      setIsOpen(false);
+      return;
+    }
+
+    setIsBusy(true);
+    try {
+      const refreshPayload = refreshTokenRequestSchema.parse({
+        refreshToken: auth.refreshToken,
+      });
+
+      await callApi(
+        '/v1/auth/logout',
+        {
+          method: 'POST',
+          body: JSON.stringify(refreshPayload),
+        },
+        (payload) => payload,
+      ).catch(() => undefined);
+    } finally {
+      clearAuth();
+      setAuth(null);
+      setIsOpen(false);
+      setIsBusy(false);
+    }
+  };
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((previousValue) => !previousValue)}
+        className="flex h-12 w-12 items-center justify-center rounded-full border border-app-border bg-app-elevated text-sm font-bold text-brand-dark shadow-soft-lift transition hover:border-brand-pink dark:border-app-border dark:bg-app-elevated dark:text-brand-white dark:shadow-glow-pink"
+        aria-label="Open account menu"
+      >
+        {auth ? getInitials(auth.userEmail) : <UserRound size={20} aria-hidden="true" />}
+      </button>
+      {isOpen ? (
+        <div className="absolute right-0 z-30 mt-2 w-64 rounded-2xl border border-app-border bg-app-elevated p-3 shadow-xl dark:border-app-border dark:bg-app-card">
+          {auth ? (
+            <>
+              <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
+                {auth.userEmail}
+              </p>
+              <div className="mt-2 grid gap-1 text-sm">
+                <Link
+                  to="/dashboard"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  Dashboard
+                </Link>
+                <Link
+                  to="/providers"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  Connections
+                </Link>
+                <Link
+                  to="/events"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  My Events
+                </Link>
+                <Link
+                  to="/events/new"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  Create Event
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => void logout()}
+                  disabled={isBusy}
+                  className="mt-1 rounded-lg bg-brand-dark px-3 py-2 text-left text-brand-white transition hover:bg-[#111111] disabled:opacity-60 dark:bg-brand-white dark:text-brand-dark"
+                >
+                  {isBusy ? 'Logging out...' : 'Logout'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="grid gap-2 text-sm">
+              <p className="text-neutral-600 dark:text-neutral-300">Account access</p>
+              <HeroCtaLink
+                to="/auth/login"
+                variant="lime"
+                size="sm"
+                onClick={() => setIsOpen(false)}
+                className="text-center"
+              >
+                Login
+              </HeroCtaLink>
+              <Link
+                to="/auth/register"
+                onClick={() => setIsOpen(false)}
+                className="rounded-lg border border-app-border px-3 py-2 transition hover:border-brand-lime dark:border-app-border"
+              >
+                Create account
+              </Link>
+            </div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+const PlatformPreview = () => {
+  const mobileShots = ['Guest Add Track', 'Magic Link View', 'Event Queue'];
+  const tabletShots = ['Host Event List', 'Provider Connect', 'Track Moderation'];
+  const desktopShots = ['Campaign Overview', 'Live Queue Control', 'Event Detail Analytics'];
+
+  const renderShot = (label: string, aspectClassName: string) => (
+    <div
+      key={label}
+      className={`overflow-hidden rounded-2xl border border-app-border bg-brand-gradient p-2 shadow-soft-lift dark:border-app-border ${aspectClassName}`}
+    >
+      <div className="flex h-full flex-col rounded-xl bg-app-elevated/90 p-3 dark:bg-app-card/90">
+        <div className="mb-3 flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-brand-pink/80" />
+          <span className="h-2 w-2 rounded-full bg-brand-lime/80" />
+          <span className="h-2 w-2 rounded-full bg-app-border" />
+        </div>
+        <div className="mt-auto text-xs font-semibold text-brand-dark dark:text-brand-white">
+          {label}
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="grid gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:hidden">
+        {mobileShots.map((label) => renderShot(label, 'aspect-[9/16]'))}
+      </div>
+      <div className="hidden grid-cols-3 gap-3 sm:grid lg:hidden">
+        {tabletShots.map((label) => renderShot(label, 'aspect-[4/3]'))}
+      </div>
+      <div className="hidden grid-cols-3 gap-3 lg:grid">
+        {desktopShots.map((label) => renderShot(label, 'aspect-[16/10]'))}
+      </div>
+    </div>
+  );
+};
+
+const HomePage = () => (
+  <div className="mx-auto grid w-full max-w-6xl gap-28 px-4 py-12 sm:gap-32 sm:px-6 sm:py-16 lg:gap-40 lg:px-8 lg:py-20">
+    <div className="fixed left-4 top-4 z-20 sm:left-6 sm:top-6">
+      <Link to="/" aria-label="Synqit home" className="inline-flex">
+        <BrandLogo className="h-10 w-auto sm:h-20" />
+      </Link>
+    </div>
+    <motion.section
+      initial="hidden"
+      animate="visible"
+      variants={SECTION_REVEAL_VARIANTS}
+      className="relative overflow-hidden rounded-4xl border border-app-border bg-app-elevated px-5 py-12 shadow-soft-lift dark:bg-app-card sm:px-8 sm:py-14 lg:px-12 lg:py-16"
+    >
+      <div className="pointer-events-none absolute -left-12 top-12 h-40 w-40 rounded-full bg-brand-pink/20 blur-2xl" />
+      <div className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-brand-lime/25 blur-3xl" />
+
+      <div className="relative grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
+        <div className="grid gap-7">
+          <div className="flex flex-wrap items-center gap-2">
+            <HeroPill variant="lime">Shared Playlist MVP</HeroPill>
+            <HeroPill variant="pink">Magic Link Guest Flow</HeroPill>
+          </div>
+          <h1 className="max-w-4xl text-4xl font-black leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl lg:text-6xl">
+            Collaborative event playlists, without forcing guests to sign up.
+          </h1>
+          <p className="max-w-2xl text-base text-neutral-700 dark:text-neutral-300 sm:text-lg">
+            Synqit gives hosts a shareable link. Guests open it, search songs, and contribute in
+            seconds while tracks land directly in the host provider playlist.
+          </p>
+          <div className="flex flex-wrap items-center gap-3.5">
+            <HeroCtaLink to="/auth/register" variant="lime">
+              Start as host
+            </HeroCtaLink>
+            <HeroCtaLink to="/auth/login" variant="outline">
+              Login
+            </HeroCtaLink>
+          </div>
+          <p className="text-xs text-app-text-muted sm:text-sm">
+            Built for fast guest contribution on mobile, tablet, and desktop.
+          </p>
+        </div>
+
+        <div className="grid gap-5 rounded-2xl border border-app-border bg-app-bg/80 p-4 backdrop-blur sm:p-5 dark:bg-app-elevated/70">
+          <PlatformPreview />
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              ['Quick share', 'Magic link'],
+              ['Guest friction', 'Zero login'],
+              ['Track routing', 'Host provider'],
+              ['Setup time', '< 1 minute'],
+            ].map(([label, value]) => (
+              <div
+                key={label}
+                className="rounded-xl border border-app-border bg-app-elevated px-3 py-2 dark:bg-app-card"
+              >
+                <p className="text-xs text-app-text-muted">{label}</p>
+                <p className="text-sm font-semibold">{value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </motion.section>
+
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.15 }}
+      variants={SECTION_REVEAL_VARIANTS}
+      className="grid gap-7"
+    >
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 className="text-2xl font-bold text-brand-dark dark:text-brand-white sm:text-3xl">
+          Why hosts choose Synqit for event playlists
+        </h2>
+        <p className="max-w-2xl text-sm text-app-text-secondary sm:text-base">
+          Structured for clarity and speed: create, share, collect tracks, moderate.
+        </p>
+      </div>
+      <motion.div
+        variants={GRID_STAGGER_VARIANTS}
+        className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6"
+      >
+        {[
+          { value: '1 link', label: 'Guest entry point' },
+          { value: '< 30s', label: 'Typical guest add flow' },
+          { value: '2 providers', label: 'Spotify + Apple Music' },
+          { value: 'Host control', label: 'Edit, revoke, close' },
+        ].map((item) => (
+          <motion.article
+            key={item.label}
+            variants={GRID_ITEM_VARIANTS}
+            className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card"
+          >
+            <p className="text-2xl font-black tracking-tight">{item.value}</p>
+            <p className="mt-1 text-sm text-app-text-secondary">{item.label}</p>
+          </motion.article>
+        ))}
+      </motion.div>
+    </motion.section>
+
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.15 }}
+      variants={SECTION_REVEAL_VARIANTS}
+      className="grid gap-7"
+    >
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h2 className="text-2xl font-bold text-brand-dark dark:text-brand-white sm:text-3xl">
+          How it works
+        </h2>
+        <HeroPill variant="lime">Mobile-first flow</HeroPill>
+      </div>
+      <motion.div variants={GRID_STAGGER_VARIANTS} className="grid gap-5 lg:grid-cols-3 lg:gap-6">
+        {[
+          {
+            step: '01',
+            title: 'Host sets up event',
+            body: 'Connect provider, create the event playlist, and generate a magic link.',
+          },
+          {
+            step: '02',
+            title: 'Guests add tracks',
+            body: 'Guests open the link and contribute songs from the host provider catalog.',
+          },
+          {
+            step: '03',
+            title: 'Host curates live',
+            body: 'Host reviews tracks, removes items, and closes the event when ready.',
+          },
+        ].map((item) => (
+          <motion.article
+            key={item.step}
+            variants={GRID_ITEM_VARIANTS}
+            className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card"
+          >
+            <p className="text-xs font-black tracking-wider text-app-text-muted">{item.step}</p>
+            <h3 className="mt-2 text-lg font-semibold">{item.title}</h3>
+            <p className="mt-2 text-sm text-app-text-secondary">{item.body}</p>
+          </motion.article>
+        ))}
+      </motion.div>
+    </motion.section>
+
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.15 }}
+      variants={SECTION_REVEAL_VARIANTS}
+      className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6"
+    >
+      {[
+        {
+          title: 'Host-first setup',
+          body: 'Connect provider, create event, copy the magic link in under a minute.',
+        },
+        {
+          title: 'Guest-friendly',
+          body: 'Guests open the link, search tracks, and contribute without account creation.',
+        },
+        {
+          title: 'Provider aligned',
+          body: 'Tracks are searched against and added to the host provider account directly.',
+        },
+      ].map((item) => (
+        <motion.article
+          key={item.title}
+          variants={GRID_ITEM_VARIANTS}
+          className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:border-app-border dark:bg-app-card"
+        >
+          <h3 className="text-lg font-semibold">{item.title}</h3>
+          <p className="mt-2 text-sm text-app-text-secondary">{item.body}</p>
+        </motion.article>
+      ))}
+    </motion.section>
+
+    <motion.section
+      initial="hidden"
+      whileInView="visible"
+      viewport={{ once: true, amount: 0.15 }}
+      variants={SECTION_REVEAL_VARIANTS}
+      className="rounded-[2rem] border border-app-border bg-brand-gradient p-[1px] shadow-soft-lift"
+    >
+      <div className="rounded-[calc(2rem-1px)] bg-app-elevated px-5 py-10 dark:bg-app-card sm:px-8 sm:py-12">
+        <div className="grid gap-7 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="grid gap-3">
+            <HeroPill variant="pink">Ready to test your first event?</HeroPill>
+            <h2 className="text-2xl font-bold text-brand-dark dark:text-brand-white sm:text-3xl">
+              Launch a host event and start collecting tracks today.
+            </h2>
+            <p className="max-w-2xl text-sm text-app-text-secondary sm:text-base">
+              Start with your own account, connect your provider, and share one link with guests.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <HeroCtaLink to="/auth/register" variant="lime">
+              Create host account
+            </HeroCtaLink>
+            <HeroCtaLink to="/auth/login" variant="outline">
+              I already have an account
+            </HeroCtaLink>
+          </div>
+        </div>
+      </div>
+    </motion.section>
+  </div>
+);
+
+const AppShell = () => {
+  const auth = useMemo(() => loadAuth(), []);
+  const [hasSession, setHasSession] = useState(Boolean(auth));
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const isPublicHome = pathname === '/';
+
+  useEffect(() => {
+    applyTheme(loadTheme());
+  }, []);
+
+  useEffect(() => {
+    const onAuthChanged = () => setHasSession(isAuthenticated());
+    window.addEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+    window.addEventListener('storage', onAuthChanged);
+    return () => {
+      window.removeEventListener(AUTH_CHANGED_EVENT, onAuthChanged);
+      window.removeEventListener('storage', onAuthChanged);
+    };
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-app-bg text-app-text transition-colors">
+      {isPublicHome ? (
+        <>
+          <div className="fixed right-4 top-4 z-30 flex items-center gap-2 sm:right-6 sm:top-6">
+            <ThemeToggle />
+            <AccountMenu />
+          </div>
+          <main>
+            <Outlet />
+          </main>
+        </>
+      ) : (
+        <>
+          <header className="sticky top-0 z-20 border-b border-app-border bg-app-elevated/90 backdrop-blur">
+            <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
+              <div className="flex items-center gap-3">
+                <Link to="/" className="inline-flex items-center">
+                  <BrandLogo className="h-9 w-auto sm:h-10" />
+                </Link>
+                <nav className="hidden items-center gap-2 text-sm sm:flex">
+                  <Link
+                    to="/"
+                    className="rounded-md px-2 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Product
+                  </Link>
+                  {hasSession ? (
+                    <>
+                      <Link
+                        to="/events"
+                        className="rounded-md px-2 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      >
+                        Events
+                      </Link>
+                      <Link
+                        to="/providers"
+                        className="rounded-md px-2 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                      >
+                        Providers
+                      </Link>
+                    </>
+                  ) : null}
+                </nav>
+              </div>
+              <div className="flex items-center gap-2">
+                <ThemeToggle />
+                <AccountMenu />
+              </div>
+            </div>
+          </header>
+          <main>
+            <Outlet />
+          </main>
+        </>
+      )}
+    </div>
+  );
+};
 
 const AuthForm = ({
   endpoint,
@@ -1579,50 +2237,49 @@ const EventPublicPage = () => {
 };
 
 const rootRoute = createRootRoute({
-  component: () => (
-    <div style={{ fontFamily: 'ui-sans-serif, system-ui', margin: '2rem' }}>
-      <h1>Synqit v1</h1>
-      <nav style={{ display: 'flex', gap: '1rem' }}>
-        <Link to="/">Home</Link>
-        <Link to="/providers">Providers</Link>
-        <Link to="/events">Events</Link>
-        <Link to="/events/new">Create Event</Link>
-        <Link to="/auth/register">Register</Link>
-        <Link to="/auth/login">Login</Link>
-        <Link to="/dashboard">Dashboard</Link>
-      </nav>
-      <hr style={{ margin: '1rem 0' }} />
-      <Outlet />
-    </div>
-  ),
+  component: AppShell,
 });
+
+const requireAuth = () => {
+  if (!isAuthenticated()) {
+    throw redirect({
+      to: '/auth/login',
+    });
+  }
+};
+
+const redirectIfAuthenticated = () => {
+  if (isAuthenticated()) {
+    throw redirect({
+      to: '/dashboard',
+    });
+  }
+};
 
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: () => (
-    <p>
-      Auth foundation is wired. Next milestone: provider connection and event playlist creation
-      flows.
-    </p>
-  ),
+  component: HomePage,
 });
 
 const providersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/providers',
+  beforeLoad: requireAuth,
   component: ProviderConnectionsPage,
 });
 
 const eventsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/events',
+  beforeLoad: requireAuth,
   component: HostEventsPage,
 });
 
 const eventCreateRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/events/new',
+  beforeLoad: requireAuth,
   component: EventCreatePage,
 });
 
@@ -1635,18 +2292,21 @@ const eventPublicRoute = createRoute({
 const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/register',
+  beforeLoad: redirectIfAuthenticated,
   component: () => <AuthForm endpoint="/v1/auth/register" title="Register" />,
 });
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/login',
+  beforeLoad: redirectIfAuthenticated,
   component: () => <AuthForm endpoint="/v1/auth/login" title="Login" />,
 });
 
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dashboard',
+  beforeLoad: requireAuth,
   component: DashboardPage,
 });
 
