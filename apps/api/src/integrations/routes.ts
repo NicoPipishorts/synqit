@@ -8,7 +8,13 @@ import {
 } from '@synqit/shared';
 import type { Provider } from '@synqit/shared';
 import { FastifyInstance, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 
+import {
+  getAppleDeveloperToken,
+  getAppleMusicKitIdentifierForClient,
+  isAppleLiveMode,
+} from './apple';
 import { encryptToken } from './crypto';
 import {
   buildSpotifyAuthorizationUrl,
@@ -23,6 +29,9 @@ const DEFAULT_SPOTIFY_SCOPES =
 const DEFAULT_APPLE_SCOPES = 'music-library-read music-library-modify';
 const DEFAULT_API_BASE_URL = 'http://localhost:3001';
 const DEFAULT_WEB_APP_URL = 'http://127.0.0.1:5173';
+const appleConnectRequestSchema = z.object({
+  musicUserToken: z.string().min(10),
+});
 
 const parsePositiveNumber = (raw: string | undefined, fallback: number): number => {
   if (!raw) {
@@ -64,7 +73,8 @@ const getProviderAuthorizationUrl = (params: { provider: Provider; state: string
     });
   }
 
-  // Apple connect currently uses local mock callback flow until MusicKit auth is implemented.
+  // Apple live connect uses /auth/apple/developer-token + /auth/apple/connect.
+  // Keep start/callback as a local fallback path.
   return buildMockAuthorizationUrl(params);
 };
 
@@ -160,6 +170,83 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
 
     return integrationListResponseSchema.parse({
       integrations,
+    });
+  });
+
+  app.get('/auth/apple/developer-token', async (request, reply) => {
+    const userId = await verifyAndGetUserId(app, request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    if (!isAppleLiveMode()) {
+      return reply.status(400).send({
+        code: 'provider_auth_not_configured',
+        message:
+          'Apple Music auth is not configured. Set APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_MUSICKIT_IDENTIFIER, and APPLE_PRIVATE_KEY_P8.',
+      });
+    }
+
+    try {
+      const developerToken = await getAppleDeveloperToken();
+      return {
+        provider: 'apple',
+        developerToken,
+        musicKitIdentifier: getAppleMusicKitIdentifierForClient(),
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Apple developer token generation failed.';
+      return reply.status(500).send({
+        code: 'provider_token_generation_failed',
+        message,
+      });
+    }
+  });
+
+  app.post('/auth/apple/connect', async (request, reply) => {
+    const userId = await verifyAndGetUserId(app, request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    if (!isAppleLiveMode()) {
+      return reply.status(400).send({
+        code: 'provider_auth_not_configured',
+        message:
+          'Apple Music auth is not configured. Set APPLE_TEAM_ID, APPLE_KEY_ID, APPLE_MUSICKIT_IDENTIFIER, and APPLE_PRIVATE_KEY_P8.',
+      });
+    }
+
+    const parsedBody = appleConnectRequestSchema.safeParse(request.body);
+    if (!parsedBody.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Apple connect payload is invalid.',
+        details: parsedBody.error.flatten(),
+      });
+    }
+
+    const integration = await integrationStore.upsertIntegration({
+      userId,
+      provider: 'apple',
+      accessToken: encryptToken(parsedBody.data.musicUserToken),
+      refreshToken: encryptToken(parsedBody.data.musicUserToken),
+      scopes: getProviderScopes('apple'),
+      expiresAt: null,
+    });
+
+    return oauthCallbackResponseSchema.parse({
+      ok: true,
+      provider: integration.provider,
+      connectedAt: integration.createdAt.toISOString(),
+      expiresAt: integration.expiresAt?.toISOString() ?? null,
     });
   });
 

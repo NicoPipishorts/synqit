@@ -24,6 +24,9 @@ Use this file for deferred work that is intentionally out of the current impleme
 - Provider disconnect hygiene:
   When disconnecting a provider, decide whether to archive, lock, or keep existing events read-only.
 
+- Apple Music remove-track capability follow-up:
+  Re-evaluate Apple Music API support for playlist track deletion in live mode and replace temporary UI/API constraint when Apple behavior is stable.
+
 ## Data Layer
 
 - Keep Prisma schema and migrations as the single source of truth for DB changes.

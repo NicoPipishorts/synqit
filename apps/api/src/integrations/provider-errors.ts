@@ -5,27 +5,38 @@ type ProviderMappedError = {
   message: string;
 };
 
-const DEFAULT_PROVIDER_ERROR_BY_STATUS: Record<number, ProviderMappedError> = {
-  401: {
-    code: 'provider_token_invalid',
-    message: 'Host Spotify session expired. Reconnect Spotify and try again.',
-  },
-  403: {
-    code: 'provider_forbidden',
-    message: 'Spotify denied this operation for the connected account.',
-  },
-  404: {
-    code: 'provider_resource_not_found',
-    message: 'Spotify resource was not found.',
-  },
+const getDefaultMappedError = (error: ProviderApiError): ProviderMappedError | null => {
+  const providerLabel = error.provider === 'apple' ? 'Apple Music' : 'Spotify';
+
+  if (error.statusCode === 401) {
+    return {
+      code: 'provider_token_invalid',
+      message: `${providerLabel} authorization failed for this request. Reconnect ${providerLabel} and try again.`,
+    };
+  }
+
+  if (error.statusCode === 403) {
+    return {
+      code: 'provider_forbidden',
+      message: `${providerLabel} denied this operation for the connected account.`,
+    };
+  }
+
+  if (error.statusCode === 404) {
+    return {
+      code: 'provider_resource_not_found',
+      message: `${providerLabel} resource was not found.`,
+    };
+  }
+
+  return null;
 };
 
 export const mapProviderApiError = (
   error: ProviderApiError,
   overrides?: Partial<Record<number, ProviderMappedError>>,
 ): ProviderMappedError => {
-  const mapped =
-    overrides?.[error.statusCode] ?? DEFAULT_PROVIDER_ERROR_BY_STATUS[error.statusCode];
+  const mapped = overrides?.[error.statusCode] ?? getDefaultMappedError(error);
   if (mapped) {
     return mapped;
   }

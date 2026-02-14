@@ -8,7 +8,6 @@ import {
   eventResponseSchema,
   eventTrackSearchResponseSchema,
   eventTracksResponseSchema,
-  type Provider,
   removeEventTrackResponseSchema,
   updateEventRequestSchema,
 } from '@synqit/shared';
@@ -16,6 +15,14 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 
 import { eventsStore, EventRecord } from './store';
+import { getAppleDeveloperToken, getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
+import { withAppleMusicUserToken } from '../integrations/apple-client';
+import {
+  addAppleTrackToPlaylist,
+  createAppleLibraryPlaylist,
+  removeAppleTrackFromPlaylist,
+  searchAppleCatalogTracks,
+} from '../integrations/apple-music';
 import { mapProviderApiError } from '../integrations/provider-errors';
 import { isSpotifyOauthLiveMode } from '../integrations/spotify';
 import { withSpotifyAccessTokenRetry, IntegrationError } from '../integrations/spotify-client';
@@ -81,9 +88,6 @@ const buildEventMagicLinkUrl = (magicLinkToken: string): string => {
   return url.toString();
 };
 
-const usesSpotifyLiveProvider = (provider: Provider): boolean =>
-  provider === 'spotify' && isSpotifyOauthLiveMode();
-
 const toEventResponse = (event: EventRecord) =>
   eventResponseSchema.parse({
     event: {
@@ -106,7 +110,8 @@ const sendIntegrationError = (reply: FastifyReply, error: IntegrationError) => {
 
   if (
     error.code === 'token_decrypt_failed' ||
-    error.code === 'provider_refresh_token_decrypt_failed'
+    error.code === 'provider_refresh_token_decrypt_failed' ||
+    error.code === 'provider_auth_not_configured'
   ) {
     return reply.status(500).send({
       code: error.code,
@@ -219,7 +224,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     let providerPlaylistId: string;
-    if (usesSpotifyLiveProvider(selectedProvider)) {
+    if (selectedProvider === 'spotify' && isSpotifyOauthLiveMode()) {
       try {
         const createdPlaylist = await withSpotifyAccessTokenRetry({
           userId,
@@ -231,6 +236,45 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             }),
         });
         providerPlaylistId = createdPlaylist.result.providerPlaylistId;
+      } catch (error) {
+        if (error instanceof IntegrationError) {
+          return sendIntegrationError(reply, error);
+        }
+
+        if (error instanceof ProviderApiError) {
+          app.log.warn(
+            {
+              provider: error.provider,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+              userId,
+            },
+            'provider create playlist failed',
+          );
+          const mapped = mapProviderApiError(error);
+          return reply.status(502).send(mapped);
+        }
+
+        const message = error instanceof Error ? error.message : 'Provider API error.';
+        return reply.status(502).send({
+          code: 'provider_playlist_create_failed',
+          message,
+        });
+      }
+    } else if (selectedProvider === 'apple' && isAppleLiveMode()) {
+      try {
+        providerPlaylistId = await withAppleMusicUserToken({
+          userId,
+          run: async ({ developerToken, musicUserToken }) => {
+            const createdPlaylist = await createAppleLibraryPlaylist({
+              developerToken,
+              musicUserToken,
+              name: parsedBody.data.name,
+              description: parsedBody.data.description,
+            });
+            return createdPlaylist.providerPlaylistId;
+          },
+        });
       } catch (error) {
         if (error instanceof IntegrationError) {
           return sendIntegrationError(reply, error);
@@ -354,58 +398,95 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    if (!usesSpotifyLiveProvider(event.provider)) {
-      const normalizedQuery = query.toLowerCase();
-      const results = MOCK_TRACKS.filter((track) => {
-        const searchable = `${track.name} ${track.artist} ${track.album}`.toLowerCase();
-        return searchable.includes(normalizedQuery);
-      });
+    if (event.provider === 'spotify' && isSpotifyOauthLiveMode()) {
+      try {
+        const response = await withSpotifyAccessTokenRetry({
+          userId: event.hostUserId,
+          run: (accessToken) =>
+            searchSpotifyTracks({
+              accessToken,
+              query,
+            }),
+        });
 
-      return eventTrackSearchResponseSchema.parse({
-        results,
-      });
+        return eventTrackSearchResponseSchema.parse({
+          results: response.result,
+        });
+      } catch (error) {
+        if (error instanceof IntegrationError) {
+          return sendIntegrationError(reply, error);
+        }
+
+        if (error instanceof ProviderApiError) {
+          app.log.warn(
+            {
+              provider: error.provider,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+              eventId: event.id,
+              magicLinkToken,
+              query,
+            },
+            'provider track search failed',
+          );
+          const mapped = mapProviderApiError(error);
+          return reply.status(502).send(mapped);
+        }
+
+        const message = error instanceof Error ? error.message : 'Provider API error.';
+        return reply.status(502).send({
+          code: 'provider_search_failed',
+          message,
+        });
+      }
     }
 
-    try {
-      const response = await withSpotifyAccessTokenRetry({
-        userId: event.hostUserId,
-        run: (accessToken) =>
-          searchSpotifyTracks({
-            accessToken,
-            query,
-          }),
-      });
+    if (event.provider === 'apple' && isAppleLiveMode()) {
+      try {
+        const developerToken = await getAppleDeveloperToken();
+        const results = await searchAppleCatalogTracks({
+          developerToken,
+          storefront: getAppleStorefront(),
+          query,
+        });
 
-      return eventTrackSearchResponseSchema.parse({
-        results: response.result,
-      });
-    } catch (error) {
-      if (error instanceof IntegrationError) {
-        return sendIntegrationError(reply, error);
+        return eventTrackSearchResponseSchema.parse({
+          results,
+        });
+      } catch (error) {
+        if (error instanceof ProviderApiError) {
+          app.log.warn(
+            {
+              provider: error.provider,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+              eventId: event.id,
+              magicLinkToken,
+              query,
+            },
+            'provider track search failed',
+          );
+          const mapped = mapProviderApiError(error);
+          return reply.status(502).send(mapped);
+        }
+
+        const message = error instanceof Error ? error.message : 'Provider API error.';
+        return reply.status(502).send({
+          code: 'provider_search_failed',
+          message,
+        });
       }
-
-      if (error instanceof ProviderApiError) {
-        app.log.warn(
-          {
-            provider: error.provider,
-            providerStatusCode: error.statusCode,
-            providerError: error.details,
-            eventId: event.id,
-            magicLinkToken,
-            query,
-          },
-          'provider track search failed',
-        );
-        const mapped = mapProviderApiError(error);
-        return reply.status(502).send(mapped);
-      }
-
-      const message = error instanceof Error ? error.message : 'Provider API error.';
-      return reply.status(502).send({
-        code: 'provider_search_failed',
-        message,
-      });
     }
+
+    const normalizedQuery = query.toLowerCase();
+    const results = MOCK_TRACKS.filter((track) => {
+      const searchable = `${track.name} ${track.artist} ${track.album}`.toLowerCase();
+      return searchable.includes(normalizedQuery);
+    });
+
+    return eventTrackSearchResponseSchema.parse({
+      results,
+    });
   });
 
   app.post('/events/link/:magicLinkToken/tracks', async (request, reply) => {
@@ -454,7 +535,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    if (usesSpotifyLiveProvider(event.provider)) {
+    if (event.provider === 'spotify' && isSpotifyOauthLiveMode()) {
       let providerAccessTokenForDiagnostics: string | null = null;
       try {
         await withSpotifyAccessTokenRetry({
@@ -582,6 +663,68 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       }
     }
 
+    if (event.provider === 'apple' && isAppleLiveMode()) {
+      try {
+        await withAppleMusicUserToken({
+          userId: event.hostUserId,
+          run: async ({ developerToken, musicUserToken }) => {
+            await addAppleTrackToPlaylist({
+              developerToken,
+              musicUserToken,
+              providerPlaylistId: event.providerPlaylistId,
+              providerTrackId: parsedBody.data.providerTrackId,
+            });
+          },
+        });
+      } catch (error) {
+        if (error instanceof IntegrationError) {
+          return sendIntegrationError(reply, error);
+        }
+
+        if (error instanceof ProviderApiError) {
+          app.log.warn(
+            {
+              provider: error.provider,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+              eventId: event.id,
+              magicLinkToken,
+              providerPlaylistId: event.providerPlaylistId,
+              providerTrackId: parsedBody.data.providerTrackId,
+            },
+            'provider add track failed',
+          );
+
+          if (error.statusCode === 404) {
+            await reconcileMissingProviderPlaylist({
+              app,
+              event,
+              operation: 'add_track',
+              providerTrackId: parsedBody.data.providerTrackId,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+              magicLinkToken,
+            });
+
+            return reply.status(409).send({
+              code: 'provider_playlist_missing',
+              message:
+                'The linked provider playlist no longer exists. This event was closed. Ask the host to create a new event.',
+            });
+          }
+
+          const mapped = mapProviderApiError(error);
+          return reply.status(502).send(mapped);
+        }
+
+        const message = error instanceof Error ? error.message : 'Provider API error.';
+        return reply.status(502).send({
+          code: 'provider_add_track_failed',
+          message,
+        });
+      }
+    }
+
     const addedTrack = await eventsStore.addTrackToEvent({
       eventId: event.id,
       providerTrackId: parsedBody.data.providerTrackId,
@@ -697,7 +840,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    if (usesSpotifyLiveProvider(event.provider)) {
+    if (event.provider === 'spotify' && isSpotifyOauthLiveMode()) {
       try {
         await withSpotifyAccessTokenRetry({
           userId: event.hostUserId,
@@ -748,6 +891,72 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             403: {
               code: 'provider_forbidden',
               message: 'Spotify denied track removal for this playlist.',
+            },
+          });
+          return reply.status(502).send(mapped);
+        }
+
+        const message = error instanceof Error ? error.message : 'Provider API error.';
+        return reply.status(502).send({
+          code: 'provider_remove_track_failed',
+          message,
+        });
+      }
+    }
+
+    if (event.provider === 'apple' && isAppleLiveMode()) {
+      try {
+        await withAppleMusicUserToken({
+          userId: event.hostUserId,
+          run: async ({ developerToken, musicUserToken }) => {
+            await removeAppleTrackFromPlaylist({
+              developerToken,
+              musicUserToken,
+              providerPlaylistId: event.providerPlaylistId,
+              providerTrackId,
+            });
+          },
+        });
+      } catch (error) {
+        if (error instanceof IntegrationError) {
+          return sendIntegrationError(reply, error);
+        }
+
+        if (error instanceof ProviderApiError) {
+          app.log.warn(
+            {
+              provider: error.provider,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+              eventId: event.id,
+              providerPlaylistId: event.providerPlaylistId,
+              providerTrackId,
+            },
+            'provider remove track failed',
+          );
+
+          if (error.statusCode === 404) {
+            await reconcileMissingProviderPlaylist({
+              app,
+              event,
+              operation: 'remove_track',
+              providerTrackId,
+              providerStatusCode: error.statusCode,
+              providerError: error.details,
+            });
+
+            return reply.status(409).send({
+              code: 'provider_playlist_missing',
+              message:
+                'The linked provider playlist no longer exists. This event was closed. Ask the host to create a new event.',
+            });
+          }
+
+          const mapped = mapProviderApiError(error, {
+            401: {
+              code: 'provider_remove_track_temporarily_unavailable',
+              message:
+                'Apple Music rejected track removal for this connected account. Reconnect may not resolve it immediately; try again later.',
             },
           });
           return reply.status(502).send(mapped);

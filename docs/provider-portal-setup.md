@@ -5,8 +5,8 @@ This guide maps Spotify and Apple Developer portal setup to the current Synqit c
 ## Current code status
 
 - Spotify provider connect is implemented in API routes.
-- Apple provider connect is implemented in local mock mode for event flow scaffolding.
-- Apple live MusicKit auth/token exchange is still pending (next slice).
+- Apple provider connect is implemented with MusicKit JS user authorization.
+- Apple event flow uses Apple Music APIs for playlist create/search/add/remove when Apple env is configured.
 
 ---
 
@@ -58,7 +58,7 @@ Portal: <https://developer.spotify.com/dashboard>
 
 ---
 
-## Apple Developer Portal Setup (for live connector implementation)
+## Apple Developer Portal Setup (works with current code)
 
 Portals:
 
@@ -87,13 +87,30 @@ Portals:
 - MusicKit Identifier.
 - Downloaded `.p8` private key file.
 
-5. Configure Synqit env (already scaffolded; used fully once live connector lands)
+5. Configure Synqit env
 
-- `apps/api/.env` now supports:
+- In `apps/api/.env`, set:
 - `APPLE_TEAM_ID`
 - `APPLE_KEY_ID`
 - `APPLE_MUSICKIT_IDENTIFIER`
 - `APPLE_PRIVATE_KEY_P8`
 - `APPLE_SCOPES` (default: `music-library-read music-library-modify`)
+- `APPLE_STOREFRONT` (example: `us`)
 
-When live Apple auth is implemented, these will be used to generate Apple developer tokens server-side and complete Apple Music connection flows.
+6. Verify in app
+
+- Start app (`yarn dev`).
+- Login in web app.
+- Go to `/providers`.
+- Select `apple`.
+- Click `Connect Apple Music`.
+- Complete Apple Music authorization in the browser prompt.
+- Confirm status shows `apple connected`.
+
+7. Verify event flow on Apple
+
+- Go to `/events/new`.
+- Select provider `apple`.
+- Create event.
+- Open magic link and search tracks.
+- Add track, then remove it from host event view.

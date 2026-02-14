@@ -7,6 +7,7 @@ class IntegrationError extends Error {
   code:
     | 'provider_not_connected'
     | 'token_decrypt_failed'
+    | 'provider_auth_not_configured'
     | 'provider_token_refresh_failed'
     | 'provider_refresh_token_decrypt_failed';
 
@@ -14,6 +15,7 @@ class IntegrationError extends Error {
     code:
       | 'provider_not_connected'
       | 'token_decrypt_failed'
+      | 'provider_auth_not_configured'
       | 'provider_token_refresh_failed'
       | 'provider_refresh_token_decrypt_failed';
     message: string;

@@ -132,8 +132,12 @@ This flow is optional and separate from Quick Contribute mode.
 
 Host can:
 • View all tracks added
-• Remove tracks
+• Remove tracks (Spotify-hosted events)
 • Close event (disable further additions)
+
+Current Apple Music constraint:
+• Apple-hosted event track removal is currently constrained by Apple Music API delete behavior in live mode.
+• Apple-hosted events support create/search/add in MVP.
 
 Not included:
 • Voting system
@@ -221,7 +225,7 @@ MVP is complete when:
 • Host can create event playlist.
 • Guest can add song without logging in.
 • Song appears in host’s streaming app.
-• Host can remove song.
+• Host can remove song for Spotify-hosted events.
 • Host can close event.
 • One-time Spotify ↔ Apple Music sync works.
 • Flow feels fast, clear, and frictionless.

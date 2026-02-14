@@ -1,3 +1,4 @@
+import type { Provider } from '@synqit/shared';
 import { z } from 'zod';
 
 type SpotifyTrackSearchResult = {
@@ -10,12 +11,12 @@ type SpotifyTrackSearchResult = {
 };
 
 class ProviderApiError extends Error {
-  provider: 'spotify';
+  provider: Provider;
   statusCode: number;
   details: unknown;
 
   constructor(params: {
-    provider: 'spotify';
+    provider: Provider;
     statusCode: number;
     message: string;
     details?: unknown;

@@ -36,6 +36,107 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
 const AUTH_STORAGE_KEY = 'synqit.auth.v1';
 type Provider = (typeof providerSchema.options)[number];
 
+type AppleDeveloperTokenResponse = {
+  provider: 'apple';
+  developerToken: string;
+  musicKitIdentifier: string;
+};
+
+type MusicKitInstance = {
+  authorize: () => Promise<string>;
+};
+
+declare global {
+  interface Window {
+    MusicKit?: {
+      configure: (options: {
+        developerToken: string;
+        app: { name: string; build: string };
+      }) => MusicKitInstance;
+      getInstance?: () => MusicKitInstance;
+    };
+  }
+}
+
+let musicKitScriptPromise: Promise<void> | null = null;
+let musicKitConfigured = false;
+
+const loadMusicKitScript = async (): Promise<void> => {
+  if (window.MusicKit) {
+    return;
+  }
+
+  if (!musicKitScriptPromise) {
+    musicKitScriptPromise = new Promise<void>((resolve, reject) => {
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        'script[data-synqit-musickit="true"]',
+      );
+      if (existingScript) {
+        existingScript.addEventListener('load', () => resolve(), { once: true });
+        existingScript.addEventListener(
+          'error',
+          () => reject(new Error('MusicKit script failed to load.')),
+          {
+            once: true,
+          },
+        );
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://js-cdn.music.apple.com/musickit/v3/musickit.js';
+      script.async = true;
+      script.defer = true;
+      script.setAttribute('data-synqit-musickit', 'true');
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error('MusicKit script failed to load.'));
+      document.head.appendChild(script);
+    });
+  }
+
+  await musicKitScriptPromise;
+};
+
+const ensureMusicKitInstance = async (params: {
+  developerToken: string;
+  appName: string;
+}): Promise<MusicKitInstance> => {
+  if (!window.MusicKit) {
+    throw new Error('MusicKit is not available in this browser.');
+  }
+
+  let maybeInstance: unknown;
+  if (!musicKitConfigured) {
+    const configureResult = window.MusicKit.configure({
+      developerToken: params.developerToken,
+      app: {
+        name: params.appName || 'synqit',
+        build: '0.1.0',
+      },
+    });
+    const maybeThen = (configureResult as { then?: unknown } | undefined)?.then;
+    if (typeof maybeThen === 'function') {
+      maybeInstance = await Promise.resolve(configureResult as unknown);
+    } else {
+      maybeInstance = configureResult;
+    }
+    musicKitConfigured = true;
+  }
+
+  const instance =
+    (maybeInstance &&
+    typeof maybeInstance === 'object' &&
+    'authorize' in maybeInstance &&
+    typeof (maybeInstance as { authorize?: unknown }).authorize === 'function'
+      ? (maybeInstance as MusicKitInstance)
+      : null) ?? window.MusicKit.getInstance?.();
+  if (!instance || typeof instance.authorize !== 'function') {
+    throw new Error('MusicKit authorization is unavailable. Check Apple MusicKit setup and retry.');
+  }
+
+  return instance;
+};
+
 type StoredAuth = {
   accessToken: string;
   refreshToken: string;
@@ -81,6 +182,13 @@ const clearAuth = (): void => {
 };
 
 const toApiError = (value: unknown): ApiError => {
+  if (value instanceof Error) {
+    return {
+      code: 'client_error',
+      message: value.message,
+    };
+  }
+
   if (
     value &&
     typeof value === 'object' &&
@@ -312,14 +420,104 @@ const ProviderConnectionsPage = () => {
         );
       }
     } catch (error) {
+      const detailedMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object'
+            ? JSON.stringify(error)
+            : String(error);
       const apiError = toApiError(error);
-      setStatus(`Error: ${apiError.message}`);
+      setStatus(`Error: ${apiError.message} (${detailedMessage})`);
     } finally {
       setIsLoading(false);
     }
   }, [selectedProvider]);
 
+  const connectAppleMusic = async () => {
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      setStatus('Login required to connect Apple Music.');
+      return;
+    }
+
+    setIsLoading(true);
+    setOauthState('');
+    setAuthUrl('');
+    setIsMockMode(false);
+    try {
+      const tokenResponse = await callApi(
+        '/v1/auth/apple/developer-token',
+        {
+          method: 'GET',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+        (payload) => {
+          const value = payload as Partial<AppleDeveloperTokenResponse>;
+          if (
+            value &&
+            value.provider === 'apple' &&
+            typeof value.developerToken === 'string' &&
+            typeof value.musicKitIdentifier === 'string'
+          ) {
+            return value as AppleDeveloperTokenResponse;
+          }
+
+          throw new Error('Invalid Apple developer token response.');
+        },
+      );
+
+      await loadMusicKitScript();
+      const musicKit = await ensureMusicKitInstance({
+        developerToken: tokenResponse.developerToken,
+        appName: tokenResponse.musicKitIdentifier || 'synqit',
+      });
+
+      const musicUserToken = await musicKit.authorize();
+      if (!musicUserToken) {
+        throw new Error('Apple Music did not return a user token.');
+      }
+
+      const result = await callApi(
+        '/v1/auth/apple/connect',
+        {
+          method: 'POST',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            musicUserToken,
+          }),
+        },
+        (payload) => oauthCallbackResponseSchema.parse(payload),
+      );
+      setStatus(
+        `${result.provider} connected at ${result.connectedAt}. Expires at: ${
+          result.expiresAt ?? 'unknown'
+        }`,
+      );
+      await loadIntegrationStatus();
+    } catch (error) {
+      const detailedMessage =
+        error instanceof Error
+          ? error.message
+          : typeof error === 'object'
+            ? JSON.stringify(error)
+            : String(error);
+      const apiError = toApiError(error);
+      setStatus(`Error: ${apiError.message} (${detailedMessage})`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const startProviderConnect = async () => {
+    if (selectedProvider === 'apple') {
+      await connectAppleMusic();
+      return;
+    }
+
     const accessToken = getAccessToken();
     if (!accessToken) {
       setStatus('Login required to start provider connection.');
@@ -357,6 +555,11 @@ const ProviderConnectionsPage = () => {
   };
 
   const completeMockCallback = async () => {
+    if (selectedProvider !== 'spotify') {
+      setStatus('Mock callback is only used for Spotify fallback mode.');
+      return;
+    }
+
     if (!oauthState) {
       setStatus('Start OAuth first to generate state.');
       return;
@@ -480,9 +683,9 @@ const ProviderConnectionsPage = () => {
           {isLoading ? 'Loading...' : 'Load status'}
         </button>
         <button disabled={isLoading} onClick={() => void startProviderConnect()} type="button">
-          Start {selectedProvider} OAuth
+          {selectedProvider === 'apple' ? 'Connect Apple Music' : `Start ${selectedProvider} OAuth`}
         </button>
-        {isMockMode ? (
+        {isMockMode && selectedProvider === 'spotify' ? (
           <button disabled={isLoading} onClick={() => void completeMockCallback()} type="button">
             Complete Callback (Mock)
           </button>
