@@ -162,6 +162,8 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       });
     }
 
+    // Allow avatar images to be embedded by the web app when API and web origins differ.
+    reply.header('cross-origin-resource-policy', 'cross-origin');
     reply.header('cache-control', 'public, max-age=604800, immutable');
     return reply.type(resolved.contentType).send(createAvatarReadStream(resolved.filePath));
   });

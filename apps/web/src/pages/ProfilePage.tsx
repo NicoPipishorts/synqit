@@ -8,6 +8,7 @@ import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
 import { useProfileSettings } from '../hooks/useProfileSettings';
 import { useTheme } from '../hooks/useTheme';
+import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { updateStoredAuthUser } from '../lib/auth';
 import { applyThemeAccent } from '../lib/profile-settings';
@@ -20,30 +21,27 @@ export const ProfilePage = () => {
   const { theme, setTheme } = useTheme();
   const { auth, setAuth } = useAuthSession();
   const { settings, updateSettings } = useProfileSettings();
+  const { showToast } = useToast();
 
-  const [profileStatus, setProfileStatus] = useState<string | null>(null);
-  const [passwordStatus, setPasswordStatus] = useState<string | null>(null);
-  const [passwordStatusType, setPasswordStatusType] = useState<'success' | 'error' | null>(null);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isAvatarDragActive, setIsAvatarDragActive] = useState(false);
-  const [avatarModalStatus, setAvatarModalStatus] = useState<string | null>(null);
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const avatarSrc = auth?.avatarUrl ?? settings.avatarDataUrl ?? null;
 
   const onThemeChange = (nextTheme: Theme) => {
     setTheme(nextTheme);
-    setProfileStatus(t('profile.themeSaved'));
+    showToast(t('profile.themeSaved'), { variant: 'success' });
   };
 
   const onAccentChange = (nextAccent: ThemeAccent) => {
     updateSettings({ themeAccent: nextAccent });
     applyThemeAccent(nextAccent);
-    setProfileStatus(t('profile.accentSaved'));
+    showToast(t('profile.accentSaved'), { variant: 'success' });
   };
 
   const onProviderChange = (nextProvider: string) => {
@@ -51,13 +49,13 @@ export const ProfilePage = () => {
       updateSettings({
         preferredProvider: nextProvider as (typeof providerSchema.options)[number],
       });
-      setProfileStatus(t('profile.providerSaved'));
+      showToast(t('profile.providerSaved'), { variant: 'success' });
     }
   };
 
   const onLocaleChange = (nextLocale: 'en' | 'fr') => {
     setLocale(nextLocale);
-    setProfileStatus(t('profile.languageSaved'));
+    showToast(t('profile.languageSaved'), { variant: 'success' });
   };
 
   const fileToDataUrl = (file: File): Promise<string> => {
@@ -81,25 +79,18 @@ export const ProfilePage = () => {
       return;
     }
 
-    setAvatarModalStatus(null);
     if (!file.type.startsWith('image/')) {
-      const message = t('profile.avatarInvalidType');
-      setAvatarModalStatus(message);
-      setProfileStatus(message);
+      showToast(t('profile.avatarInvalidType'), { variant: 'error' });
       return;
     }
 
     if (file.size > MAX_AVATAR_BYTES) {
-      const message = t('profile.avatarTooLarge');
-      setAvatarModalStatus(message);
-      setProfileStatus(message);
+      showToast(t('profile.avatarTooLarge'), { variant: 'error' });
       return;
     }
 
     if (!auth) {
-      const message = t('profile.notLoggedIn');
-      setAvatarModalStatus(message);
-      setProfileStatus(message);
+      showToast(t('profile.notLoggedIn'), { variant: 'error' });
       return;
     }
 
@@ -128,9 +119,7 @@ export const ProfilePage = () => {
         setAuth(nextAuth);
       }
 
-      const message = t('profile.avatarSaved');
-      setProfileStatus(message);
-      setAvatarModalStatus(message);
+      showToast(t('profile.avatarSaved'), { variant: 'success' });
       setIsAvatarModalOpen(false);
     } catch (error) {
       const apiError = toApiError(error);
@@ -138,8 +127,7 @@ export const ProfilePage = () => {
         apiError.code === 'invalid_avatar_image'
           ? t('profile.avatarInvalidType')
           : t('profile.error', { message: apiError.message });
-      setAvatarModalStatus(message);
-      setProfileStatus(message);
+      showToast(message, { variant: 'error' });
     } finally {
       setIsSavingAvatar(false);
     }
@@ -151,9 +139,7 @@ export const ProfilePage = () => {
 
   const removeAvatar = async () => {
     if (!auth) {
-      const message = t('profile.notLoggedIn');
-      setAvatarModalStatus(message);
-      setProfileStatus(message);
+      showToast(t('profile.notLoggedIn'), { variant: 'error' });
       return;
     }
 
@@ -178,14 +164,10 @@ export const ProfilePage = () => {
         setAuth(nextAuth);
       }
 
-      const message = t('profile.avatarRemoved');
-      setProfileStatus(message);
-      setAvatarModalStatus(message);
+      showToast(t('profile.avatarRemoved'), { variant: 'success' });
     } catch (error) {
       const apiError = toApiError(error);
-      const message = t('profile.error', { message: apiError.message });
-      setAvatarModalStatus(message);
-      setProfileStatus(message);
+      showToast(t('profile.error', { message: apiError.message }), { variant: 'error' });
     } finally {
       setIsSavingAvatar(false);
     }
@@ -200,24 +182,19 @@ export const ProfilePage = () => {
 
   const changePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setPasswordStatus(null);
-    setPasswordStatusType(null);
 
     if (!auth) {
-      setPasswordStatus(t('profile.notLoggedIn'));
-      setPasswordStatusType('error');
+      showToast(t('profile.notLoggedIn'), { variant: 'error' });
       return;
     }
 
     if (newPassword.length < 8) {
-      setPasswordStatus(t('profile.passwordMinLength'));
-      setPasswordStatusType('error');
+      showToast(t('profile.passwordMinLength'), { variant: 'error' });
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setPasswordStatus(t('profile.passwordMismatch'));
-      setPasswordStatusType('error');
+      showToast(t('profile.passwordMismatch'), { variant: 'error' });
       return;
     }
 
@@ -241,12 +218,10 @@ export const ProfilePage = () => {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      setPasswordStatus(t('profile.passwordChanged'));
-      setPasswordStatusType('success');
+      showToast(t('profile.passwordChanged'), { variant: 'success' });
     } catch (error) {
       const apiError = toApiError(error);
-      setPasswordStatus(t('profile.error', { message: apiError.message }));
-      setPasswordStatusType('error');
+      showToast(t('profile.error', { message: apiError.message }), { variant: 'error' });
     } finally {
       setIsChangingPassword(false);
     }
@@ -296,12 +271,6 @@ export const ProfilePage = () => {
             </div>
           </div>
         </article>
-        {profileStatus ? (
-          <p className="w-fit rounded-lg border border-brand-lime/35 bg-brand-lime/10 px-3 py-2 text-sm text-[#6d9600] dark:text-[#d5ff5c]">
-            {profileStatus}
-          </p>
-        ) : null}
-
         <div className="grid gap-5 lg:grid-cols-2">
           <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
             <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
@@ -441,17 +410,6 @@ export const ProfilePage = () => {
               {isChangingPassword ? t('profile.changingPassword') : t('profile.changePassword')}
             </button>
           </form>
-          {passwordStatus ? (
-            <p
-              className={`mt-3 rounded-lg border px-3 py-2 text-sm ${
-                passwordStatusType === 'success'
-                  ? 'border-brand-lime/35 bg-brand-lime/10 text-[#6d9600] dark:text-[#d5ff5c]'
-                  : 'border-brand-pink/35 bg-brand-pink/10 text-[#b41563] dark:text-[#ff8ac0]'
-              }`}
-            >
-              {passwordStatus}
-            </p>
-          ) : null}
         </article>
       </div>
 
@@ -461,7 +419,6 @@ export const ProfilePage = () => {
         onClose={() => {
           setIsAvatarModalOpen(false);
           setIsAvatarDragActive(false);
-          setAvatarModalStatus(null);
         }}
       >
         <div className="grid gap-4">
@@ -510,11 +467,6 @@ export const ProfilePage = () => {
             >
               {t('profile.removeAvatar')}
             </button>
-          ) : null}
-          {avatarModalStatus ? (
-            <p className="rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text-secondary dark:bg-app-elevated">
-              {avatarModalStatus}
-            </p>
           ) : null}
         </div>
       </Modal>

@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-router';
 
 import { AppShell } from './components/shell/AppShell';
+import { ToastProvider } from './components/ui/ToastProvider';
 import { isAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
 import { AuthForm } from './pages/AuthForm';
@@ -125,7 +126,9 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <RouterProvider router={router} />
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
       </I18nProvider>
     </QueryClientProvider>
   );

@@ -97,7 +97,15 @@ export const buildAvatarUrl = (avatarPath: string | null | undefined): string | 
     return null;
   }
 
-  return `${getApiBaseUrl()}${avatarPath}`;
+  if (/^https?:\/\//i.test(avatarPath)) {
+    return avatarPath;
+  }
+
+  if (avatarPath.startsWith('/')) {
+    return `${getApiBaseUrl()}${avatarPath}`;
+  }
+
+  return `${getApiBaseUrl()}/${avatarPath}`;
 };
 
 export const getAvatarStorageDir = (): string => avatarStorageDir;
