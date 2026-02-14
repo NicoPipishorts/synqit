@@ -6,12 +6,14 @@ import { useEffect, useRef, useState } from 'react';
 import { HeroCtaLink } from './HeroCtaLink';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
+import { useProfileSettings } from '../../hooks/useProfileSettings';
 import { callApi } from '../../lib/api';
 import { clearAuth, getInitials } from '../../lib/auth';
 
 export const AccountMenu = () => {
   const { auth, setAuth } = useAuthSession();
   const { t } = useI18n();
+  const { settings } = useProfileSettings();
   const [isOpen, setIsOpen] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -67,7 +69,17 @@ export const AccountMenu = () => {
         className="flex h-12 w-12 items-center justify-center rounded-full border border-app-border bg-app-elevated text-sm font-bold text-brand-dark shadow-soft-lift transition hover:border-brand-pink dark:border-app-border dark:bg-app-elevated dark:text-brand-white dark:shadow-glow-pink"
         aria-label={t('accountMenu.ariaOpen')}
       >
-        {auth ? getInitials(auth.userEmail) : <UserRound size={20} aria-hidden="true" />}
+        {(auth?.avatarUrl ?? settings.avatarDataUrl) ? (
+          <img
+            src={auth?.avatarUrl ?? settings.avatarDataUrl ?? undefined}
+            alt={t('accountMenu.avatarAlt')}
+            className="h-10 w-10 rounded-full object-cover"
+          />
+        ) : auth ? (
+          getInitials(auth.userEmail)
+        ) : (
+          <UserRound size={20} aria-hidden="true" />
+        )}
       </button>
       {isOpen ? (
         <div className="absolute right-0 z-30 mt-2 w-64 rounded-2xl border border-app-border bg-app-elevated p-3 shadow-xl dark:border-app-border dark:bg-app-card">
@@ -77,6 +89,13 @@ export const AccountMenu = () => {
                 {auth.userEmail}
               </p>
               <div className="mt-2 grid gap-1 text-sm">
+                <Link
+                  to="/profile"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  {t('accountMenu.profile')}
+                </Link>
                 <Link
                   to="/dashboard"
                   onClick={() => setIsOpen(false)}

@@ -5,13 +5,22 @@ import {
   refreshResponseSchema,
   refreshTokenRequestSchema,
 } from '@synqit/shared';
-import { FastifyInstance, FastifyReply } from 'fastify';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 
+import {
+  buildAvatarUrl,
+  createAvatarReadStream,
+  deleteAvatarImage,
+  resolveAvatarFile,
+  saveAvatarImage,
+} from './avatar-storage';
 import { createRefreshToken, hashPassword, hashToken, verifyPassword } from './crypto';
 import { authStore, UserRecord } from './store';
 
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
+const AVATAR_UPLOAD_ROUTE_BODY_LIMIT_BYTES = 3_000_000;
 
 const parsePositiveNumber = (raw: string | undefined, fallback: number): number => {
   if (!raw) {
@@ -35,6 +44,16 @@ const refreshTokenTtlDays = parsePositiveNumber(
   DEFAULT_REFRESH_TOKEN_TTL_DAYS,
 );
 const refreshTokenTtlMs = refreshTokenTtlDays * 24 * 60 * 60 * 1000;
+const changePasswordRequestSchema = z.object({
+  currentPassword: z.string().min(8),
+  newPassword: z.string().min(8),
+});
+const avatarUploadRequestSchema = z.object({
+  imageDataUrl: z.string().min(1),
+});
+const avatarPublicParamsSchema = z.object({
+  fileName: z.string().min(1),
+});
 
 const sendValidationError = (reply: FastifyReply, details: unknown) =>
   reply.status(400).send({
@@ -48,7 +67,57 @@ const formatPublicUser = (user: UserRecord) =>
     id: user.id,
     email: user.email,
     createdAt: user.createdAt.toISOString(),
+    avatarUrl: buildAvatarUrl(user.avatarPath),
   });
+
+const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    await request.jwtVerify();
+  } catch {
+    return reply.status(401).send({
+      code: 'unauthorized',
+      message: 'Authentication required.',
+    });
+  }
+};
+
+const getAuthenticatedUserId = (request: FastifyRequest): string | null => {
+  if (
+    !request.user ||
+    typeof request.user !== 'object' ||
+    !('sub' in request.user) ||
+    typeof request.user.sub !== 'string'
+  ) {
+    return null;
+  }
+
+  return request.user.sub;
+};
+
+const loadAuthenticatedUser = async (
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<UserRecord | null> => {
+  const userId = getAuthenticatedUserId(request);
+  if (!userId) {
+    await reply.status(401).send({
+      code: 'unauthorized',
+      message: 'Authentication required.',
+    });
+    return null;
+  }
+
+  const user = await authStore.findUserById(userId);
+  if (!user) {
+    await reply.status(401).send({
+      code: 'unauthorized',
+      message: 'Authentication required.',
+    });
+    return null;
+  }
+
+  return user;
+};
 
 const issueTokens = async (app: FastifyInstance, user: UserRecord) => {
   const refreshToken = createRefreshToken();
@@ -79,6 +148,24 @@ const issueTokens = async (app: FastifyInstance, user: UserRecord) => {
 };
 
 export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> => {
+  app.get('/public/avatars/:fileName', async (request, reply) => {
+    const params = avatarPublicParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return sendValidationError(reply, params.error.flatten());
+    }
+
+    const resolved = await resolveAvatarFile(params.data.fileName);
+    if (!resolved) {
+      return reply.status(404).send({
+        code: 'avatar_not_found',
+        message: 'Avatar image not found.',
+      });
+    }
+
+    reply.header('cache-control', 'public, max-age=604800, immutable');
+    return reply.type(resolved.contentType).send(createAvatarReadStream(resolved.filePath));
+  });
+
   app.post('/auth/register', async (request, reply) => {
     const parsed = authCredentialsSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -216,35 +303,161 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     });
   });
 
-  app.get(
-    '/me',
+  app.post(
+    '/auth/change-password',
     {
-      preHandler: async (request, reply) => {
-        try {
-          await request.jwtVerify();
-        } catch {
-          return reply.status(401).send({
-            code: 'unauthorized',
-            message: 'Authentication required.',
-          });
-        }
-      },
+      preHandler: requireAuth,
     },
     async (request, reply) => {
-      if (!request.user || typeof request.user !== 'object' || !('sub' in request.user)) {
+      const parsed = changePasswordRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return sendValidationError(reply, parsed.error.flatten());
+      }
+
+      const user = await loadAuthenticatedUser(request, reply);
+      if (!user) {
+        return;
+      }
+
+      const isCurrentPasswordValid = await verifyPassword(
+        parsed.data.currentPassword,
+        user.passwordHash,
+      );
+      if (!isCurrentPasswordValid) {
         return reply.status(401).send({
-          code: 'unauthorized',
-          message: 'Authentication required.',
+          code: 'invalid_credentials',
+          message: 'Current password is invalid.',
         });
       }
 
-      const userId = String(request.user.sub);
-      const user = await authStore.findUserById(userId);
-      if (!user) {
-        return reply.status(401).send({
-          code: 'unauthorized',
-          message: 'Authentication required.',
+      const nextPasswordHash = await hashPassword(parsed.data.newPassword);
+      const updated = await authStore.updateUserPasswordById(user.id, nextPasswordHash);
+      if (!updated) {
+        return reply.status(500).send({
+          code: 'password_update_failed',
+          message: 'Unable to update password at this time.',
         });
+      }
+
+      return reply.status(200).send({
+        ok: true,
+      });
+    },
+  );
+
+  app.post(
+    '/auth/avatar',
+    {
+      preHandler: requireAuth,
+      bodyLimit: AVATAR_UPLOAD_ROUTE_BODY_LIMIT_BYTES,
+    },
+    async (request, reply) => {
+      const parsed = avatarUploadRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return sendValidationError(reply, parsed.error.flatten());
+      }
+
+      const user = await loadAuthenticatedUser(request, reply);
+      if (!user) {
+        return;
+      }
+
+      let nextAvatarPath: string;
+      try {
+        const stored = await saveAvatarImage({
+          userId: user.id,
+          imageDataUrl: parsed.data.imageDataUrl,
+        });
+        nextAvatarPath = stored.avatarPath;
+      } catch (error) {
+        const normalizedError = error as { message?: string };
+        if (normalizedError.message === 'invalid_avatar_image') {
+          return reply.status(400).send({
+            code: 'invalid_avatar_image',
+            message: 'Avatar must be a valid image under size limits.',
+          });
+        }
+
+        request.log.error({ error }, 'avatar upload failed');
+        return reply.status(500).send({
+          code: 'avatar_upload_failed',
+          message: 'Unable to store avatar at this time.',
+        });
+      }
+
+      const updated = await authStore.updateUserAvatarPathById(user.id, nextAvatarPath);
+      if (!updated) {
+        await deleteAvatarImage(nextAvatarPath).catch(() => undefined);
+        return reply.status(500).send({
+          code: 'avatar_update_failed',
+          message: 'Unable to update avatar at this time.',
+        });
+      }
+
+      if (user.avatarPath && user.avatarPath !== nextAvatarPath) {
+        await deleteAvatarImage(user.avatarPath).catch(() => undefined);
+      }
+
+      const refreshedUser = await authStore.findUserById(user.id);
+      if (!refreshedUser) {
+        return reply.status(500).send({
+          code: 'avatar_update_failed',
+          message: 'Unable to load updated avatar at this time.',
+        });
+      }
+
+      return {
+        user: formatPublicUser(refreshedUser),
+      };
+    },
+  );
+
+  app.delete(
+    '/auth/avatar',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      const user = await loadAuthenticatedUser(request, reply);
+      if (!user) {
+        return;
+      }
+
+      const updated = await authStore.updateUserAvatarPathById(user.id, null);
+      if (!updated) {
+        return reply.status(500).send({
+          code: 'avatar_update_failed',
+          message: 'Unable to remove avatar at this time.',
+        });
+      }
+
+      if (user.avatarPath) {
+        await deleteAvatarImage(user.avatarPath).catch(() => undefined);
+      }
+
+      const refreshedUser = await authStore.findUserById(user.id);
+      if (!refreshedUser) {
+        return reply.status(500).send({
+          code: 'avatar_update_failed',
+          message: 'Unable to load updated avatar at this time.',
+        });
+      }
+
+      return {
+        user: formatPublicUser(refreshedUser),
+      };
+    },
+  );
+
+  app.get(
+    '/me',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      const user = await loadAuthenticatedUser(request, reply);
+      if (!user) {
+        return;
       }
 
       return formatPublicUser(user);

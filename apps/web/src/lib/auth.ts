@@ -18,7 +18,9 @@ export const loadAuth = (): StoredAuth | null => {
     if (
       typeof parsed.accessToken !== 'string' ||
       typeof parsed.refreshToken !== 'string' ||
-      typeof parsed.userEmail !== 'string'
+      typeof parsed.userId !== 'string' ||
+      typeof parsed.userEmail !== 'string' ||
+      !(typeof parsed.avatarUrl === 'string' || parsed.avatarUrl === null)
     ) {
       return null;
     }
@@ -34,12 +36,34 @@ export const storeAuth = (authResponse: unknown): StoredAuth => {
   const nextAuth: StoredAuth = {
     accessToken: parsed.tokens.accessToken,
     refreshToken: parsed.tokens.refreshToken,
+    userId: parsed.user.id,
     userEmail: parsed.user.email,
+    avatarUrl: parsed.user.avatarUrl,
   };
 
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuth));
   emitAuthChanged();
   return nextAuth;
+};
+
+export const updateStoredAuthUser = (patch: {
+  userEmail?: string;
+  avatarUrl?: string | null;
+}): StoredAuth | null => {
+  const current = loadAuth();
+  if (!current) {
+    return null;
+  }
+
+  const next: StoredAuth = {
+    ...current,
+    ...(patch.userEmail !== undefined ? { userEmail: patch.userEmail } : {}),
+    ...(patch.avatarUrl !== undefined ? { avatarUrl: patch.avatarUrl } : {}),
+  };
+
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
+  emitAuthChanged();
+  return next;
 };
 
 export const clearAuth = (): void => {

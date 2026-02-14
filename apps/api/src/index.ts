@@ -81,9 +81,25 @@ export const buildServer = async () => {
         ? (error as { statusCode?: number; code?: string; message?: string })
         : undefined;
 
-    reply.status(normalizedError?.statusCode ?? 500).send({
-      code: normalizedError?.code ?? 'internal_error',
-      message: normalizedError?.message ?? 'Unexpected server error.',
+    const statusCode =
+      typeof normalizedError?.statusCode === 'number' &&
+      normalizedError.statusCode >= 400 &&
+      normalizedError.statusCode < 600
+        ? normalizedError.statusCode
+        : 500;
+
+    // Never leak low-level backend errors (SQL/Prisma/internal stack) to clients.
+    if (statusCode >= 500) {
+      app.log.error({ err: error }, 'unhandled server error');
+      return reply.status(500).send({
+        code: 'internal_error',
+        message: 'Something went wrong. Please try again.',
+      });
+    }
+
+    return reply.status(statusCode).send({
+      code: normalizedError?.code ?? 'request_failed',
+      message: normalizedError?.message ?? 'Request could not be processed.',
     });
   });
 

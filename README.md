@@ -92,6 +92,9 @@ yarn infra:up:core
 - `apps/api/.env.local` (or `.env`) should contain:
 - `DATABASE_URL=postgresql://synqit:synqit@localhost:5435/synqit`
 - `REDIS_URL=redis://localhost:6380`
+- `API_BASE_URL=http://localhost:3001`
+- `AVATAR_STORAGE_DIR=./data/uploads/avatars`
+- `AVATAR_MAX_BYTES=1500000`
 
 On API startup, the API verifies DB connectivity.
 Schema changes are managed by Prisma migrations (not runtime SQL bootstrap).
@@ -134,6 +137,23 @@ yarn prisma:studio
 
 - Prisma schema: `apps/api/prisma/schema.prisma`
 - Prisma config: `apps/api/prisma.config.ts` (loads `.env.local` first)
+- New migration for avatars: `apps/api/prisma/migrations/0002_user_avatar_url`
+
+### Avatar storage (VPS-friendly)
+
+Avatar files are stored on disk (not S3), which works well on single-server VPS setups (Hostinger/OVH).
+
+- DB stores avatar path on `users.avatar_url`.
+- API serves files from `GET /v1/public/avatars/:fileName`.
+- Profile upload/remove endpoints:
+- `POST /v1/auth/avatar` with `{ "imageDataUrl": "data:image/...;base64,..." }`
+- `DELETE /v1/auth/avatar`
+
+For production, point `AVATAR_STORAGE_DIR` to a persistent folder outside ephemeral deploy paths, for example:
+
+- `/var/www/synqit-data/avatars`
+
+Then keep that directory mounted/preserved across deploys.
 
 ### Access DB from GUI (TablePlus, DBeaver, Postico)
 

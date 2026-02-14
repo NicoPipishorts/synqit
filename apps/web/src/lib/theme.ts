@@ -1,4 +1,6 @@
+import { THEME_CHANGED_EVENT } from './constants';
 import { loadAnonymousPreferences, saveAnonymousPreferences } from './preferences';
+import { applyThemeAccent, loadProfileSettings } from './profile-settings';
 import { Theme } from './types';
 
 export const loadTheme = (): Theme => {
@@ -20,8 +22,14 @@ export const applyTheme = (theme: Theme): void => {
   } else {
     document.documentElement.classList.remove('dark');
   }
+
+  applyThemeAccent(loadProfileSettings().themeAccent);
 };
 
 export const persistTheme = (theme: Theme): void => {
   saveAnonymousPreferences({ theme });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(THEME_CHANGED_EVENT));
+  }
 };

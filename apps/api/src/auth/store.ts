@@ -6,6 +6,7 @@ type UserRecord = {
   id: string;
   email: string;
   passwordHash: string;
+  avatarPath: string | null;
   createdAt: Date;
 };
 
@@ -23,6 +24,7 @@ type UserRow = {
   id: string;
   email: string;
   password_hash: string;
+  avatar_url?: string | null;
   created_at: Date;
 };
 
@@ -40,6 +42,7 @@ const toUserRecord = (row: UserRow): UserRecord => ({
   id: row.id,
   email: row.email,
   passwordHash: row.password_hash,
+  avatarPath: row.avatar_url ?? null,
   createdAt: new Date(row.created_at),
 });
 
@@ -58,24 +61,74 @@ const isUniqueConstraintViolation = (error: unknown): boolean => {
     return false;
   }
 
-  return 'code' in error && (error as { code?: string }).code === 'P2002';
+  const normalized = error as {
+    code?: string;
+    meta?: {
+      driverAdapterError?: {
+        cause?: {
+          originalCode?: string;
+        };
+      };
+    };
+  };
+  const sqlCode = normalized.meta?.driverAdapterError?.cause?.originalCode;
+
+  return normalized.code === 'P2002' || normalized.code === '23505' || sqlCode === '23505';
+};
+
+const isMissingAvatarColumnError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const normalized = error as {
+    code?: string;
+    meta?: {
+      driverAdapterError?: {
+        cause?: {
+          originalCode?: string;
+        };
+      };
+    };
+  };
+
+  if (normalized.code === '42703') {
+    return true;
+  }
+
+  const sqlCode = normalized.meta?.driverAdapterError?.cause?.originalCode;
+  return sqlCode === '42703';
 };
 
 export const authStore = {
   async createUser(params: { email: string; passwordHash: string }): Promise<UserRecord | null> {
     const normalizedEmail = params.email.trim().toLowerCase();
+    const userId = randomUUID();
+    const createdAt = new Date();
     try {
-      const row = await prisma.users.create({
-        data: {
-          id: randomUUID(),
-          email: normalizedEmail,
-          password_hash: params.passwordHash,
-          created_at: new Date(),
-        },
-      });
-
-      return toUserRecord(row);
+      const rows = await prisma.$queryRaw<UserRow[]>`
+        INSERT INTO "users" (id, email, password_hash, avatar_url, created_at)
+        VALUES (${userId}, ${normalizedEmail}, ${params.passwordHash}, ${null}, ${createdAt})
+        RETURNING id, email, password_hash, avatar_url, created_at
+      `;
+      return rows.length > 0 ? toUserRecord(rows[0]) : null;
     } catch (error) {
+      if (isMissingAvatarColumnError(error)) {
+        try {
+          const rows = await prisma.$queryRaw<UserRow[]>`
+            INSERT INTO "users" (id, email, password_hash, created_at)
+            VALUES (${userId}, ${normalizedEmail}, ${params.passwordHash}, ${createdAt})
+            RETURNING id, email, password_hash, created_at
+          `;
+          return rows.length > 0 ? toUserRecord(rows[0]) : null;
+        } catch (fallbackError) {
+          if (isUniqueConstraintViolation(fallbackError)) {
+            return null;
+          }
+          throw fallbackError;
+        }
+      }
+
       if (isUniqueConstraintViolation(error)) {
         return null;
       }
@@ -85,17 +138,77 @@ export const authStore = {
 
   async findUserByEmail(email: string): Promise<UserRecord | null> {
     const normalizedEmail = email.trim().toLowerCase();
-    const row = await prisma.users.findUnique({
-      where: { email: normalizedEmail },
-    });
-    return row ? toUserRecord(row) : null;
+    try {
+      const rows = await prisma.$queryRaw<UserRow[]>`
+        SELECT id, email, password_hash, avatar_url, created_at
+        FROM "users"
+        WHERE email = ${normalizedEmail}
+        LIMIT 1
+      `;
+      return rows.length > 0 ? toUserRecord(rows[0]) : null;
+    } catch (error) {
+      if (isMissingAvatarColumnError(error)) {
+        const rows = await prisma.$queryRaw<UserRow[]>`
+          SELECT id, email, password_hash, created_at
+          FROM "users"
+          WHERE email = ${normalizedEmail}
+          LIMIT 1
+        `;
+        return rows.length > 0 ? toUserRecord(rows[0]) : null;
+      }
+      throw error;
+    }
   },
 
   async findUserById(id: string): Promise<UserRecord | null> {
-    const row = await prisma.users.findUnique({
-      where: { id },
+    try {
+      const rows = await prisma.$queryRaw<UserRow[]>`
+        SELECT id, email, password_hash, avatar_url, created_at
+        FROM "users"
+        WHERE id = ${id}
+        LIMIT 1
+      `;
+      return rows.length > 0 ? toUserRecord(rows[0]) : null;
+    } catch (error) {
+      if (isMissingAvatarColumnError(error)) {
+        const rows = await prisma.$queryRaw<UserRow[]>`
+          SELECT id, email, password_hash, created_at
+          FROM "users"
+          WHERE id = ${id}
+          LIMIT 1
+        `;
+        return rows.length > 0 ? toUserRecord(rows[0]) : null;
+      }
+      throw error;
+    }
+  },
+
+  async updateUserPasswordById(userId: string, passwordHash: string): Promise<boolean> {
+    const result = await prisma.users.updateMany({
+      where: { id: userId },
+      data: {
+        password_hash: passwordHash,
+      },
     });
-    return row ? toUserRecord(row) : null;
+
+    return result.count === 1;
+  },
+
+  async updateUserAvatarPathById(userId: string, avatarPath: string | null): Promise<boolean> {
+    try {
+      const updatedCount = await prisma.$executeRaw`
+        UPDATE "users"
+        SET avatar_url = ${avatarPath}
+        WHERE id = ${userId}
+      `;
+
+      return Number(updatedCount) === 1;
+    } catch (error) {
+      if (isMissingAvatarColumnError(error)) {
+        return false;
+      }
+      throw error;
+    }
   },
 
   async createRefreshToken(params: {

@@ -16,6 +16,7 @@ import { EventCreatePage } from './pages/EventCreatePage';
 import { EventPublicPage } from './pages/EventPublicPage';
 import { HomePage } from './pages/HomePage';
 import { HostEventsPage } from './pages/HostEventsPage';
+import { ProfilePage } from './pages/ProfilePage';
 import { ProviderConnectionsPage } from './pages/ProviderConnectionsPage';
 
 const queryClient = new QueryClient();
@@ -94,6 +95,13 @@ const dashboardRoute = createRoute({
   component: DashboardPage,
 });
 
+const profileRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/profile',
+  beforeLoad: requireAuth,
+  component: ProfilePage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   providersRoute,
@@ -103,6 +111,7 @@ const routeTree = rootRoute.addChildren([
   registerRoute,
   loginRoute,
   dashboardRoute,
+  profileRoute,
 ]);
 const router = createRouter({ routeTree });
 

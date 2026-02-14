@@ -24,6 +24,7 @@ export const authUserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   createdAt: z.string(),
+  avatarUrl: z.string().url().nullable().default(null),
 });
 
 export type AuthUser = z.infer<typeof authUserSchema>;
