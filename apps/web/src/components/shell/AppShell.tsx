@@ -13,7 +13,8 @@ export const AppShell = () => {
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
-  const isPublicHome = pathname === '/';
+  const isPublicRoute =
+    pathname === '/' || pathname.startsWith('/auth/') || pathname.startsWith('/event/');
 
   useEffect(() => {
     applyTheme(loadTheme());
@@ -21,8 +22,13 @@ export const AppShell = () => {
 
   return (
     <div className="min-h-screen bg-app-bg text-app-text transition-colors">
-      {isPublicHome ? (
+      {isPublicRoute ? (
         <>
+          <div className="fixed left-4 top-4 z-30 sm:left-6 sm:top-6">
+            <Link to="/" aria-label="Synqit home" className="inline-flex">
+              <BrandLogo className="h-10 w-auto sm:h-20" />
+            </Link>
+          </div>
           <div className="fixed right-4 top-4 z-30 flex items-center gap-2 sm:right-6 sm:top-6">
             <ThemeToggle />
             <AccountMenu />

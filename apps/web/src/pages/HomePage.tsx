@@ -1,9 +1,7 @@
-import { Link } from '@tanstack/react-router';
 import { motion, type Variants } from 'framer-motion';
 
 import { HomeFooterReveal } from '../components/marketing/HomeFooterReveal';
 import { PlatformPreview } from '../components/marketing/PlatformPreview';
-import { BrandLogo } from '../components/ui/BrandLogo';
 import { HeroCtaLink } from '../components/ui/HeroCtaLink';
 import { HeroPill } from '../components/ui/HeroPill';
 
@@ -47,12 +45,6 @@ export const HomePage = () => (
 
     <div className="relative z-10 overflow-hidden rounded-b-[2.75rem] bg-app-bg shadow-[0_28px_64px_-20px_rgba(0,0,0,0.55)] dark:shadow-[0_30px_70px_-20px_rgba(0,0,0,0.72)] sm:rounded-b-[3.5rem] lg:rounded-b-[4.5rem]">
       <div className="mx-auto grid w-full max-w-6xl gap-36 px-4 pb-24 pt-14 sm:gap-44 sm:px-6 sm:pb-24 sm:pt-10 lg:gap-56 lg:px-8 lg:pb-28 lg:pt-14">
-        <div className="fixed left-4 top-4 z-20 sm:left-6 sm:top-6">
-          <Link to="/" aria-label="Synqit home" className="inline-flex">
-            <BrandLogo className="h-10 w-auto sm:h-20" />
-          </Link>
-        </div>
-
         <motion.section
           initial="hidden"
           animate="visible"
