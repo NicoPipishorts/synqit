@@ -2,13 +2,16 @@ import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
 import { useAuthSession } from '../../hooks/useAuthSession';
+import { useI18n } from '../../hooks/useI18n';
 import { applyTheme, loadTheme } from '../../lib/theme';
 import { AccountMenu } from '../ui/AccountMenu';
 import { BrandLogo } from '../ui/BrandLogo';
+import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { ThemeToggle } from '../ui/ThemeToggle';
 
 export const AppShell = () => {
   const { auth } = useAuthSession();
+  const { t } = useI18n();
   const hasSession = Boolean(auth);
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
@@ -30,6 +33,7 @@ export const AppShell = () => {
             </Link>
           </div>
           <div className="fixed right-4 top-4 z-30 flex items-center gap-2 sm:right-6 sm:top-6">
+            <LanguageSwitcher />
             <ThemeToggle />
             <AccountMenu />
           </div>
@@ -50,7 +54,7 @@ export const AppShell = () => {
                     to="/"
                     className="rounded-md px-2 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >
-                    Product
+                    {t('nav.product')}
                   </Link>
                   {hasSession ? (
                     <>
@@ -58,19 +62,20 @@ export const AppShell = () => {
                         to="/events"
                         className="rounded-md px-2 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        Events
+                        {t('nav.events')}
                       </Link>
                       <Link
                         to="/providers"
                         className="rounded-md px-2 py-1 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                       >
-                        Providers
+                        {t('nav.providers')}
                       </Link>
                     </>
                   ) : null}
                 </nav>
               </div>
               <div className="flex items-center gap-2">
+                <LanguageSwitcher />
                 <ThemeToggle />
                 <AccountMenu />
               </div>

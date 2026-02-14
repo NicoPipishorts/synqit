@@ -1,13 +1,17 @@
-import { THEME_STORAGE_KEY } from './constants';
+import { loadAnonymousPreferences, saveAnonymousPreferences } from './preferences';
 import { Theme } from './types';
 
 export const loadTheme = (): Theme => {
-  const raw = localStorage.getItem(THEME_STORAGE_KEY);
-  if (raw === 'light' || raw === 'dark') {
-    return raw;
+  const storedTheme = loadAnonymousPreferences().theme;
+  if (storedTheme) {
+    return storedTheme;
   }
 
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+
+  return 'light';
 };
 
 export const applyTheme = (theme: Theme): void => {
@@ -19,5 +23,5 @@ export const applyTheme = (theme: Theme): void => {
 };
 
 export const persistTheme = (theme: Theme): void => {
-  localStorage.setItem(THEME_STORAGE_KEY, theme);
+  saveAnonymousPreferences({ theme });
 };

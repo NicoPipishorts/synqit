@@ -27,6 +27,7 @@
     "infra:logs": "docker compose -f infra/docker-compose.yml logs -f --tail=100",
     "build": "yarn workspaces run build",
     "lint": "yarn workspaces run lint",
+    "i18n:check": "yarn workspace @synqit/web i18n:check",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "typecheck": "yarn workspaces run typecheck",

@@ -9,6 +9,7 @@ import {
 
 import { AppShell } from './components/shell/AppShell';
 import { isAuthenticated } from './lib/auth';
+import { I18nProvider } from './lib/i18n';
 import { AuthForm } from './pages/AuthForm';
 import { DashboardPage } from './pages/DashboardPage';
 import { EventCreatePage } from './pages/EventCreatePage';
@@ -76,14 +77,14 @@ const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/register',
   beforeLoad: redirectIfAuthenticated,
-  component: () => <AuthForm endpoint="/v1/auth/register" title="Register" />,
+  component: () => <AuthForm endpoint="/v1/auth/register" />,
 });
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/login',
   beforeLoad: redirectIfAuthenticated,
-  component: () => <AuthForm endpoint="/v1/auth/login" title="Login" />,
+  component: () => <AuthForm endpoint="/v1/auth/login" />,
 });
 
 const dashboardRoute = createRoute({
@@ -114,7 +115,9 @@ declare module '@tanstack/react-router' {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <I18nProvider>
+        <RouterProvider router={router} />
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

@@ -1,0 +1,120 @@
+{
+  "nav": {
+    "product": "Product",
+    "events": "Events",
+    "providers": "Providers"
+  },
+  "accountMenu": {
+    "ariaOpen": "Open account menu",
+    "dashboard": "Dashboard",
+    "connections": "Connections",
+    "myEvents": "My Events",
+    "createEvent": "Create Event",
+    "logout": "Logout",
+    "loggingOut": "Logging out...",
+    "accountAccess": "Account access",
+    "login": "Login",
+    "createAccount": "Create account"
+  },
+  "languageSwitcher": {
+    "ariaOpen": "Open language menu",
+    "ariaSelect": "Switch language to {{language}}",
+    "english": "English",
+    "french": "French"
+  },
+  "auth": {
+    "loginTitle": "Login",
+    "registerTitle": "Register",
+    "welcomeBack": "Welcome back to Synqit.",
+    "createHost": "Create your Synqit host account.",
+    "loginLead": "Sign in to create events, manage guest links, and moderate live tracks.",
+    "registerLead": "Register once, connect your provider, and launch your first collaborative event playlist.",
+    "backToProduct": "Back to product overview",
+    "loginHint": "Use your host credentials to continue.",
+    "registerHint": "Use a valid email and a secure password.",
+    "email": "Email",
+    "password": "Password",
+    "emailPlaceholder": "you@example.com",
+    "passwordPlaceholder": "At least 8 characters",
+    "submitting": "Submitting...",
+    "authenticated": "Authenticated as {{email}}. Redirecting...",
+    "noAccount": "No account yet?",
+    "alreadyAccount": "Already have an account?",
+    "createOne": "Create one"
+  },
+  "home": {
+    "hero": {
+      "pillMvp": "Shared Playlist MVP",
+      "pillMagicLink": "Magic Link Guest Flow",
+      "title": "Collaborative event playlists, without forcing guests to sign up.",
+      "description": "Synqit gives hosts a shareable link. Guests open it, search songs, and contribute in seconds while tracks land directly in the host provider playlist.",
+      "ctaStart": "Start as host",
+      "ctaLogin": "Login",
+      "helper": "Built for fast guest contribution on mobile, tablet, and desktop."
+    },
+    "metrics": {
+      "quickShare": "Quick share",
+      "quickShareValue": "Magic link",
+      "friction": "Guest friction",
+      "frictionValue": "Zero login",
+      "routing": "Track routing",
+      "routingValue": "Host provider",
+      "setup": "Setup time",
+      "setupValue": "< 1 minute"
+    },
+    "why": {
+      "title": "Why hosts choose Synqit for event playlists",
+      "description": "Structured for clarity and speed: create, share, collect tracks, moderate.",
+      "stat1Value": "1 link",
+      "stat1Label": "Guest entry point",
+      "stat2Value": "< 30s",
+      "stat2Label": "Typical guest add flow",
+      "stat3Value": "2 providers",
+      "stat3Label": "Spotify + Apple Music",
+      "stat4Value": "Host control",
+      "stat4Label": "Edit, revoke, close"
+    },
+    "how": {
+      "title": "How it works",
+      "pill": "Mobile-first flow",
+      "step1": "Host sets up event",
+      "step1Body": "Connect provider, create the event playlist, and generate a magic link.",
+      "step2": "Guests add tracks",
+      "step2Body": "Guests open the link and contribute songs from the host provider catalog.",
+      "step3": "Host curates live",
+      "step3Body": "Host reviews tracks, removes items, and closes the event when ready."
+    },
+    "cards": {
+      "hostTitle": "Host-first setup",
+      "hostBody": "Connect provider, create event, copy the magic link in under a minute.",
+      "guestTitle": "Guest-friendly",
+      "guestBody": "Guests open the link, search tracks, and contribute without account creation.",
+      "providerTitle": "Provider aligned",
+      "providerBody": "Tracks are searched against and added to the host provider account directly."
+    },
+    "finalCta": {
+      "pill": "Ready to test your first event?",
+      "title": "Launch a host event and start collecting tracks today.",
+      "description": "Start with your own account, connect your provider, and share one link with guests.",
+      "create": "Create host account",
+      "login": "I already have an account"
+    }
+  },
+  "footer": {
+    "description": "Collaborative event playlists with one magic link and live host moderation.",
+    "product": "Product",
+    "platform": "Platform",
+    "home": "Home",
+    "start": "Start as host",
+    "login": "Login",
+    "events": "Events",
+    "connections": "Connections",
+    "createEvent": "Create event",
+    "onePlan": "One Plan",
+    "freeMvp": "Free MVP",
+    "planDesc": "Launch host events and collect tracks instantly.",
+    "getStarted": "Get Started",
+    "dashboard": "Dashboard",
+    "copyright": "© {{year}} Synqit"
+  }
+}

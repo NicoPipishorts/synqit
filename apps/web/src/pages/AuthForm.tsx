@@ -1,18 +1,15 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { FormEvent, useState } from 'react';
 
+import { useI18n } from '../hooks/useI18n';
 import { callApi, toApiError } from '../lib/api';
 import { storeAuth } from '../lib/auth';
 
-export const AuthForm = ({
-  endpoint,
-  title,
-}: {
-  endpoint: '/v1/auth/register' | '/v1/auth/login';
-  title: string;
-}) => {
+export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/auth/login' }) => {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const isLogin = endpoint === '/v1/auth/login';
+  const title = isLogin ? t('auth.loginTitle') : t('auth.registerTitle');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [status, setStatus] = useState<string | null>(null);
@@ -36,7 +33,7 @@ export const AuthForm = ({
       );
 
       const auth = storeAuth(result);
-      setStatus(`Authenticated as ${auth.userEmail}. Redirecting...`);
+      setStatus(t('auth.authenticated', { email: auth.userEmail }));
       setStatusType('success');
       void navigate({ to: '/dashboard' });
     } catch (error) {
@@ -56,15 +53,13 @@ export const AuthForm = ({
       <div className="relative grid w-full gap-6">
         <div className="mx-auto grid w-full max-w-xl gap-2 text-center">
           <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
-            {isLogin ? 'Welcome back to Synqit.' : 'Create your Synqit host account.'}
+            {isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
           </h1>
           <p className="text-sm text-app-text-secondary sm:text-base">
-            {isLogin
-              ? 'Sign in to create events, manage guest links, and moderate live tracks.'
-              : 'Register once, connect your provider, and launch your first collaborative event playlist.'}
+            {isLogin ? t('auth.loginLead') : t('auth.registerLead')}
           </p>
           <Link to="/" className="text-sm font-semibold text-brand-pink hover:text-[#d12074]">
-            Back to product overview
+            {t('auth.backToProduct')}
           </Link>
         </div>
 
@@ -75,14 +70,12 @@ export const AuthForm = ({
           <div className="grid gap-1 text-center sm:text-left">
             <h2 className="text-2xl font-bold text-brand-dark dark:text-brand-white">{title}</h2>
             <p className="text-sm text-app-text-secondary">
-              {isLogin
-                ? 'Use your host credentials to continue.'
-                : 'Use a valid email and a secure password.'}
+              {isLogin ? t('auth.loginHint') : t('auth.registerHint')}
             </p>
           </div>
 
           <label className="grid gap-2 text-sm font-medium">
-            <span>Email</span>
+            <span>{t('auth.email')}</span>
             <input
               required
               type="email"
@@ -90,12 +83,12 @@ export const AuthForm = ({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-app-text outline-none transition focus:border-brand-lime"
-              placeholder="you@example.com"
+              placeholder={t('auth.emailPlaceholder')}
             />
           </label>
 
           <label className="grid gap-2 text-sm font-medium">
-            <span>Password</span>
+            <span>{t('auth.password')}</span>
             <input
               required
               minLength={8}
@@ -104,7 +97,7 @@ export const AuthForm = ({
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-app-text outline-none transition focus:border-brand-pink"
-              placeholder="At least 8 characters"
+              placeholder={t('auth.passwordPlaceholder')}
             />
           </label>
 
@@ -113,7 +106,7 @@ export const AuthForm = ({
             type="submit"
             className="rounded-xl bg-brand-lime px-4 py-2.5 text-sm font-semibold text-brand-dark shadow-soft-lift transition hover:bg-[#b2e600] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#aee000] dark:hover:bg-[#9fd100]"
           >
-            {isSubmitting ? 'Submitting...' : title}
+            {isSubmitting ? t('auth.submitting') : title}
           </button>
 
           {status ? (
@@ -129,12 +122,12 @@ export const AuthForm = ({
           ) : null}
 
           <p className="text-sm text-app-text-secondary">
-            {isLogin ? 'No account yet?' : 'Already have an account?'}{' '}
+            {isLogin ? t('auth.noAccount') : t('auth.alreadyAccount')}{' '}
             <Link
               to={isLogin ? '/auth/register' : '/auth/login'}
               className="font-semibold text-brand-pink hover:text-[#d12074]"
             >
-              {isLogin ? 'Create one' : 'Login'}
+              {isLogin ? t('auth.createOne') : t('auth.loginTitle')}
             </Link>
           </p>
         </form>

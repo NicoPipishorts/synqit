@@ -5,11 +5,13 @@ import { useEffect, useRef, useState } from 'react';
 
 import { HeroCtaLink } from './HeroCtaLink';
 import { useAuthSession } from '../../hooks/useAuthSession';
+import { useI18n } from '../../hooks/useI18n';
 import { callApi } from '../../lib/api';
 import { clearAuth, getInitials } from '../../lib/auth';
 
 export const AccountMenu = () => {
   const { auth, setAuth } = useAuthSession();
+  const { t } = useI18n();
   const [isOpen, setIsOpen] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -63,7 +65,7 @@ export const AccountMenu = () => {
         type="button"
         onClick={() => setIsOpen((previousValue) => !previousValue)}
         className="flex h-12 w-12 items-center justify-center rounded-full border border-app-border bg-app-elevated text-sm font-bold text-brand-dark shadow-soft-lift transition hover:border-brand-pink dark:border-app-border dark:bg-app-elevated dark:text-brand-white dark:shadow-glow-pink"
-        aria-label="Open account menu"
+        aria-label={t('accountMenu.ariaOpen')}
       >
         {auth ? getInitials(auth.userEmail) : <UserRound size={20} aria-hidden="true" />}
       </button>
@@ -80,28 +82,28 @@ export const AccountMenu = () => {
                   onClick={() => setIsOpen(false)}
                   className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  Dashboard
+                  {t('accountMenu.dashboard')}
                 </Link>
                 <Link
                   to="/providers"
                   onClick={() => setIsOpen(false)}
                   className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  Connections
+                  {t('accountMenu.connections')}
                 </Link>
                 <Link
                   to="/events"
                   onClick={() => setIsOpen(false)}
                   className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  My Events
+                  {t('accountMenu.myEvents')}
                 </Link>
                 <Link
                   to="/events/new"
                   onClick={() => setIsOpen(false)}
                   className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  Create Event
+                  {t('accountMenu.createEvent')}
                 </Link>
                 <button
                   type="button"
@@ -109,13 +111,15 @@ export const AccountMenu = () => {
                   disabled={isBusy}
                   className="mt-1 rounded-lg bg-brand-dark px-3 py-2 text-left text-brand-white transition hover:bg-[#111111] disabled:opacity-60 dark:bg-brand-white dark:text-brand-dark"
                 >
-                  {isBusy ? 'Logging out...' : 'Logout'}
+                  {isBusy ? t('accountMenu.loggingOut') : t('accountMenu.logout')}
                 </button>
               </div>
             </>
           ) : (
             <div className="grid gap-2 text-sm">
-              <p className="text-neutral-600 dark:text-neutral-300">Account access</p>
+              <p className="text-neutral-600 dark:text-neutral-300">
+                {t('accountMenu.accountAccess')}
+              </p>
               <HeroCtaLink
                 to="/auth/login"
                 variant="lime"
@@ -123,14 +127,14 @@ export const AccountMenu = () => {
                 onClick={() => setIsOpen(false)}
                 className="text-center"
               >
-                Login
+                {t('accountMenu.login')}
               </HeroCtaLink>
               <Link
                 to="/auth/register"
                 onClick={() => setIsOpen(false)}
                 className="rounded-lg border border-app-border px-3 py-2 transition hover:border-brand-lime dark:border-app-border"
               >
-                Create account
+                {t('accountMenu.createAccount')}
               </Link>
             </div>
           )}

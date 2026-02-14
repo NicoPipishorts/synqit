@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.app.json && vite build",
     "preview": "vite preview",
     "lint": "eslint src --ext .ts,.tsx",
+    "i18n:check": "node scripts/check-locales.mjs",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
     "test": "echo \"No tests yet for @synqit/web\""
   },
