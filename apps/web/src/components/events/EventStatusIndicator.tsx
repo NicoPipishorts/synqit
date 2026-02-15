@@ -4,21 +4,24 @@ import { EventStatus } from '../../lib/events';
 type EventStatusIndicatorProps = {
   status: EventStatus;
   mode?: 'dot' | 'responsive' | 'pill';
+  dotSize?: 'sm' | 'md';
 };
 
 export const EventStatusIndicator = ({
   status,
   mode = 'responsive',
+  dotSize = 'sm',
 }: EventStatusIndicatorProps) => {
   const { t } = useI18n();
   const isOpen = status === 'open';
   const label = isOpen ? t('eventsPage.statusOpen') : t('eventsPage.statusClosed');
   const dotClass = isOpen ? 'bg-brand-lime' : 'bg-brand-pink';
+  const dotSizeClass = dotSize === 'md' ? 'h-3 w-3' : 'h-2.5 w-2.5';
 
   if (mode === 'dot') {
     return (
       <span
-        className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`}
+        className={`inline-flex shrink-0 rounded-full ${dotSizeClass} ${dotClass}`}
         aria-label={label}
         title={label}
       />
@@ -42,7 +45,7 @@ export const EventStatusIndicator = ({
   return (
     <>
       <span
-        className={`inline-flex h-2.5 w-2.5 shrink-0 rounded-full sm:hidden ${dotClass}`}
+        className={`inline-flex shrink-0 rounded-full sm:hidden ${dotSizeClass} ${dotClass}`}
         aria-label={label}
         title={label}
       />

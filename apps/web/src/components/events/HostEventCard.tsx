@@ -17,19 +17,19 @@ export const HostEventCard = ({ event, onCopyMagicLink }: HostEventCardProps) =>
   return (
     <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
       <div className="grid gap-3">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div className="grid gap-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="grid min-w-0 flex-1 gap-1">
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+              <h2 className="truncate text-xl font-bold text-brand-dark dark:text-brand-white">
                 {event.name}
               </h2>
               <EventStatusIndicator status={event.status} mode="responsive" />
             </div>
-            <p className="text-sm text-app-text-secondary">
+            <p className="line-clamp-2 text-sm text-app-text-secondary">
               {event.description || t('eventsPage.noDescription')}
             </p>
           </div>
-          <div className="flex items-start">
+          <div className="flex shrink-0 items-start">
             <EventProviderIcon provider={event.provider} sizeClassName="h-9 w-9" />
           </div>
         </div>

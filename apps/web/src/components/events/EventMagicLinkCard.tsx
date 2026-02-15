@@ -24,10 +24,10 @@ export const EventMagicLinkCard = ({
 
   return (
     <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+      <span className="text-xs sm:text-sm text-app-text-secondary pl-2 sm:pl-3">
+        {t('eventsPage.lastUpdated')} {formatDateTime(event.updatedAt)}
+      </span>
       <div className="grid gap-2 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text-secondary dark:bg-app-elevated">
-        <span>
-          {t('eventsPage.lastUpdated')} {formatDateTime(event.updatedAt)}
-        </span>
         <EventMagicLinkRow
           magicLinkToken={event.magicLinkToken}
           magicLinkRevokedAt={event.magicLinkRevokedAt}
