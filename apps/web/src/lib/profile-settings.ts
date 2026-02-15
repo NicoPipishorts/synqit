@@ -1,10 +1,19 @@
 import { PROFILE_SETTINGS_CHANGED_EVENT, PROFILE_SETTINGS_STORAGE_KEY } from './constants';
 import { Provider, ThemeAccent } from './types';
 
+export type PersonalInfoSettings = {
+  displayName?: string;
+  firstName?: string;
+  lastName?: string;
+  birthDate?: string;
+  country?: string;
+};
+
 export type ProfileSettings = {
   avatarDataUrl?: string;
   preferredProvider?: Provider;
   themeAccent?: ThemeAccent;
+  personalInfo?: PersonalInfoSettings;
 };
 
 const DEFAULT_THEME_ACCENT: ThemeAccent = 'lime';
@@ -49,6 +58,53 @@ const sanitizeDataUrl = (value: unknown): string | undefined => {
   return value;
 };
 
+const sanitizeOptionalText = (value: unknown, maxLength: number): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return trimmed.slice(0, maxLength);
+};
+
+const sanitizeBirthDate = (value: unknown): string | undefined => {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return undefined;
+  }
+
+  return trimmed;
+};
+
+const sanitizePersonalInfo = (value: unknown): PersonalInfoSettings | undefined => {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const candidate = value as Record<string, unknown>;
+  const next: PersonalInfoSettings = {
+    displayName: sanitizeOptionalText(candidate.displayName, 80),
+    firstName: sanitizeOptionalText(candidate.firstName, 80),
+    lastName: sanitizeOptionalText(candidate.lastName, 80),
+    birthDate: sanitizeBirthDate(candidate.birthDate),
+    country: sanitizeOptionalText(candidate.country, 60),
+  };
+
+  if (!next.displayName && !next.firstName && !next.lastName && !next.birthDate && !next.country) {
+    return undefined;
+  }
+
+  return next;
+};
+
 const sanitizeProfileSettings = (value: unknown): ProfileSettings => {
   if (!value || typeof value !== 'object') {
     return {};
@@ -61,6 +117,7 @@ const sanitizeProfileSettings = (value: unknown): ProfileSettings => {
       ? candidate.preferredProvider
       : undefined,
     themeAccent: isThemeAccent(candidate.themeAccent) ? candidate.themeAccent : undefined,
+    personalInfo: sanitizePersonalInfo(candidate.personalInfo),
   };
 };
 

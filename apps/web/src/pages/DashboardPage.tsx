@@ -71,24 +71,29 @@ export const DashboardPage = () => {
       <div className="pointer-events-none absolute right-0 top-16 h-52 w-52 rounded-full bg-brand-pink/15 blur-3xl" />
 
       <div className="relative grid gap-6">
-        <article className="rounded-[2rem] border border-app-border bg-brand-gradient p-[1px] shadow-soft-lift">
-          <div className="grid gap-5 rounded-[calc(2rem-1px)] bg-app-elevated px-5 py-8 dark:bg-app-card sm:px-8 sm:py-10">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <HeroPill variant="lime">{t('dashboard.pill')}</HeroPill>
+        <article>
+          <div className="flex flex-wrap items-start justify-between gap-6 px-5 py-7 sm:px-8 sm:py-9">
+            <div className="grid gap-2">
+              <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+                {t('dashboard.title')}
+              </h1>
               <p className="text-sm text-app-text-secondary">
                 {auth
                   ? t('dashboard.sessionActive', { email: auth.userEmail })
                   : t('dashboard.noActiveSession')}
               </p>
             </div>
-            <div className="grid gap-2">
-              <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
-                {t('dashboard.title')}
-              </h1>
-              <p className="max-w-3xl text-sm text-app-text-secondary sm:text-base">
-                {t('dashboard.description')}
-              </p>
+          </div>
+        </article>
+
+        <article className="rounded-[2rem] border border-app-border bg-brand-gradient p-[1px] shadow-soft-lift">
+          <div className="grid gap-5 rounded-[calc(2rem-1px)] bg-app-elevated px-5 py-8 dark:bg-app-card sm:px-8 sm:py-10">
+            <div className="flex flex-wrap items-center gap-3">
+              <HeroPill variant="lime">{t('dashboard.pill')}</HeroPill>
             </div>
+            <p className="max-w-3xl text-sm text-app-text-secondary sm:text-base">
+              {t('dashboard.description')}
+            </p>
             <div className="grid gap-3 sm:grid-cols-3">
               <Link
                 to="/events"

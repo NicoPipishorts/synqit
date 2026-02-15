@@ -18,6 +18,9 @@ import { EventPublicPage } from './pages/EventPublicPage';
 import { HomePage } from './pages/HomePage';
 import { HostEventsPage } from './pages/HostEventsPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { ProfilePersonalInfoPage } from './pages/ProfilePersonalInfoPage';
+import { ProfilePlatformsPage } from './pages/ProfilePlatformsPage';
+import { ProfileSecurityPage } from './pages/ProfileSecurityPage';
 import { ProviderConnectionsPage } from './pages/ProviderConnectionsPage';
 
 const queryClient = new QueryClient();
@@ -103,6 +106,27 @@ const profileRoute = createRoute({
   component: ProfilePage,
 });
 
+const profilePlatformsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/profile/platforms',
+  beforeLoad: requireAuth,
+  component: ProfilePlatformsPage,
+});
+
+const profilePersonalInfoRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/profile/personal-info',
+  beforeLoad: requireAuth,
+  component: ProfilePersonalInfoPage,
+});
+
+const profileSecurityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/profile/security',
+  beforeLoad: requireAuth,
+  component: ProfileSecurityPage,
+});
+
 const routeTree = rootRoute.addChildren([
   homeRoute,
   providersRoute,
@@ -113,6 +137,9 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   dashboardRoute,
   profileRoute,
+  profilePlatformsRoute,
+  profilePersonalInfoRoute,
+  profileSecurityRoute,
 ]);
 const router = createRouter({ routeTree });
 

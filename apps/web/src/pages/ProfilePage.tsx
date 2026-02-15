@@ -1,62 +1,30 @@
-import { authUserSchema, providerSchema } from '@synqit/shared';
+import { authUserSchema } from '@synqit/shared';
 import { Link } from '@tanstack/react-router';
 import { Pencil } from 'lucide-react';
-import { ChangeEvent, DragEvent, FormEvent, useRef, useState } from 'react';
+import { ChangeEvent, DragEvent, useRef, useState } from 'react';
 
+import { ctaClassName } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
 import { useProfileSettings } from '../hooks/useProfileSettings';
-import { useTheme } from '../hooks/useTheme';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { updateStoredAuthUser } from '../lib/auth';
-import { applyThemeAccent } from '../lib/profile-settings';
-import { Theme, ThemeAccent } from '../lib/types';
 
 const MAX_AVATAR_BYTES = 1_500_000;
 
 export const ProfilePage = () => {
-  const { t, locale, setLocale } = useI18n();
-  const { theme, setTheme } = useTheme();
+  const { t } = useI18n();
   const { auth, setAuth } = useAuthSession();
   const { settings, updateSettings } = useProfileSettings();
   const { showToast } = useToast();
 
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isAvatarDragActive, setIsAvatarDragActive] = useState(false);
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const avatarSrc = auth?.avatarUrl ?? settings.avatarDataUrl ?? null;
-
-  const onThemeChange = (nextTheme: Theme) => {
-    setTheme(nextTheme);
-    showToast(t('profile.themeSaved'), { variant: 'success' });
-  };
-
-  const onAccentChange = (nextAccent: ThemeAccent) => {
-    updateSettings({ themeAccent: nextAccent });
-    applyThemeAccent(nextAccent);
-    showToast(t('profile.accentSaved'), { variant: 'success' });
-  };
-
-  const onProviderChange = (nextProvider: string) => {
-    if (providerSchema.options.includes(nextProvider as (typeof providerSchema.options)[number])) {
-      updateSettings({
-        preferredProvider: nextProvider as (typeof providerSchema.options)[number],
-      });
-      showToast(t('profile.providerSaved'), { variant: 'success' });
-    }
-  };
-
-  const onLocaleChange = (nextLocale: 'en' | 'fr') => {
-    setLocale(nextLocale);
-    showToast(t('profile.languageSaved'), { variant: 'success' });
-  };
 
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -180,65 +148,39 @@ export const ProfilePage = () => {
     void handleAvatarFile(event.dataTransfer.files?.[0]);
   };
 
-  const changePassword = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (!auth) {
-      showToast(t('profile.notLoggedIn'), { variant: 'error' });
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      showToast(t('profile.passwordMinLength'), { variant: 'error' });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      showToast(t('profile.passwordMismatch'), { variant: 'error' });
-      return;
-    }
-
-    setIsChangingPassword(true);
-    try {
-      await callApi(
-        '/v1/auth/change-password',
-        {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${auth.accessToken}`,
-          },
-          body: JSON.stringify({
-            currentPassword,
-            newPassword,
-          }),
-        },
-        (payload) => payload,
-      );
-
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      showToast(t('profile.passwordChanged'), { variant: 'success' });
-    } catch (error) {
-      const apiError = toApiError(error);
-      showToast(t('profile.error', { message: apiError.message }), { variant: 'error' });
-    } finally {
-      setIsChangingPassword(false);
-    }
-  };
-
   return (
     <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-      <div className="pointer-events-none absolute -left-12 top-16 h-44 w-44 rounded-full " />
-      <div className="pointer-events-none absolute right-0 top-16 h-52 w-52 rounded-full " />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -left-16 top-8 h-44 w-52 rounded-full bg-brand-lime/30 blur-[95px] sm:h-56 sm:w-64"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-14 top-20 h-52 w-56 rounded-full bg-brand-pink/30 blur-[105px] sm:h-64 sm:w-72"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-10 top-[34%] hidden h-40 w-40 rounded-full bg-brand-pink/20 blur-[90px] md:block"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute right-8 top-[48%] hidden h-52 w-44 rounded-full bg-brand-lime/20 blur-[95px] lg:block"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute bottom-8 left-1/2 h-40 w-72 -translate-x-1/2 rounded-full bg-brand-gradient opacity-25 blur-[110px] sm:h-48 sm:w-[22rem]"
+      />
 
       <div className="relative grid gap-6">
-        <article className=" ">
-          <div className="flex flex-wrap items-start justify-between gap-6  px-5 py-7 dark:bg-app-card sm:px-8 sm:py-9">
+        <article>
+          <div className="flex flex-wrap items-start justify-between gap-6 px-5 py-7 sm:px-8 sm:py-9">
             <div className="grid gap-2">
               <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-                Profile
+                {t('profile.pageTitle')}
               </h1>
+              <p className="text-sm text-app-text-secondary sm:text-base">
+                {t('profile.pageDescription')}
+              </p>
               <p className="text-sm text-app-text-secondary">
                 {auth ? auth.userEmail : t('profile.notLoggedIn')}
               </p>
@@ -271,146 +213,61 @@ export const ProfilePage = () => {
             </div>
           </div>
         </article>
-        <div className="grid gap-5 lg:grid-cols-2">
-          <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+
+        <div className="grid gap-5 lg:grid-cols-3">
+          <article className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
             <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-              {t('profile.accountTitle')}
+              {t('profile.platformsCardTitle')}
             </h2>
-            <div className="mt-4 grid gap-4">
-              <p className="text-sm text-app-text-secondary">
-                {t('profile.emailLabel')}: {auth?.userEmail ?? t('profile.notLoggedIn')}
-              </p>
-              <p className="text-sm text-app-text-secondary">
-                {t('profile.avatarManagedInHeader')}
-              </p>
+            <p className="mt-2 text-sm text-app-text-secondary">{t('profile.platformsCardBody')}</p>
+            <div className="mt-4 flex items-center gap-2">
+              <img
+                src="/assets/logos/Providers/Spotify.png"
+                alt="Spotify"
+                className="h-8 w-8 rounded-full object-cover"
+              />
+              <img
+                src="/assets/logos/Providers/AppleMusic.png"
+                alt="Apple Music"
+                className="h-8 w-8 rounded-full object-cover"
+              />
             </div>
+            <Link
+              to="/profile/platforms"
+              className={`mt-auto self-end ${ctaClassName('secondary')}`}
+            >
+              {t('profile.platformsCardCta')}
+            </Link>
           </article>
 
-          <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+          <article className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
             <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-              {t('profile.preferencesTitle')}
+              {t('profile.personalInfoCardTitle')}
             </h2>
-            <div className="mt-4 grid gap-4">
-              <label className="grid gap-1 text-sm">
-                <span>{t('profile.providerLabel')}</span>
-                <select
-                  value={settings.preferredProvider ?? 'spotify'}
-                  onChange={(event) => onProviderChange(event.target.value)}
-                  className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                >
-                  {providerSchema.options.map((provider) => (
-                    <option key={provider} value={provider}>
-                      {provider}
-                    </option>
-                  ))}
-                </select>
-              </label>
+            <p className="mt-2 text-sm text-app-text-secondary">
+              {t('profile.personalInfoCardBody')}
+            </p>
+            <Link
+              to="/profile/personal-info"
+              className={`mt-auto self-end ${ctaClassName('secondary')}`}
+            >
+              {t('profile.personalInfoCardCta')}
+            </Link>
+          </article>
 
-              <label className="grid gap-1 text-sm">
-                <span>{t('profile.languageLabel')}</span>
-                <select
-                  value={locale}
-                  onChange={(event) => onLocaleChange(event.target.value as 'en' | 'fr')}
-                  className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                >
-                  <option value="en">{t('languageSwitcher.english')}</option>
-                  <option value="fr">{t('languageSwitcher.french')}</option>
-                </select>
-              </label>
-
-              <label className="grid gap-1 text-sm">
-                <span>{t('profile.themeModeLabel')}</span>
-                <select
-                  value={theme}
-                  onChange={(event) => onThemeChange(event.target.value as Theme)}
-                  className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                >
-                  <option value="light">{t('profile.themeLight')}</option>
-                  <option value="dark">{t('profile.themeDark')}</option>
-                </select>
-              </label>
-
-              <fieldset className="grid gap-2 text-sm">
-                <legend>{t('profile.themeAccentLabel')}</legend>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onAccentChange('lime')}
-                    className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                      (settings.themeAccent ?? 'lime') === 'lime'
-                        ? 'bg-brand-lime text-brand-dark'
-                        : 'border border-app-border bg-app-bg dark:bg-app-elevated'
-                    }`}
-                  >
-                    {t('profile.themeAccentLime')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onAccentChange('pink')}
-                    className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                      (settings.themeAccent ?? 'lime') === 'pink'
-                        ? 'bg-brand-pink text-brand-white'
-                        : 'border border-app-border bg-app-bg dark:bg-app-elevated'
-                    }`}
-                  >
-                    {t('profile.themeAccentPink')}
-                  </button>
-                </div>
-              </fieldset>
-
-              <Link
-                to="/providers"
-                className="mt-1 rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm font-semibold transition hover:border-brand-lime dark:bg-app-elevated"
-              >
-                {t('profile.manageConnections')}
-              </Link>
-            </div>
+          <article className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+            <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+              {t('profile.securityCardTitle')}
+            </h2>
+            <p className="mt-2 text-sm text-app-text-secondary">{t('profile.securityCardBody')}</p>
+            <Link
+              to="/profile/security"
+              className={`mt-auto self-end ${ctaClassName('secondary')}`}
+            >
+              {t('profile.securityCardCta')}
+            </Link>
           </article>
         </div>
-
-        <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-            {t('profile.securityTitle')}
-          </h2>
-          <form onSubmit={changePassword} className="mt-4 grid gap-3 sm:max-w-xl">
-            <input
-              type="password"
-              value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
-              placeholder={t('profile.currentPassword')}
-              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
-              autoComplete="current-password"
-              required
-            />
-            <input
-              type="password"
-              value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
-              placeholder={t('profile.newPassword')}
-              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
-              autoComplete="new-password"
-              required
-              minLength={8}
-            />
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder={t('profile.confirmPassword')}
-              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
-              autoComplete="new-password"
-              required
-              minLength={8}
-            />
-            <button
-              type="submit"
-              disabled={isChangingPassword}
-              className="mt-1 rounded-lg bg-brand-dark px-3 py-2 text-sm font-semibold text-brand-white transition hover:bg-[#111111] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-brand-white dark:text-brand-dark"
-            >
-              {isChangingPassword ? t('profile.changingPassword') : t('profile.changePassword')}
-            </button>
-          </form>
-        </article>
       </div>
 
       <Modal
@@ -463,7 +320,7 @@ export const ProfilePage = () => {
                 void removeAvatar();
               }}
               disabled={isSavingAvatar}
-              className="w-fit rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm font-semibold transition hover:border-brand-pink dark:bg-app-elevated"
+              className={`w-fit ${ctaClassName('dangerSoft')}`}
             >
               {t('profile.removeAvatar')}
             </button>

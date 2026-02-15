@@ -141,7 +141,7 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
     status: 'connected' | 'error';
   }): string => {
     const baseUrl = process.env.WEB_APP_URL ?? DEFAULT_WEB_APP_URL;
-    const redirectUrl = new URL('/providers', baseUrl);
+    const redirectUrl = new URL('/profile/platforms', baseUrl);
     redirectUrl.searchParams.set('provider', params.provider);
     redirectUrl.searchParams.set('status', params.status);
     return redirectUrl.toString();

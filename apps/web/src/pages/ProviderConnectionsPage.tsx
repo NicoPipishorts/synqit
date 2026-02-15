@@ -1,12 +1,16 @@
 import {
+  eventListResponseSchema,
   integrationDisconnectResponseSchema,
   integrationListResponseSchema,
   oauthCallbackResponseSchema,
   oauthStartResponseSchema,
   providerSchema,
 } from '@synqit/shared';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { ctaClassName } from '../components/ui/cta';
+import { useI18n } from '../hooks/useI18n';
+import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { getAccessToken } from '../lib/auth';
 import {
@@ -16,336 +20,459 @@ import {
 } from '../lib/musickit';
 import { Provider } from '../lib/types';
 
+type ProviderIntegrationState = {
+  status: 'connected' | 'not_connected';
+  connectedAt: string | null;
+  expiresAt: string | null;
+};
+
+type ProviderAction = 'connect' | 'refresh' | 'disconnect';
+
+const PROVIDER_META: Record<Provider, { label: string; iconPath: string }> = {
+  spotify: {
+    label: 'Spotify',
+    iconPath: '/assets/logos/Providers/Spotify.png',
+  },
+  apple: {
+    label: 'Apple Music',
+    iconPath: '/assets/logos/Providers/AppleMusic.png',
+  },
+};
+
+const createInitialIntegrationMap = (): Record<Provider, ProviderIntegrationState> => {
+  return {
+    spotify: {
+      status: 'not_connected',
+      connectedAt: null,
+      expiresAt: null,
+    },
+    apple: {
+      status: 'not_connected',
+      connectedAt: null,
+      expiresAt: null,
+    },
+  };
+};
+
+const createInitialEventCountMap = (): Record<Provider, number> => {
+  return {
+    spotify: 0,
+    apple: 0,
+  };
+};
+
 export const ProviderConnectionsPage = () => {
-  const [status, setStatus] = useState<string>('Not loaded.');
-  const [selectedProvider, setSelectedProvider] = useState<Provider>('spotify');
-  const [integrationStatusByProvider, setIntegrationStatusByProvider] = useState<
-    Partial<Record<Provider, 'connected' | 'not_connected'>>
+  const { t, locale } = useI18n();
+  const { showToast } = useToast();
+  const [integrationByProvider, setIntegrationByProvider] = useState<
+    Record<Provider, ProviderIntegrationState>
+  >(() => createInitialIntegrationMap());
+  const [eventCountByProvider, setEventCountByProvider] = useState<Record<Provider, number>>(() =>
+    createInitialEventCountMap(),
+  );
+  const [isLoadingSnapshot, setIsLoadingSnapshot] = useState(false);
+  const [activeActionByProvider, setActiveActionByProvider] = useState<
+    Partial<Record<Provider, ProviderAction>>
   >({});
-  const [oauthState, setOauthState] = useState<string>('');
-  const [authUrl, setAuthUrl] = useState<string>('');
-  const [isMockMode, setIsMockMode] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
-  const loadIntegrationStatus = useCallback(async () => {
+  const formatDateTime = useCallback(
+    (value: string | null): string | null => {
+      if (!value) {
+        return null;
+      }
+
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return null;
+      }
+
+      return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(date);
+    },
+    [locale],
+  );
+
+  const loadSnapshot = useCallback(async () => {
     const accessToken = getAccessToken();
     if (!accessToken) {
-      setStatus('Login required to manage provider connections.');
       return;
     }
 
-    setIsLoading(true);
+    setIsLoadingSnapshot(true);
     try {
-      const result = await callApi(
-        '/v1/integrations',
-        {
-          method: 'GET',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
+      const [integrationResult, eventResult] = await Promise.all([
+        callApi(
+          '/v1/integrations',
+          {
+            method: 'GET',
+            headers: {
+              authorization: `Bearer ${accessToken}`,
+            },
           },
-        },
-        (payload) => integrationListResponseSchema.parse(payload),
-      );
+          (payload) => integrationListResponseSchema.parse(payload),
+        ),
+        callApi(
+          '/v1/events',
+          {
+            method: 'GET',
+            headers: {
+              authorization: `Bearer ${accessToken}`,
+            },
+          },
+          (payload) => eventListResponseSchema.parse(payload),
+        ),
+      ]);
 
-      const nextStatusByProvider: Partial<Record<Provider, 'connected' | 'not_connected'>> = {};
+      const nextIntegrationByProvider = createInitialIntegrationMap();
       for (const provider of providerSchema.options) {
-        const current = result.integrations.find((item) => item.provider === provider);
-        nextStatusByProvider[provider] = current?.status ?? 'not_connected';
-      }
-      setIntegrationStatusByProvider(nextStatusByProvider);
-
-      const selectedStatus = result.integrations.find((item) => item.provider === selectedProvider);
-      if (!selectedStatus || selectedStatus.status === 'not_connected') {
-        setStatus(`${selectedProvider} is not connected.`);
-      } else {
-        setStatus(
-          `${selectedProvider} connected. Expires at: ${selectedStatus.expiresAt ?? 'unknown'}`,
+        const integration = integrationResult.integrations.find(
+          (item) => item.provider === provider,
         );
-      }
-    } catch (error) {
-      const detailedMessage =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'object'
-            ? JSON.stringify(error)
-            : String(error);
-      const apiError = toApiError(error);
-      setStatus(`Error: ${apiError.message} (${detailedMessage})`);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [selectedProvider]);
-
-  const connectAppleMusic = async () => {
-    const accessToken = getAccessToken();
-    if (!accessToken) {
-      setStatus('Login required to connect Apple Music.');
-      return;
-    }
-
-    setIsLoading(true);
-    setOauthState('');
-    setAuthUrl('');
-    setIsMockMode(false);
-    try {
-      const tokenResponse = await callApi(
-        '/v1/auth/apple/developer-token',
-        {
-          method: 'GET',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        },
-        (payload) => {
-          const value = payload as Partial<AppleDeveloperTokenResponse>;
-          if (
-            value &&
-            value.provider === 'apple' &&
-            typeof value.developerToken === 'string' &&
-            typeof value.musicKitIdentifier === 'string'
-          ) {
-            return value as AppleDeveloperTokenResponse;
-          }
-
-          throw new Error('Invalid Apple developer token response.');
-        },
-      );
-
-      await loadMusicKitScript();
-      const musicKit = await ensureMusicKitInstance({
-        developerToken: tokenResponse.developerToken,
-        appName: tokenResponse.musicKitIdentifier || 'synqit',
-      });
-
-      const musicUserToken = await musicKit.authorize();
-      if (!musicUserToken) {
-        throw new Error('Apple Music did not return a user token.');
+        nextIntegrationByProvider[provider] = {
+          status: integration?.status ?? 'not_connected',
+          connectedAt: integration?.connectedAt ?? null,
+          expiresAt: integration?.expiresAt ?? null,
+        };
       }
 
-      const result = await callApi(
-        '/v1/auth/apple/connect',
-        {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            musicUserToken,
-          }),
-        },
-        (payload) => oauthCallbackResponseSchema.parse(payload),
-      );
-      setStatus(
-        `${result.provider} connected at ${result.connectedAt}. Expires at: ${
-          result.expiresAt ?? 'unknown'
-        }`,
-      );
-      await loadIntegrationStatus();
+      const nextEventCountByProvider = createInitialEventCountMap();
+      for (const event of eventResult.events) {
+        nextEventCountByProvider[event.provider] += 1;
+      }
+
+      setIntegrationByProvider(nextIntegrationByProvider);
+      setEventCountByProvider(nextEventCountByProvider);
     } catch (error) {
-      const detailedMessage =
-        error instanceof Error
-          ? error.message
-          : typeof error === 'object'
-            ? JSON.stringify(error)
-            : String(error);
       const apiError = toApiError(error);
-      setStatus(`Error: ${apiError.message} (${detailedMessage})`);
+      showToast(t('profile.connectionsLoadError', { message: apiError.message }), {
+        variant: 'error',
+      });
     } finally {
-      setIsLoading(false);
+      setIsLoadingSnapshot(false);
     }
-  };
+  }, [showToast, t]);
 
-  const startProviderConnect = async () => {
-    if (selectedProvider === 'apple') {
-      await connectAppleMusic();
-      return;
-    }
-
+  const connectAppleMusic = useCallback(async () => {
     const accessToken = getAccessToken();
     if (!accessToken) {
-      setStatus('Login required to start provider connection.');
-      return;
+      throw new Error('missing_access_token');
     }
 
-    setIsLoading(true);
-    try {
-      const result = await callApi(
-        `/v1/auth/${selectedProvider}/start`,
-        {
-          method: 'GET',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
+    const tokenResponse = await callApi(
+      '/v1/auth/apple/developer-token',
+      {
+        method: 'GET',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
         },
-        (payload) => oauthStartResponseSchema.parse(payload),
-      );
+      },
+      (payload) => {
+        const value = payload as Partial<AppleDeveloperTokenResponse>;
+        if (
+          value &&
+          value.provider === 'apple' &&
+          typeof value.developerToken === 'string' &&
+          typeof value.musicKitIdentifier === 'string'
+        ) {
+          return value as AppleDeveloperTokenResponse;
+        }
 
-      setOauthState(result.state);
-      setAuthUrl(result.authorizationUrl);
-      const mockMode = result.authorizationUrl.includes(`/v1/auth/${selectedProvider}/callback?`);
-      setIsMockMode(mockMode);
-      setStatus(
-        mockMode
-          ? `${selectedProvider} connect started in mock mode. Use callback step to complete connection.`
-          : `${selectedProvider} OAuth start created. Open authorization page, approve, then reload status.`,
-      );
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatus(`Error: ${apiError.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        throw new Error('invalid_apple_developer_token_response');
+      },
+    );
 
-  const completeMockCallback = async () => {
-    if (selectedProvider !== 'spotify') {
-      setStatus('Mock callback is only used for Spotify fallback mode.');
-      return;
-    }
+    await loadMusicKitScript();
+    const musicKit = await ensureMusicKitInstance({
+      developerToken: tokenResponse.developerToken,
+      appName: tokenResponse.musicKitIdentifier || 'synqit',
+    });
 
-    if (!oauthState) {
-      setStatus('Start OAuth first to generate state.');
-      return;
+    const musicUserToken = await musicKit.authorize();
+    if (!musicUserToken) {
+      throw new Error('apple_music_user_token_missing');
     }
 
-    setIsLoading(true);
-    try {
-      const query = new URLSearchParams({
-        state: oauthState,
-        code: 'demo-auth-code',
-        response_mode: 'json',
-      });
-      const result = await callApi(
-        `/v1/auth/${selectedProvider}/callback?${query.toString()}`,
-        {
-          method: 'GET',
+    await callApi(
+      '/v1/auth/apple/connect',
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
         },
-        (payload) => oauthCallbackResponseSchema.parse(payload),
-      );
-      setStatus(
-        `${result.provider} connected at ${result.connectedAt}. Expires at: ${
-          result.expiresAt ?? 'unknown'
-        }`,
-      );
-      setOauthState('');
-      await loadIntegrationStatus();
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatus(`Error: ${apiError.message}`);
-    } finally {
-      setIsLoading(false);
+        body: JSON.stringify({
+          musicUserToken,
+        }),
+      },
+      (payload) => oauthCallbackResponseSchema.parse(payload),
+    );
+  }, []);
+
+  const startSpotifyOauth = useCallback(async () => {
+    const accessToken = getAccessToken();
+    if (!accessToken) {
+      throw new Error('missing_access_token');
     }
-  };
+
+    const result = await callApi(
+      '/v1/auth/spotify/start',
+      {
+        method: 'GET',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      },
+      (payload) => oauthStartResponseSchema.parse(payload),
+    );
+
+    window.location.assign(result.authorizationUrl);
+  }, []);
+
+  const runProviderAction = useCallback(
+    async (provider: Provider, action: ProviderAction) => {
+      const accessToken = getAccessToken();
+      if (!accessToken) {
+        showToast(t('profile.notLoggedIn'), { variant: 'error' });
+        return;
+      }
+
+      setActiveActionByProvider((current) => ({
+        ...current,
+        [provider]: action,
+      }));
+
+      try {
+        if (action === 'disconnect') {
+          await callApi(
+            `/v1/auth/${provider}/disconnect`,
+            {
+              method: 'POST',
+              headers: {
+                authorization: `Bearer ${accessToken}`,
+              },
+            },
+            (payload) => integrationDisconnectResponseSchema.parse(payload),
+          );
+          showToast(
+            t('profile.connectionRemoved', {
+              provider: PROVIDER_META[provider].label,
+            }),
+            { variant: 'success' },
+          );
+          await loadSnapshot();
+          return;
+        }
+
+        if (provider === 'apple') {
+          await connectAppleMusic();
+          showToast(
+            t('profile.connectionConnected', {
+              provider: PROVIDER_META[provider].label,
+            }),
+            { variant: 'success' },
+          );
+          await loadSnapshot();
+          return;
+        }
+
+        await startSpotifyOauth();
+      } catch (error) {
+        const normalized = error as { message?: string };
+        if (normalized.message === 'missing_access_token') {
+          showToast(t('profile.notLoggedIn'), { variant: 'error' });
+        } else {
+          const apiError = toApiError(error);
+          showToast(t('profile.connectionsLoadError', { message: apiError.message }), {
+            variant: 'error',
+          });
+        }
+      } finally {
+        setActiveActionByProvider((current) => {
+          const next = { ...current };
+          delete next[provider];
+          return next;
+        });
+      }
+    },
+    [connectAppleMusic, loadSnapshot, showToast, startSpotifyOauth, t],
+  );
+
+  useEffect(() => {
+    void loadSnapshot();
+  }, [loadSnapshot]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const providerParam = params.get('provider');
-    if (
-      providerParam &&
-      providerSchema.options.includes(providerParam as Provider) &&
-      params.get('status') === 'connected'
-    ) {
-      setSelectedProvider(providerParam as Provider);
-      setStatus(`${providerParam} OAuth completed. Loading latest connection state...`);
-      void loadIntegrationStatus();
-      params.delete('provider');
-      params.delete('status');
-      const nextQuery = params.toString();
-      window.history.replaceState(
-        null,
-        '',
-        `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`,
-      );
-    }
-  }, [loadIntegrationStatus]);
-
-  const disconnectProvider = async () => {
-    const accessToken = getAccessToken();
-    if (!accessToken) {
-      setStatus('Login required to disconnect provider.');
+    const status = params.get('status');
+    if (!providerParam || !status) {
       return;
     }
 
-    setIsLoading(true);
-    try {
-      const result = await callApi(
-        `/v1/auth/${selectedProvider}/disconnect`,
-        {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        },
-        (payload) => integrationDisconnectResponseSchema.parse(payload),
-      );
-      setStatus(
-        result.disconnected
-          ? `${selectedProvider} disconnected.`
-          : `${selectedProvider} was already disconnected.`,
-      );
-      await loadIntegrationStatus();
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatus(`Error: ${apiError.message}`);
-    } finally {
-      setIsLoading(false);
+    if (providerSchema.options.includes(providerParam as Provider)) {
+      const providerLabel = PROVIDER_META[providerParam as Provider].label;
+      if (status === 'connected') {
+        showToast(t('profile.connectionConnected', { provider: providerLabel }), {
+          variant: 'success',
+        });
+      } else {
+        showToast(t('profile.connectionFailed', { provider: providerLabel }), {
+          variant: 'error',
+        });
+      }
+      void loadSnapshot();
     }
-  };
+
+    params.delete('provider');
+    params.delete('status');
+    const nextQuery = params.toString();
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`,
+    );
+  }, [loadSnapshot, showToast, t]);
+
+  const providerCards = useMemo(() => {
+    return providerSchema.options.map((provider) => {
+      const integration = integrationByProvider[provider];
+      const isConnected = integration.status === 'connected';
+      const isBusy = Boolean(activeActionByProvider[provider]);
+      const connectedAt = formatDateTime(integration.connectedAt);
+      const expiresAt = formatDateTime(integration.expiresAt);
+      const eventsLinked = eventCountByProvider[provider] ?? 0;
+      const providerMeta = PROVIDER_META[provider];
+
+      return {
+        provider,
+        providerMeta,
+        isConnected,
+        isBusy,
+        connectedAt,
+        expiresAt,
+        eventsLinked,
+      };
+    });
+  }, [activeActionByProvider, eventCountByProvider, formatDateTime, integrationByProvider]);
+
+  const connectedProviderCards = useMemo(() => {
+    return providerCards.filter((card) => card.isConnected);
+  }, [providerCards]);
 
   return (
-    <div style={{ display: 'grid', gap: '0.75rem' }}>
-      <h2>Provider Connections</h2>
-      <label>
-        Provider
-        <select
-          value={selectedProvider}
-          onChange={(event) => {
-            setSelectedProvider(event.target.value as Provider);
-            setOauthState('');
-            setAuthUrl('');
-            setIsMockMode(false);
-          }}
-          style={{ marginLeft: '0.5rem' }}
-        >
-          {providerSchema.options.map((provider) => (
-            <option key={provider} value={provider}>
-              {provider}
-            </option>
-          ))}
-        </select>
-      </label>
-      <p>{status}</p>
-      <p>
-        Status snapshot:{' '}
-        {providerSchema.options
-          .map((provider) => `${provider}: ${integrationStatusByProvider[provider] ?? 'unknown'}`)
-          .join(' | ')}
-      </p>
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-        <button disabled={isLoading} onClick={() => void loadIntegrationStatus()} type="button">
-          {isLoading ? 'Loading...' : 'Load status'}
-        </button>
-        <button disabled={isLoading} onClick={() => void startProviderConnect()} type="button">
-          {selectedProvider === 'apple' ? 'Connect Apple Music' : `Start ${selectedProvider} OAuth`}
-        </button>
-        {isMockMode && selectedProvider === 'spotify' ? (
-          <button disabled={isLoading} onClick={() => void completeMockCallback()} type="button">
-            Complete Callback (Mock)
+    <div className="grid gap-5">
+      <article className="rounded-2xl border border-app-border bg-app-bg p-5 shadow-soft-lift dark:bg-app-elevated">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+            {t('profile.connectionsServicesTitle')}
+          </h2>
+          <button
+            type="button"
+            onClick={() => void loadSnapshot()}
+            disabled={isLoadingSnapshot}
+            className={ctaClassName('secondary')}
+          >
+            {isLoadingSnapshot ? t('dashboard.loading') : t('profile.connectionsReload')}
           </button>
-        ) : null}
-        <button disabled={isLoading} onClick={() => void disconnectProvider()} type="button">
-          Disconnect {selectedProvider}
-        </button>
-      </div>
-      {authUrl ? (
-        <p>
-          {selectedProvider} authorize URL:{' '}
-          <a href={authUrl} rel="noreferrer" target="_blank">
-            Open authorization page
-          </a>
+        </div>
+        <p className="mt-2 text-sm text-app-text-secondary">
+          {t('profile.connectionsServicesHint')}
         </p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {providerCards.map(({ provider, providerMeta, isConnected, isBusy }) => (
+            <button
+              key={provider}
+              type="button"
+              disabled={isConnected || isBusy}
+              onClick={() => {
+                if (!isConnected) {
+                  void runProviderAction(provider, 'connect');
+                }
+              }}
+              className={`grid min-w-28 gap-1 rounded-xl border border-app-border bg-app-elevated px-4 py-3 text-left shadow-soft-lift transition dark:bg-app-card ${
+                isConnected
+                  ? 'cursor-default grayscale'
+                  : 'hover:border-brand-lime hover:shadow-glow-lime'
+              } ${isBusy ? 'opacity-60' : ''}`}
+            >
+              <img
+                src={providerMeta.iconPath}
+                alt={providerMeta.label}
+                className="h-10 w-10 rounded-full object-cover"
+              />
+              <p className="text-sm font-semibold text-app-text">{providerMeta.label}</p>
+              <p className="text-xs text-app-text-secondary">
+                {isConnected
+                  ? t('profile.connectionConnectedTag')
+                  : t('profile.connectionTapToConnect')}
+              </p>
+            </button>
+          ))}
+        </div>
+      </article>
+
+      {connectedProviderCards.length > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {connectedProviderCards.map(
+            ({ provider, providerMeta, isBusy, connectedAt, expiresAt, eventsLinked }) => (
+              <article
+                key={provider}
+                className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={providerMeta.iconPath}
+                      alt={providerMeta.label}
+                      className="h-12 w-12 rounded-full object-cover"
+                    />
+                    <h3 className="text-lg font-bold text-brand-dark dark:text-brand-white">
+                      {providerMeta.label}
+                    </h3>
+                  </div>
+                  <span className="rounded-full border border-brand-lime/40 bg-brand-lime/15 px-2.5 py-1 text-xs font-semibold text-[#6d9600] dark:text-[#d5ff5c]">
+                    {t('profile.connectionConnectedTag')}
+                  </span>
+                </div>
+
+                <div className="mt-3 grid gap-1 text-sm text-app-text-secondary">
+                  <p>{t('profile.connectionsEventsLinked', { count: eventsLinked })}</p>
+                  <p>
+                    {connectedAt
+                      ? t('profile.connectionLinkedAt', { date: connectedAt })
+                      : t('profile.connectionLinkedAtEmpty')}
+                  </p>
+                  <p>
+                    {expiresAt
+                      ? t('profile.connectionExpiresAt', { date: expiresAt })
+                      : t('profile.connectionExpiresAtEmpty')}
+                  </p>
+                </div>
+
+                <div className="mt-auto flex flex-wrap justify-end gap-2 pt-4">
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => void runProviderAction(provider, 'refresh')}
+                    className={ctaClassName('secondary')}
+                  >
+                    {t('profile.connectionRefresh')}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isBusy}
+                    onClick={() => void runProviderAction(provider, 'disconnect')}
+                    className={ctaClassName('dangerSoft')}
+                  >
+                    {t('profile.connectionRemove')}
+                  </button>
+                </div>
+              </article>
+            ),
+          )}
+        </div>
       ) : null}
-      <p>Supported providers in v1: {providerSchema.options.join(', ')}</p>
     </div>
   );
 };

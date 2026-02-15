@@ -104,13 +104,6 @@ export const AccountMenu = () => {
                   {t('accountMenu.dashboard')}
                 </Link>
                 <Link
-                  to="/providers"
-                  onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                >
-                  {t('accountMenu.connections')}
-                </Link>
-                <Link
                   to="/events"
                   onClick={() => setIsOpen(false)}
                   className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
