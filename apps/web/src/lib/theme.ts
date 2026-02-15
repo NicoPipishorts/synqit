@@ -3,21 +3,24 @@ import { loadAnonymousPreferences, saveAnonymousPreferences } from './preference
 import { applyThemeAccent, loadProfileSettings } from './profile-settings';
 import { Theme } from './types';
 
+const prefersDarkMode = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+};
+
 export const loadTheme = (): Theme => {
   const storedTheme = loadAnonymousPreferences().theme;
   if (storedTheme) {
     return storedTheme;
   }
-
-  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    return 'dark';
-  }
-
-  return 'light';
+  return 'auto';
 };
 
 export const applyTheme = (theme: Theme): void => {
-  if (theme === 'dark') {
+  const useDarkTheme = theme === 'dark' || (theme === 'auto' && prefersDarkMode());
+  if (useDarkTheme) {
     document.documentElement.classList.add('dark');
   } else {
     document.documentElement.classList.remove('dark');

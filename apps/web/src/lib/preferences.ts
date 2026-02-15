@@ -28,7 +28,7 @@ const safeStorageSet = (key: string, value: string): void => {
 };
 
 const isTheme = (value: unknown): value is Theme => {
-  return value === 'light' || value === 'dark';
+  return value === 'light' || value === 'dark' || value === 'auto';
 };
 
 const isLocale = (value: unknown): value is Locale => {

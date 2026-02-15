@@ -6,11 +6,38 @@ import { Theme } from '../lib/types';
 
 export const useTheme = () => {
   const [theme, setThemeState] = useState<Theme>(() => loadTheme());
+  const [isSystemDark, setIsSystemDark] = useState(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
 
   useEffect(() => {
     applyTheme(theme);
     persistTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = (event: MediaQueryListEvent) => {
+      setIsSystemDark(event.matches);
+    };
+
+    setIsSystemDark(mediaQuery.matches);
+    mediaQuery.addEventListener('change', onChange);
+    return () => mediaQuery.removeEventListener('change', onChange);
+  }, []);
+
+  useEffect(() => {
+    if (theme === 'auto') {
+      applyTheme('auto');
+    }
+  }, [theme, isSystemDark]);
 
   useEffect(() => {
     const syncTheme = () => {
@@ -26,12 +53,14 @@ export const useTheme = () => {
   }, []);
 
   const toggleTheme = () => {
-    setThemeState((previousTheme) => (previousTheme === 'dark' ? 'light' : 'dark'));
+    setThemeState((previousTheme) =>
+      previousTheme === 'dark' ? 'light' : previousTheme === 'light' ? 'dark' : 'dark',
+    );
   };
 
   return {
     theme,
-    isDark: theme === 'dark',
+    isDark: theme === 'dark' || (theme === 'auto' && isSystemDark),
     setTheme: setThemeState,
     toggleTheme,
   };

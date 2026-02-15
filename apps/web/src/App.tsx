@@ -58,6 +58,13 @@ const providersRoute = createRoute({
   component: ProviderConnectionsPage,
 });
 
+const syncedListsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/synced-lists',
+  beforeLoad: requireAuth,
+  component: ProviderConnectionsPage,
+});
+
 const eventsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/events',
@@ -130,6 +137,7 @@ const profileSecurityRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   homeRoute,
   providersRoute,
+  syncedListsRoute,
   eventsRoute,
   eventCreateRoute,
   eventPublicRoute,

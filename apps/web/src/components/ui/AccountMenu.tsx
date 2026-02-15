@@ -67,14 +67,14 @@ export const AccountMenu = () => {
       <button
         type="button"
         onClick={() => setIsOpen((previousValue) => !previousValue)}
-        className="flex h-12 w-12 items-center justify-center rounded-full border border-app-border bg-app-elevated text-sm font-bold text-brand-dark shadow-soft-lift transition hover:border-brand-pink dark:border-app-border dark:bg-app-elevated dark:text-brand-white dark:shadow-glow-pink"
+        className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated text-sm font-bold text-brand-dark shadow-soft-lift transition hover:border-brand-pink dark:border-app-border dark:bg-app-elevated dark:text-brand-white dark:shadow-glow-pink sm:h-16 sm:w-16 lg:h-[4.5rem] lg:w-[4.5rem]"
         aria-label={t('accountMenu.ariaOpen')}
       >
         {(auth?.avatarUrl ?? settings.avatarDataUrl) ? (
           <img
             src={auth?.avatarUrl ?? settings.avatarDataUrl ?? undefined}
             alt={t('accountMenu.avatarAlt')}
-            className="h-10 w-10 rounded-full object-cover"
+            className="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14 lg:h-16 lg:w-16"
           />
         ) : auth ? (
           getInitials(auth.userEmail)
@@ -96,27 +96,6 @@ export const AccountMenu = () => {
                   className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
                   {t('accountMenu.profile')}
-                </Link>
-                <Link
-                  to="/dashboard"
-                  onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                >
-                  {t('accountMenu.dashboard')}
-                </Link>
-                <Link
-                  to="/events"
-                  onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                >
-                  {t('accountMenu.myEvents')}
-                </Link>
-                <Link
-                  to="/events/new"
-                  onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                >
-                  {t('accountMenu.createEvent')}
                 </Link>
                 <CTAButton
                   type="button"

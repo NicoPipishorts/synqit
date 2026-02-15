@@ -2,21 +2,29 @@ import { authUserSchema } from '@synqit/shared';
 import { Pencil } from 'lucide-react';
 import { ChangeEvent, DragEvent, useRef, useState } from 'react';
 
+import { CircularImage } from '../components/ui/CircularImage';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
 import { useProfileSettings } from '../hooks/useProfileSettings';
+import { useTheme } from '../hooks/useTheme';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { updateStoredAuthUser } from '../lib/auth';
+import { applyThemeAccent } from '../lib/profile-settings';
+import { Theme, ThemeAccent } from '../lib/types';
 
 const MAX_AVATAR_BYTES = 1_500_000;
+const LOCALE_OPTIONS = ['en', 'fr'] as const;
+const THEME_OPTIONS: Theme[] = ['light', 'dark', 'auto'];
+const ACCENT_OPTIONS: ThemeAccent[] = ['lime', 'pink'];
 
 export const ProfilePage = () => {
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   const { auth, setAuth } = useAuthSession();
   const { settings, updateSettings } = useProfileSettings();
+  const { theme, setTheme } = useTheme();
   const { showToast } = useToast();
 
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -24,6 +32,7 @@ export const ProfilePage = () => {
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const avatarSrc = auth?.avatarUrl ?? settings.avatarDataUrl ?? null;
+  const selectedAccent = settings.themeAccent ?? 'lime';
 
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -147,11 +156,16 @@ export const ProfilePage = () => {
     void handleAvatarFile(event.dataTransfer.files?.[0]);
   };
 
+  const onThemeAccentChange = (accent: ThemeAccent) => {
+    updateSettings({ themeAccent: accent });
+    applyThemeAccent(accent);
+  };
+
   return (
     <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
       <div className="relative grid gap-6">
         <article>
-          <div className="flex flex-wrap items-start justify-between gap-6 px-5 py-7 sm:px-8 sm:py-9">
+          <div className="grid grid-cols-[minmax(0,14rem)_auto] items-start gap-5 px-5 py-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:px-8 sm:py-9">
             <div className="grid gap-2">
               <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
                 {t('profile.pageTitle')}
@@ -166,7 +180,7 @@ export const ProfilePage = () => {
 
             <div className="relative">
               <div className="rounded-full bg-brand-gradient p-[2px]">
-                <div className="h-28 w-28 overflow-hidden rounded-full border border-app-border bg-app-bg sm:h-32 sm:w-32">
+                <div className="h-24 w-24 overflow-hidden rounded-full border border-app-border bg-app-bg sm:h-28 sm:w-28 lg:h-32 lg:w-32">
                   {avatarSrc ? (
                     <img
                       src={avatarSrc}
@@ -183,11 +197,85 @@ export const ProfilePage = () => {
               <button
                 type="button"
                 onClick={() => setIsAvatarModalOpen(true)}
-                className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-app-border bg-app-elevated px-3 py-1 text-xs font-semibold shadow-soft-lift transition hover:border-brand-pink dark:bg-app-card"
+                aria-label={t('profile.editAvatar')}
+                className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated p-1.5 text-xs font-semibold shadow-soft-lift transition hover:border-brand-pink dark:bg-app-card sm:gap-1.5 sm:px-3 sm:py-1"
               >
-                {t('profile.editAvatar')}
-                <Pencil className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" />
+                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                <span className="hidden sm:inline">{t('profile.editAvatar')}</span>
               </button>
+            </div>
+          </div>
+        </article>
+
+        <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+          <div className="grid gap-1">
+            <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+              {t('profile.preferencesTitle')}
+            </h2>
+            <p className="text-sm text-app-text-secondary">{t('profile.preferencesDescription')}</p>
+          </div>
+          <div className="mt-4 grid gap-5 md:grid-cols-3">
+            <div className="grid gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+                {t('profile.preferencesThemeLabel')}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {THEME_OPTIONS.map((themeOption) => (
+                  <CTAButton
+                    key={themeOption}
+                    type="button"
+                    variant={themeOption === theme ? 'primary' : 'secondary'}
+                    className="capitalize"
+                    onClick={() => setTheme(themeOption)}
+                  >
+                    {themeOption === 'light'
+                      ? t('profile.preferencesThemeLight')
+                      : themeOption === 'dark'
+                        ? t('profile.preferencesThemeDark')
+                        : t('profile.preferencesThemeAuto')}
+                  </CTAButton>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+                {t('profile.preferencesLanguageLabel')}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {LOCALE_OPTIONS.map((option) => (
+                  <CTAButton
+                    key={option}
+                    type="button"
+                    variant={option === locale ? 'primary' : 'secondary'}
+                    className="capitalize"
+                    onClick={() => setLocale(option)}
+                  >
+                    {option === 'en' ? t('languageSwitcher.english') : t('languageSwitcher.french')}
+                  </CTAButton>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+                {t('profile.preferencesAccentLabel')}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {ACCENT_OPTIONS.map((accentOption) => (
+                  <CTAButton
+                    key={accentOption}
+                    type="button"
+                    variant={accentOption === selectedAccent ? 'primary' : 'secondary'}
+                    className="capitalize"
+                    onClick={() => onThemeAccentChange(accentOption)}
+                  >
+                    {accentOption === 'lime'
+                      ? t('profile.preferencesAccentLime')
+                      : t('profile.preferencesAccentPink')}
+                  </CTAButton>
+                ))}
+              </div>
             </div>
           </div>
         </article>
@@ -199,16 +287,8 @@ export const ProfilePage = () => {
             </h2>
             <p className="mt-2 text-sm text-app-text-secondary">{t('profile.platformsCardBody')}</p>
             <div className="mt-4 flex items-center gap-2">
-              <img
-                src="/assets/logos/Providers/Spotify.png"
-                alt="Spotify"
-                className="h-8 w-8 rounded-full object-cover"
-              />
-              <img
-                src="/assets/logos/Providers/AppleMusic.png"
-                alt="Apple Music"
-                className="h-8 w-8 rounded-full object-cover"
-              />
+              <CircularImage src="/assets/logos/Providers/Spotify.png" alt="Spotify" />
+              <CircularImage src="/assets/logos/Providers/AppleMusic.png" alt="Apple Music" />
             </div>
             <CTALink to="/profile/platforms" variant="secondary" className="mt-auto self-end">
               {t('profile.platformsCardCta')}
@@ -290,7 +370,7 @@ export const ProfilePage = () => {
               }}
               disabled={isSavingAvatar}
               variant="dangerSoft"
-              className="w-fit"
+              className="w-full sm:w-fit"
             >
               {t('profile.removeAvatar')}
             </CTAButton>
