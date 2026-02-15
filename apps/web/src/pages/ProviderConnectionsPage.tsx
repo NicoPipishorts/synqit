@@ -390,10 +390,10 @@ export const ProviderConnectionsPage = () => {
                   void runProviderAction(provider, 'connect');
                 }
               }}
-              className={`grid min-w-28 gap-1 rounded-xl border border-app-border bg-app-elevated px-4 py-3 text-left shadow-soft-lift transition dark:bg-app-card ${
+              className={`grid min-w-38 sm:min-w-40 gap-1 rounded-xl border border-app-border bg-app-elevated px-4 py-3 text-left shadow-soft-lift transition dark:bg-app-card ${
                 isConnected
                   ? 'cursor-default grayscale'
-                  : 'hover:border-brand-lime hover:shadow-glow-lime'
+                  : 'hover:border-brand-lime hover:shadow-glow-lime cursor-pointer'
               } ${isBusy ? 'opacity-60' : ''}`}
             >
               <img

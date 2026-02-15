@@ -2,7 +2,9 @@ import {
   authCredentialsSchema,
   authResponseSchema,
   authUserSchema,
+  changePasswordRequestSchema,
   personalInfoResponseSchema,
+  registerCredentialsSchema,
   refreshResponseSchema,
   refreshTokenRequestSchema,
   updatePersonalInfoRequestSchema,
@@ -46,10 +48,6 @@ const refreshTokenTtlDays = parsePositiveNumber(
   DEFAULT_REFRESH_TOKEN_TTL_DAYS,
 );
 const refreshTokenTtlMs = refreshTokenTtlDays * 24 * 60 * 60 * 1000;
-const changePasswordRequestSchema = z.object({
-  currentPassword: z.string().min(8),
-  newPassword: z.string().min(8),
-});
 const avatarUploadRequestSchema = z.object({
   imageDataUrl: z.string().min(1),
 });
@@ -206,7 +204,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
   });
 
   app.post('/auth/register', async (request, reply) => {
-    const parsed = authCredentialsSchema.safeParse(request.body);
+    const parsed = registerCredentialsSchema.safeParse(request.body);
     if (!parsed.success) {
       return sendValidationError(reply, parsed.error.flatten());
     }

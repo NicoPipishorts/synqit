@@ -1,7 +1,10 @@
+import { isPasswordStrong, PASSWORD_MIN_LENGTH } from '@synqit/shared';
 import { FormEvent, useState } from 'react';
 
 import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
 import { CTAButton } from '../components/ui/cta';
+import { PasswordField } from '../components/ui/PasswordField';
+import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
@@ -24,8 +27,8 @@ export const ProfileSecurityPage = () => {
       return;
     }
 
-    if (newPassword.length < 8) {
-      showToast(t('profile.passwordMinLength'), { variant: 'error' });
+    if (!isPasswordStrong(newPassword)) {
+      showToast(t('profile.passwordCriteriaNotMet'), { variant: 'error' });
       return;
     }
 
@@ -65,15 +68,6 @@ export const ProfileSecurityPage = () => {
 
   return (
     <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-16 top-8 h-44 w-52 rounded-full bg-brand-lime/25 blur-[95px] sm:h-56 sm:w-64"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-14 top-20 h-52 w-56 rounded-full bg-brand-pink/25 blur-[105px] sm:h-64 sm:w-72"
-      />
-
       <div className="relative grid gap-6">
         <article>
           <div className="flex items-start gap-4 px-5 py-7 sm:px-8 sm:py-9">
@@ -93,35 +87,33 @@ export const ProfileSecurityPage = () => {
           <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
             {t('profile.changePassword')}
           </h2>
-          <form onSubmit={changePassword} className="mt-4 grid gap-3 sm:max-w-xl">
-            <input
-              type="password"
+          <form onSubmit={changePassword} className="mt-4 grid w-full gap-3">
+            <PasswordField
               value={currentPassword}
-              onChange={(event) => setCurrentPassword(event.target.value)}
+              onChange={setCurrentPassword}
               placeholder={t('profile.currentPassword')}
-              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
               autoComplete="current-password"
               required
             />
-            <input
-              type="password"
+            <PasswordField
               value={newPassword}
-              onChange={(event) => setNewPassword(event.target.value)}
+              onChange={setNewPassword}
               placeholder={t('profile.newPassword')}
-              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
               autoComplete="new-password"
               required
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
             />
-            <input
-              type="password"
+            <PasswordStrengthMeter password={newPassword} showTooltip />
+            <PasswordField
               value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
+              onChange={setConfirmPassword}
               placeholder={t('profile.confirmPassword')}
-              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
               autoComplete="new-password"
               required
-              minLength={8}
+              minLength={PASSWORD_MIN_LENGTH}
             />
             <div className="mt-1 flex justify-end">
               <CTAButton type="submit" disabled={isChangingPassword} variant="primary">

@@ -184,6 +184,23 @@ describe('API regression', () => {
     assert.equal(refreshAfterLogoutResponse.statusCode, 401);
   });
 
+  it('auth: register rejects weak passwords', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/register',
+      payload: {
+        email,
+        password: 'password123',
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    const body = parseBody(response.body) as { code?: string };
+    assert.equal(body.code, 'validation_error');
+  });
+
   it('integrations: oauth state, connect, list, disconnect', async () => {
     const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
     const registerBody = await registerUser(app, email);

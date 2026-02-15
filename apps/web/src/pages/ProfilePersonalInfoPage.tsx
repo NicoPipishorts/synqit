@@ -231,15 +231,6 @@ export const ProfilePersonalInfoPage = () => {
 
   return (
     <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-16 top-8 h-44 w-52 rounded-full bg-brand-lime/25 blur-[95px] sm:h-56 sm:w-64"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-14 top-20 h-52 w-56 rounded-full bg-brand-pink/25 blur-[105px] sm:h-64 sm:w-72"
-      />
-
       <div className="relative grid gap-6">
         <article>
           <div className="flex items-start gap-4 px-5 py-7 sm:px-8 sm:py-9">

@@ -48,7 +48,7 @@ export const HomePage = () => {
       <HomeFooterReveal />
 
       <div className="relative z-10 overflow-hidden rounded-b-[2.75rem] bg-app-bg shadow-[0_28px_64px_-20px_rgba(0,0,0,0.55)] dark:shadow-[0_30px_70px_-20px_rgba(0,0,0,0.72)] sm:rounded-b-[3.5rem] lg:rounded-b-[4.5rem]">
-        <div className="mx-auto grid w-full max-w-6xl gap-36 px-4 pb-24 pt-14 sm:gap-44 sm:px-6 sm:pb-24 sm:pt-10 lg:gap-56 lg:px-8 lg:pb-28 lg:pt-14">
+        <div className="mx-auto grid w-full max-w-6xl gap-36 px-4 pb-24 pt-20 sm:gap-44 sm:px-6 sm:pb-24 sm:pt-10 lg:gap-56 lg:px-8 lg:pb-28 lg:pt-30">
           <motion.section
             initial="hidden"
             animate="visible"
@@ -253,7 +253,7 @@ export const HomePage = () => {
         </div>
       </div>
 
-      <div aria-hidden className="h-[22rem] sm:h-[24rem] lg:h-[26rem]" />
+      <div aria-hidden className="h-[28rem] sm:h-[24rem] lg:h-[26rem]" />
     </div>
   );
 };

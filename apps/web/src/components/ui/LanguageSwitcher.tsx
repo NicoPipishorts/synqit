@@ -65,14 +65,14 @@ export const LanguageSwitcher = () => {
         onClick={() => setIsOpen((previousValue) => !previousValue)}
         aria-label={t('languageSwitcher.ariaOpen')}
         aria-expanded={isOpen}
-        className="relative inline-flex h-12 w-12 items-center justify-center transition hover:opacity-80"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-full transition hover:opacity-80"
       >
         <span className={FLAG_FRAME_CLASS}>
           <img src={activeOption.iconSrc} alt={activeOption.iconAlt} className={FLAG_IMAGE_CLASS} />
         </span>
       </button>
       {isOpen ? (
-        <div className="absolute left-1/2 z-30 mt-2 -translate-x-1/2 rounded-2xl border border-app-border bg-app-elevated p-1.5 shadow-xl dark:border-app-border dark:bg-app-card">
+        <div className="absolute bottom-full left-1/2 z-30 mb-2 -translate-x-1/2 rounded-2xl border border-brand-white/20 bg-brand-dark p-1.5 shadow-xl dark:border-brand-dark/20 dark:bg-brand-white">
           {LANGUAGE_OPTIONS.map((option) => {
             const isActive = option.locale === locale;
             return (
@@ -84,8 +84,8 @@ export const LanguageSwitcher = () => {
                   setIsOpen(false);
                 }}
                 aria-label={t('languageSwitcher.ariaSelect', { language: t(option.nameKey) })}
-                className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2.5 text-left text-sm transition hover:bg-neutral-100 dark:hover:bg-neutral-800 ${
-                  isActive ? 'bg-brand-lime/20 dark:bg-brand-lime/25' : ''
+                className={`flex w-full items-center gap-2 rounded-xl px-2.5 py-2.5 text-left text-sm transition hover:bg-brand-white/10 dark:hover:bg-brand-dark/10 ${
+                  isActive ? 'bg-brand-lime/20' : ''
                 }`}
               >
                 <span className="flex items-center gap-2">

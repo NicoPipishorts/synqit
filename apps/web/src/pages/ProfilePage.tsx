@@ -149,27 +149,6 @@ export const ProfilePage = () => {
 
   return (
     <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -left-16 top-8 h-44 w-52 rounded-full bg-brand-lime/30 blur-[95px] sm:h-56 sm:w-64"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-14 top-20 h-52 w-56 rounded-full bg-brand-pink/30 blur-[105px] sm:h-64 sm:w-72"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute left-10 top-[34%] hidden h-40 w-40 rounded-full bg-brand-pink/20 blur-[90px] md:block"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute right-8 top-[48%] hidden h-52 w-44 rounded-full bg-brand-lime/20 blur-[95px] lg:block"
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute bottom-8 left-1/2 h-40 w-72 -translate-x-1/2 rounded-full bg-brand-gradient opacity-25 blur-[110px] sm:h-48 sm:w-[22rem]"
-      />
-
       <div className="relative grid gap-6">
         <article>
           <div className="flex flex-wrap items-start justify-between gap-6 px-5 py-7 sm:px-8 sm:py-9">

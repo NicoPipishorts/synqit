@@ -3,16 +3,71 @@ import { z } from 'zod';
 export const providerSchema = z.enum(['spotify', 'apple']);
 export type Provider = z.infer<typeof providerSchema>;
 
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 128;
+
+const passwordLowercasePattern = /[a-z]/;
+const passwordUppercasePattern = /[A-Z]/;
+const passwordNumberPattern = /\d/;
+const passwordSpecialPattern = /[^A-Za-z0-9]/;
+
+export type PasswordCriteria = {
+  length: boolean;
+  case: boolean;
+  number: boolean;
+  special: boolean;
+};
+
+export const getPasswordCriteria = (password: string): PasswordCriteria => ({
+  length: password.length >= PASSWORD_MIN_LENGTH,
+  case: passwordLowercasePattern.test(password) && passwordUppercasePattern.test(password),
+  number: passwordNumberPattern.test(password),
+  special: passwordSpecialPattern.test(password),
+});
+
+export const getPasswordStrengthScore = (password: string): number => {
+  const criteria = getPasswordCriteria(password);
+  return Object.values(criteria).filter(Boolean).length;
+};
+
+export const isPasswordStrong = (password: string): boolean => {
+  const criteria = getPasswordCriteria(password);
+  return criteria.length && criteria.case && criteria.number && criteria.special;
+};
+
+const authEmailSchema = z
+  .string()
+  .email()
+  .max(320)
+  .transform((value) => value.toLowerCase());
+
+const authPasswordSchema = z.string().min(PASSWORD_MIN_LENGTH).max(PASSWORD_MAX_LENGTH);
+
+export const strongPasswordSchema = authPasswordSchema.refine(isPasswordStrong, {
+  message:
+    'Password must include at least 8 characters, uppercase and lowercase letters, a number, and a special character.',
+});
+
 export const authCredentialsSchema = z.object({
-  email: z
-    .string()
-    .email()
-    .max(320)
-    .transform((value) => value.toLowerCase()),
-  password: z.string().min(8).max(128),
+  email: authEmailSchema,
+  password: authPasswordSchema,
 });
 
 export type AuthCredentials = z.infer<typeof authCredentialsSchema>;
+
+export const registerCredentialsSchema = z.object({
+  email: authEmailSchema,
+  password: strongPasswordSchema,
+});
+
+export type RegisterCredentials = z.infer<typeof registerCredentialsSchema>;
+
+export const changePasswordRequestSchema = z.object({
+  currentPassword: authPasswordSchema,
+  newPassword: strongPasswordSchema,
+});
+
+export type ChangePasswordRequest = z.infer<typeof changePasswordRequestSchema>;
 
 export const refreshTokenRequestSchema = z.object({
   refreshToken: z.string().min(20),
