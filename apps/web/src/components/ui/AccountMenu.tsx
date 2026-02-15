@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
+import { CTAButton, CTALink } from './cta';
 import { HeroCtaLink } from './HeroCtaLink';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
@@ -117,14 +118,15 @@ export const AccountMenu = () => {
                 >
                   {t('accountMenu.createEvent')}
                 </Link>
-                <button
+                <CTAButton
                   type="button"
                   onClick={() => void logout()}
                   disabled={isBusy}
-                  className="mt-1 rounded-lg bg-brand-dark px-3 py-2 text-left text-brand-white transition hover:bg-[#111111] disabled:opacity-60 dark:bg-brand-white dark:text-brand-dark"
+                  variant="danger"
+                  className="mt-1 w-full justify-start"
                 >
                   {isBusy ? t('accountMenu.loggingOut') : t('accountMenu.logout')}
-                </button>
+                </CTAButton>
               </div>
             </>
           ) : (
@@ -141,13 +143,9 @@ export const AccountMenu = () => {
               >
                 {t('accountMenu.login')}
               </HeroCtaLink>
-              <Link
-                to="/auth/register"
-                onClick={() => setIsOpen(false)}
-                className="rounded-lg border border-app-border px-3 py-2 transition hover:border-brand-lime dark:border-app-border"
-              >
+              <CTALink to="/auth/register" variant="secondary" onClick={() => setIsOpen(false)}>
                 {t('accountMenu.createAccount')}
-              </Link>
+              </CTALink>
             </div>
           )}
         </div>

@@ -1,19 +1,87 @@
 import { personalInfoResponseSchema } from '@synqit/shared';
+import countries from 'i18n-iso-countries';
+import enCountryNames from 'i18n-iso-countries/langs/en.json';
+import frCountryNames from 'i18n-iso-countries/langs/fr.json';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
-import { ctaClassName } from '../components/ui/cta';
+import { CTAButton, CTALink } from '../components/ui/cta';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 
+countries.registerLocale(enCountryNames);
+countries.registerLocale(frCountryNames);
+
+const birthDatePattern = /^\d{4}-\d{2}-\d{2}$/;
+
 type PersonalInfoDraft = {
   displayName: string;
   firstName: string;
   lastName: string;
-  birthDate: string;
+  birthDay: string;
+  birthMonth: string;
+  birthYear: string;
   country: string;
+};
+
+type BirthDateParts = Pick<PersonalInfoDraft, 'birthDay' | 'birthMonth' | 'birthYear'>;
+
+const toBirthDateParts = (birthDate?: string | null): BirthDateParts => {
+  if (!birthDate || !birthDatePattern.test(birthDate)) {
+    return {
+      birthDay: '',
+      birthMonth: '',
+      birthYear: '',
+    };
+  }
+
+  const [birthYear, birthMonth, birthDay] = birthDate.split('-');
+  return {
+    birthDay,
+    birthMonth,
+    birthYear,
+  };
+};
+
+const buildBirthDate = (parts: BirthDateParts): { birthDate: string | null; isValid: boolean } => {
+  const dayRaw = parts.birthDay.trim();
+  const monthRaw = parts.birthMonth.trim();
+  const yearRaw = parts.birthYear.trim();
+  const allEmpty = !dayRaw && !monthRaw && !yearRaw;
+
+  if (allEmpty) {
+    return { birthDate: null, isValid: true };
+  }
+
+  if (!dayRaw || !monthRaw || !yearRaw) {
+    return { birthDate: null, isValid: false };
+  }
+
+  const day = Number(dayRaw);
+  const month = Number(monthRaw);
+  const year = Number(yearRaw);
+  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) {
+    return { birthDate: null, isValid: false };
+  }
+  if (year < 1900 || year > 2100 || month < 1 || month > 12 || day < 1 || day > 31) {
+    return { birthDate: null, isValid: false };
+  }
+
+  const normalized = new Date(Date.UTC(year, month - 1, day));
+  const isRealDate =
+    normalized.getUTCFullYear() === year &&
+    normalized.getUTCMonth() + 1 === month &&
+    normalized.getUTCDate() === day;
+  if (!isRealDate) {
+    return { birthDate: null, isValid: false };
+  }
+
+  return {
+    birthDate: `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+    isValid: true,
+  };
 };
 
 const toDraft = (value: {
@@ -22,28 +90,31 @@ const toDraft = (value: {
   lastName?: string | null;
   birthDate?: string | null;
   country?: string | null;
-}): PersonalInfoDraft => ({
-  displayName: value.displayName ?? '',
-  firstName: value.firstName ?? '',
-  lastName: value.lastName ?? '',
-  birthDate: value.birthDate ?? '',
-  country: value.country ?? '',
-});
+}): PersonalInfoDraft => {
+  const birthDateParts = toBirthDateParts(value.birthDate);
+
+  return {
+    displayName: value.displayName ?? '',
+    firstName: value.firstName ?? '',
+    lastName: value.lastName ?? '',
+    ...birthDateParts,
+    country: value.country ?? '',
+  };
+};
 
 export const ProfilePersonalInfoPage = () => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { auth } = useAuthSession();
   const { showToast } = useToast();
   const initialDraft = useMemo(() => toDraft({}), []);
   const [draft, setDraft] = useState<PersonalInfoDraft>(initialDraft);
-  const [savedDraft, setSavedDraft] = useState<PersonalInfoDraft>(initialDraft);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isCountryMenuOpen, setIsCountryMenuOpen] = useState(false);
 
   const fetchPersonalInfo = useCallback(async () => {
     if (!auth) {
       setDraft(initialDraft);
-      setSavedDraft(initialDraft);
       return;
     }
 
@@ -61,7 +132,6 @@ export const ProfilePersonalInfoPage = () => {
       );
       const nextDraft = toDraft(response.personalInfo);
       setDraft(nextDraft);
-      setSavedDraft(nextDraft);
     } catch (error) {
       const apiError = toApiError(error);
       showToast(t('profile.error', { message: apiError.message }), { variant: 'error' });
@@ -81,10 +151,50 @@ export const ProfilePersonalInfoPage = () => {
     }));
   };
 
+  const monthOptions = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat(locale, { month: 'long' });
+    return Array.from({ length: 12 }, (_, index) => {
+      const monthDate = new Date(Date.UTC(2000, index, 1));
+      const value = String(index + 1).padStart(2, '0');
+      const label = formatter.format(monthDate);
+
+      return {
+        value,
+        label: label.slice(0, 1).toUpperCase() + label.slice(1),
+      };
+    });
+  }, [locale]);
+
+  const countryOptions = useMemo(() => {
+    const countryLocale = locale === 'fr' ? 'fr' : 'en';
+    const names = countries.getNames(countryLocale, { select: 'official' });
+    return Object.values(names).sort((left, right) => left.localeCompare(right, locale));
+  }, [locale]);
+
+  const filteredCountryOptions = useMemo(() => {
+    const query = draft.country.trim().toLocaleLowerCase(locale);
+    const filtered = query
+      ? countryOptions.filter((countryName) =>
+          countryName.toLocaleLowerCase(locale).includes(query),
+        )
+      : countryOptions;
+    return filtered.slice(0, 12);
+  }, [countryOptions, draft.country, locale]);
+
   const savePersonalInfo = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!auth) {
       showToast(t('profile.notLoggedIn'), { variant: 'error' });
+      return;
+    }
+
+    const birthDateResult = buildBirthDate({
+      birthDay: draft.birthDay,
+      birthMonth: draft.birthMonth,
+      birthYear: draft.birthYear,
+    });
+    if (!birthDateResult.isValid) {
+      showToast(t('profile.birthDateInvalid'), { variant: 'error' });
       return;
     }
 
@@ -101,7 +211,7 @@ export const ProfilePersonalInfoPage = () => {
             displayName: draft.displayName,
             firstName: draft.firstName,
             lastName: draft.lastName,
-            birthDate: draft.birthDate || null,
+            birthDate: birthDateResult.birthDate,
             country: draft.country,
           }),
         },
@@ -110,42 +220,7 @@ export const ProfilePersonalInfoPage = () => {
 
       const nextDraft = toDraft(response.personalInfo);
       setDraft(nextDraft);
-      setSavedDraft(nextDraft);
       showToast(t('profile.personalInfoSaved'), { variant: 'success' });
-    } catch (error) {
-      const apiError = toApiError(error);
-      showToast(t('profile.error', { message: apiError.message }), { variant: 'error' });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const resetDraft = () => {
-    setDraft(savedDraft);
-  };
-
-  const clearPersonalInfo = async () => {
-    if (!auth) {
-      showToast(t('profile.notLoggedIn'), { variant: 'error' });
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const response = await callApi(
-        '/v1/auth/personal-info',
-        {
-          method: 'DELETE',
-          headers: {
-            authorization: `Bearer ${auth.accessToken}`,
-          },
-        },
-        (payload) => personalInfoResponseSchema.parse(payload),
-      );
-      const nextDraft = toDraft(response.personalInfo);
-      setDraft(nextDraft);
-      setSavedDraft(nextDraft);
-      showToast(t('profile.personalInfoCleared'), { variant: 'success' });
     } catch (error) {
       const apiError = toApiError(error);
       showToast(t('profile.error', { message: apiError.message }), { variant: 'error' });
@@ -220,51 +295,97 @@ export const ProfilePersonalInfoPage = () => {
                 className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
               />
             </label>
-            <label className="grid gap-1 text-sm">
+            <label className="grid gap-1 text-sm md:col-span-2">
               <span>{t('profile.birthDateLabel')}</span>
-              <input
-                type="date"
-                value={draft.birthDate}
-                onChange={(event) => updateField('birthDate', event.target.value)}
-                disabled={isLoading || isSaving}
-                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-              />
+              <div className="grid grid-cols-3 gap-2">
+                <input
+                  inputMode="numeric"
+                  value={draft.birthDay}
+                  onChange={(event) =>
+                    updateField('birthDay', event.target.value.replace(/\D/g, '').slice(0, 2))
+                  }
+                  placeholder={t('profile.birthDayPlaceholder')}
+                  disabled={isLoading || isSaving}
+                  className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                />
+                <select
+                  value={draft.birthMonth}
+                  onChange={(event) => updateField('birthMonth', event.target.value)}
+                  disabled={isLoading || isSaving}
+                  className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                >
+                  <option value="">{t('profile.birthMonthPlaceholder')}</option>
+                  {monthOptions.map((monthOption) => (
+                    <option key={monthOption.value} value={monthOption.value}>
+                      {monthOption.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  inputMode="numeric"
+                  value={draft.birthYear}
+                  onChange={(event) =>
+                    updateField('birthYear', event.target.value.replace(/\D/g, '').slice(0, 4))
+                  }
+                  placeholder={t('profile.birthYearPlaceholder')}
+                  disabled={isLoading || isSaving}
+                  className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                />
+              </div>
             </label>
             <label className="grid gap-1 text-sm">
               <span>{t('profile.countryLabel')}</span>
-              <input
-                value={draft.country}
-                onChange={(event) => updateField('country', event.target.value)}
-                placeholder={t('profile.countryPlaceholder')}
-                disabled={isLoading || isSaving}
-                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-              />
+              <div className="relative">
+                <input
+                  value={draft.country}
+                  onChange={(event) => {
+                    updateField('country', event.target.value);
+                    setIsCountryMenuOpen(true);
+                  }}
+                  onFocus={() => setIsCountryMenuOpen(true)}
+                  onBlur={() => {
+                    window.setTimeout(() => {
+                      setIsCountryMenuOpen(false);
+                    }, 120);
+                  }}
+                  placeholder={t('profile.countryPlaceholder')}
+                  disabled={isLoading || isSaving}
+                  className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                />
+                {isCountryMenuOpen ? (
+                  <div className="absolute z-[120] mt-1 max-h-32 w-full overflow-auto rounded-xl border border-app-border bg-app-elevated p-0.5 shadow-soft-lift dark:bg-app-card">
+                    {filteredCountryOptions.length > 0 ? (
+                      filteredCountryOptions.map((countryName) => (
+                        <button
+                          key={countryName}
+                          type="button"
+                          onMouseDown={(event) => {
+                            event.preventDefault();
+                            updateField('country', countryName);
+                            setIsCountryMenuOpen(false);
+                          }}
+                          className="flex w-full cursor-pointer items-center rounded-md px-2 py-1 text-left text-xs text-app-text transition hover:bg-brand-lime/20"
+                        >
+                          {countryName}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-2 py-1 text-xs text-app-text-secondary">
+                        {t('profile.countryNoResult')}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
+              </div>
             </label>
 
             <div className="mt-2 flex flex-wrap justify-end gap-2 sm:col-span-2">
-              <button
-                type="submit"
-                disabled={isLoading || isSaving}
-                className={ctaClassName('primary')}
-              >
+              <CTAButton type="submit" disabled={isLoading || isSaving} variant="primary">
                 {t('profile.personalInfoSave')}
-              </button>
-              <button
-                type="button"
-                disabled={isLoading || isSaving}
-                onClick={resetDraft}
-                className={ctaClassName('secondary')}
-              >
-                {t('profile.personalInfoReset')}
-              </button>
-              <button
-                type="button"
-                disabled={isLoading || isSaving}
-                onClick={clearPersonalInfo}
-                className={ctaClassName('dangerSoft')}
-              >
-                {t('profile.personalInfoClear')}
-              </button>
+              </CTAButton>
+              <CTALink to="/profile" variant="secondary">
+                {t('profile.personalInfoCancel')}
+              </CTALink>
             </div>
           </form>
         </article>

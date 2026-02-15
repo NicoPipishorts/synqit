@@ -1,9 +1,8 @@
 import { authUserSchema } from '@synqit/shared';
-import { Link } from '@tanstack/react-router';
 import { Pencil } from 'lucide-react';
 import { ChangeEvent, DragEvent, useRef, useState } from 'react';
 
-import { ctaClassName } from '../components/ui/cta';
+import { CTAButton, CTALink } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
@@ -232,12 +231,9 @@ export const ProfilePage = () => {
                 className="h-8 w-8 rounded-full object-cover"
               />
             </div>
-            <Link
-              to="/profile/platforms"
-              className={`mt-auto self-end ${ctaClassName('secondary')}`}
-            >
+            <CTALink to="/profile/platforms" variant="secondary" className="mt-auto self-end">
               {t('profile.platformsCardCta')}
-            </Link>
+            </CTALink>
           </article>
 
           <article className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
@@ -247,12 +243,9 @@ export const ProfilePage = () => {
             <p className="mt-2 text-sm text-app-text-secondary">
               {t('profile.personalInfoCardBody')}
             </p>
-            <Link
-              to="/profile/personal-info"
-              className={`mt-auto self-end ${ctaClassName('secondary')}`}
-            >
+            <CTALink to="/profile/personal-info" variant="secondary" className="mt-auto self-end">
               {t('profile.personalInfoCardCta')}
-            </Link>
+            </CTALink>
           </article>
 
           <article className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
@@ -260,12 +253,9 @@ export const ProfilePage = () => {
               {t('profile.securityCardTitle')}
             </h2>
             <p className="mt-2 text-sm text-app-text-secondary">{t('profile.securityCardBody')}</p>
-            <Link
-              to="/profile/security"
-              className={`mt-auto self-end ${ctaClassName('secondary')}`}
-            >
+            <CTALink to="/profile/security" variant="secondary" className="mt-auto self-end">
               {t('profile.securityCardCta')}
-            </Link>
+            </CTALink>
           </article>
         </div>
       </div>
@@ -314,16 +304,17 @@ export const ProfilePage = () => {
             onChange={onAvatarUpload}
           />
           {avatarSrc ? (
-            <button
+            <CTAButton
               type="button"
               onClick={() => {
                 void removeAvatar();
               }}
               disabled={isSavingAvatar}
-              className={`w-fit ${ctaClassName('dangerSoft')}`}
+              variant="dangerSoft"
+              className="w-fit"
             >
               {t('profile.removeAvatar')}
-            </button>
+            </CTAButton>
           ) : null}
         </div>
       </Modal>

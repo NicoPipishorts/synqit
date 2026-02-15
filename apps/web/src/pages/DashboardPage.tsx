@@ -1,7 +1,7 @@
 import { authUserSchema, refreshTokenRequestSchema } from '@synqit/shared';
-import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
+import { CTAButton, CTALink } from '../components/ui/cta';
 import { HeroPill } from '../components/ui/HeroPill';
 import { useI18n } from '../hooks/useI18n';
 import { callApi, toApiError } from '../lib/api';
@@ -95,24 +95,15 @@ export const DashboardPage = () => {
               {t('dashboard.description')}
             </p>
             <div className="grid gap-3 sm:grid-cols-3">
-              <Link
-                to="/events"
-                className="rounded-xl border border-app-border bg-app-bg px-4 py-3 text-sm font-semibold transition hover:border-brand-lime dark:bg-app-elevated"
-              >
+              <CTALink to="/events" variant="secondary">
                 {t('dashboard.ctaEvents')}
-              </Link>
-              <Link
-                to="/providers"
-                className="rounded-xl border border-app-border bg-app-bg px-4 py-3 text-sm font-semibold transition hover:border-brand-pink dark:bg-app-elevated"
-              >
+              </CTALink>
+              <CTALink to="/providers" variant="secondary">
                 {t('dashboard.ctaProviders')}
-              </Link>
-              <Link
-                to="/events/new"
-                className="rounded-xl bg-brand-lime px-4 py-3 text-sm font-semibold text-brand-dark shadow-soft-lift transition hover:bg-[#b2e600] dark:bg-[#aee000] dark:hover:bg-[#9fd100]"
-              >
+              </CTALink>
+              <CTALink to="/events/new" variant="primary">
                 {t('dashboard.ctaCreateEvent')}
-              </Link>
+              </CTALink>
             </div>
           </div>
         </article>
@@ -123,14 +114,14 @@ export const DashboardPage = () => {
               <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
                 {t('dashboard.profileCardTitle')}
               </h2>
-              <button
+              <CTAButton
                 disabled={isLoading}
                 onClick={() => void loadProfile()}
                 type="button"
-                className="rounded-lg bg-brand-pink px-3 py-2 text-sm font-semibold text-brand-white transition hover:bg-[#d12074] disabled:cursor-not-allowed disabled:opacity-60"
+                variant="danger"
               >
                 {isLoading ? t('dashboard.loading') : t('dashboard.loadProfile')}
-              </button>
+              </CTAButton>
             </div>
             <p className="mt-3 rounded-xl border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text-secondary dark:bg-app-elevated">
               {profile}
@@ -144,13 +135,14 @@ export const DashboardPage = () => {
             <p className="mt-2 text-sm text-app-text-secondary">
               {auth ? t('dashboard.sessionActiveBody') : t('dashboard.sessionInactiveBody')}
             </p>
-            <button
+            <CTAButton
               onClick={() => void logout()}
               type="button"
-              className="mt-4 rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm font-semibold transition hover:border-brand-pink dark:bg-app-elevated"
+              variant="secondary"
+              className="mt-4"
             >
               {t('dashboard.logout')}
-            </button>
+            </CTAButton>
           </article>
         </div>
       </div>

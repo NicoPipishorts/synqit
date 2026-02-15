@@ -1,6 +1,7 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { FormEvent, useState } from 'react';
 
+import { CTAButton } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { callApi, toApiError } from '../lib/api';
 import { storeAuth } from '../lib/auth';
@@ -168,13 +169,9 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
             ) : null}
           </label>
 
-          <button
-            disabled={isSubmitting}
-            type="submit"
-            className="rounded-xl bg-brand-lime px-4 py-2.5 text-sm font-semibold text-brand-dark shadow-soft-lift transition hover:bg-[#b2e600] disabled:cursor-not-allowed disabled:opacity-60 dark:bg-[#aee000] dark:hover:bg-[#9fd100]"
-          >
+          <CTAButton disabled={isSubmitting} type="submit" variant="primary">
             {isSubmitting ? t('auth.submitting') : title}
-          </button>
+          </CTAButton>
 
           {status ? (
             <p

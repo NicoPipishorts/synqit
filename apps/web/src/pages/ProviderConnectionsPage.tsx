@@ -8,7 +8,7 @@ import {
 } from '@synqit/shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { ctaClassName } from '../components/ui/cta';
+import { CTAButton } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
@@ -367,14 +367,14 @@ export const ProviderConnectionsPage = () => {
           <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
             {t('profile.connectionsServicesTitle')}
           </h2>
-          <button
+          <CTAButton
             type="button"
             onClick={() => void loadSnapshot()}
             disabled={isLoadingSnapshot}
-            className={ctaClassName('secondary')}
+            variant="secondary"
           >
             {isLoadingSnapshot ? t('dashboard.loading') : t('profile.connectionsReload')}
-          </button>
+          </CTAButton>
         </div>
         <p className="mt-2 text-sm text-app-text-secondary">
           {t('profile.connectionsServicesHint')}
@@ -451,22 +451,22 @@ export const ProviderConnectionsPage = () => {
                 </div>
 
                 <div className="mt-auto flex flex-wrap justify-end gap-2 pt-4">
-                  <button
+                  <CTAButton
                     type="button"
                     disabled={isBusy}
                     onClick={() => void runProviderAction(provider, 'refresh')}
-                    className={ctaClassName('secondary')}
+                    variant="secondary"
                   >
                     {t('profile.connectionRefresh')}
-                  </button>
-                  <button
+                  </CTAButton>
+                  <CTAButton
                     type="button"
                     disabled={isBusy}
                     onClick={() => void runProviderAction(provider, 'disconnect')}
-                    className={ctaClassName('dangerSoft')}
+                    variant="dangerSoft"
                   >
                     {t('profile.connectionRemove')}
-                  </button>
+                  </CTAButton>
                 </div>
               </article>
             ),

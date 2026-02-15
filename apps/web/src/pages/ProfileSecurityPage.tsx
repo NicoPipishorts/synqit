@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 
 import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
-import { ctaClassName } from '../components/ui/cta';
+import { CTAButton } from '../components/ui/cta';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
@@ -124,13 +124,9 @@ export const ProfileSecurityPage = () => {
               minLength={8}
             />
             <div className="mt-1 flex justify-end">
-              <button
-                type="submit"
-                disabled={isChangingPassword}
-                className={ctaClassName('primary')}
-              >
+              <CTAButton type="submit" disabled={isChangingPassword} variant="primary">
                 {isChangingPassword ? t('profile.changingPassword') : t('profile.changePassword')}
-              </button>
+              </CTAButton>
             </div>
           </form>
         </article>
@@ -140,13 +136,14 @@ export const ProfileSecurityPage = () => {
             {t('profile.otpTitle')}
           </h2>
           <p className="mt-2 text-sm text-app-text-secondary">{t('profile.otpBody')}</p>
-          <button
+          <CTAButton
             type="button"
             onClick={() => showToast(t('profile.otpSoon'), { variant: 'info' })}
-            className={`mt-auto self-end ${ctaClassName('secondary')}`}
+            variant="secondary"
+            className="mt-auto self-end"
           >
             {t('profile.otpCta')}
-          </button>
+          </CTAButton>
         </article>
 
         <article className="flex flex-col rounded-2xl border border-brand-pink/40 bg-brand-pink/5 p-5 shadow-soft-lift dark:bg-brand-pink/10">
@@ -154,13 +151,14 @@ export const ProfileSecurityPage = () => {
             {t('profile.deleteZoneTitle')}
           </h2>
           <p className="mt-2 text-sm text-app-text-secondary">{t('profile.deleteZoneBody')}</p>
-          <button
+          <CTAButton
             type="button"
             onClick={() => showToast(t('profile.deleteAccountSoon'), { variant: 'error' })}
-            className={`mt-auto self-end ${ctaClassName('danger')}`}
+            variant="danger"
+            className="mt-auto self-end"
           >
             {t('profile.deleteAccount')}
-          </button>
+          </CTAButton>
         </article>
       </div>
     </section>
