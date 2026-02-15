@@ -42,8 +42,19 @@ export const DashboardPage = () => {
   };
 
   const logout = async () => {
+    const redirectToLogin = () => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+      if (window.location.pathname === '/auth/login') {
+        return;
+      }
+      window.location.assign('/auth/login');
+    };
+
     if (!auth) {
       clearAuth();
+      redirectToLogin();
       return;
     }
 
@@ -63,6 +74,7 @@ export const DashboardPage = () => {
     clearAuth();
     setAuth(null);
     setProfile(t('dashboard.loggedOut'));
+    redirectToLogin();
   };
 
   return (

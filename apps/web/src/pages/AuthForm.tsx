@@ -3,6 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router';
 import { FormEvent, useState } from 'react';
 
 import { CTAButton } from '../components/ui/cta';
+import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { PasswordField } from '../components/ui/PasswordField';
 import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
 import { useI18n } from '../hooks/useI18n';
@@ -50,7 +51,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   };
 
   return (
-    <section className="relative mx-auto flex min-h-[calc(100svh-7rem)] w-full max-w-4xl items-center px-4 py-8 sm:min-h-[calc(100svh-8rem)] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
+    <section className="relative mx-auto flex min-h-screen w-full max-w-4xl items-center px-4 py-0 sm:min-h-[calc(100svh-8rem)] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
       <div className="pointer-events-none absolute -left-10 top-8 h-44 w-44 rounded-full bg-brand-lime/20 blur-3xl" />
       <div className="pointer-events-none absolute -right-8 bottom-8 h-48 w-48 rounded-full bg-brand-pink/20 blur-3xl" />
 
@@ -59,22 +60,12 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
           <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
             {isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
           </h1>
-          <p className="text-sm text-app-text-secondary sm:text-base">
-            {isLogin ? t('auth.loginLead') : t('auth.registerLead')}
-          </p>
         </div>
 
         <form
           onSubmit={onSubmit}
           className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 shadow-soft-lift dark:bg-app-card sm:p-8"
         >
-          <div className="grid gap-1 text-center sm:text-left">
-            <h2 className="text-2xl font-bold text-brand-dark dark:text-brand-white">{title}</h2>
-            <p className="text-sm text-app-text-secondary">
-              {isLogin ? t('auth.loginHint') : t('auth.registerHint')}
-            </p>
-          </div>
-
           <label className="grid gap-2 text-sm font-medium">
             <span>{t('auth.email')}</span>
             <input
@@ -99,7 +90,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
               inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
               placeholder={t('auth.passwordPlaceholder')}
             />
-            {!isLogin && password.length > 0 ? <PasswordStrengthMeter password={password} /> : null}
+            {!isLogin ? <PasswordStrengthMeter password={password} showTooltip /> : null}
           </label>
 
           <CTAButton disabled={isSubmitting} type="submit" variant="primary">
@@ -128,6 +119,12 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
             </Link>
           </p>
         </form>
+
+        <div className="mx-auto flex w-full max-w-xl justify-center">
+          <div className="flex items-center rounded-full border border-app-border/70 bg-app-elevated/90 px-2 py-1.5 shadow-soft-lift backdrop-blur-md dark:bg-app-card/90">
+            <LanguageSwitcher />
+          </div>
+        </div>
       </div>
     </section>
   );

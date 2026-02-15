@@ -222,6 +222,12 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       });
     }
 
+    await authStore.upsertPasswordIdentity({
+      userId: user.id,
+      email: user.email,
+      passwordHash,
+    });
+
     const tokens = await issueTokens(app, user);
 
     return authResponseSchema.parse({
@@ -236,7 +242,10 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       return sendValidationError(reply, parsed.error.flatten());
     }
 
-    const user = await authStore.findUserByEmail(parsed.data.email);
+    const passwordIdentity = await authStore.findPasswordIdentityByEmail(parsed.data.email);
+    const user = passwordIdentity
+      ? await authStore.findUserById(passwordIdentity.userId)
+      : await authStore.findUserByEmail(parsed.data.email);
     if (!user) {
       return reply.status(401).send({
         code: 'invalid_credentials',
@@ -244,11 +253,27 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       });
     }
 
-    const isPasswordValid = await verifyPassword(parsed.data.password, user.passwordHash);
+    const passwordHash = passwordIdentity?.passwordHash ?? user.passwordHash;
+    if (!passwordHash) {
+      return reply.status(401).send({
+        code: 'invalid_credentials',
+        message: 'Invalid email or password.',
+      });
+    }
+
+    const isPasswordValid = await verifyPassword(parsed.data.password, passwordHash);
     if (!isPasswordValid) {
       return reply.status(401).send({
         code: 'invalid_credentials',
         message: 'Invalid email or password.',
+      });
+    }
+
+    if (!passwordIdentity) {
+      await authStore.upsertPasswordIdentity({
+        userId: user.id,
+        email: user.email,
+        passwordHash,
       });
     }
 
@@ -356,9 +381,18 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         return;
       }
 
+      const passwordIdentity = await authStore.findPasswordIdentityByUserId(user.id);
+      const currentPasswordHash = passwordIdentity?.passwordHash ?? user.passwordHash;
+      if (!currentPasswordHash) {
+        return reply.status(400).send({
+          code: 'password_not_available',
+          message: 'Password authentication is not enabled for this account.',
+        });
+      }
+
       const isCurrentPasswordValid = await verifyPassword(
         parsed.data.currentPassword,
-        user.passwordHash,
+        currentPasswordHash,
       );
       if (!isCurrentPasswordValid) {
         return reply.status(401).send({
@@ -375,6 +409,12 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
           message: 'Unable to update password at this time.',
         });
       }
+
+      await authStore.upsertPasswordIdentity({
+        userId: user.id,
+        email: user.email,
+        passwordHash: nextPasswordHash,
+      });
 
       return reply.status(200).send({
         ok: true,

@@ -5,9 +5,15 @@ import { prisma } from '../db/prisma';
 type UserRecord = {
   id: string;
   email: string;
-  passwordHash: string;
+  passwordHash: string | null;
   avatarPath: string | null;
   createdAt: Date;
+};
+
+type PasswordIdentityRecord = {
+  userId: string;
+  providerUserId: string;
+  passwordHash: string | null;
 };
 
 type RefreshTokenRecord = {
@@ -34,9 +40,15 @@ type UserPersonalInfoRecord = {
 type UserRow = {
   id: string;
   email: string;
-  password_hash: string;
+  password_hash: string | null;
   avatar_url?: string | null;
   created_at: Date;
+};
+
+type PasswordIdentityRow = {
+  user_id: string;
+  provider_user_id: string;
+  password_hash: string | null;
 };
 
 type UserProfileRow = {
@@ -78,6 +90,12 @@ const toRefreshTokenRecord = (row: RefreshTokenRow): RefreshTokenRecord => ({
   replacedByTokenId: row.replaced_by_token_id,
 });
 
+const toPasswordIdentityRecord = (row: PasswordIdentityRow): PasswordIdentityRecord => ({
+  userId: row.user_id,
+  providerUserId: row.provider_user_id,
+  passwordHash: row.password_hash,
+});
+
 const toDateOnlyString = (value: string | null): string | null => {
   if (!value) {
     return null;
@@ -116,6 +134,30 @@ const isUniqueConstraintViolation = (error: unknown): boolean => {
   return normalized.code === 'P2002' || normalized.code === '23505' || sqlCode === '23505';
 };
 
+const isMissingRelationError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const normalized = error as {
+    code?: string;
+    meta?: {
+      driverAdapterError?: {
+        cause?: {
+          originalCode?: string;
+        };
+      };
+    };
+  };
+
+  if (normalized.code === '42P01') {
+    return true;
+  }
+
+  const sqlCode = normalized.meta?.driverAdapterError?.cause?.originalCode;
+  return sqlCode === '42P01';
+};
+
 const isMissingAvatarColumnError = (error: unknown): boolean => {
   if (!error || typeof error !== 'object') {
     return false;
@@ -139,6 +181,8 @@ const isMissingAvatarColumnError = (error: unknown): boolean => {
   const sqlCode = normalized.meta?.driverAdapterError?.cause?.originalCode;
   return sqlCode === '42703';
 };
+
+const PASSWORD_AUTH_PROVIDER = 'password';
 
 export const authStore = {
   async createUser(params: { email: string; passwordHash: string }): Promise<UserRecord | null> {
@@ -232,6 +276,85 @@ export const authStore = {
     });
 
     return result.count === 1;
+  },
+
+  async findPasswordIdentityByEmail(email: string): Promise<PasswordIdentityRecord | null> {
+    const normalizedEmail = email.trim().toLowerCase();
+    try {
+      const rows = await prisma.$queryRaw<PasswordIdentityRow[]>`
+        SELECT user_id, provider_user_id, password_hash
+        FROM "user_auth_identities"
+        WHERE provider = ${PASSWORD_AUTH_PROVIDER}
+          AND provider_user_id = ${normalizedEmail}
+        LIMIT 1
+      `;
+      return rows.length > 0 ? toPasswordIdentityRecord(rows[0]) : null;
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async findPasswordIdentityByUserId(userId: string): Promise<PasswordIdentityRecord | null> {
+    try {
+      const rows = await prisma.$queryRaw<PasswordIdentityRow[]>`
+        SELECT user_id, provider_user_id, password_hash
+        FROM "user_auth_identities"
+        WHERE provider = ${PASSWORD_AUTH_PROVIDER}
+          AND user_id = ${userId}
+        LIMIT 1
+      `;
+      return rows.length > 0 ? toPasswordIdentityRecord(rows[0]) : null;
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async upsertPasswordIdentity(params: {
+    userId: string;
+    email: string;
+    passwordHash: string;
+  }): Promise<boolean> {
+    const normalizedEmail = params.email.trim().toLowerCase();
+    const now = new Date();
+    try {
+      const result = await prisma.$executeRaw`
+        INSERT INTO "user_auth_identities" (
+          id,
+          user_id,
+          provider,
+          provider_user_id,
+          password_hash,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${`password:${params.userId}`},
+          ${params.userId},
+          ${PASSWORD_AUTH_PROVIDER},
+          ${normalizedEmail},
+          ${params.passwordHash},
+          ${now},
+          ${now}
+        )
+        ON CONFLICT (user_id, provider)
+        DO UPDATE SET
+          provider_user_id = EXCLUDED.provider_user_id,
+          password_hash = EXCLUDED.password_hash,
+          updated_at = EXCLUDED.updated_at
+      `;
+      return Number(result) > 0;
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return false;
+      }
+      throw error;
+    }
   },
 
   async updateUserAvatarPathById(userId: string, avatarPath: string | null): Promise<boolean> {
@@ -431,4 +554,4 @@ export const authStore = {
   },
 };
 
-export type { RefreshTokenRecord, UserPersonalInfoRecord, UserRecord };
+export type { PasswordIdentityRecord, RefreshTokenRecord, UserPersonalInfoRecord, UserRecord };

@@ -34,9 +34,20 @@ export const AccountMenu = () => {
   }, []);
 
   const logout = async () => {
+    const redirectToLogin = () => {
+      if (typeof window === 'undefined') {
+        return;
+      }
+      if (window.location.pathname === '/auth/login') {
+        return;
+      }
+      window.location.assign('/auth/login');
+    };
+
     if (!auth) {
       clearAuth();
       setIsOpen(false);
+      redirectToLogin();
       return;
     }
 
@@ -59,6 +70,7 @@ export const AccountMenu = () => {
       setAuth(null);
       setIsOpen(false);
       setIsBusy(false);
+      redirectToLogin();
     }
   };
 
@@ -86,9 +98,6 @@ export const AccountMenu = () => {
         <div className="absolute right-0 z-30 mt-2 w-64 rounded-2xl border border-app-border bg-app-elevated p-3 shadow-xl dark:border-app-border dark:bg-app-card">
           {auth ? (
             <>
-              <p className="truncate text-xs text-neutral-500 dark:text-neutral-400">
-                {auth.userEmail}
-              </p>
               <div className="mt-2 grid gap-1 text-sm">
                 <Link
                   to="/profile"

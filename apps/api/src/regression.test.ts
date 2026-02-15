@@ -201,6 +201,39 @@ describe('API regression', () => {
     assert.equal(body.code, 'validation_error');
   });
 
+  it('auth: login works via password identity when users.password_hash is null', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const registerBody = await registerUser(app, email);
+
+    const identityRows = await prisma.$queryRaw<Array<{ password_hash: string | null }>>`
+      SELECT password_hash
+      FROM "user_auth_identities"
+      WHERE user_id = ${registerBody.user.id}
+        AND provider = 'password'
+      LIMIT 1
+    `;
+    assert.equal(identityRows.length, 1);
+    assert.ok(identityRows[0]?.password_hash);
+
+    await prisma.users.update({
+      where: { id: registerBody.user.id },
+      data: {
+        password_hash: null,
+      },
+    });
+
+    const loginResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: {
+        email,
+        password: TEST_PASSWORD,
+      },
+    });
+
+    assert.equal(loginResponse.statusCode, 200);
+  });
+
   it('integrations: oauth state, connect, list, disconnect', async () => {
     const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
     const registerBody = await registerUser(app, email);

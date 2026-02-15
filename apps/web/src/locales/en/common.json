@@ -29,8 +29,8 @@
   "auth": {
     "loginTitle": "Login",
     "registerTitle": "Register",
-    "welcomeBack": "Welcome back to Synqit.",
-    "createHost": "Create your Synqit host account.",
+    "welcomeBack": "Welcome back.",
+    "createHost": "Sign me up...",
     "loginLead": "Sign in to create events, manage guest links, and moderate live tracks.",
     "registerLead": "Register once, connect your provider, and launch your first collaborative event playlist.",
     "backToProduct": "Back to product overview",

@@ -29,8 +29,8 @@
   "auth": {
     "loginTitle": "Connexion",
     "registerTitle": "Inscription",
-    "welcomeBack": "Bon retour sur Synqit.",
-    "createHost": "Créez votre compte hôte Synqit.",
+    "welcomeBack": "Bon retour.",
+    "createHost": "Je m'inscris...",
     "loginLead": "Connectez-vous pour créer des événements, gérer les liens invités et modérer les titres en direct.",
     "registerLead": "Inscrivez-vous, connectez votre plateforme et lancez votre première playlist collaborative.",
     "backToProduct": "Retour à la page produit",
