@@ -16,6 +16,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { EventCreatePage } from './pages/EventCreatePage';
 import { EventPublicPage } from './pages/EventPublicPage';
 import { HomePage } from './pages/HomePage';
+import { HostEventDetailsPage } from './pages/HostEventDetailsPage';
 import { HostEventsPage } from './pages/HostEventsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { ProfilePersonalInfoPage } from './pages/ProfilePersonalInfoPage';
@@ -70,6 +71,13 @@ const eventsRoute = createRoute({
   path: '/events',
   beforeLoad: requireAuth,
   component: HostEventsPage,
+});
+
+const eventDetailsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/events/$eventId',
+  beforeLoad: requireAuth,
+  component: HostEventDetailsPage,
 });
 
 const eventCreateRoute = createRoute({
@@ -139,6 +147,7 @@ const routeTree = rootRoute.addChildren([
   providersRoute,
   syncedListsRoute,
   eventsRoute,
+  eventDetailsRoute,
   eventCreateRoute,
   eventPublicRoute,
   registerRoute,
