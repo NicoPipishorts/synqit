@@ -73,8 +73,10 @@ export const AppShell = () => {
       <header className="fixed inset-x-0 top-0 z-50">
         <div
           aria-hidden="true"
-          className={`pointer-events-none absolute inset-0 bg-app-bg/50 backdrop-blur-xl transition-opacity duration-300 ease-out ${
-            isNavBlurActive ? 'opacity-100' : 'opacity-0'
+          className={`pointer-events-none absolute inset-0 bg-app-bg/30 backdrop-blur-md transition-opacity duration-300 ease-out ${
+            isNavBlurActive
+              ? 'opacity-100 shadow-[0_4px_12px_-10px_rgba(0,0,0,0.22)]'
+              : 'opacity-0 shadow-none'
           }`}
         />
         <div className="relative z-10 flex w-full items-center justify-between px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">

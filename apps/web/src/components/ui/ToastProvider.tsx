@@ -105,7 +105,7 @@ export const ToastProvider = ({ children }: PropsWithChildren) => {
       {children}
       {isMounted
         ? createPortal(
-            <div className="pointer-events-none fixed bottom-6 left-1/2 z-[9999] flex w-[min(92vw,26rem)] -translate-x-1/2 flex-col gap-2">
+            <div className="pointer-events-none fixed bottom-6 left-1/2 z-[2147483647] flex w-[min(92vw,26rem)] -translate-x-1/2 flex-col gap-2">
               {toasts.map((toast) => (
                 <div
                   key={toast.id}

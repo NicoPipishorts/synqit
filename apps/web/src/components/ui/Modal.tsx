@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { ReactNode, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 type ModalProps = {
   open: boolean;
@@ -15,6 +16,14 @@ export const Modal = ({ open, title, onClose, children }: ModalProps) => {
     }
     return window.matchMedia('(min-width: 640px)').matches;
   });
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    setPortalContainer(document.body);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -53,11 +62,15 @@ export const Modal = ({ open, title, onClose, children }: ModalProps) => {
     ? { duration: 0 }
     : { duration: 0.28, ease: [0.22, 1, 0.36, 1] as const };
 
-  return (
+  if (!portalContainer) {
+    return null;
+  }
+
+  return createPortal(
     <AnimatePresence>
       {open ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center px-0 sm:items-center sm:px-4"
+          className="fixed inset-0 z-[120] flex items-end justify-center px-0 sm:items-center sm:px-4"
           role="dialog"
           aria-modal="true"
         >
@@ -88,6 +101,7 @@ export const Modal = ({ open, title, onClose, children }: ModalProps) => {
           </motion.div>
         </div>
       ) : null}
-    </AnimatePresence>
+    </AnimatePresence>,
+    portalContainer,
   );
 };

@@ -178,7 +178,7 @@ export const ProfilePersonalInfoPage = () => {
           countryName.toLocaleLowerCase(locale).includes(query),
         )
       : countryOptions;
-    return filtered.slice(0, 12);
+    return filtered;
   }, [countryOptions, draft.country, locale]);
 
   const savePersonalInfo = async (event: FormEvent<HTMLFormElement>) => {
