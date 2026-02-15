@@ -2,8 +2,10 @@ import {
   authCredentialsSchema,
   authResponseSchema,
   authUserSchema,
+  personalInfoResponseSchema,
   refreshResponseSchema,
   refreshTokenRequestSchema,
+  updatePersonalInfoRequestSchema,
 } from '@synqit/shared';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -54,6 +56,13 @@ const avatarUploadRequestSchema = z.object({
 const avatarPublicParamsSchema = z.object({
   fileName: z.string().min(1),
 });
+const emptyPersonalInfo = {
+  displayName: null,
+  firstName: null,
+  lastName: null,
+  birthDate: null,
+  country: null,
+} as const;
 
 const sendValidationError = (reply: FastifyReply, details: unknown) =>
   reply.status(400).send({
@@ -68,6 +77,34 @@ const formatPublicUser = (user: UserRecord) =>
     email: user.email,
     createdAt: user.createdAt.toISOString(),
     avatarUrl: buildAvatarUrl(user.avatarPath),
+  });
+
+const normalizeOptionalText = (value: string | null | undefined): string | null => {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+};
+
+const formatPersonalInfo = (
+  value: {
+    displayName: string | null;
+    firstName: string | null;
+    lastName: string | null;
+    birthDate: string | null;
+    country: string | null;
+  } | null,
+) =>
+  personalInfoResponseSchema.parse({
+    personalInfo: {
+      displayName: value?.displayName ?? null,
+      firstName: value?.firstName ?? null,
+      lastName: value?.lastName ?? null,
+      birthDate: value?.birthDate ?? null,
+      country: value?.country ?? null,
+    },
   });
 
 const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
@@ -448,6 +485,80 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       return {
         user: formatPublicUser(refreshedUser),
       };
+    },
+  );
+
+  app.get(
+    '/auth/personal-info',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      const user = await loadAuthenticatedUser(request, reply);
+      if (!user) {
+        return;
+      }
+
+      const personalInfo = await authStore.findUserPersonalInfoByUserId(user.id);
+      return formatPersonalInfo(personalInfo);
+    },
+  );
+
+  app.put(
+    '/auth/personal-info',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      const parsed = updatePersonalInfoRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return sendValidationError(reply, parsed.error.flatten());
+      }
+
+      const user = await loadAuthenticatedUser(request, reply);
+      if (!user) {
+        return;
+      }
+
+      const normalized = {
+        displayName: normalizeOptionalText(parsed.data.displayName),
+        firstName: normalizeOptionalText(parsed.data.firstName),
+        lastName: normalizeOptionalText(parsed.data.lastName),
+        birthDate: normalizeOptionalText(parsed.data.birthDate),
+        country: normalizeOptionalText(parsed.data.country),
+      };
+      const hasAnyValue = Object.values(normalized).some((value) => value !== null);
+
+      if (!hasAnyValue) {
+        await authStore.clearUserPersonalInfoByUserId(user.id);
+        return formatPersonalInfo(emptyPersonalInfo);
+      }
+
+      const upserted = await authStore.upsertUserPersonalInfoByUserId(user.id, normalized);
+      if (!upserted) {
+        return reply.status(500).send({
+          code: 'personal_info_update_failed',
+          message: 'Unable to update personal info at this time.',
+        });
+      }
+
+      return formatPersonalInfo(upserted);
+    },
+  );
+
+  app.delete(
+    '/auth/personal-info',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      const user = await loadAuthenticatedUser(request, reply);
+      if (!user) {
+        return;
+      }
+
+      await authStore.clearUserPersonalInfoByUserId(user.id);
+      return formatPersonalInfo(emptyPersonalInfo);
     },
   );
 

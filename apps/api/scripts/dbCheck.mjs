@@ -31,6 +31,7 @@ const run = async () => {
   const counts = await Promise.all([
     formatCount('users'),
     formatCount('refresh_tokens'),
+    formatCount('user_profiles'),
     formatCount('integrations'),
     formatCount('oauth_states'),
     formatCount('events'),

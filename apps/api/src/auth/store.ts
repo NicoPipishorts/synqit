@@ -20,12 +20,34 @@ type RefreshTokenRecord = {
   replacedByTokenId: string | null;
 };
 
+type UserPersonalInfoRecord = {
+  userId: string;
+  displayName: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  birthDate: string | null;
+  country: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 type UserRow = {
   id: string;
   email: string;
   password_hash: string;
   avatar_url?: string | null;
   created_at: Date;
+};
+
+type UserProfileRow = {
+  user_id: string;
+  display_name: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  birth_date: string | null;
+  country: string | null;
+  created_at: Date;
+  updated_at: Date;
 };
 
 type RefreshTokenRow = {
@@ -54,6 +76,24 @@ const toRefreshTokenRecord = (row: RefreshTokenRow): RefreshTokenRecord => ({
   expiresAt: new Date(row.expires_at),
   revokedAt: row.revoked_at ? new Date(row.revoked_at) : null,
   replacedByTokenId: row.replaced_by_token_id,
+});
+
+const toDateOnlyString = (value: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+  return value.slice(0, 10);
+};
+
+const toUserPersonalInfoRecord = (row: UserProfileRow): UserPersonalInfoRecord => ({
+  userId: row.user_id,
+  displayName: row.display_name,
+  firstName: row.first_name,
+  lastName: row.last_name,
+  birthDate: toDateOnlyString(row.birth_date),
+  country: row.country,
+  createdAt: new Date(row.created_at),
+  updatedAt: new Date(row.updated_at),
 });
 
 const isUniqueConstraintViolation = (error: unknown): boolean => {
@@ -211,6 +251,88 @@ export const authStore = {
     }
   },
 
+  async findUserPersonalInfoByUserId(userId: string): Promise<UserPersonalInfoRecord | null> {
+    const rows = await prisma.$queryRaw<UserProfileRow[]>`
+      SELECT
+        user_id,
+        display_name,
+        first_name,
+        last_name,
+        birth_date::text AS birth_date,
+        country,
+        created_at,
+        updated_at
+      FROM "user_profiles"
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `;
+
+    return rows.length > 0 ? toUserPersonalInfoRecord(rows[0]) : null;
+  },
+
+  async upsertUserPersonalInfoByUserId(
+    userId: string,
+    values: {
+      displayName: string | null;
+      firstName: string | null;
+      lastName: string | null;
+      birthDate: string | null;
+      country: string | null;
+    },
+  ): Promise<UserPersonalInfoRecord | null> {
+    const now = new Date();
+    const rows = await prisma.$queryRaw<UserProfileRow[]>`
+      INSERT INTO "user_profiles" (
+        user_id,
+        display_name,
+        first_name,
+        last_name,
+        birth_date,
+        country,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${userId},
+        ${values.displayName},
+        ${values.firstName},
+        ${values.lastName},
+        ${values.birthDate}::date,
+        ${values.country},
+        ${now},
+        ${now}
+      )
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        display_name = EXCLUDED.display_name,
+        first_name = EXCLUDED.first_name,
+        last_name = EXCLUDED.last_name,
+        birth_date = EXCLUDED.birth_date,
+        country = EXCLUDED.country,
+        updated_at = EXCLUDED.updated_at
+      RETURNING
+        user_id,
+        display_name,
+        first_name,
+        last_name,
+        birth_date::text AS birth_date,
+        country,
+        created_at,
+        updated_at
+    `;
+
+    return rows.length > 0 ? toUserPersonalInfoRecord(rows[0]) : null;
+  },
+
+  async clearUserPersonalInfoByUserId(userId: string): Promise<boolean> {
+    const deletedCount = await prisma.$executeRaw`
+      DELETE FROM "user_profiles"
+      WHERE user_id = ${userId}
+    `;
+
+    return Number(deletedCount) > 0;
+  },
+
   async createRefreshToken(params: {
     userId: string;
     tokenHash: string;
@@ -309,4 +431,4 @@ export const authStore = {
   },
 };
 
-export type { RefreshTokenRecord, UserRecord };
+export type { RefreshTokenRecord, UserPersonalInfoRecord, UserRecord };

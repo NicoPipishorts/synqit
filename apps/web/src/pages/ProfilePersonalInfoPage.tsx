@@ -1,11 +1,12 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { personalInfoResponseSchema } from '@synqit/shared';
+import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
 import { ctaClassName } from '../components/ui/cta';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
-import { useProfileSettings } from '../hooks/useProfileSettings';
 import { useToast } from '../hooks/useToast';
+import { callApi, toApiError } from '../lib/api';
 
 type PersonalInfoDraft = {
   displayName: string;
@@ -16,11 +17,11 @@ type PersonalInfoDraft = {
 };
 
 const toDraft = (value: {
-  displayName?: string;
-  firstName?: string;
-  lastName?: string;
-  birthDate?: string;
-  country?: string;
+  displayName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  birthDate?: string | null;
+  country?: string | null;
 }): PersonalInfoDraft => ({
   displayName: value.displayName ?? '',
   firstName: value.firstName ?? '',
@@ -32,14 +33,46 @@ const toDraft = (value: {
 export const ProfilePersonalInfoPage = () => {
   const { t } = useI18n();
   const { auth } = useAuthSession();
-  const { settings, updateSettings } = useProfileSettings();
   const { showToast } = useToast();
-  const initialDraft = useMemo(() => toDraft(settings.personalInfo ?? {}), [settings.personalInfo]);
+  const initialDraft = useMemo(() => toDraft({}), []);
   const [draft, setDraft] = useState<PersonalInfoDraft>(initialDraft);
+  const [savedDraft, setSavedDraft] = useState<PersonalInfoDraft>(initialDraft);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const fetchPersonalInfo = useCallback(async () => {
+    if (!auth) {
+      setDraft(initialDraft);
+      setSavedDraft(initialDraft);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await callApi(
+        '/v1/auth/personal-info',
+        {
+          method: 'GET',
+          headers: {
+            authorization: `Bearer ${auth.accessToken}`,
+          },
+        },
+        (payload) => personalInfoResponseSchema.parse(payload),
+      );
+      const nextDraft = toDraft(response.personalInfo);
+      setDraft(nextDraft);
+      setSavedDraft(nextDraft);
+    } catch (error) {
+      const apiError = toApiError(error);
+      showToast(t('profile.error', { message: apiError.message }), { variant: 'error' });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [auth, initialDraft, showToast, t]);
 
   useEffect(() => {
-    setDraft(initialDraft);
-  }, [initialDraft]);
+    void fetchPersonalInfo();
+  }, [fetchPersonalInfo]);
 
   const updateField = (field: keyof PersonalInfoDraft, value: string) => {
     setDraft((current) => ({
@@ -48,30 +81,77 @@ export const ProfilePersonalInfoPage = () => {
     }));
   };
 
-  const savePersonalInfo = (event: FormEvent<HTMLFormElement>) => {
+  const savePersonalInfo = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    updateSettings({
-      personalInfo: {
-        displayName: draft.displayName,
-        firstName: draft.firstName,
-        lastName: draft.lastName,
-        birthDate: draft.birthDate,
-        country: draft.country,
-      },
-    });
-    showToast(t('profile.personalInfoSaved'), { variant: 'success' });
+    if (!auth) {
+      showToast(t('profile.notLoggedIn'), { variant: 'error' });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await callApi(
+        '/v1/auth/personal-info',
+        {
+          method: 'PUT',
+          headers: {
+            authorization: `Bearer ${auth.accessToken}`,
+          },
+          body: JSON.stringify({
+            displayName: draft.displayName,
+            firstName: draft.firstName,
+            lastName: draft.lastName,
+            birthDate: draft.birthDate || null,
+            country: draft.country,
+          }),
+        },
+        (payload) => personalInfoResponseSchema.parse(payload),
+      );
+
+      const nextDraft = toDraft(response.personalInfo);
+      setDraft(nextDraft);
+      setSavedDraft(nextDraft);
+      showToast(t('profile.personalInfoSaved'), { variant: 'success' });
+    } catch (error) {
+      const apiError = toApiError(error);
+      showToast(t('profile.error', { message: apiError.message }), { variant: 'error' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetDraft = () => {
-    setDraft(toDraft(settings.personalInfo ?? {}));
+    setDraft(savedDraft);
   };
 
-  const clearPersonalInfo = () => {
-    updateSettings({
-      personalInfo: undefined,
-    });
-    setDraft(toDraft({}));
-    showToast(t('profile.personalInfoCleared'), { variant: 'success' });
+  const clearPersonalInfo = async () => {
+    if (!auth) {
+      showToast(t('profile.notLoggedIn'), { variant: 'error' });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await callApi(
+        '/v1/auth/personal-info',
+        {
+          method: 'DELETE',
+          headers: {
+            authorization: `Bearer ${auth.accessToken}`,
+          },
+        },
+        (payload) => personalInfoResponseSchema.parse(payload),
+      );
+      const nextDraft = toDraft(response.personalInfo);
+      setDraft(nextDraft);
+      setSavedDraft(nextDraft);
+      showToast(t('profile.personalInfoCleared'), { variant: 'success' });
+    } catch (error) {
+      const apiError = toApiError(error);
+      showToast(t('profile.error', { message: apiError.message }), { variant: 'error' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -100,14 +180,15 @@ export const ProfilePersonalInfoPage = () => {
           </div>
         </article>
 
-        <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-          <form onSubmit={savePersonalInfo} className="grid gap-4 sm:max-w-3xl sm:grid-cols-2">
+        <article className="w-full rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+          <form onSubmit={savePersonalInfo} className="grid gap-4 md:grid-cols-2">
             <label className="grid gap-1 text-sm">
               <span>{t('profile.displayNameLabel')}</span>
               <input
                 value={draft.displayName}
                 onChange={(event) => updateField('displayName', event.target.value)}
                 placeholder={t('profile.displayNamePlaceholder')}
+                disabled={isLoading || isSaving}
                 className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
               />
             </label>
@@ -125,6 +206,7 @@ export const ProfilePersonalInfoPage = () => {
                 value={draft.firstName}
                 onChange={(event) => updateField('firstName', event.target.value)}
                 placeholder={t('profile.firstNamePlaceholder')}
+                disabled={isLoading || isSaving}
                 className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
               />
             </label>
@@ -134,6 +216,7 @@ export const ProfilePersonalInfoPage = () => {
                 value={draft.lastName}
                 onChange={(event) => updateField('lastName', event.target.value)}
                 placeholder={t('profile.lastNamePlaceholder')}
+                disabled={isLoading || isSaving}
                 className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
               />
             </label>
@@ -143,6 +226,7 @@ export const ProfilePersonalInfoPage = () => {
                 type="date"
                 value={draft.birthDate}
                 onChange={(event) => updateField('birthDate', event.target.value)}
+                disabled={isLoading || isSaving}
                 className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
               />
             </label>
@@ -152,19 +236,30 @@ export const ProfilePersonalInfoPage = () => {
                 value={draft.country}
                 onChange={(event) => updateField('country', event.target.value)}
                 placeholder={t('profile.countryPlaceholder')}
+                disabled={isLoading || isSaving}
                 className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
               />
             </label>
 
             <div className="mt-2 flex flex-wrap justify-end gap-2 sm:col-span-2">
-              <button type="submit" className={ctaClassName('primary')}>
+              <button
+                type="submit"
+                disabled={isLoading || isSaving}
+                className={ctaClassName('primary')}
+              >
                 {t('profile.personalInfoSave')}
               </button>
-              <button type="button" onClick={resetDraft} className={ctaClassName('secondary')}>
+              <button
+                type="button"
+                disabled={isLoading || isSaving}
+                onClick={resetDraft}
+                className={ctaClassName('secondary')}
+              >
                 {t('profile.personalInfoReset')}
               </button>
               <button
                 type="button"
+                disabled={isLoading || isSaving}
                 onClick={clearPersonalInfo}
                 className={ctaClassName('dangerSoft')}
               >

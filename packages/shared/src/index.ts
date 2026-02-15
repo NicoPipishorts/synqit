@@ -51,6 +51,34 @@ export const refreshResponseSchema = z.object({
 
 export type RefreshResponse = z.infer<typeof refreshResponseSchema>;
 
+const birthDateIsoPattern = /^\d{4}-\d{2}-\d{2}$/;
+
+export const personalInfoSchema = z.object({
+  displayName: z.string().max(80).nullable(),
+  firstName: z.string().max(80).nullable(),
+  lastName: z.string().max(80).nullable(),
+  birthDate: z.string().regex(birthDateIsoPattern).nullable(),
+  country: z.string().max(60).nullable(),
+});
+
+export type PersonalInfo = z.infer<typeof personalInfoSchema>;
+
+export const personalInfoResponseSchema = z.object({
+  personalInfo: personalInfoSchema,
+});
+
+export type PersonalInfoResponse = z.infer<typeof personalInfoResponseSchema>;
+
+export const updatePersonalInfoRequestSchema = z.object({
+  displayName: z.string().max(80).nullable().optional(),
+  firstName: z.string().max(80).nullable().optional(),
+  lastName: z.string().max(80).nullable().optional(),
+  birthDate: z.string().regex(birthDateIsoPattern).nullable().optional(),
+  country: z.string().max(60).nullable().optional(),
+});
+
+export type UpdatePersonalInfoRequest = z.infer<typeof updatePersonalInfoRequestSchema>;
+
 export const providerConnectionStatusSchema = z.enum(['connected', 'not_connected']);
 export type ProviderConnectionStatus = z.infer<typeof providerConnectionStatusSchema>;
 

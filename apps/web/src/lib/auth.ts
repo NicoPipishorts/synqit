@@ -66,6 +66,26 @@ export const updateStoredAuthUser = (patch: {
   return next;
 };
 
+export const updateStoredAuthTokens = (patch: {
+  accessToken: string;
+  refreshToken: string;
+}): StoredAuth | null => {
+  const current = loadAuth();
+  if (!current) {
+    return null;
+  }
+
+  const next: StoredAuth = {
+    ...current,
+    accessToken: patch.accessToken,
+    refreshToken: patch.refreshToken,
+  };
+
+  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
+  emitAuthChanged();
+  return next;
+};
+
 export const clearAuth = (): void => {
   localStorage.removeItem(AUTH_STORAGE_KEY);
   emitAuthChanged();
