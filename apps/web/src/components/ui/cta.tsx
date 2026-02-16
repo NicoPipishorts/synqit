@@ -10,7 +10,7 @@ export type CtaVariant = 'primary' | 'secondary' | 'danger' | 'dangerSoft' | 'gh
 // - dangerSoft: low-risk destructive/cleanup action.
 // - ghost: subtle inline utility action.
 const CTA_BASE =
-  'inline-flex cursor-pointer appearance-none items-center justify-center rounded-lg border-solid px-3 py-2 text-xs font-extrabold leading-none no-underline shadow-soft-lift transition select-none focus-ring-brand disabled:cursor-not-allowed disabled:opacity-60';
+  'inline-flex cursor-pointer appearance-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border-solid px-3 py-2 text-xs font-extrabold leading-none no-underline shadow-soft-lift transition select-none focus-ring-brand disabled:cursor-not-allowed disabled:opacity-60';
 
 const CTA_VARIANTS: Record<CtaVariant, string> = {
   primary:

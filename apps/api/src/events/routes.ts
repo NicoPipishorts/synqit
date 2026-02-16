@@ -20,6 +20,7 @@ import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
   addAppleTrackToPlaylist,
   createAppleLibraryPlaylist,
+  listApplePlaylistTracks,
   removeAppleTrackFromPlaylist,
   searchAppleCatalogTracks,
 } from '../integrations/apple-music';
@@ -33,6 +34,7 @@ import {
 } from '../integrations/spotify-playlists';
 import {
   addSpotifyTrackToPlaylist,
+  listSpotifyPlaylistTracks,
   ProviderApiError,
   removeSpotifyTrackFromPlaylist,
   searchSpotifyTracks,
@@ -128,7 +130,7 @@ const sendIntegrationError = (reply: FastifyReply, error: IntegrationError) => {
 const reconcileMissingProviderPlaylist = async (params: {
   app: FastifyInstance;
   event: EventRecord;
-  operation: 'add_track' | 'remove_track';
+  operation: 'add_track' | 'remove_track' | 'sync_tracks';
   providerTrackId: string;
   providerError: unknown;
   providerStatusCode: number;
@@ -190,6 +192,219 @@ const requireActiveMagicLinkEvent = async (
   }
 
   return event;
+};
+
+type ProviderPlaylistTrack = {
+  providerTrackId: string;
+  name: string;
+  artist: string;
+  album: string;
+  durationMs: number;
+  artworkUrl: string | null;
+};
+
+const PROVIDER_SYNC_ADDED_BY = 'provider_sync';
+
+const listProviderPlaylistTracks = async (params: {
+  app: FastifyInstance;
+  event: EventRecord;
+  magicLinkToken?: string;
+}): Promise<ProviderPlaylistTrack[] | null> => {
+  if (params.event.provider === 'spotify' && isSpotifyOauthLiveMode()) {
+    try {
+      const response = await withSpotifyAccessTokenRetry({
+        userId: params.event.hostUserId,
+        run: (accessToken) =>
+          listSpotifyPlaylistTracks({
+            accessToken,
+            providerPlaylistId: params.event.providerPlaylistId,
+          }),
+      });
+
+      return response.result;
+    } catch (error) {
+      if (error instanceof IntegrationError) {
+        params.app.log.warn(
+          {
+            eventId: params.event.id,
+            hostUserId: params.event.hostUserId,
+            provider: params.event.provider,
+            providerPlaylistId: params.event.providerPlaylistId,
+            magicLinkToken: params.magicLinkToken ?? null,
+            integrationErrorCode: error.code,
+            integrationErrorMessage: error.message,
+          },
+          'provider track sync skipped due integration error',
+        );
+        return null;
+      }
+
+      if (error instanceof ProviderApiError) {
+        params.app.log.warn(
+          {
+            eventId: params.event.id,
+            hostUserId: params.event.hostUserId,
+            provider: params.event.provider,
+            providerPlaylistId: params.event.providerPlaylistId,
+            magicLinkToken: params.magicLinkToken ?? null,
+            providerStatusCode: error.statusCode,
+            providerError: error.details,
+          },
+          'provider track sync failed',
+        );
+
+        if (error.statusCode === 404) {
+          await reconcileMissingProviderPlaylist({
+            app: params.app,
+            event: params.event,
+            operation: 'sync_tracks',
+            providerTrackId: '*',
+            providerStatusCode: error.statusCode,
+            providerError: error.details,
+            magicLinkToken: params.magicLinkToken,
+          });
+        }
+      }
+
+      return null;
+    }
+  }
+
+  if (params.event.provider === 'apple' && isAppleLiveMode()) {
+    try {
+      const results = await withAppleMusicUserToken({
+        userId: params.event.hostUserId,
+        run: async ({ developerToken, musicUserToken }) =>
+          listApplePlaylistTracks({
+            developerToken,
+            musicUserToken,
+            providerPlaylistId: params.event.providerPlaylistId,
+          }),
+      });
+      return results;
+    } catch (error) {
+      if (error instanceof IntegrationError) {
+        params.app.log.warn(
+          {
+            eventId: params.event.id,
+            hostUserId: params.event.hostUserId,
+            provider: params.event.provider,
+            providerPlaylistId: params.event.providerPlaylistId,
+            magicLinkToken: params.magicLinkToken ?? null,
+            integrationErrorCode: error.code,
+            integrationErrorMessage: error.message,
+          },
+          'provider track sync skipped due integration error',
+        );
+        return null;
+      }
+
+      if (error instanceof ProviderApiError) {
+        params.app.log.warn(
+          {
+            eventId: params.event.id,
+            hostUserId: params.event.hostUserId,
+            provider: params.event.provider,
+            providerPlaylistId: params.event.providerPlaylistId,
+            magicLinkToken: params.magicLinkToken ?? null,
+            providerStatusCode: error.statusCode,
+            providerError: error.details,
+          },
+          'provider track sync failed',
+        );
+
+        if (error.statusCode === 404) {
+          await reconcileMissingProviderPlaylist({
+            app: params.app,
+            event: params.event,
+            operation: 'sync_tracks',
+            providerTrackId: '*',
+            providerStatusCode: error.statusCode,
+            providerError: error.details,
+            magicLinkToken: params.magicLinkToken,
+          });
+        }
+      }
+
+      return null;
+    }
+  }
+
+  return null;
+};
+
+const syncEventTracksFromProvider = async (params: {
+  app: FastifyInstance;
+  event: EventRecord;
+  magicLinkToken?: string;
+}): Promise<void> => {
+  const providerTracks = await listProviderPlaylistTracks(params);
+  if (!providerTracks) {
+    return;
+  }
+
+  const localTracks = await eventsStore.listTracksByEventId(params.event.id);
+  const providerTracksById = new Map<string, ProviderPlaylistTrack>();
+  for (const track of providerTracks) {
+    if (!providerTracksById.has(track.providerTrackId)) {
+      providerTracksById.set(track.providerTrackId, track);
+    }
+  }
+
+  const localTrackIds = new Set(localTracks.map((track) => track.providerTrackId));
+  let syncedAddedCount = 0;
+  let syncedRemovedCount = 0;
+
+  for (const track of providerTracksById.values()) {
+    if (localTrackIds.has(track.providerTrackId)) {
+      continue;
+    }
+
+    const addedTrack = await eventsStore.addTrackToEvent({
+      eventId: params.event.id,
+      providerTrackId: track.providerTrackId,
+      name: track.name,
+      artist: track.artist,
+      album: track.album,
+      durationMs: track.durationMs,
+      artworkUrl: track.artworkUrl,
+      addedBy: PROVIDER_SYNC_ADDED_BY,
+    });
+
+    if (addedTrack) {
+      syncedAddedCount += 1;
+    }
+  }
+
+  const providerTrackIds = new Set(providerTracksById.keys());
+  for (const localTrack of localTracks) {
+    if (providerTrackIds.has(localTrack.providerTrackId)) {
+      continue;
+    }
+
+    const removedTrack = await eventsStore.removeTrackFromEvent({
+      eventId: params.event.id,
+      providerTrackId: localTrack.providerTrackId,
+    });
+    if (removedTrack) {
+      syncedRemovedCount += 1;
+    }
+  }
+
+  if (syncedAddedCount > 0 || syncedRemovedCount > 0) {
+    params.app.log.info(
+      {
+        eventId: params.event.id,
+        hostUserId: params.event.hostUserId,
+        provider: params.event.provider,
+        providerPlaylistId: params.event.providerPlaylistId,
+        magicLinkToken: params.magicLinkToken ?? null,
+        syncedAddedCount,
+        syncedRemovedCount,
+      },
+      'event tracks synchronized from provider playlist',
+    );
+  }
 };
 
 export const registerEventRoutes = async (app: FastifyInstance): Promise<void> => {
@@ -367,6 +582,12 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       return;
     }
 
+    await syncEventTracksFromProvider({
+      app,
+      event,
+      magicLinkToken,
+    });
+
     const tracks = await eventsStore.listTracksByEventId(event.id);
     return eventTracksResponseSchema.parse({
       tracks: tracks.map((track) => ({
@@ -390,7 +611,17 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    const query = ((request.query as { q?: string }).q ?? '').trim();
+    const requestQuery = request.query as {
+      q?: string;
+      limit?: string | number;
+      offset?: string | number;
+    };
+    const query = (requestQuery.q ?? '').trim();
+    const rawLimit = Number.parseInt(String(requestQuery.limit ?? ''), 10);
+    const rawOffset = Number.parseInt(String(requestQuery.offset ?? ''), 10);
+    const limit = Number.isNaN(rawLimit) ? 25 : Math.min(Math.max(rawLimit, 1), 25);
+    const offset = Number.isNaN(rawOffset) ? 0 : Math.max(rawOffset, 0);
+
     if (query.length < 2) {
       return reply.status(400).send({
         code: 'validation_error',
@@ -406,6 +637,8 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             searchSpotifyTracks({
               accessToken,
               query,
+              limit,
+              offset,
             }),
         });
 
@@ -448,6 +681,8 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
           developerToken,
           storefront: getAppleStorefront(),
           query,
+          limit,
+          offset,
         });
 
         return eventTrackSearchResponseSchema.parse({
@@ -482,7 +717,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     const results = MOCK_TRACKS.filter((track) => {
       const searchable = `${track.name} ${track.artist} ${track.album}`.toLowerCase();
       return searchable.includes(normalizedQuery);
-    });
+    }).slice(offset, offset + limit);
 
     return eventTrackSearchResponseSchema.parse({
       results,
@@ -796,6 +1031,11 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         message: 'Event not found.',
       });
     }
+
+    await syncEventTracksFromProvider({
+      app,
+      event,
+    });
 
     const tracks = await eventsStore.listTracksByEventId(event.id);
     return eventTracksResponseSchema.parse({

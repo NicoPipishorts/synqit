@@ -57,6 +57,15 @@ const applePlaylistTracksResponseSchema = z.object({
       id: z.string().min(1),
       attributes: z
         .object({
+          name: z.string().optional(),
+          artistName: z.string().optional(),
+          albumName: z.string().optional(),
+          durationInMillis: z.number().int().nonnegative().optional(),
+          artwork: z
+            .object({
+              url: z.string().min(1),
+            })
+            .optional(),
           playParams: z
             .object({
               catalogId: z.string().min(1).optional(),
@@ -66,6 +75,7 @@ const applePlaylistTracksResponseSchema = z.object({
         .optional(),
     }),
   ),
+  next: z.string().optional(),
 });
 
 const toAppleApiError = (params: {
@@ -142,6 +152,7 @@ export const searchAppleCatalogTracks = async (params: {
   storefront: string;
   query: string;
   limit?: number;
+  offset?: number;
 }): Promise<AppleTrackSearchResult[]> => {
   const url = new URL(
     `https://api.music.apple.com/v1/catalog/${encodeURIComponent(params.storefront)}/search`,
@@ -149,6 +160,7 @@ export const searchAppleCatalogTracks = async (params: {
   url.searchParams.set('types', 'songs');
   url.searchParams.set('term', params.query);
   url.searchParams.set('limit', String(params.limit ?? 10));
+  url.searchParams.set('offset', String(params.offset ?? 0));
 
   const response = await fetch(url.toString(), {
     method: 'GET',
@@ -261,6 +273,69 @@ export const addAppleTrackToPlaylist = async (params: {
       wwwAuthenticate: response.headers.get('www-authenticate'),
     });
   }
+};
+
+export const listApplePlaylistTracks = async (params: {
+  developerToken: string;
+  musicUserToken: string;
+  providerPlaylistId: string;
+  limit?: number;
+}): Promise<AppleTrackSearchResult[]> => {
+  const limit = Math.min(Math.max(params.limit ?? 100, 1), 100);
+  let nextUrl: string | null =
+    `https://api.music.apple.com/v1/me/library/playlists/${encodeURIComponent(
+      params.providerPlaylistId,
+    )}/tracks?limit=${limit}`;
+  const byProviderTrackId = new Map<string, AppleTrackSearchResult>();
+
+  while (nextUrl) {
+    const response = await fetch(nextUrl, {
+      method: 'GET',
+      headers: appleHeaders({
+        developerToken: params.developerToken,
+        musicUserToken: params.musicUserToken,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as unknown;
+    if (!response.ok) {
+      throw toAppleApiError({
+        action: 'list_playlist_tracks',
+        statusCode: response.status,
+        payload,
+        wwwAuthenticate: response.headers.get('www-authenticate'),
+      });
+    }
+
+    const parsed = applePlaylistTracksResponseSchema.parse(payload);
+    for (const track of parsed.data) {
+      const providerTrackId = track.attributes?.playParams?.catalogId ?? track.id;
+      if (!providerTrackId || byProviderTrackId.has(providerTrackId)) {
+        continue;
+      }
+
+      byProviderTrackId.set(providerTrackId, {
+        providerTrackId,
+        name: track.attributes?.name ?? 'Unknown track',
+        artist: track.attributes?.artistName ?? 'Unknown artist',
+        album: track.attributes?.albumName ?? 'Unknown album',
+        durationMs: track.attributes?.durationInMillis ?? 0,
+        artworkUrl: formatAppleArtworkUrl(track.attributes?.artwork?.url),
+      });
+    }
+
+    if (!parsed.next) {
+      nextUrl = null;
+      continue;
+    }
+
+    // Apple Music often returns relative next paths.
+    nextUrl = parsed.next.startsWith('http')
+      ? parsed.next
+      : `https://api.music.apple.com${parsed.next}`;
+  }
+
+  return Array.from(byProviderTrackId.values());
 };
 
 const findLibraryTrackForCatalogTrack = async (params: {

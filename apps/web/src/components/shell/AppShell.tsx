@@ -1,5 +1,6 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
+import { CalendarDays, LayoutDashboard, ListMusic } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { BackgroundBlurSpots } from './BackgroundBlurSpots';
@@ -21,9 +22,9 @@ export const AppShell = () => {
   const isPrivateRoute =
     !pathname.startsWith('/auth/') && pathname !== '/' && !pathname.startsWith('/event/');
   const navItems = [
-    { to: '/dashboard', label: t('accountMenu.dashboard') },
-    { to: '/events', label: t('accountMenu.myEvents') },
-    { to: '/synced-lists', label: t('accountMenu.syncedLists') },
+    { to: '/dashboard', label: t('accountMenu.dashboard'), icon: LayoutDashboard },
+    { to: '/events', label: t('accountMenu.myEvents'), icon: CalendarDays },
+    { to: '/synced-lists', label: t('accountMenu.syncedLists'), icon: ListMusic },
   ] as const;
   const isNavItemActive = (to: string): boolean => {
     if (to === '/events') {
@@ -145,11 +146,13 @@ export const AppShell = () => {
           >
             {navItems.map((item) => {
               const isActive = isNavItemActive(item.to);
+              const Icon = item.icon;
               return (
                 <Link
                   key={item.to}
                   to={item.to}
-                  className="relative inline-flex h-11 items-center rounded-full px-3.5 text-xs font-black tracking-[0.01em] transition focus-ring-brand"
+                  aria-label={item.label}
+                  className="relative inline-flex h-11 w-11 items-center justify-center rounded-full px-0 transition focus-ring-brand"
                 >
                   {isActive ? (
                     <motion.span
@@ -163,8 +166,9 @@ export const AppShell = () => {
                       isActive ? 'text-brand-white dark:text-brand-dark' : 'text-app-text-secondary'
                     }`}
                   >
-                    {item.label}
+                    <Icon size={16} aria-hidden="true" />
                   </span>
+                  <span className="sr-only">{item.label}</span>
                 </Link>
               );
             })}

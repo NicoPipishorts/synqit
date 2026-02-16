@@ -25,7 +25,7 @@ export const HostEventCard = ({ event, onCopyMagicLink }: HostEventCardProps) =>
               </h2>
               <EventStatusIndicator status={event.status} mode="responsive" />
             </div>
-            <p className="line-clamp-2 text-sm text-app-text-secondary">
+            <p className="h-5 truncate text-sm text-app-text-secondary">
               {event.description || t('eventsPage.noDescription')}
             </p>
           </div>

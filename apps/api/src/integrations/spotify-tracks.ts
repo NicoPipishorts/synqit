@@ -53,8 +53,40 @@ const spotifySearchResponseSchema = z.object({
   }),
 });
 
+const spotifyPlaylistTracksResponseSchema = z.object({
+  items: z.array(
+    z.object({
+      track: z
+        .object({
+          id: z.string().nullable(),
+          name: z.string().optional().default('Unknown track'),
+          artists: z
+            .array(z.object({ name: z.string().min(1) }))
+            .optional()
+            .default([]),
+          album: z
+            .object({
+              name: z.string().optional().default('Unknown album'),
+              images: z
+                .array(
+                  z.object({
+                    url: z.string().url(),
+                  }),
+                )
+                .optional()
+                .default([]),
+            })
+            .optional(),
+          duration_ms: z.number().int().nonnegative().optional().default(0),
+        })
+        .nullable(),
+    }),
+  ),
+  next: z.string().url().nullable().optional(),
+});
+
 const toSpotifyApiError = (params: {
-  action: 'search' | 'add_track' | 'remove_track';
+  action: 'search' | 'list_playlist_tracks' | 'add_track' | 'remove_track';
   statusCode: number;
   payload: unknown;
   wwwAuthenticate: string | null;
@@ -62,9 +94,11 @@ const toSpotifyApiError = (params: {
   const fallbackMessage =
     params.action === 'search'
       ? `Spotify track search failed with status ${params.statusCode}.`
-      : params.action === 'add_track'
-        ? `Spotify add-track failed with status ${params.statusCode}.`
-        : `Spotify remove-track failed with status ${params.statusCode}.`;
+      : params.action === 'list_playlist_tracks'
+        ? `Spotify playlist-track lookup failed with status ${params.statusCode}.`
+        : params.action === 'add_track'
+          ? `Spotify add-track failed with status ${params.statusCode}.`
+          : `Spotify remove-track failed with status ${params.statusCode}.`;
 
   let message = fallbackMessage;
   if (
@@ -94,11 +128,13 @@ export const searchSpotifyTracks = async (params: {
   accessToken: string;
   query: string;
   limit?: number;
+  offset?: number;
 }): Promise<SpotifyTrackSearchResult[]> => {
   const url = new URL('https://api.spotify.com/v1/search');
   url.searchParams.set('type', 'track');
   url.searchParams.set('q', params.query);
   url.searchParams.set('limit', String(params.limit ?? 10));
+  url.searchParams.set('offset', String(params.offset ?? 0));
 
   const response = await fetch(url.toString(), {
     method: 'GET',
@@ -157,6 +193,61 @@ export const addSpotifyTrackToPlaylist = async (params: {
       wwwAuthenticate: response.headers.get('www-authenticate'),
     });
   }
+};
+
+export const listSpotifyPlaylistTracks = async (params: {
+  accessToken: string;
+  providerPlaylistId: string;
+  limit?: number;
+}): Promise<SpotifyTrackSearchResult[]> => {
+  const limit = Math.min(Math.max(params.limit ?? 100, 1), 100);
+  let nextUrl: string | null = `https://api.spotify.com/v1/playlists/${encodeURIComponent(
+    params.providerPlaylistId,
+  )}/tracks?limit=${limit}`;
+  const byProviderTrackId = new Map<string, SpotifyTrackSearchResult>();
+
+  while (nextUrl) {
+    const response = await fetch(nextUrl, {
+      method: 'GET',
+      headers: {
+        authorization: `Bearer ${params.accessToken}`,
+      },
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as unknown;
+    if (!response.ok) {
+      throw toSpotifyApiError({
+        action: 'list_playlist_tracks',
+        statusCode: response.status,
+        payload,
+        wwwAuthenticate: response.headers.get('www-authenticate'),
+      });
+    }
+
+    const parsed = spotifyPlaylistTracksResponseSchema.parse(payload);
+    for (const item of parsed.items) {
+      if (!item.track?.id) {
+        continue;
+      }
+
+      if (byProviderTrackId.has(item.track.id)) {
+        continue;
+      }
+
+      byProviderTrackId.set(item.track.id, {
+        providerTrackId: item.track.id,
+        name: item.track.name,
+        artist: item.track.artists.map((artist) => artist.name).join(', '),
+        album: item.track.album?.name ?? 'Unknown album',
+        durationMs: item.track.duration_ms,
+        artworkUrl: item.track.album?.images[0]?.url ?? null,
+      });
+    }
+
+    nextUrl = parsed.next ?? null;
+  }
+
+  return Array.from(byProviderTrackId.values());
 };
 
 export const removeSpotifyTrackFromPlaylist = async (params: {

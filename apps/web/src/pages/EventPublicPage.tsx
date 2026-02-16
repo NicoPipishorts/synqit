@@ -5,10 +5,15 @@ import {
   eventTracksResponseSchema,
 } from '@synqit/shared';
 import { useParams } from '@tanstack/react-router';
+import { Check, Eraser, LoaderCircle, Plus, RefreshCcw, Search } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 
 import { HostEventDetailsHeader } from '../components/events/HostEventDetailsHeader';
+import { HomeFooterReveal } from '../components/marketing/HomeFooterReveal';
 import { CTAButton } from '../components/ui/cta';
+import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { EventProvider, EventStatus, EventTrackItem } from '../lib/events';
@@ -22,8 +27,15 @@ type SearchTrackResult = {
   artworkUrl: string | null;
 };
 
+type InviteeTab = 'results' | 'added';
+
+const ADDED_TRACKS_PAGE_SIZE = 12;
+const SEARCH_FETCH_LIMIT = 25;
+const MAX_SEARCH_RESULTS = 50;
+
 export const EventPublicPage = () => {
   const params = useParams({ from: '/event/$magicLinkToken' });
+  const { t } = useI18n();
   const { showToast } = useToast();
 
   const [pageError, setPageError] = useState<string | null>(null);
@@ -34,13 +46,16 @@ export const EventPublicPage = () => {
   const [tracks, setTracks] = useState<EventTrackItem[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchStatus, setSearchStatus] = useState(
-    'Search tracks and add them to this event playlist.',
-  );
+  const [searchStatus, setSearchStatus] = useState('');
   const [searchResults, setSearchResults] = useState<SearchTrackResult[]>([]);
+  const [activeTab, setActiveTab] = useState<InviteeTab>('results');
+  const [hasSearched, setHasSearched] = useState(false);
+  const [hasMoreSearchResults, setHasMoreSearchResults] = useState(false);
+  const [visibleAddedTracksCount, setVisibleAddedTracksCount] = useState(ADDED_TRACKS_PAGE_SIZE);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [isLoadingMoreSearchResults, setIsLoadingMoreSearchResults] = useState(false);
   const [addingTrackId, setAddingTrackId] = useState<string | null>(null);
   const [isLoadingTracks, setIsLoadingTracks] = useState(false);
 
@@ -55,15 +70,16 @@ export const EventPublicPage = () => {
         (payload) => eventTracksResponseSchema.parse(payload),
       );
       setTracks(result.tracks);
+      setVisibleAddedTracksCount((currentCount) => Math.max(currentCount, ADDED_TRACKS_PAGE_SIZE));
     } catch (error) {
       const apiError = toApiError(error);
-      const message = `Error: ${apiError.message}`;
+      const message = t('eventsPage.error', { message: apiError.message });
       setPageError(message);
       showToast(message, { variant: 'error' });
     } finally {
       setIsLoadingTracks(false);
     }
-  }, [params.magicLinkToken, showToast]);
+  }, [params.magicLinkToken, showToast, t]);
 
   useEffect(() => {
     const loadEventAndTracks = async () => {
@@ -92,9 +108,10 @@ export const EventPublicPage = () => {
         setEventState(eventResult.event.status);
         setEventProvider(eventResult.event.provider);
         setTracks(tracksResult.tracks);
+        setVisibleAddedTracksCount(ADDED_TRACKS_PAGE_SIZE);
       } catch (error) {
         const apiError = toApiError(error);
-        const message = `Error: ${apiError.message}`;
+        const message = t('eventsPage.error', { message: apiError.message });
         setPageError(message);
         showToast(message, { variant: 'error' });
       } finally {
@@ -103,25 +120,15 @@ export const EventPublicPage = () => {
     };
 
     void loadEventAndTracks();
-  }, [params.magicLinkToken, showToast]);
+  }, [params.magicLinkToken, showToast, t]);
 
-  const onSearch = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    if (eventState !== 'open') {
-      setSearchStatus('This event is closed. New tracks cannot be added.');
-      return;
-    }
-
-    const nextQuery = searchQuery.trim();
-    if (nextQuery.length < 2) {
-      setSearchStatus('Type at least 2 characters.');
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const query = new URLSearchParams({ q: nextQuery });
+  const fetchSearchBatch = useCallback(
+    async (queryText: string, offset: number): Promise<SearchTrackResult[]> => {
+      const query = new URLSearchParams({
+        q: queryText,
+        limit: String(SEARCH_FETCH_LIMIT),
+        offset: String(offset),
+      });
       const result = await callApi(
         `/v1/events/link/${encodeURIComponent(params.magicLinkToken)}/search?${query.toString()}`,
         {
@@ -129,11 +136,42 @@ export const EventPublicPage = () => {
         },
         (payload) => eventTrackSearchResponseSchema.parse(payload),
       );
-      setSearchResults(result.results);
-      setSearchStatus(`Found ${result.results.length} track(s).`);
+      return result.results;
+    },
+    [params.magicLinkToken],
+  );
+
+  const onSearch = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (eventState !== 'open') {
+      setSearchStatus(t('eventPublicPage.statusEventClosed'));
+      return;
+    }
+
+    const nextQuery = searchQuery.trim();
+    if (nextQuery.length < 2) {
+      setSearchStatus(t('eventPublicPage.minChars'));
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const firstBatch = await fetchSearchBatch(nextQuery, 0);
+      setSearchResults(firstBatch);
+      setHasMoreSearchResults(
+        firstBatch.length === SEARCH_FETCH_LIMIT && firstBatch.length < MAX_SEARCH_RESULTS,
+      );
+      setSearchStatus(
+        firstBatch.length > 0
+          ? t('eventPublicPage.searchFound', { count: firstBatch.length })
+          : t('eventPublicPage.noResults'),
+      );
+      setHasSearched(true);
+      setActiveTab('results');
     } catch (error) {
       const apiError = toApiError(error);
-      const message = `Error: ${apiError.message}`;
+      const message = t('eventsPage.error', { message: apiError.message });
       setSearchStatus(message);
       showToast(message, { variant: 'error' });
     } finally {
@@ -141,9 +179,49 @@ export const EventPublicPage = () => {
     }
   };
 
+  const loadMoreSearchResults = async () => {
+    if (isLoadingMoreSearchResults || isSearching) {
+      return;
+    }
+
+    const nextQuery = searchQuery.trim();
+    if (nextQuery.length < 2) {
+      setSearchStatus(t('eventPublicPage.minChars'));
+      return;
+    }
+
+    const offset = searchResults.length;
+    if (offset >= MAX_SEARCH_RESULTS) {
+      setHasMoreSearchResults(false);
+      return;
+    }
+
+    setIsLoadingMoreSearchResults(true);
+    try {
+      const nextBatch = await fetchSearchBatch(nextQuery, offset);
+      const merged = [...searchResults, ...nextBatch].slice(0, MAX_SEARCH_RESULTS);
+      setSearchResults(merged);
+      setHasMoreSearchResults(
+        nextBatch.length === SEARCH_FETCH_LIMIT && merged.length < MAX_SEARCH_RESULTS,
+      );
+      setSearchStatus(
+        merged.length > 0
+          ? t('eventPublicPage.searchFound', { count: merged.length })
+          : t('eventPublicPage.noResults'),
+      );
+    } catch (error) {
+      const apiError = toApiError(error);
+      const message = t('eventsPage.error', { message: apiError.message });
+      setSearchStatus(message);
+      showToast(message, { variant: 'error' });
+    } finally {
+      setIsLoadingMoreSearchResults(false);
+    }
+  };
+
   const addTrack = async (track: SearchTrackResult) => {
     if (eventState !== 'open') {
-      setSearchStatus('This event is closed. New tracks cannot be added.');
+      setSearchStatus(t('eventPublicPage.statusEventClosed'));
       return;
     }
 
@@ -164,16 +242,26 @@ export const EventPublicPage = () => {
           (existingTrack) => existingTrack.providerTrackId !== result.track.providerTrackId,
         ),
       ]);
-      setSearchStatus(`Added "${result.track.name}" to the event playlist.`);
-      showToast(`Added "${result.track.name}".`, { variant: 'success' });
+      setSearchStatus(t('eventPublicPage.addedToPlaylist', { name: result.track.name }));
+      showToast(t('eventPublicPage.addedToast', { name: result.track.name }), {
+        variant: 'success',
+      });
     } catch (error) {
       const apiError = toApiError(error);
-      const message = `Error: ${apiError.message}`;
+      const message = t('eventsPage.error', { message: apiError.message });
       setSearchStatus(message);
       showToast(message, { variant: 'error' });
     } finally {
       setAddingTrackId(null);
     }
+  };
+
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setHasSearched(false);
+    setSearchStatus('');
+    setHasMoreSearchResults(false);
   };
 
   const headerEvent =
@@ -182,155 +270,344 @@ export const EventPublicPage = () => {
           name: eventName,
           status: eventState,
           provider: eventProvider,
-          description: eventDescription || 'No description provided.',
+          description: eventDescription || t('eventPublicPage.noDescription'),
         }
       : null;
+  const isSearchPanelVisible = activeTab === 'results';
+  const addedTrackIds = new Set(tracks.map((track) => track.providerTrackId));
 
   return (
-    <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-      <div className="relative grid gap-6">
-        {isLoading && !eventName ? (
-          <article className="rounded-2xl border border-app-border bg-app-elevated p-6 text-sm text-app-text-secondary shadow-soft-lift dark:bg-app-card">
-            Loading event...
-          </article>
-        ) : null}
+    <div className="relative bg-brand-dark dark:bg-brand-white">
+      <HomeFooterReveal />
 
-        {pageError ? (
-          <article className="rounded-2xl border border-brand-pink/40 bg-brand-pink/10 p-4 text-sm text-[#b41563] dark:text-[#ff8ac0]">
-            {pageError}
-          </article>
-        ) : null}
+      <div className="relative z-10 min-h-full overflow-hidden rounded-b-[2.75rem] bg-app-bg shadow-[0_28px_64px_-20px_rgba(0,0,0,0.55)] dark:shadow-[0_30px_70px_-20px_rgba(0,0,0,0.72)] sm:rounded-b-[3.5rem] lg:rounded-b-[4.5rem]">
+        <section className="relative mx-auto min-h-[107vh] w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
+          <div className="relative grid gap-6">
+            {isLoading && !eventName ? (
+              <article className="rounded-2xl border border-app-border bg-app-elevated p-6 text-sm text-app-text-secondary shadow-soft-lift dark:bg-app-card">
+                {t('eventPublicPage.loadingEvent')}
+              </article>
+            ) : null}
 
-        {eventName ? (
-          <>
-            <HostEventDetailsHeader
-              event={headerEvent}
-              showBackButton={false}
-              showCloseAction={false}
-              statusMessage={
-                eventState === 'closed'
-                  ? 'This event is closed. You can browse tracks, but cannot add new ones.'
-                  : undefined
-              }
-            />
+            {pageError ? (
+              <article className="rounded-2xl border border-brand-pink/40 bg-brand-pink/10 p-4 text-sm text-[#b41563] dark:text-[#ff8ac0]">
+                {pageError}
+              </article>
+            ) : null}
 
-            <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-              <form onSubmit={onSearch} className="grid gap-3">
-                <label className="grid gap-1 text-sm">
-                  <span>Search tracks</span>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <input
-                      placeholder="Search songs or artists"
-                      value={searchQuery}
-                      onChange={(nextEvent) => setSearchQuery(nextEvent.target.value)}
-                      minLength={2}
-                      maxLength={120}
-                      className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                    />
-                    <CTAButton
-                      disabled={isSearching || isLoading || eventState !== 'open'}
-                      type="submit"
-                      variant="primary"
-                      className="sm:min-w-28"
+            {eventName ? (
+              <>
+                <HostEventDetailsHeader
+                  event={headerEvent}
+                  showBackButton={false}
+                  showCloseAction={false}
+                  statusMessage={
+                    eventState === 'closed'
+                      ? t('eventPublicPage.statusEventClosedBrowseOnly')
+                      : undefined
+                  }
+                />
+
+                <div className="flex flex-wrap gap-2 px-5 sm:px-8">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('results')}
+                    className={`inline-flex cursor-pointer items-center justify-center rounded-lg border px-3 py-2 text-xs font-extrabold leading-none shadow-soft-lift transition focus-ring-brand ${
+                      activeTab === 'results'
+                        ? 'border-[#9fce00] bg-brand-lime text-brand-dark'
+                        : 'border-app-border bg-app-surface text-app-text hover:border-brand-lime dark:bg-app-elevated'
+                    }`}
+                  >
+                    {t('eventPublicPage.tabs.search', { count: searchResults.length })}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('added')}
+                    className={`inline-flex cursor-pointer items-center justify-center rounded-lg border px-3 py-2 text-xs font-extrabold leading-none shadow-soft-lift transition focus-ring-brand ${
+                      activeTab === 'added'
+                        ? 'border-[#9fce00] bg-brand-lime text-brand-dark'
+                        : 'border-app-border bg-app-surface text-app-text hover:border-brand-lime dark:bg-app-elevated'
+                    }`}
+                  >
+                    {t('eventPublicPage.tabs.list', { count: tracks.length })}
+                  </button>
+                </div>
+
+                <article className="relative overflow-hidden rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+                  {activeTab === 'results' ? (
+                    <div
+                      className={`grid overflow-hidden transition-all duration-300 ease-out ${
+                        isSearchPanelVisible
+                          ? 'max-h-72 translate-y-0 opacity-100 pb-3'
+                          : 'max-h-0 -translate-y-4 opacity-0'
+                      }`}
                     >
-                      {isSearching ? 'Searching...' : 'Search'}
-                    </CTAButton>
-                  </div>
-                </label>
-                <p className="text-sm text-app-text-secondary">{searchStatus}</p>
-              </form>
-
-              {searchResults.length > 0 ? (
-                <ul className="mt-3 grid gap-2">
-                  {searchResults.map((track) => (
-                    <li
-                      key={track.providerTrackId}
-                      className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 dark:bg-app-elevated"
-                    >
-                      {track.artworkUrl ? (
-                        <img
-                          src={track.artworkUrl}
-                          alt=""
-                          width={48}
-                          height={48}
-                          className="h-12 w-12 shrink-0 rounded-md object-cover"
-                        />
-                      ) : (
-                        <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-app-border text-xs text-app-text-secondary">
-                          N/A
-                        </span>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
-                          {track.name}
+                      <form onSubmit={onSearch} className="grid gap-3">
+                        <label className="grid gap-1 text-sm">
+                          <div className="flex items-center gap-2">
+                            <input
+                              placeholder={t('eventPublicPage.searchPlaceholder')}
+                              value={searchQuery}
+                              onChange={(nextEvent) => setSearchQuery(nextEvent.target.value)}
+                              minLength={2}
+                              maxLength={120}
+                              className="min-w-0 flex-1 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                            />
+                            <CTAButton
+                              aria-label={t('eventPublicPage.search')}
+                              disabled={isSearching || isLoading || eventState !== 'open'}
+                              type="submit"
+                              variant="primary"
+                              className="h-10 w-10 px-0 sm:h-auto sm:w-auto sm:px-3"
+                            >
+                              {isSearching ? (
+                                <>
+                                  <LoaderCircle
+                                    size={14}
+                                    className="animate-spin sm:hidden"
+                                    aria-hidden="true"
+                                  />
+                                  <span className="hidden sm:inline">
+                                    {t('eventPublicPage.searching')}
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <Search size={14} aria-hidden="true" className="sm:hidden" />
+                                  <span className="hidden sm:inline">
+                                    {t('eventPublicPage.search')}
+                                  </span>
+                                </>
+                              )}
+                            </CTAButton>
+                            <CTAButton
+                              aria-label={t('eventPublicPage.clear')}
+                              disabled={isSearching}
+                              onClick={clearSearch}
+                              type="button"
+                              variant="secondary"
+                              className="h-10 w-10 px-0 sm:h-auto sm:w-auto sm:px-3"
+                            >
+                              <Eraser size={14} aria-hidden="true" className="sm:hidden" />
+                              <span className="hidden sm:inline">{t('eventPublicPage.clear')}</span>
+                            </CTAButton>
+                          </div>
+                        </label>
+                      </form>
+                      {searchStatus ? (
+                        <p className="mt-2 text-sm font-semibold text-app-text-secondary">
+                          {searchStatus}
                         </p>
-                        <p className="truncate text-xs text-app-text-secondary">
-                          {track.artist} · {track.album}
-                        </p>
-                      </div>
-                      <CTAButton
-                        disabled={addingTrackId === track.providerTrackId || eventState !== 'open'}
-                        onClick={() => void addTrack(track)}
-                        type="button"
-                        variant="secondary"
-                        className="shrink-0"
-                      >
-                        {addingTrackId === track.providerTrackId ? 'Adding...' : 'Add'}
-                      </CTAButton>
-                    </li>
-                  ))}
-                </ul>
-              ) : null}
-            </article>
-
-            <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-                  Current tracks ({tracks.length})
-                </h2>
-                <CTAButton
-                  disabled={isLoadingTracks}
-                  onClick={() => void loadTracks()}
-                  variant="secondary"
-                >
-                  {isLoadingTracks ? 'Refreshing...' : 'Refresh'}
-                </CTAButton>
-              </div>
-
-              {tracks.length > 0 ? (
-                <ul className="grid gap-2">
-                  {tracks.map((track) => (
-                    <li
-                      key={`${track.providerTrackId}-${track.addedAt}`}
-                      className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm dark:bg-app-elevated"
-                    >
-                      {track.artworkUrl ? (
-                        <img
-                          src={track.artworkUrl}
-                          alt=""
-                          width={40}
-                          height={40}
-                          className="h-10 w-10 shrink-0 rounded-md object-cover"
-                        />
                       ) : null}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold text-brand-dark dark:text-brand-white">
-                          {track.name}
+                    </div>
+                  ) : null}
+
+                  {activeTab === 'results' ? (
+                    <div className="mt-3 grid gap-3">
+                      {isSearching ? (
+                        <div className="flex items-center justify-center gap-2 py-6 text-sm font-semibold text-app-text-secondary">
+                          <LoaderCircle
+                            size={16}
+                            className="animate-spin sm:hidden"
+                            aria-hidden="true"
+                          />
+                          <span>{t('eventPublicPage.searchingResults')}</span>
+                        </div>
+                      ) : searchResults.length > 0 ? (
+                        <>
+                          <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                            {searchResults.map((track) => {
+                              const isAlreadyAdded = addedTrackIds.has(track.providerTrackId);
+                              return (
+                                <li
+                                  key={track.providerTrackId}
+                                  className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 shadow-soft-lift dark:bg-app-elevated"
+                                >
+                                  {track.artworkUrl ? (
+                                    <img
+                                      src={track.artworkUrl}
+                                      alt=""
+                                      width={48}
+                                      height={48}
+                                      className="h-12 w-12 shrink-0 rounded-md object-cover"
+                                    />
+                                  ) : (
+                                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-md border border-app-border text-xs text-app-text-secondary">
+                                      {t('eventPublicPage.notAvailable')}
+                                    </span>
+                                  )}
+                                  <div className="min-w-0 flex-1">
+                                    <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
+                                      {track.name}
+                                    </p>
+                                    <p className="truncate text-xs text-app-text-secondary">
+                                      {track.artist} · {track.album}
+                                    </p>
+                                  </div>
+                                  <CTAButton
+                                    aria-label={
+                                      addingTrackId === track.providerTrackId
+                                        ? t('eventPublicPage.adding')
+                                        : isAlreadyAdded
+                                          ? t('eventPublicPage.alreadyAdded')
+                                          : t('eventPublicPage.add')
+                                    }
+                                    disabled={
+                                      addingTrackId === track.providerTrackId ||
+                                      eventState !== 'open' ||
+                                      isAlreadyAdded
+                                    }
+                                    onClick={() => void addTrack(track)}
+                                    type="button"
+                                    variant="secondary"
+                                    className="shrink-0"
+                                  >
+                                    {addingTrackId === track.providerTrackId ? (
+                                      <>
+                                        <LoaderCircle
+                                          size={14}
+                                          className="animate-spin sm:hidden"
+                                          aria-hidden="true"
+                                        />
+                                        <span className="hidden sm:inline">
+                                          {t('eventPublicPage.adding')}
+                                        </span>
+                                      </>
+                                    ) : isAlreadyAdded ? (
+                                      <>
+                                        <Check size={14} aria-hidden="true" className="sm:hidden" />
+                                        <span className="hidden sm:inline">
+                                          {t('eventPublicPage.alreadyAdded')}
+                                        </span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Plus size={14} aria-hidden="true" className="sm:hidden" />
+                                        <span className="hidden sm:inline">
+                                          {t('eventPublicPage.add')}
+                                        </span>
+                                      </>
+                                    )}
+                                  </CTAButton>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                          {hasMoreSearchResults ? (
+                            <div className="flex justify-center">
+                              <CTAButton
+                                type="button"
+                                variant="secondary"
+                                disabled={isLoadingMoreSearchResults}
+                                onClick={() => void loadMoreSearchResults()}
+                              >
+                                {isLoadingMoreSearchResults
+                                  ? t('eventPublicPage.loadingMoreResults')
+                                  : t('eventPublicPage.loadMoreResults')}
+                              </CTAButton>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="py-4 text-center text-md font-bold text-app-text-secondary">
+                          {hasSearched
+                            ? t('eventPublicPage.noResults')
+                            : t('eventPublicPage.searchHint')}
                         </p>
-                        <p className="truncate text-xs text-app-text-secondary">
-                          {track.artist} · {track.album}
-                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-3 grid gap-3">
+                      <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                        <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+                          {t('eventPublicPage.currentTracks', { count: tracks.length })}
+                        </h2>
+                        <CTAButton
+                          aria-label={t('eventPublicPage.refresh')}
+                          disabled={isLoadingTracks}
+                          onClick={() => void loadTracks()}
+                          variant="secondary"
+                          className="h-10 w-10 px-0 sm:h-auto sm:w-auto sm:px-3"
+                        >
+                          <RefreshCcw
+                            size={14}
+                            aria-hidden="true"
+                            className={`${isLoadingTracks ? 'animate-spin' : ''} sm:hidden`}
+                          />
+                          <span className="hidden sm:inline">
+                            {isLoadingTracks
+                              ? t('eventPublicPage.refreshing')
+                              : t('eventPublicPage.refresh')}
+                          </span>
+                        </CTAButton>
                       </div>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="text-sm text-app-text-secondary">No tracks yet.</p>
-              )}
-            </article>
-          </>
-        ) : null}
+
+                      {tracks.length > 0 ? (
+                        <>
+                          <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                            {tracks.slice(0, visibleAddedTracksCount).map((track) => (
+                              <li
+                                key={`${track.providerTrackId}-${track.addedAt}`}
+                                className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm shadow-soft-lift dark:bg-app-elevated"
+                              >
+                                {track.artworkUrl ? (
+                                  <img
+                                    src={track.artworkUrl}
+                                    alt=""
+                                    width={40}
+                                    height={40}
+                                    className="h-10 w-10 shrink-0 rounded-md object-cover"
+                                  />
+                                ) : null}
+                                <div className="min-w-0 flex-1">
+                                  <p className="truncate font-semibold text-brand-dark dark:text-brand-white">
+                                    {track.name}
+                                  </p>
+                                  <p className="truncate text-xs text-app-text-secondary">
+                                    {track.artist} · {track.album}
+                                  </p>
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                          {tracks.length > visibleAddedTracksCount ? (
+                            <div className="flex justify-center">
+                              <CTAButton
+                                type="button"
+                                variant="secondary"
+                                onClick={() =>
+                                  setVisibleAddedTracksCount(
+                                    (currentCount) => currentCount + ADDED_TRACKS_PAGE_SIZE,
+                                  )
+                                }
+                              >
+                                {t('eventPublicPage.loadMoreTracks')}
+                              </CTAButton>
+                            </div>
+                          ) : null}
+                        </>
+                      ) : (
+                        <p className="text-sm text-app-text-secondary">
+                          {t('eventPublicPage.noTracksYet')}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </article>
+
+                <div className="mx-auto flex w-full max-w-6xl justify-center">
+                  <div className="flex items-center gap-2 rounded-full border border-app-border/70 bg-app-elevated/90 px-2 py-1.5 shadow-soft-lift backdrop-blur-md dark:bg-app-card/90">
+                    <LanguageSwitcher />
+                    <ThemeToggle />
+                  </div>
+                </div>
+              </>
+            ) : null}
+          </div>
+        </section>
       </div>
-    </section>
+
+      <div aria-hidden className="h-[28rem] sm:h-[24rem] lg:h-[26rem]" />
+    </div>
   );
 };

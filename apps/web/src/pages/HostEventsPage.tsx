@@ -1,4 +1,5 @@
 import { eventListResponseSchema } from '@synqit/shared';
+import { RefreshCcw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 
 import { HostEventCard } from '../components/events/HostEventCard';
@@ -98,28 +99,41 @@ export const HostEventsPage = () => {
       <div className="relative grid gap-6">
         <article>
           <div className="grid px-5 py-7 sm:px-8 sm:py-9">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="grid gap-1">
+            <div className="grid gap-1">
+              <div className="flex items-start justify-between gap-3">
                 <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
                   {t('eventsPage.title')}
                 </h1>
-                <p className="text-sm text-app-text-secondary sm:text-base">
-                  {t('eventsPage.description')}
-                </p>
+                <CTAButton
+                  aria-label={t('eventsPage.refresh')}
+                  disabled={isLoading}
+                  onClick={() => void loadEvents()}
+                  variant="secondary"
+                  className="h-10 w-10 px-0 sm:h-auto sm:w-auto sm:px-3"
+                >
+                  <RefreshCcw
+                    size={14}
+                    aria-hidden="true"
+                    className={`${isLoading ? 'animate-spin' : ''} sm:hidden`}
+                  />
+                  <span className="hidden sm:inline">
+                    {isLoading ? t('eventsPage.loading') : t('eventsPage.refresh')}
+                  </span>
+                </CTAButton>
               </div>
-              <CTAButton disabled={isLoading} onClick={() => void loadEvents()} variant="secondary">
-                {isLoading ? t('eventsPage.loading') : t('eventsPage.refresh')}
-              </CTAButton>
+              <p className="text-sm text-app-text-secondary sm:text-base">
+                {t('eventsPage.description')}
+              </p>
             </div>
-            <div className="py-4">
-              <CTALink
-                to="/events/new"
-                variant="primary"
-                className="w-full justify-center px-4 py-3 text-sm font-black sm:text-base"
-              >
-                {t('eventsPage.create')}
-              </CTALink>
-            </div>
+          </div>
+          <div className="py-4 justify-center flex">
+            <CTALink
+              to="/events/new"
+              variant="primary"
+              className="w-[90%] justify-center px-4 py-3 text-sm font-black sm:text-base"
+            >
+              {t('eventsPage.create')}
+            </CTALink>
           </div>
         </article>
 

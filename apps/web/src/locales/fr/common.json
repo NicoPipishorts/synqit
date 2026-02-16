@@ -261,6 +261,40 @@
     "removing": "Suppression...",
     "deleteConfirm": "Supprimer cet événement ? Il sera retiré de Synqit."
   },
+  "eventPublicPage": {
+    "loadingEvent": "Chargement de l'événement...",
+    "statusEventClosed": "Cet événement est fermé. Vous ne pouvez plus ajouter de titres.",
+    "statusEventClosedBrowseOnly": "Cet événement est fermé. Vous pouvez consulter les titres, mais vous ne pouvez plus en ajouter.",
+    "minChars": "Saisissez au moins 2 caractères.",
+    "searchFound": "{{count}} titre(s) trouvé(s).",
+    "addedToPlaylist": "« {{name}} » a été ajouté à la playlist de l'événement.",
+    "addedToast": "« {{name}} » ajouté.",
+    "noDescription": "Aucune description fournie.",
+    "tabs": {
+      "search": "Recherche ({{count}})",
+      "list": "Liste ({{count}})"
+    },
+    "searchPlaceholder": "Rechercher des titres ou des artistes",
+    "search": "Rechercher",
+    "searching": "Recherche...",
+    "clear": "Effacer",
+    "showSearchPanel": "Afficher la recherche",
+    "hideSearchPanel": "Masquer la recherche",
+    "searchingResults": "Recherche des titres...",
+    "notAvailable": "N/D",
+    "add": "Ajouter",
+    "adding": "Ajout...",
+    "alreadyAdded": "Ajouté",
+    "loadMoreResults": "Charger plus de résultats",
+    "loadingMoreResults": "Chargement...",
+    "noResults": "Aucun résultat",
+    "searchHint": "Rechercher un titre ou un artiste.",
+    "currentTracks": "Titres actuels ({{count}})",
+    "refresh": "Rafraîchir",
+    "refreshing": "Rafraîchissement...",
+    "loadMoreTracks": "Charger plus de titres",
+    "noTracksYet": "Aucun titre pour le moment."
+  },
   "home": {
     "hero": {
       "pillMvp": "MVP Playlist Partagée",

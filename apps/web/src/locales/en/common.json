@@ -261,6 +261,40 @@
     "removing": "Removing...",
     "deleteConfirm": "Delete this event? This removes it from Synqit."
   },
+  "eventPublicPage": {
+    "loadingEvent": "Loading event...",
+    "statusEventClosed": "This event is closed. New tracks cannot be added.",
+    "statusEventClosedBrowseOnly": "This event is closed. You can browse tracks, but cannot add new ones.",
+    "minChars": "Type at least 2 characters.",
+    "searchFound": "Found {{count}} track(s).",
+    "addedToPlaylist": "Added \"{{name}}\" to the event playlist.",
+    "addedToast": "Added \"{{name}}\".",
+    "noDescription": "No description provided.",
+    "tabs": {
+      "search": "Search ({{count}})",
+      "list": "List ({{count}})"
+    },
+    "searchPlaceholder": "Search songs or artists",
+    "search": "Search",
+    "searching": "Searching...",
+    "clear": "Clear",
+    "showSearchPanel": "Show search",
+    "hideSearchPanel": "Hide search",
+    "searchingResults": "Searching tracks...",
+    "notAvailable": "N/A",
+    "add": "Add",
+    "adding": "Adding...",
+    "alreadyAdded": "Added",
+    "loadMoreResults": "Load more results",
+    "loadingMoreResults": "Loading more...",
+    "noResults": "No results",
+    "searchHint": "Search for a song or artist.",
+    "currentTracks": "Current tracks ({{count}})",
+    "refresh": "Refresh",
+    "refreshing": "Refreshing...",
+    "loadMoreTracks": "Load more tracks",
+    "noTracksYet": "No tracks yet."
+  },
   "home": {
     "hero": {
       "pillMvp": "Shared Playlist MVP",
