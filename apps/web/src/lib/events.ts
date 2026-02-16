@@ -14,6 +14,15 @@ export type HostEvent = {
   updatedAt: string;
 };
 
+export type HostEventDraft = {
+  id: string;
+  provider: EventProvider | null;
+  name: string;
+  description: string;
+  step: 1 | 2 | 3 | 4;
+  updatedAt: string;
+};
+
 export type EventTrackItem = {
   providerTrackId: string;
   name: string;

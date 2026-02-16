@@ -187,13 +187,14 @@ export const integrationStore = {
     userId: string;
     provider: Provider;
     ttlMs: number;
+    state?: string;
   }): Promise<PendingOauthStateRecord> {
     await purgeExpiredOauthStates();
 
     const now = Date.now();
     const oauthState: PendingOauthStateRecord = {
       id: randomUUID(),
-      state: randomBytes(24).toString('base64url'),
+      state: params.state?.trim().length ? params.state : randomBytes(24).toString('base64url'),
       userId: params.userId,
       provider: params.provider,
       createdAt: new Date(now),

@@ -23,6 +23,7 @@ import { ProfilePersonalInfoPage } from './pages/ProfilePersonalInfoPage';
 import { ProfilePlatformsPage } from './pages/ProfilePlatformsPage';
 import { ProfileSecurityPage } from './pages/ProfileSecurityPage';
 import { ProviderConnectionsPage } from './pages/ProviderConnectionsPage';
+import { ProviderOauthCallbackPage } from './pages/ProviderOauthCallbackPage';
 
 const queryClient = new QueryClient();
 
@@ -111,6 +112,12 @@ const loginRoute = createRoute({
   component: () => <AuthForm endpoint="/v1/auth/login" />,
 });
 
+const providerOauthCallbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/provider-connected',
+  component: ProviderOauthCallbackPage,
+});
+
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dashboard',
@@ -156,6 +163,7 @@ const routeTree = rootRoute.addChildren([
   eventPublicRoute,
   registerRoute,
   loginRoute,
+  providerOauthCallbackRoute,
   dashboardRoute,
   profileRoute,
   profilePlatformsRoute,

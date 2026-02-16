@@ -187,11 +187,14 @@ export type IntegrationDisconnectResponse = z.infer<typeof integrationDisconnect
 
 export const eventStatusSchema = z.enum(['open', 'closed']);
 export type EventStatus = z.infer<typeof eventStatusSchema>;
+export const eventDraftStepSchema = z.number().int().min(1).max(4);
+export type EventDraftStep = z.infer<typeof eventDraftStepSchema>;
 
 export const createEventRequestSchema = z.object({
   provider: providerSchema.optional().default('spotify'),
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional().default(''),
+  draftId: z.string().uuid().optional(),
 });
 export type CreateEventRequest = z.infer<typeof createEventRequestSchema>;
 
@@ -200,6 +203,33 @@ export const updateEventRequestSchema = z.object({
   description: z.string().max(500).optional().default(''),
 });
 export type UpdateEventRequest = z.infer<typeof updateEventRequestSchema>;
+
+export const createEventDraftRequestSchema = z.object({
+  provider: providerSchema.nullable().optional(),
+  name: z.string().max(100).optional(),
+  description: z.string().max(500).optional(),
+  step: eventDraftStepSchema.optional(),
+});
+export type CreateEventDraftRequest = z.infer<typeof createEventDraftRequestSchema>;
+
+export const updateEventDraftRequestSchema = z
+  .object({
+    provider: providerSchema.nullable().optional(),
+    name: z.string().max(100).optional(),
+    description: z.string().max(500).optional(),
+    step: eventDraftStepSchema.optional(),
+  })
+  .refine(
+    (data) =>
+      data.provider !== undefined ||
+      data.name !== undefined ||
+      data.description !== undefined ||
+      data.step !== undefined,
+    {
+      message: 'At least one field must be provided.',
+    },
+  );
+export type UpdateEventDraftRequest = z.infer<typeof updateEventDraftRequestSchema>;
 
 export const eventSchema = z.object({
   id: z.string(),
@@ -217,6 +247,34 @@ export const eventSchema = z.object({
   closedAt: z.string().nullable(),
 });
 export type Event = z.infer<typeof eventSchema>;
+
+export const eventDraftSchema = z.object({
+  id: z.string().uuid(),
+  hostUserId: z.string(),
+  provider: providerSchema.nullable(),
+  name: z.string(),
+  description: z.string(),
+  step: eventDraftStepSchema,
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type EventDraft = z.infer<typeof eventDraftSchema>;
+
+export const eventDraftResponseSchema = z.object({
+  draft: eventDraftSchema,
+});
+export type EventDraftResponse = z.infer<typeof eventDraftResponseSchema>;
+
+export const eventDraftListResponseSchema = z.object({
+  drafts: z.array(eventDraftSchema),
+});
+export type EventDraftListResponse = z.infer<typeof eventDraftListResponseSchema>;
+
+export const deleteEventDraftResponseSchema = z.object({
+  ok: z.literal(true),
+  id: z.string().uuid(),
+});
+export type DeleteEventDraftResponse = z.infer<typeof deleteEventDraftResponseSchema>;
 
 export const eventResponseSchema = z.object({
   event: eventSchema,

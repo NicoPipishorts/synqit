@@ -3,7 +3,6 @@ import {
   integrationDisconnectResponseSchema,
   integrationListResponseSchema,
   oauthCallbackResponseSchema,
-  oauthStartResponseSchema,
   providerSchema,
 } from '@synqit/shared';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -18,6 +17,7 @@ import {
   ensureMusicKitInstance,
   loadMusicKitScript,
 } from '../lib/musickit';
+import { openProviderOauthPopup, ProviderOauthPopupResult } from '../lib/providerOauthPopup';
 import { Provider } from '../lib/types';
 
 type ProviderIntegrationState = {
@@ -94,10 +94,13 @@ export const ProviderConnectionsPage = () => {
     [locale],
   );
 
-  const loadSnapshot = useCallback(async () => {
+  const loadSnapshot = useCallback(async (): Promise<Record<
+    Provider,
+    ProviderIntegrationState
+  > | null> => {
     const accessToken = getAccessToken();
     if (!accessToken) {
-      return;
+      return null;
     }
 
     setIsLoadingSnapshot(true);
@@ -144,11 +147,13 @@ export const ProviderConnectionsPage = () => {
 
       setIntegrationByProvider(nextIntegrationByProvider);
       setEventCountByProvider(nextEventCountByProvider);
+      return nextIntegrationByProvider;
     } catch (error) {
       const apiError = toApiError(error);
       showToast(t('profile.connectionsLoadError', { message: apiError.message }), {
         variant: 'error',
       });
+      return null;
     } finally {
       setIsLoadingSnapshot(false);
     }
@@ -209,24 +214,17 @@ export const ProviderConnectionsPage = () => {
     );
   }, []);
 
-  const startSpotifyOauth = useCallback(async () => {
+  const startSpotifyOauth = useCallback(async (): Promise<ProviderOauthPopupResult> => {
     const accessToken = getAccessToken();
     if (!accessToken) {
       throw new Error('missing_access_token');
     }
 
-    const result = await callApi(
-      '/v1/auth/spotify/start',
-      {
-        method: 'GET',
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
-      },
-      (payload) => oauthStartResponseSchema.parse(payload),
-    );
-
-    window.location.assign(result.authorizationUrl);
+    return openProviderOauthPopup({
+      provider: 'spotify',
+      accessToken,
+      nextPath: '/auth/provider-connected',
+    });
   }, []);
 
   const runProviderAction = useCallback(
@@ -266,17 +264,45 @@ export const ProviderConnectionsPage = () => {
 
         if (provider === 'apple') {
           await connectAppleMusic();
+          const snapshot = await loadSnapshot();
+          if (snapshot?.[provider].status === 'connected') {
+            showToast(
+              t('profile.connectionConnected', {
+                provider: PROVIDER_META[provider].label,
+              }),
+              { variant: 'success' },
+            );
+          } else {
+            showToast(
+              t('profile.connectionFailed', {
+                provider: PROVIDER_META[provider].label,
+              }),
+              { variant: 'error' },
+            );
+          }
+          return;
+        }
+
+        const popupResult = await startSpotifyOauth();
+        const snapshot = await loadSnapshot();
+        if (snapshot?.[provider].status === 'connected' || popupResult === 'connected') {
           showToast(
             t('profile.connectionConnected', {
               provider: PROVIDER_META[provider].label,
             }),
             { variant: 'success' },
           );
-          await loadSnapshot();
           return;
         }
 
-        await startSpotifyOauth();
+        if (popupResult === 'blocked' || popupResult === 'error' || popupResult === 'timeout') {
+          showToast(
+            t('profile.connectionFailed', {
+              provider: PROVIDER_META[provider].label,
+            }),
+            { variant: 'error' },
+          );
+        }
       } catch (error) {
         const normalized = error as { message?: string };
         if (normalized.message === 'missing_access_token') {

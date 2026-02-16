@@ -1,20 +1,26 @@
 import {
   addEventTrackRequestSchema,
   addEventTrackResponseSchema,
+  createEventDraftRequestSchema,
   createEventRequestSchema,
+  deleteEventDraftResponseSchema,
   deleteEventResponseSchema,
+  eventDraftListResponseSchema,
+  eventDraftResponseSchema,
+  eventDraftStepSchema,
   eventListResponseSchema,
   eventPublicResponseSchema,
   eventResponseSchema,
   eventTrackSearchResponseSchema,
   eventTracksResponseSchema,
   removeEventTrackResponseSchema,
+  updateEventDraftRequestSchema,
   updateEventRequestSchema,
 } from '@synqit/shared';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 
-import { eventsStore, EventRecord } from './store';
+import { eventsStore, EventDraftRecord, EventRecord } from './store';
 import { getAppleDeveloperToken, getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
 import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
@@ -118,6 +124,20 @@ const toEventResponse = (params: {
       closedAt: params.event.closedAt ? params.event.closedAt.toISOString() : null,
     },
     magicLinkUrl: buildEventMagicLinkUrl(params.event.magicLinkToken),
+  });
+
+const toEventDraftResponse = (draft: EventDraftRecord) =>
+  eventDraftResponseSchema.parse({
+    draft: {
+      id: draft.id,
+      hostUserId: draft.hostUserId,
+      provider: draft.provider,
+      name: draft.name,
+      description: draft.description,
+      step: draft.step,
+      createdAt: draft.createdAt.toISOString(),
+      updatedAt: draft.updatedAt.toISOString(),
+    },
   });
 
 const sendIntegrationError = (reply: FastifyReply, error: IntegrationError) => {
@@ -426,6 +446,162 @@ const syncEventTracksFromProvider = async (params: {
 };
 
 export const registerEventRoutes = async (app: FastifyInstance): Promise<void> => {
+  app.get('/events/drafts', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const drafts = await eventsStore.listDraftsByHost(userId);
+    return eventDraftListResponseSchema.parse({
+      drafts: drafts.map((draft) => ({
+        id: draft.id,
+        hostUserId: draft.hostUserId,
+        provider: draft.provider,
+        name: draft.name,
+        description: draft.description,
+        step: draft.step,
+        createdAt: draft.createdAt.toISOString(),
+        updatedAt: draft.updatedAt.toISOString(),
+      })),
+    });
+  });
+
+  app.get('/events/drafts/:draftId', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const draftId = (request.params as { draftId?: string }).draftId ?? '';
+    if (!draftId) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Draft id is required.',
+      });
+    }
+
+    const draft = await eventsStore.findDraftById({ draftId, hostUserId: userId });
+    if (!draft) {
+      return reply.status(404).send({
+        code: 'draft_not_found',
+        message: 'Draft not found.',
+      });
+    }
+
+    return toEventDraftResponse(draft);
+  });
+
+  app.post('/events/drafts', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const parsedBody = createEventDraftRequestSchema.safeParse(request.body ?? {});
+    if (!parsedBody.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Draft payload is invalid.',
+        details: parsedBody.error.flatten(),
+      });
+    }
+
+    const draft = await eventsStore.createDraft({
+      hostUserId: userId,
+      provider: parsedBody.data.provider ?? null,
+      name: parsedBody.data.name?.trim() ?? '',
+      description: parsedBody.data.description ?? '',
+      step: eventDraftStepSchema.parse(parsedBody.data.step ?? 1),
+    });
+
+    return toEventDraftResponse(draft);
+  });
+
+  app.patch('/events/drafts/:draftId', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const draftId = (request.params as { draftId?: string }).draftId ?? '';
+    if (!draftId) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Draft id is required.',
+      });
+    }
+
+    const parsedBody = updateEventDraftRequestSchema.safeParse(request.body ?? {});
+    if (!parsedBody.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Draft payload is invalid.',
+        details: parsedBody.error.flatten(),
+      });
+    }
+
+    const draft = await eventsStore.updateDraft({
+      draftId,
+      hostUserId: userId,
+      provider: parsedBody.data.provider,
+      name: parsedBody.data.name?.trim(),
+      description: parsedBody.data.description,
+      step: parsedBody.data.step,
+    });
+    if (!draft) {
+      return reply.status(404).send({
+        code: 'draft_not_found',
+        message: 'Draft not found.',
+      });
+    }
+
+    return toEventDraftResponse(draft);
+  });
+
+  app.delete('/events/drafts/:draftId', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const draftId = (request.params as { draftId?: string }).draftId ?? '';
+    if (!draftId) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Draft id is required.',
+      });
+    }
+
+    const deleted = await eventsStore.deleteDraft({ draftId, hostUserId: userId });
+    if (!deleted) {
+      return reply.status(404).send({
+        code: 'draft_not_found',
+        message: 'Draft not found.',
+      });
+    }
+
+    return deleteEventDraftResponseSchema.parse({
+      ok: true,
+      id: draftId,
+    });
+  });
+
   app.post('/events', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
@@ -547,6 +723,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       name: parsedBody.data.name,
       description: parsedBody.data.description,
     });
+
+    if (parsedBody.data.draftId) {
+      await eventsStore.deleteDraft({
+        draftId: parsedBody.data.draftId,
+        hostUserId: userId,
+      });
+    }
 
     const providerConnectionStatus = await resolveProviderConnectionStatus({
       hostUserId: event.hostUserId,

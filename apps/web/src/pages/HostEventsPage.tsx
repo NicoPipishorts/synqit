@@ -1,20 +1,48 @@
-import { eventListResponseSchema } from '@synqit/shared';
+import {
+  deleteEventDraftResponseSchema,
+  eventDraftListResponseSchema,
+  eventListResponseSchema,
+} from '@synqit/shared';
 import { RefreshCcw } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HostEventCard } from '../components/events/HostEventCard';
+import { HostEventDraftCard } from '../components/events/HostEventDraftCard';
 import { CTAButton, CTALink } from '../components/ui/cta';
+import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { getAccessToken } from '../lib/auth';
-import { getPublicEventUrl, HostEvent } from '../lib/events';
+import { getPublicEventUrl, HostEvent, HostEventDraft } from '../lib/events';
 
 export const HostEventsPage = () => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [events, setEvents] = useState<HostEvent[]>([]);
+  const [drafts, setDrafts] = useState<HostEventDraft[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeDraftDeleteId, setActiveDraftDeleteId] = useState<string | null>(null);
+  const [draftToDelete, setDraftToDelete] = useState<HostEventDraft | null>(null);
+
+  const listItems = useMemo(() => {
+    const eventItems = events.map((event) => ({
+      kind: 'event' as const,
+      id: `event:${event.id}`,
+      updatedAt: event.updatedAt,
+      event,
+    }));
+    const draftItems = drafts.map((draft) => ({
+      kind: 'draft' as const,
+      id: `draft:${draft.id}`,
+      updatedAt: draft.updatedAt,
+      draft,
+    }));
+
+    return [...eventItems, ...draftItems].sort((left, right) => {
+      return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+    });
+  }, [drafts, events]);
 
   const setStatusAndToast = useCallback(
     (message: string, variant: 'success' | 'error' | 'info' = 'info') => {
@@ -43,19 +71,31 @@ export const HostEventsPage = () => {
 
     setIsLoading(true);
     try {
-      const result = await callApi(
-        '/v1/events',
-        {
-          method: 'GET',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
+      const [eventResult, draftResult] = await Promise.all([
+        callApi(
+          '/v1/events',
+          {
+            method: 'GET',
+            headers: {
+              authorization: `Bearer ${accessToken}`,
+            },
           },
-        },
-        (payload) => eventListResponseSchema.parse(payload),
-      );
+          (payload) => eventListResponseSchema.parse(payload),
+        ),
+        callApi(
+          '/v1/events/drafts',
+          {
+            method: 'GET',
+            headers: {
+              authorization: `Bearer ${accessToken}`,
+            },
+          },
+          (payload) => eventDraftListResponseSchema.parse(payload),
+        ),
+      ]);
 
       setEvents(
-        result.events.map((event) => ({
+        eventResult.events.map((event) => ({
           id: event.id,
           name: event.name,
           description: event.description,
@@ -65,6 +105,16 @@ export const HostEventsPage = () => {
           magicLinkToken: event.magicLinkToken,
           magicLinkRevokedAt: event.magicLinkRevokedAt,
           updatedAt: event.updatedAt,
+        })),
+      );
+      setDrafts(
+        draftResult.drafts.map((draft) => ({
+          id: draft.id,
+          provider: draft.provider,
+          name: draft.name,
+          description: draft.description,
+          step: draft.step as 1 | 2 | 3 | 4,
+          updatedAt: draft.updatedAt,
         })),
       );
     } catch (error) {
@@ -94,6 +144,44 @@ export const HostEventsPage = () => {
       setStatusAndToast(t('eventsPage.copyFailed'), 'error');
     }
   };
+
+  const deleteDraft = useCallback(
+    async (draft: HostEventDraft): Promise<boolean> => {
+      const accessToken = requireAccessToken(t('eventsPage.loginRequiredUpdate'));
+      if (!accessToken) {
+        return false;
+      }
+
+      const draftName = draft.name.trim().length > 0 ? draft.name : t('eventsPage.draftUntitled');
+
+      setActiveDraftDeleteId(draft.id);
+      try {
+        await callApi(
+          `/v1/events/drafts/${encodeURIComponent(draft.id)}`,
+          {
+            method: 'DELETE',
+            headers: {
+              authorization: `Bearer ${accessToken}`,
+            },
+          },
+          (payload) => deleteEventDraftResponseSchema.parse(payload),
+        );
+
+        setDrafts((currentDrafts) =>
+          currentDrafts.filter((currentDraft) => currentDraft.id !== draft.id),
+        );
+        setStatusAndToast(t('eventsPage.draftDeleted', { name: draftName }), 'success');
+        return true;
+      } catch (error) {
+        const apiError = toApiError(error);
+        setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
+        return false;
+      } finally {
+        setActiveDraftDeleteId(null);
+      }
+    },
+    [requireAccessToken, setStatusAndToast, t],
+  );
 
   return (
     <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
@@ -138,7 +226,7 @@ export const HostEventsPage = () => {
           </div>
         </article>
 
-        {events.length === 0 ? (
+        {listItems.length === 0 ? (
           <article className="rounded-2xl border border-app-border bg-app-elevated p-6 text-center shadow-soft-lift dark:bg-app-card">
             <p className="text-base font-semibold text-brand-dark dark:text-brand-white">
               {t('eventsPage.emptyTitle')}
@@ -152,15 +240,71 @@ export const HostEventsPage = () => {
           </article>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {events.map((event) => (
-              <HostEventCard
-                key={event.id}
-                event={event}
-                onCopyMagicLink={(magicLinkToken) => void copyMagicLink(magicLinkToken)}
-              />
-            ))}
+            {listItems.map((item) =>
+              item.kind === 'event' ? (
+                <HostEventCard
+                  key={item.id}
+                  event={item.event}
+                  onCopyMagicLink={(magicLinkToken) => void copyMagicLink(magicLinkToken)}
+                />
+              ) : (
+                <HostEventDraftCard
+                  key={item.id}
+                  draft={item.draft}
+                  onDelete={(draft) => setDraftToDelete(draft)}
+                  isDeleting={activeDraftDeleteId === item.draft.id}
+                />
+              ),
+            )}
           </div>
         )}
+
+        <Modal
+          open={draftToDelete !== null}
+          title={t('eventsPage.deleteDraft')}
+          onClose={() => setDraftToDelete(null)}
+        >
+          <div className="grid gap-4">
+            <p className="text-sm text-app-text-secondary">
+              {t('eventsPage.deleteDraftConfirm', {
+                name:
+                  draftToDelete && draftToDelete.name.trim().length > 0
+                    ? draftToDelete.name
+                    : t('eventsPage.draftUntitled'),
+              })}
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <CTAButton
+                type="button"
+                variant="secondary"
+                disabled={activeDraftDeleteId !== null}
+                onClick={() => setDraftToDelete(null)}
+              >
+                {t('eventsPage.cancel')}
+              </CTAButton>
+              <CTAButton
+                type="button"
+                variant="danger"
+                disabled={!draftToDelete || activeDraftDeleteId !== null}
+                onClick={() => {
+                  if (!draftToDelete) {
+                    return;
+                  }
+                  void (async () => {
+                    const didDelete = await deleteDraft(draftToDelete);
+                    if (didDelete) {
+                      setDraftToDelete(null);
+                    }
+                  })();
+                }}
+              >
+                {activeDraftDeleteId !== null
+                  ? t('eventsPage.working')
+                  : t('eventsPage.deleteDraft')}
+              </CTAButton>
+            </div>
+          </div>
+        </Modal>
       </div>
     </section>
   );

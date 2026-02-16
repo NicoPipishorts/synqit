@@ -8,6 +8,7 @@ import {
 } from '@synqit/shared';
 import type { Provider } from '@synqit/shared';
 import { FastifyInstance, FastifyRequest } from 'fastify';
+import { randomBytes } from 'node:crypto';
 import { z } from 'zod';
 
 import {
@@ -48,6 +49,54 @@ const parsePositiveNumber = (raw: string | undefined, fallback: number): number 
 
 const oauthStateTtlMs =
   parsePositiveNumber(process.env.OAUTH_STATE_TTL_SECONDS, DEFAULT_OAUTH_STATE_TTL_SECONDS) * 1000;
+const OAUTH_STATE_NEXT_PATH_SEPARATOR = '.';
+
+const parseOauthNextPath = (raw: unknown): string | null => {
+  if (typeof raw !== 'string') {
+    return null;
+  }
+
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith('/')) {
+    return null;
+  }
+
+  try {
+    const parsed = new URL(trimmed, 'http://localhost');
+    if (parsed.origin !== 'http://localhost') {
+      return null;
+    }
+
+    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+  } catch {
+    return null;
+  }
+};
+
+const buildOauthState = (nextPath: string | null): string => {
+  const nonce = randomBytes(24).toString('base64url');
+  if (!nextPath) {
+    return nonce;
+  }
+
+  const encodedPath = Buffer.from(nextPath, 'utf8').toString('base64url');
+  return `${nonce}${OAUTH_STATE_NEXT_PATH_SEPARATOR}${encodedPath}`;
+};
+
+const extractOauthNextPathFromState = (state: string): string | null => {
+  const separatorIndex = state.lastIndexOf(OAUTH_STATE_NEXT_PATH_SEPARATOR);
+  if (separatorIndex <= 0 || separatorIndex === state.length - 1) {
+    return null;
+  }
+
+  const encodedPath = state.slice(separatorIndex + 1);
+  try {
+    const decodedPath = Buffer.from(encodedPath, 'base64url').toString('utf8');
+    return parseOauthNextPath(decodedPath);
+  } catch {
+    return null;
+  }
+};
 
 const buildMockAuthorizationUrl = (params: { provider: Provider; state: string }): string => {
   const baseUrl = process.env.API_BASE_URL ?? DEFAULT_API_BASE_URL;
@@ -136,16 +185,27 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
     return !acceptHeader.includes('text/html');
   };
 
-  const buildProvidersRedirectUrl = (params: {
+  const buildWebRedirectUrl = (params: {
+    path: string;
     provider: string;
     status: 'connected' | 'error';
   }): string => {
     const baseUrl = process.env.WEB_APP_URL ?? DEFAULT_WEB_APP_URL;
-    const redirectUrl = new URL('/profile/platforms', baseUrl);
+    const redirectUrl = new URL(params.path, baseUrl);
     redirectUrl.searchParams.set('provider', params.provider);
     redirectUrl.searchParams.set('status', params.status);
     return redirectUrl.toString();
   };
+
+  const buildProvidersRedirectUrl = (params: {
+    provider: string;
+    status: 'connected' | 'error';
+  }): string =>
+    buildWebRedirectUrl({
+      path: '/profile/platforms',
+      provider: params.provider,
+      status: params.status,
+    });
 
   app.get('/integrations', async (request, reply) => {
     const userId = await verifyAndGetUserId(app, request);
@@ -269,10 +329,12 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       });
     }
 
+    const nextPath = parseOauthNextPath((request.query as { next?: string }).next);
     const oauthState = await integrationStore.createPendingOauthState({
       userId,
       provider: providerResult.data,
       ttlMs: oauthStateTtlMs,
+      state: buildOauthState(nextPath),
     });
 
     const authorizationUrl = getProviderAuthorizationUrl({
@@ -311,6 +373,7 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       state: queryResult.data.state,
       provider: providerResult.data,
     });
+    const nextPath = extractOauthNextPathFromState(queryResult.data.state);
 
     if (!oauthState) {
       return reply.status(400).send({
@@ -357,6 +420,17 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
 
     if (shouldReturnJsonFromCallback(request)) {
       return callbackResponse;
+    }
+
+    if (nextPath) {
+      return reply.redirect(
+        buildWebRedirectUrl({
+          path: nextPath,
+          provider: integration.provider,
+          status: 'connected',
+        }),
+        302,
+      );
     }
 
     return reply.redirect(
