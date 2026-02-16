@@ -3,12 +3,12 @@ import {
   eventDraftListResponseSchema,
   eventListResponseSchema,
 } from '@synqit/shared';
-import { RefreshCcw } from 'lucide-react';
+import { RefreshCcw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { HostEventCard } from '../components/events/HostEventCard';
 import { HostEventDraftCard } from '../components/events/HostEventDraftCard';
-import { CTAButton, CTALink } from '../components/ui/cta';
+import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
@@ -200,14 +200,16 @@ export const HostEventsPage = () => {
                   variant="secondary"
                   className="h-10 w-10 px-0 sm:h-auto sm:w-auto sm:px-3"
                 >
-                  <RefreshCcw
-                    size={14}
-                    aria-hidden="true"
-                    className={`${isLoading ? 'animate-spin' : ''} sm:hidden`}
+                  <CTAMobileIconLabel
+                    icon={
+                      <RefreshCcw
+                        size={14}
+                        aria-hidden="true"
+                        className={isLoading ? 'animate-spin' : ''}
+                      />
+                    }
+                    label={isLoading ? t('eventsPage.loading') : t('eventsPage.refresh')}
                   />
-                  <span className="hidden sm:inline">
-                    {isLoading ? t('eventsPage.loading') : t('eventsPage.refresh')}
-                  </span>
                 </CTAButton>
               </div>
               <p className="text-sm text-app-text-secondary sm:text-base">
@@ -286,6 +288,7 @@ export const HostEventsPage = () => {
                 type="button"
                 variant="danger"
                 disabled={!draftToDelete || activeDraftDeleteId !== null}
+                aria-label={t('eventsPage.deleteDraft')}
                 onClick={() => {
                   if (!draftToDelete) {
                     return;
@@ -298,9 +301,14 @@ export const HostEventsPage = () => {
                   })();
                 }}
               >
-                {activeDraftDeleteId !== null
-                  ? t('eventsPage.working')
-                  : t('eventsPage.deleteDraft')}
+                {activeDraftDeleteId !== null ? (
+                  t('eventsPage.working')
+                ) : (
+                  <CTAMobileIconLabel
+                    icon={<Trash2 size={14} />}
+                    label={t('eventsPage.deleteDraft')}
+                  />
+                )}
               </CTAButton>
             </div>
           </div>

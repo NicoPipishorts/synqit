@@ -2,7 +2,7 @@ import { RefreshCcw } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
 import { EventTrackItem } from '../../lib/events';
-import { CTAButton } from '../ui/cta';
+import { CTAButton, CTAMobileIconLabel } from '../ui/cta';
 
 type EventTracksCardProps = {
   tracks: EventTrackItem[];
@@ -30,14 +30,16 @@ export const EventTracksCard = ({
           onClick={onRefreshTracks}
           variant="secondary"
         >
-          <RefreshCcw
-            size={14}
-            className={`${isLoadingTracks ? 'animate-spin' : ''} sm:hidden`}
-            aria-hidden="true"
+          <CTAMobileIconLabel
+            icon={
+              <RefreshCcw
+                size={14}
+                className={isLoadingTracks ? 'animate-spin' : ''}
+                aria-hidden="true"
+              />
+            }
+            label={isLoadingTracks ? t('eventsPage.loadingTracks') : t('eventsPage.refreshTracks')}
           />
-          <span className="hidden sm:inline">
-            {isLoadingTracks ? t('eventsPage.loadingTracks') : t('eventsPage.refreshTracks')}
-          </span>
         </CTAButton>
       </div>
 

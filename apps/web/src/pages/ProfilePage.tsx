@@ -4,27 +4,22 @@ import { ChangeEvent, DragEvent, useRef, useState } from 'react';
 
 import { CircularImage } from '../components/ui/CircularImage';
 import { CTAButton, CTALink } from '../components/ui/cta';
+import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { Modal } from '../components/ui/Modal';
+import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
 import { useProfileSettings } from '../hooks/useProfileSettings';
-import { useTheme } from '../hooks/useTheme';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { updateStoredAuthUser } from '../lib/auth';
-import { applyThemeAccent } from '../lib/profile-settings';
-import { Theme, ThemeAccent } from '../lib/types';
 
 const MAX_AVATAR_BYTES = 1_500_000;
-const LOCALE_OPTIONS = ['en', 'fr'] as const;
-const THEME_OPTIONS: Theme[] = ['light', 'dark', 'auto'];
-const ACCENT_OPTIONS: ThemeAccent[] = ['lime', 'pink'];
 
 export const ProfilePage = () => {
-  const { t, locale, setLocale } = useI18n();
+  const { t } = useI18n();
   const { auth, setAuth } = useAuthSession();
   const { settings, updateSettings } = useProfileSettings();
-  const { theme, setTheme } = useTheme();
   const { showToast } = useToast();
 
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
@@ -32,7 +27,6 @@ export const ProfilePage = () => {
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const avatarSrc = auth?.avatarUrl ?? settings.avatarDataUrl ?? null;
-  const selectedAccent = settings.themeAccent ?? 'lime';
 
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -156,11 +150,6 @@ export const ProfilePage = () => {
     void handleAvatarFile(event.dataTransfer.files?.[0]);
   };
 
-  const onThemeAccentChange = (accent: ThemeAccent) => {
-    updateSettings({ themeAccent: accent });
-    applyThemeAccent(accent);
-  };
-
   return (
     <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
       <div className="relative grid gap-6">
@@ -214,27 +203,13 @@ export const ProfilePage = () => {
             </h2>
             <p className="text-sm text-app-text-secondary">{t('profile.preferencesDescription')}</p>
           </div>
-          <div className="mt-4 grid gap-5 md:grid-cols-3">
+          <div className="mt-4 grid grid-cols-2 gap-0">
             <div className="grid gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
                 {t('profile.preferencesThemeLabel')}
               </p>
-              <div className="flex flex-wrap gap-2">
-                {THEME_OPTIONS.map((themeOption) => (
-                  <CTAButton
-                    key={themeOption}
-                    type="button"
-                    variant={themeOption === theme ? 'primary' : 'secondary'}
-                    className="capitalize"
-                    onClick={() => setTheme(themeOption)}
-                  >
-                    {themeOption === 'light'
-                      ? t('profile.preferencesThemeLight')
-                      : themeOption === 'dark'
-                        ? t('profile.preferencesThemeDark')
-                        : t('profile.preferencesThemeAuto')}
-                  </CTAButton>
-                ))}
+              <div className="flex items-center">
+                <ThemeToggle />
               </div>
             </div>
 
@@ -242,39 +217,8 @@ export const ProfilePage = () => {
               <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
                 {t('profile.preferencesLanguageLabel')}
               </p>
-              <div className="flex flex-wrap gap-2">
-                {LOCALE_OPTIONS.map((option) => (
-                  <CTAButton
-                    key={option}
-                    type="button"
-                    variant={option === locale ? 'primary' : 'secondary'}
-                    className="capitalize"
-                    onClick={() => setLocale(option)}
-                  >
-                    {option === 'en' ? t('languageSwitcher.english') : t('languageSwitcher.french')}
-                  </CTAButton>
-                ))}
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
-                {t('profile.preferencesAccentLabel')}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {ACCENT_OPTIONS.map((accentOption) => (
-                  <CTAButton
-                    key={accentOption}
-                    type="button"
-                    variant={accentOption === selectedAccent ? 'primary' : 'secondary'}
-                    className="capitalize"
-                    onClick={() => onThemeAccentChange(accentOption)}
-                  >
-                    {accentOption === 'lime'
-                      ? t('profile.preferencesAccentLime')
-                      : t('profile.preferencesAccentPink')}
-                  </CTAButton>
-                ))}
+              <div className="flex items-center">
+                <LanguageSwitcher />
               </div>
             </div>
           </div>

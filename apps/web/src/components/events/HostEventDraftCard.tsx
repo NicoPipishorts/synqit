@@ -1,7 +1,9 @@
+import { Trash2 } from 'lucide-react';
+
 import { EventProviderIcon } from './EventProviderIcon';
 import { useI18n } from '../../hooks/useI18n';
 import { HostEventDraft } from '../../lib/events';
-import { CTAButton, CTALink } from '../ui/cta';
+import { CTAButton, CTALink, CTAMobileIconLabel } from '../ui/cta';
 
 type HostEventDraftCardProps = {
   draft: HostEventDraft;
@@ -53,8 +55,9 @@ export const HostEventDraftCard = ({ draft, onDelete, isDeleting }: HostEventDra
             onClick={() => onDelete(draft)}
             disabled={isDeleting}
             className="cursor-pointer"
+            aria-label={t('eventsPage.deleteDraft')}
           >
-            {t('eventsPage.deleteDraft')}
+            <CTAMobileIconLabel icon={<Trash2 size={14} />} label={t('eventsPage.deleteDraft')} />
           </CTAButton>
           <CTALink
             to={`/events/new?draftId=${encodeURIComponent(draft.id)}`}

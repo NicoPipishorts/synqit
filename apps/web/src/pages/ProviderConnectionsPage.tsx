@@ -5,9 +5,10 @@ import {
   oauthCallbackResponseSchema,
   providerSchema,
 } from '@synqit/shared';
+import { RefreshCcw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { CTAButton } from '../components/ui/cta';
+import { CTAButton, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
@@ -398,8 +399,18 @@ export const ProviderConnectionsPage = () => {
             onClick={() => void loadSnapshot()}
             disabled={isLoadingSnapshot}
             variant="secondary"
+            aria-label={t('profile.connectionsReload')}
           >
-            {isLoadingSnapshot ? t('dashboard.loading') : t('profile.connectionsReload')}
+            <CTAMobileIconLabel
+              icon={
+                <RefreshCcw
+                  size={14}
+                  className={isLoadingSnapshot ? 'animate-spin' : ''}
+                  aria-hidden="true"
+                />
+              }
+              label={isLoadingSnapshot ? t('dashboard.loading') : t('profile.connectionsReload')}
+            />
           </CTAButton>
         </div>
         <p className="mt-2 text-sm text-app-text-secondary">
@@ -482,16 +493,24 @@ export const ProviderConnectionsPage = () => {
                     disabled={isBusy}
                     onClick={() => void runProviderAction(provider, 'refresh')}
                     variant="secondary"
+                    aria-label={t('profile.connectionRefresh')}
                   >
-                    {t('profile.connectionRefresh')}
+                    <CTAMobileIconLabel
+                      icon={<RefreshCcw size={14} aria-hidden="true" />}
+                      label={t('profile.connectionRefresh')}
+                    />
                   </CTAButton>
                   <CTAButton
                     type="button"
                     disabled={isBusy}
                     onClick={() => void runProviderAction(provider, 'disconnect')}
                     variant="dangerSoft"
+                    aria-label={t('profile.connectionRemove')}
                   >
-                    {t('profile.connectionRemove')}
+                    <CTAMobileIconLabel
+                      icon={<Trash2 size={14} aria-hidden="true" />}
+                      label={t('profile.connectionRemove')}
+                    />
                   </CTAButton>
                 </div>
               </article>

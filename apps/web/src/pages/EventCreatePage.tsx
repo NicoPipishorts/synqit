@@ -7,12 +7,12 @@ import {
 } from '@synqit/shared';
 import type { Variants } from 'framer-motion';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
-import { Check, Copy } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Eye } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
-import { CTAButton, CTALink } from '../components/ui/cta';
+import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
@@ -941,7 +941,10 @@ export const EventCreatePage = () => {
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <CTALink to={`/events/${createdEvent.eventId}`} variant="primary">
-                        {t('eventsPage.createFlow.openEventDetails')}
+                        <CTAMobileIconLabel
+                          icon={<Eye size={14} aria-hidden="true" />}
+                          label={t('eventsPage.createFlow.openEventDetails')}
+                        />
                       </CTALink>
                       <CTALink to="/events" variant="secondary">
                         {t('eventsPage.backToEvents')}
@@ -983,7 +986,10 @@ export const EventCreatePage = () => {
                     exit={{ opacity: 0, x: -18, scale: 0.96 }}
                   >
                     <CTAButton type="button" onClick={goBackStep} variant="secondary">
-                      {t('eventsPage.createFlow.back')}
+                      <CTAMobileIconLabel
+                        icon={<ChevronLeft size={14} aria-hidden="true" />}
+                        label={t('eventsPage.createFlow.back')}
+                      />
                     </CTAButton>
                   </motion.div>
                 ) : null}
@@ -1008,7 +1014,10 @@ export const EventCreatePage = () => {
                       }
                       variant="primary"
                     >
-                      {t('eventsPage.createFlow.next')}
+                      <CTAMobileIconLabel
+                        icon={<ChevronRight size={14} aria-hidden="true" />}
+                        label={t('eventsPage.createFlow.next')}
+                      />
                     </CTAButton>
                   </motion.div>
                 ) : null}

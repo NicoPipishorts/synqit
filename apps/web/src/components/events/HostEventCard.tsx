@@ -1,10 +1,11 @@
-import { Link } from '@tanstack/react-router';
+import { Eye } from 'lucide-react';
 
 import { EventMagicLinkRow } from './EventMagicLinkRow';
 import { EventProviderIcon } from './EventProviderIcon';
 import { EventStatusIndicator } from './EventStatusIndicator';
 import { useI18n } from '../../hooks/useI18n';
 import { HostEvent } from '../../lib/events';
+import { CTALink, CTAMobileIconLabel } from '../ui/cta';
 
 type HostEventCardProps = {
   event: HostEvent;
@@ -47,13 +48,13 @@ export const HostEventCard = ({ event, onCopyMagicLink }: HostEventCardProps) =>
         </div>
 
         <div className="flex justify-end">
-          <Link
-            to="/events/$eventId"
-            params={{ eventId: event.id }}
-            className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-app-border bg-app-surface px-3 py-2 text-xs font-extrabold leading-none text-app-text no-underline shadow-soft-lift transition focus-ring-brand hover:border-brand-lime disabled:cursor-not-allowed disabled:opacity-60 dark:border-app-border dark:bg-app-elevated dark:text-app-text"
+          <CTALink
+            to={`/events/${event.id}`}
+            variant="secondary"
+            aria-label={t('eventsPage.detailsCta')}
           >
-            {t('eventsPage.detailsCta')}
-          </Link>
+            <CTAMobileIconLabel icon={<Eye size={14} />} label={t('eventsPage.detailsCta')} />
+          </CTALink>
         </div>
       </div>
     </article>

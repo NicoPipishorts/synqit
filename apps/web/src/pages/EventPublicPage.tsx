@@ -10,7 +10,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 
 import { HostEventDetailsHeader } from '../components/events/HostEventDetailsHeader';
 import { HomeFooterReveal } from '../components/marketing/HomeFooterReveal';
-import { CTAButton } from '../components/ui/cta';
+import { CTAButton, CTAMobileIconLabel } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useI18n } from '../hooks/useI18n';
@@ -538,16 +538,20 @@ export const EventPublicPage = () => {
                           variant="secondary"
                           className="h-10 w-10 px-0 sm:h-auto sm:w-auto sm:px-3"
                         >
-                          <RefreshCcw
-                            size={14}
-                            aria-hidden="true"
-                            className={`${isLoadingTracks ? 'animate-spin' : ''} sm:hidden`}
+                          <CTAMobileIconLabel
+                            icon={
+                              <RefreshCcw
+                                size={14}
+                                aria-hidden="true"
+                                className={isLoadingTracks ? 'animate-spin' : ''}
+                              />
+                            }
+                            label={
+                              isLoadingTracks
+                                ? t('eventPublicPage.refreshing')
+                                : t('eventPublicPage.refresh')
+                            }
                           />
-                          <span className="hidden sm:inline">
-                            {isLoadingTracks
-                              ? t('eventPublicPage.refreshing')
-                              : t('eventPublicPage.refresh')}
-                          </span>
                         </CTAButton>
                       </div>
 

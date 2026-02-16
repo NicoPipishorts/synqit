@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { ButtonHTMLAttributes, ComponentPropsWithoutRef } from 'react';
+import { ButtonHTMLAttributes, ComponentPropsWithoutRef, ReactNode } from 'react';
 
 export type CtaVariant = 'primary' | 'secondary' | 'danger' | 'dangerSoft' | 'ghost';
 
@@ -72,5 +72,21 @@ export const CTALink = ({
         props.onClick?.(event);
       }}
     />
+  );
+};
+
+type CTAMobileIconLabelProps = {
+  icon: ReactNode;
+  label: string;
+};
+
+export const CTAMobileIconLabel = ({ icon, label }: CTAMobileIconLabelProps) => {
+  return (
+    <>
+      <span className="sm:hidden" aria-hidden="true">
+        {icon}
+      </span>
+      <span className="sr-only sm:not-sr-only sm:inline">{label}</span>
+    </>
   );
 };

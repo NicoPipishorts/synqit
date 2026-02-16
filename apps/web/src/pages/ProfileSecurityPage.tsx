@@ -1,8 +1,9 @@
 import { isPasswordStrong, PASSWORD_MIN_LENGTH } from '@synqit/shared';
+import { Trash2 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
 import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
-import { CTAButton } from '../components/ui/cta';
+import { CTAButton, CTAMobileIconLabel } from '../components/ui/cta';
 import { PasswordField } from '../components/ui/PasswordField';
 import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
 import { useAuthSession } from '../hooks/useAuthSession';
@@ -148,8 +149,9 @@ export const ProfileSecurityPage = () => {
             onClick={() => showToast(t('profile.deleteAccountSoon'), { variant: 'error' })}
             variant="danger"
             className="mt-auto self-end"
+            aria-label={t('profile.deleteAccount')}
           >
-            {t('profile.deleteAccount')}
+            <CTAMobileIconLabel icon={<Trash2 size={14} />} label={t('profile.deleteAccount')} />
           </CTAButton>
         </article>
       </div>
