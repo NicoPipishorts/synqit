@@ -10,7 +10,9 @@
     "lint": "eslint src --ext .ts,.tsx",
     "i18n:check": "node scripts/check-locales.mjs",
     "typecheck": "tsc -p tsconfig.app.json --noEmit",
-    "test": "echo \"No tests yet for @synqit/web\""
+    "test": "echo \"No unit tests configured for @synqit/web yet\"",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "@synqit/shared": "0.1.0",
@@ -23,6 +25,7 @@
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",

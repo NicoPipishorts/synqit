@@ -32,6 +32,9 @@
     "format:fix": "prettier --write .",
     "typecheck": "yarn workspaces run typecheck",
     "test": "yarn workspaces run test",
+    "test:api:regression": "yarn workspace @synqit/api test",
+    "test:web:e2e": "yarn workspace @synqit/web test:e2e",
+    "test:ci": "yarn test:api:regression && yarn test:web:e2e",
     "prepare": "husky"
   },
   "devDependencies": {

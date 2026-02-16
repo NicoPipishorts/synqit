@@ -10,6 +10,9 @@ import { buildServer } from './index';
 
 const TEST_EMAIL_PREFIX = 'regression+';
 const TEST_PASSWORD = 'Password123!';
+const UPDATED_TEST_PASSWORD = 'NewPassword456@';
+const TINY_PNG_DATA_URL =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+lm7YAAAAASUVORK5CYII=';
 
 const authHeader = (accessToken: string): Record<string, string> => ({
   authorization: `Bearer ${accessToken}`,
@@ -232,6 +235,270 @@ describe('API regression', () => {
     });
 
     assert.equal(loginResponse.statusCode, 200);
+  });
+
+  it('auth: personal info, avatar, and password change flows work', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const registerBody = await registerUser(app, email);
+    const accessToken = registerBody.tokens.accessToken;
+
+    const initialPersonalInfoResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/auth/personal-info',
+      headers: authHeader(accessToken),
+    });
+    assert.equal(initialPersonalInfoResponse.statusCode, 200);
+    const initialPersonalInfoBody = parseBody(initialPersonalInfoResponse.body) as {
+      personalInfo: {
+        displayName: string | null;
+        firstName: string | null;
+        lastName: string | null;
+        birthDate: string | null;
+        country: string | null;
+      };
+    };
+    assert.deepEqual(initialPersonalInfoBody.personalInfo, {
+      displayName: null,
+      firstName: null,
+      lastName: null,
+      birthDate: null,
+      country: null,
+    });
+
+    const updatePersonalInfoResponse = await app.inject({
+      method: 'PUT',
+      url: '/v1/auth/personal-info',
+      headers: authHeader(accessToken),
+      payload: {
+        displayName: 'Regression Host',
+        firstName: 'Regression',
+        lastName: 'Tester',
+        birthDate: '1990-05-12',
+        country: 'France',
+      },
+    });
+    assert.equal(updatePersonalInfoResponse.statusCode, 200);
+    const updatePersonalInfoBody = parseBody(updatePersonalInfoResponse.body) as {
+      personalInfo: {
+        displayName: string | null;
+        firstName: string | null;
+        lastName: string | null;
+        birthDate: string | null;
+        country: string | null;
+      };
+    };
+    assert.deepEqual(updatePersonalInfoBody.personalInfo, {
+      displayName: 'Regression Host',
+      firstName: 'Regression',
+      lastName: 'Tester',
+      birthDate: '1990-05-12',
+      country: 'France',
+    });
+
+    const clearPersonalInfoResponse = await app.inject({
+      method: 'DELETE',
+      url: '/v1/auth/personal-info',
+      headers: authHeader(accessToken),
+    });
+    assert.equal(clearPersonalInfoResponse.statusCode, 200);
+    const clearPersonalInfoBody = parseBody(clearPersonalInfoResponse.body) as {
+      personalInfo: {
+        displayName: string | null;
+        firstName: string | null;
+        lastName: string | null;
+        birthDate: string | null;
+        country: string | null;
+      };
+    };
+    assert.deepEqual(clearPersonalInfoBody.personalInfo, {
+      displayName: null,
+      firstName: null,
+      lastName: null,
+      birthDate: null,
+      country: null,
+    });
+
+    const uploadAvatarResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/avatar',
+      headers: authHeader(accessToken),
+      payload: {
+        imageDataUrl: TINY_PNG_DATA_URL,
+      },
+    });
+    assert.equal(uploadAvatarResponse.statusCode, 200);
+    const uploadAvatarBody = parseBody(uploadAvatarResponse.body) as {
+      user: { avatarUrl: string | null };
+    };
+    assert.ok(uploadAvatarBody.user.avatarUrl);
+
+    const avatarUrl = new URL(uploadAvatarBody.user.avatarUrl as string);
+    const avatarPublicResponse = await app.inject({
+      method: 'GET',
+      url: avatarUrl.pathname,
+    });
+    assert.equal(avatarPublicResponse.statusCode, 200);
+    assert.equal(avatarPublicResponse.headers['content-type'], 'image/png');
+
+    const removeAvatarResponse = await app.inject({
+      method: 'DELETE',
+      url: '/v1/auth/avatar',
+      headers: authHeader(accessToken),
+    });
+    assert.equal(removeAvatarResponse.statusCode, 200);
+    const removeAvatarBody = parseBody(removeAvatarResponse.body) as {
+      user: { avatarUrl: string | null };
+    };
+    assert.equal(removeAvatarBody.user.avatarUrl, null);
+
+    const wrongCurrentPasswordResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/change-password',
+      headers: authHeader(accessToken),
+      payload: {
+        currentPassword: 'WrongPassword999!',
+        newPassword: UPDATED_TEST_PASSWORD,
+      },
+    });
+    assert.equal(wrongCurrentPasswordResponse.statusCode, 401);
+
+    const changePasswordResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/change-password',
+      headers: authHeader(accessToken),
+      payload: {
+        currentPassword: TEST_PASSWORD,
+        newPassword: UPDATED_TEST_PASSWORD,
+      },
+    });
+    assert.equal(changePasswordResponse.statusCode, 200);
+
+    const loginWithOldPasswordResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: {
+        email,
+        password: TEST_PASSWORD,
+      },
+    });
+    assert.equal(loginWithOldPasswordResponse.statusCode, 401);
+
+    const loginWithNewPasswordResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: {
+        email,
+        password: UPDATED_TEST_PASSWORD,
+      },
+    });
+    assert.equal(loginWithNewPasswordResponse.statusCode, 200);
+  });
+
+  it('events: draft CRUD flow works', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const registerBody = await registerUser(app, email);
+    const accessToken = registerBody.tokens.accessToken;
+
+    const initialDraftListResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/events/drafts',
+      headers: authHeader(accessToken),
+    });
+    assert.equal(initialDraftListResponse.statusCode, 200);
+    const initialDraftListBody = parseBody(initialDraftListResponse.body) as {
+      drafts: Array<{ id: string }>;
+    };
+    assert.equal(initialDraftListBody.drafts.length, 0);
+
+    const createDraftResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/events/drafts',
+      headers: authHeader(accessToken),
+      payload: {
+        provider: 'spotify',
+        name: 'Draft Event',
+        description: 'Draft description',
+        step: 2,
+      },
+    });
+    assert.equal(createDraftResponse.statusCode, 200);
+    const createDraftBody = parseBody(createDraftResponse.body) as {
+      draft: {
+        id: string;
+        provider: string | null;
+        name: string;
+        description: string;
+        step: number;
+      };
+    };
+    assert.equal(createDraftBody.draft.provider, 'spotify');
+    assert.equal(createDraftBody.draft.name, 'Draft Event');
+    assert.equal(createDraftBody.draft.description, 'Draft description');
+    assert.equal(createDraftBody.draft.step, 2);
+
+    const draftId = createDraftBody.draft.id;
+    assert.ok(draftId);
+
+    const getDraftResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/events/drafts/${draftId}`,
+      headers: authHeader(accessToken),
+    });
+    assert.equal(getDraftResponse.statusCode, 200);
+
+    const updateDraftResponse = await app.inject({
+      method: 'PATCH',
+      url: `/v1/events/drafts/${draftId}`,
+      headers: authHeader(accessToken),
+      payload: {
+        name: 'Draft Event Updated',
+        description: 'Updated description',
+        step: 3,
+      },
+    });
+    assert.equal(updateDraftResponse.statusCode, 200);
+    const updateDraftBody = parseBody(updateDraftResponse.body) as {
+      draft: {
+        name: string;
+        description: string;
+        step: number;
+      };
+    };
+    assert.equal(updateDraftBody.draft.name, 'Draft Event Updated');
+    assert.equal(updateDraftBody.draft.description, 'Updated description');
+    assert.equal(updateDraftBody.draft.step, 3);
+
+    const draftListAfterUpdateResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/events/drafts',
+      headers: authHeader(accessToken),
+    });
+    assert.equal(draftListAfterUpdateResponse.statusCode, 200);
+    const draftListAfterUpdateBody = parseBody(draftListAfterUpdateResponse.body) as {
+      drafts: Array<{ id: string }>;
+    };
+    assert.equal(draftListAfterUpdateBody.drafts.length, 1);
+    assert.equal(draftListAfterUpdateBody.drafts[0]?.id, draftId);
+
+    const deleteDraftResponse = await app.inject({
+      method: 'DELETE',
+      url: `/v1/events/drafts/${draftId}`,
+      headers: authHeader(accessToken),
+    });
+    assert.equal(deleteDraftResponse.statusCode, 200);
+    const deleteDraftBody = parseBody(deleteDraftResponse.body) as {
+      ok: boolean;
+      id: string;
+    };
+    assert.equal(deleteDraftBody.ok, true);
+    assert.equal(deleteDraftBody.id, draftId);
+
+    const getDeletedDraftResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/events/drafts/${draftId}`,
+      headers: authHeader(accessToken),
+    });
+    assert.equal(getDeletedDraftResponse.statusCode, 404);
   });
 
   it('integrations: oauth state, connect, list, disconnect', async () => {
