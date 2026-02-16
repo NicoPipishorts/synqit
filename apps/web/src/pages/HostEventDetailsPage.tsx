@@ -1,7 +1,6 @@
 import {
   eventResponseSchema,
   eventTracksResponseSchema,
-  removeEventTrackResponseSchema,
   updateEventRequestSchema,
 } from '@synqit/shared';
 import { useParams } from '@tanstack/react-router';
@@ -30,7 +29,6 @@ export const HostEventDetailsPage = () => {
   const [isLoadingTracks, setIsLoadingTracks] = useState(false);
   const [isWorking, setIsWorking] = useState(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
-  const [trackActionKey, setTrackActionKey] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
 
@@ -308,37 +306,6 @@ export const HostEventDetailsPage = () => {
     }
   };
 
-  const removeTrack = async (providerTrackId: string) => {
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredTrackRemove'));
-    if (!accessToken || !event) {
-      return;
-    }
-
-    setTrackActionKey(providerTrackId);
-    try {
-      await callApi(
-        `/v1/events/${encodeURIComponent(event.id)}/tracks/${encodeURIComponent(providerTrackId)}`,
-        {
-          method: 'DELETE',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        },
-        (payload) => removeEventTrackResponseSchema.parse(payload),
-      );
-
-      setTracks((previousTracks) =>
-        previousTracks.filter((track) => track.providerTrackId !== providerTrackId),
-      );
-      setStatusAndToast(t('eventsPage.trackRemoved'), 'success');
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
-    } finally {
-      setTrackActionKey(null);
-    }
-  };
-
   const copyMagicLink = async () => {
     if (!event) {
       return;
@@ -448,9 +415,7 @@ export const HostEventDetailsPage = () => {
             <EventTracksCard
               tracks={tracks}
               isLoadingTracks={isLoadingTracks}
-              trackActionKey={trackActionKey}
               onRefreshTracks={() => void loadTracks()}
-              onRemoveTrack={(providerTrackId) => void removeTrack(providerTrackId)}
             />
           </>
         ) : null}

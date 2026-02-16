@@ -22,8 +22,8 @@ import { ProfilePage } from './pages/ProfilePage';
 import { ProfilePersonalInfoPage } from './pages/ProfilePersonalInfoPage';
 import { ProfilePlatformsPage } from './pages/ProfilePlatformsPage';
 import { ProfileSecurityPage } from './pages/ProfileSecurityPage';
-import { ProviderConnectionsPage } from './pages/ProviderConnectionsPage';
 import { ProviderOauthCallbackPage } from './pages/ProviderOauthCallbackPage';
+import { SyncedListsPage } from './pages/SyncedListsPage';
 
 const queryClient = new QueryClient();
 
@@ -68,7 +68,7 @@ const syncedListsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/synced-lists',
   beforeLoad: requireAuth,
-  component: ProviderConnectionsPage,
+  component: SyncedListsPage,
 });
 
 const eventsRoute = createRoute({

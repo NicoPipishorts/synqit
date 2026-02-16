@@ -89,16 +89,11 @@ export const DashboardPage = () => {
               <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
                 {t('dashboard.title')}
               </h1>
-              <p className="text-sm text-app-text-secondary">
-                {auth
-                  ? t('dashboard.sessionActive', { email: auth.userEmail })
-                  : t('dashboard.noActiveSession')}
-              </p>
             </div>
           </div>
         </article>
 
-        <article className="rounded-[2rem] border border-app-border bg-brand-gradient p-[1px] shadow-soft-lift">
+        <article className="rounded-4xl border border-app-border bg-brand-gradient p-px shadow-soft-lift">
           <div className="grid gap-5 rounded-[calc(2rem-1px)] bg-app-elevated px-5 py-8 dark:bg-app-card sm:px-8 sm:py-10">
             <div className="flex flex-wrap items-center gap-3">
               <HeroPill variant="lime">{t('dashboard.pill')}</HeroPill>

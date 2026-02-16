@@ -194,6 +194,11 @@
     "logout": "Se déconnecter",
     "loggedOut": "Déconnecté."
   },
+  "syncedListsPage": {
+    "title": "Listes synchronisées",
+    "comingSoon": "Bientôt disponible",
+    "comingSoonBody": "Bientôt, vous pourrez créer des playlists synchronisées réutilisables et les appliquer à vos événements en un clic."
+  },
   "eventsPage": {
     "title": "Mes événements",
     "description": "Gérez les détails des événements, les liens invités et les titres soumis.",

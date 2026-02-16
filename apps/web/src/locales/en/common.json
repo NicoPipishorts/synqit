@@ -194,6 +194,11 @@
     "logout": "Logout",
     "loggedOut": "Logged out."
   },
+  "syncedListsPage": {
+    "title": "Synced lists",
+    "comingSoon": "Coming soon",
+    "comingSoonBody": "Soon you will be able to build reusable synced playlists and apply them across your events in one click."
+  },
   "eventsPage": {
     "title": "My events",
     "description": "Manage event details, guest links, and submitted tracks.",

@@ -1,4 +1,4 @@
-import { LoaderCircle, RefreshCcw, Trash2 } from 'lucide-react';
+import { RefreshCcw } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
 import { EventTrackItem } from '../../lib/events';
@@ -7,17 +7,13 @@ import { CTAButton } from '../ui/cta';
 type EventTracksCardProps = {
   tracks: EventTrackItem[];
   isLoadingTracks: boolean;
-  trackActionKey: string | null;
   onRefreshTracks: () => void;
-  onRemoveTrack: (providerTrackId: string) => void;
 };
 
 export const EventTracksCard = ({
   tracks,
   isLoadingTracks,
-  trackActionKey,
   onRefreshTracks,
-  onRemoveTrack,
 }: EventTracksCardProps) => {
   const { t } = useI18n();
 
@@ -62,25 +58,6 @@ export const EventTracksCard = ({
                   {track.artist} · {track.album}
                 </p>
               </div>
-              <CTAButton
-                aria-label={t('eventsPage.remove')}
-                disabled={trackActionKey === track.providerTrackId}
-                onClick={() => onRemoveTrack(track.providerTrackId)}
-                variant="dangerSoft"
-                className="h-9 w-9 shrink-0 px-0 sm:h-auto sm:w-auto sm:px-3"
-              >
-                {trackActionKey === track.providerTrackId ? (
-                  <>
-                    <LoaderCircle size={14} className="animate-spin sm:hidden" aria-hidden="true" />
-                    <span className="hidden sm:inline">{t('eventsPage.removing')}</span>
-                  </>
-                ) : (
-                  <>
-                    <Trash2 size={14} className="sm:hidden" aria-hidden="true" />
-                    <span className="hidden sm:inline">{t('eventsPage.remove')}</span>
-                  </>
-                )}
-              </CTAButton>
             </li>
           ))}
         </ul>
