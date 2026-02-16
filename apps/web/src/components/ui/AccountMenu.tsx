@@ -100,6 +100,27 @@ export const AccountMenu = () => {
             <>
               <div className="mt-2 grid gap-1 text-sm">
                 <Link
+                  to="/dashboard"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  {t('accountMenu.dashboard')}
+                </Link>
+                <Link
+                  to="/events"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  {t('accountMenu.myEvents')}
+                </Link>
+                <Link
+                  to="/synced-lists"
+                  onClick={() => setIsOpen(false)}
+                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  {t('accountMenu.syncedLists')}
+                </Link>
+                <Link
                   to="/profile"
                   onClick={() => setIsOpen(false)}
                   className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"

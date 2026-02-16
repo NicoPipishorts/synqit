@@ -205,6 +205,7 @@ export const eventSchema = z.object({
   id: z.string(),
   hostUserId: z.string(),
   provider: providerSchema,
+  providerConnectionStatus: providerConnectionStatusSchema,
   providerPlaylistId: z.string(),
   status: eventStatusSchema,
   name: z.string(),
@@ -231,6 +232,7 @@ export type EventListResponse = z.infer<typeof eventListResponseSchema>;
 export const eventPublicSchema = z.object({
   id: z.string(),
   provider: providerSchema,
+  providerConnectionStatus: providerConnectionStatusSchema,
   status: eventStatusSchema,
   name: z.string(),
   description: z.string(),

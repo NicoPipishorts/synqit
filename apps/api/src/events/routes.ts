@@ -90,16 +90,34 @@ const buildEventMagicLinkUrl = (magicLinkToken: string): string => {
   return url.toString();
 };
 
-const toEventResponse = (event: EventRecord) =>
+const resolveProviderConnectionStatus = async (params: {
+  hostUserId: string;
+  provider: EventRecord['provider'];
+}): Promise<'connected' | 'not_connected'> => {
+  const integration = await integrationStore.findIntegration({
+    userId: params.hostUserId,
+    provider: params.provider,
+  });
+
+  return integration ? 'connected' : 'not_connected';
+};
+
+const toEventResponse = (params: {
+  event: EventRecord;
+  providerConnectionStatus: 'connected' | 'not_connected';
+}) =>
   eventResponseSchema.parse({
     event: {
-      ...event,
-      magicLinkRevokedAt: event.magicLinkRevokedAt ? event.magicLinkRevokedAt.toISOString() : null,
-      createdAt: event.createdAt.toISOString(),
-      updatedAt: event.updatedAt.toISOString(),
-      closedAt: event.closedAt ? event.closedAt.toISOString() : null,
+      ...params.event,
+      providerConnectionStatus: params.providerConnectionStatus,
+      magicLinkRevokedAt: params.event.magicLinkRevokedAt
+        ? params.event.magicLinkRevokedAt.toISOString()
+        : null,
+      createdAt: params.event.createdAt.toISOString(),
+      updatedAt: params.event.updatedAt.toISOString(),
+      closedAt: params.event.closedAt ? params.event.closedAt.toISOString() : null,
     },
-    magicLinkUrl: buildEventMagicLinkUrl(event.magicLinkToken),
+    magicLinkUrl: buildEventMagicLinkUrl(params.event.magicLinkToken),
   });
 
 const sendIntegrationError = (reply: FastifyReply, error: IntegrationError) => {
@@ -530,7 +548,15 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       description: parsedBody.data.description,
     });
 
-    return toEventResponse(event);
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: event.hostUserId,
+      provider: event.provider,
+    });
+
+    return toEventResponse({
+      event,
+      providerConnectionStatus,
+    });
   });
 
   app.get('/events', async (request, reply) => {
@@ -542,10 +568,18 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    const events = await eventsStore.listEventsByHost(userId);
+    const [events, integrations] = await Promise.all([
+      eventsStore.listEventsByHost(userId),
+      integrationStore.listIntegrationsByUser(userId),
+    ]);
+    const connectedProviders = new Set(integrations.map((integration) => integration.provider));
+
     return eventListResponseSchema.parse({
       events: events.map((event) => ({
         ...event,
+        providerConnectionStatus: connectedProviders.has(event.provider)
+          ? 'connected'
+          : 'not_connected',
         magicLinkRevokedAt: event.magicLinkRevokedAt
           ? event.magicLinkRevokedAt.toISOString()
           : null,
@@ -563,10 +597,16 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       return;
     }
 
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: event.hostUserId,
+      provider: event.provider,
+    });
+
     return eventPublicResponseSchema.parse({
       event: {
         id: event.id,
         provider: event.provider,
+        providerConnectionStatus,
         status: event.status,
         name: event.name,
         description: event.description,
@@ -1008,7 +1048,15 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    return toEventResponse(event);
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: event.hostUserId,
+      provider: event.provider,
+    });
+
+    return toEventResponse({
+      event,
+      providerConnectionStatus,
+    });
   });
 
   app.get('/events/:eventId/tracks', async (request, reply) => {
@@ -1260,7 +1308,15 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    return toEventResponse(event);
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: event.hostUserId,
+      provider: event.provider,
+    });
+
+    return toEventResponse({
+      event,
+      providerConnectionStatus,
+    });
   });
 
   app.delete('/events/:eventId', async (request, reply) => {
@@ -1312,7 +1368,15 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    return toEventResponse(event);
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: event.hostUserId,
+      provider: event.provider,
+    });
+
+    return toEventResponse({
+      event,
+      providerConnectionStatus,
+    });
   });
 
   app.post('/events/:eventId/magic-link/revoke', async (request, reply) => {
@@ -1336,7 +1400,15 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    return toEventResponse(event);
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: event.hostUserId,
+      provider: event.provider,
+    });
+
+    return toEventResponse({
+      event,
+      providerConnectionStatus,
+    });
   });
 
   app.post('/events/:eventId/magic-link/regenerate', async (request, reply) => {
@@ -1360,6 +1432,14 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    return toEventResponse(event);
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: event.hostUserId,
+      provider: event.provider,
+    });
+
+    return toEventResponse({
+      event,
+      providerConnectionStatus,
+    });
   });
 };

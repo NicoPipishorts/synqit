@@ -1,21 +1,28 @@
 import { useI18n } from '../../hooks/useI18n';
-import { EventStatus } from '../../lib/events';
+import { EventStatus, ProviderConnectionStatus } from '../../lib/events';
 
 type EventStatusIndicatorProps = {
   status: EventStatus;
+  connectionStatus?: ProviderConnectionStatus;
   mode?: 'dot' | 'responsive' | 'pill';
   dotSize?: 'sm' | 'md';
 };
 
 export const EventStatusIndicator = ({
   status,
+  connectionStatus = 'connected',
   mode = 'responsive',
   dotSize = 'sm',
 }: EventStatusIndicatorProps) => {
   const { t } = useI18n();
-  const isOpen = status === 'open';
-  const label = isOpen ? t('eventsPage.statusOpen') : t('eventsPage.statusClosed');
-  const dotClass = isOpen ? 'bg-brand-lime' : 'bg-brand-pink';
+  const isClosed = status === 'closed';
+  const isDisconnected = !isClosed && connectionStatus === 'not_connected';
+  const label = isClosed
+    ? t('eventsPage.statusClosed')
+    : isDisconnected
+      ? t('eventsPage.statusDisconnected')
+      : t('eventsPage.statusOpen');
+  const dotClass = isClosed ? 'bg-brand-pink' : isDisconnected ? 'bg-amber-400' : 'bg-brand-lime';
   const dotSizeClass = dotSize === 'md' ? 'h-3 w-3' : 'h-2.5 w-2.5';
 
   if (mode === 'dot') {
@@ -32,9 +39,11 @@ export const EventStatusIndicator = ({
     return (
       <span
         className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${
-          isOpen
-            ? 'border border-brand-lime/40 bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
-            : 'border border-brand-pink/40 bg-brand-pink/15 text-[#b41563] dark:text-[#ff8ac0]'
+          isClosed
+            ? 'border border-brand-pink/40 bg-brand-pink/15 text-[#b41563] dark:text-[#ff8ac0]'
+            : isDisconnected
+              ? 'border border-amber-400/45 bg-amber-400/15 text-amber-700 dark:text-amber-300'
+              : 'border border-brand-lime/40 bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
         }`}
       >
         {label}
@@ -51,9 +60,11 @@ export const EventStatusIndicator = ({
       />
       <span
         className={`hidden rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide sm:inline-flex ${
-          isOpen
-            ? 'border border-brand-lime/40 bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
-            : 'border border-brand-pink/40 bg-brand-pink/15 text-[#b41563] dark:text-[#ff8ac0]'
+          isClosed
+            ? 'border border-brand-pink/40 bg-brand-pink/15 text-[#b41563] dark:text-[#ff8ac0]'
+            : isDisconnected
+              ? 'border border-amber-400/45 bg-amber-400/15 text-amber-700 dark:text-amber-300'
+              : 'border border-brand-lime/40 bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
         }`}
       >
         {label}

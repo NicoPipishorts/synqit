@@ -16,7 +16,12 @@ import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
-import { EventProvider, EventStatus, EventTrackItem } from '../lib/events';
+import {
+  EventProvider,
+  EventStatus,
+  EventTrackItem,
+  ProviderConnectionStatus,
+} from '../lib/events';
 
 type SearchTrackResult = {
   providerTrackId: string;
@@ -42,6 +47,8 @@ export const EventPublicPage = () => {
   const [eventName, setEventName] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [eventState, setEventState] = useState<EventStatus | null>(null);
+  const [eventConnectionStatus, setEventConnectionStatus] =
+    useState<ProviderConnectionStatus | null>(null);
   const [eventProvider, setEventProvider] = useState<EventProvider | null>(null);
   const [tracks, setTracks] = useState<EventTrackItem[]>([]);
 
@@ -106,6 +113,7 @@ export const EventPublicPage = () => {
         setEventName(eventResult.event.name);
         setEventDescription(eventResult.event.description);
         setEventState(eventResult.event.status);
+        setEventConnectionStatus(eventResult.event.providerConnectionStatus);
         setEventProvider(eventResult.event.provider);
         setTracks(tracksResult.tracks);
         setVisibleAddedTracksCount(ADDED_TRACKS_PAGE_SIZE);
@@ -265,10 +273,11 @@ export const EventPublicPage = () => {
   };
 
   const headerEvent =
-    eventName && eventState && eventProvider
+    eventName && eventState && eventProvider && eventConnectionStatus
       ? {
           name: eventName,
           status: eventState,
+          providerConnectionStatus: eventConnectionStatus,
           provider: eventProvider,
           description: eventDescription || t('eventPublicPage.noDescription'),
         }

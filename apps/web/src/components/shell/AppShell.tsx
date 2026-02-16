@@ -1,6 +1,6 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
-import { CalendarDays, LayoutDashboard, ListMusic } from 'lucide-react';
+import { CalendarDays, LayoutDashboard, ListMusic, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { BackgroundBlurSpots } from './BackgroundBlurSpots';
@@ -25,13 +25,17 @@ export const AppShell = () => {
     { to: '/dashboard', label: t('accountMenu.dashboard'), icon: LayoutDashboard },
     { to: '/events', label: t('accountMenu.myEvents'), icon: CalendarDays },
     { to: '/synced-lists', label: t('accountMenu.syncedLists'), icon: ListMusic },
+    { to: '/profile', label: t('accountMenu.profile'), icon: UserRound },
   ] as const;
   const isNavItemActive = (to: string): boolean => {
     if (to === '/events') {
       return pathname.startsWith('/events');
     }
     if (to === '/synced-lists') {
-      return pathname.startsWith('/synced-lists') || pathname.startsWith('/providers');
+      return pathname.startsWith('/synced-lists');
+    }
+    if (to === '/profile') {
+      return pathname.startsWith('/profile');
     }
     return pathname === to || pathname.startsWith(`${to}/`);
   };

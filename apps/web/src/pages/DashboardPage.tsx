@@ -110,7 +110,7 @@ export const DashboardPage = () => {
               <CTALink to="/events" variant="secondary">
                 {t('dashboard.ctaEvents')}
               </CTALink>
-              <CTALink to="/providers" variant="secondary">
+              <CTALink to="/profile/platforms" variant="secondary">
                 {t('dashboard.ctaProviders')}
               </CTALink>
               <CTALink to="/events/new" variant="primary">

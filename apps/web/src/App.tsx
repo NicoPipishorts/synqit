@@ -55,8 +55,12 @@ const homeRoute = createRoute({
 const providersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/providers',
-  beforeLoad: requireAuth,
-  component: ProviderConnectionsPage,
+  beforeLoad: () => {
+    requireAuth();
+    throw redirect({
+      to: '/profile/platforms',
+    });
+  },
 });
 
 const syncedListsRoute = createRoute({

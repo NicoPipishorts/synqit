@@ -58,7 +58,7 @@ export const HomeFooterReveal = () => {
             <Link to="/events" className="hover:text-brand-lime">
               {t('footer.events')}
             </Link>
-            <Link to="/providers" className="hover:text-brand-lime">
+            <Link to="/profile/platforms" className="hover:text-brand-lime">
               {t('footer.connections')}
             </Link>
             <Link to="/events/new" className="hover:text-brand-lime">

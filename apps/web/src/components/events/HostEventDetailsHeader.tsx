@@ -1,13 +1,14 @@
 import { EventProviderIcon } from './EventProviderIcon';
 import { EventStatusIndicator } from './EventStatusIndicator';
 import { useI18n } from '../../hooks/useI18n';
-import { EventProvider, EventStatus } from '../../lib/events';
+import { EventProvider, EventStatus, ProviderConnectionStatus } from '../../lib/events';
 import { CircleChevronBackButton } from '../ui/CircleChevronBackButton';
 import { CTAButton } from '../ui/cta';
 
 type EventHeaderData = {
   name: string;
   status: EventStatus;
+  providerConnectionStatus: ProviderConnectionStatus;
   provider: EventProvider;
   description?: string;
 };
@@ -52,7 +53,12 @@ export const HostEventDetailsHeader = ({
                   {event?.name ?? t('eventsPage.loadingDetails')}
                 </h1>
                 {event ? (
-                  <EventStatusIndicator status={event.status} mode="responsive" dotSize="md" />
+                  <EventStatusIndicator
+                    status={event.status}
+                    connectionStatus={event.providerConnectionStatus}
+                    mode="responsive"
+                    dotSize="md"
+                  />
                 ) : null}
               </div>
               {event?.description ? (

@@ -11,7 +11,7 @@ import { EventEditFormCard } from '../components/events/EventEditFormCard';
 import { EventMagicLinkCard } from '../components/events/EventMagicLinkCard';
 import { EventTracksCard } from '../components/events/EventTracksCard';
 import { HostEventDetailsHeader } from '../components/events/HostEventDetailsHeader';
-import { CTAButton } from '../components/ui/cta';
+import { CTAButton, CTALink } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
@@ -96,6 +96,7 @@ export const HostEventDetailsPage = () => {
         name: result.event.name,
         description: result.event.description,
         provider: result.event.provider,
+        providerConnectionStatus: result.event.providerConnectionStatus,
         status: result.event.status,
         magicLinkToken: result.event.magicLinkToken,
         magicLinkRevokedAt: result.event.magicLinkRevokedAt,
@@ -174,6 +175,7 @@ export const HostEventDetailsPage = () => {
               ...previousEvent,
               name: result.event.name,
               description: result.event.description,
+              providerConnectionStatus: result.event.providerConnectionStatus,
               status: result.event.status,
               updatedAt: result.event.updatedAt,
             }
@@ -211,6 +213,7 @@ export const HostEventDetailsPage = () => {
         previousEvent
           ? {
               ...previousEvent,
+              providerConnectionStatus: result.event.providerConnectionStatus,
               status: result.event.status,
               updatedAt: result.event.updatedAt,
             }
@@ -250,6 +253,7 @@ export const HostEventDetailsPage = () => {
         previousEvent
           ? {
               ...previousEvent,
+              providerConnectionStatus: result.event.providerConnectionStatus,
               magicLinkToken: result.event.magicLinkToken,
               magicLinkRevokedAt: result.event.magicLinkRevokedAt,
               updatedAt: result.event.updatedAt,
@@ -288,6 +292,7 @@ export const HostEventDetailsPage = () => {
         previousEvent
           ? {
               ...previousEvent,
+              providerConnectionStatus: result.event.providerConnectionStatus,
               magicLinkToken: result.event.magicLinkToken,
               magicLinkRevokedAt: result.event.magicLinkRevokedAt,
               updatedAt: result.event.updatedAt,
@@ -364,6 +369,24 @@ export const HostEventDetailsPage = () => {
 
         {event ? (
           <>
+            {event.providerConnectionStatus === 'not_connected' ? (
+              <article className="rounded-2xl border border-amber-400/45 bg-amber-400/10 p-5 shadow-soft-lift dark:bg-amber-300/10">
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                  <div className="grid gap-1">
+                    <h2 className="text-base font-bold text-amber-800 dark:text-amber-200">
+                      {t('eventsPage.providerDisconnectedTitle')}
+                    </h2>
+                    <p className="text-sm text-amber-700 dark:text-amber-200/90">
+                      {t('eventsPage.providerDisconnectedBody')}
+                    </p>
+                  </div>
+                  <CTALink to="/profile/platforms" variant="secondary" className="justify-center">
+                    {t('eventsPage.providerDisconnectedCta')}
+                  </CTALink>
+                </div>
+              </article>
+            ) : null}
+
             <EventEditFormCard
               editName={editName}
               editDescription={editDescription}

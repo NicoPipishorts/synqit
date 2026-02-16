@@ -60,6 +60,7 @@ export const HostEventsPage = () => {
           name: event.name,
           description: event.description,
           provider: event.provider,
+          providerConnectionStatus: event.providerConnectionStatus,
           status: event.status,
           magicLinkToken: event.magicLinkToken,
           magicLinkRevokedAt: event.magicLinkRevokedAt,
