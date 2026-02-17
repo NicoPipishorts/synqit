@@ -179,6 +179,108 @@ export const adminUserListResponseSchema = z.object({
 });
 export type AdminUserListResponse = z.infer<typeof adminUserListResponseSchema>;
 
+const adminAnalyticsEventStatusSchema = z.enum(['open', 'closed']);
+
+export const adminAnalyticsEventSummarySchema = z.object({
+  eventId: z.string(),
+  name: z.string(),
+  provider: providerSchema,
+  status: adminAnalyticsEventStatusSchema,
+  hostEmail: z.string().email(),
+  tracksCount: z.number().int().nonnegative(),
+  lastTrackAddedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type AdminAnalyticsEventSummary = z.infer<typeof adminAnalyticsEventSummarySchema>;
+
+export const adminAnalyticsEventsListResponseSchema = z.object({
+  events: z.array(adminAnalyticsEventSummarySchema),
+});
+export type AdminAnalyticsEventsListResponse = z.infer<
+  typeof adminAnalyticsEventsListResponseSchema
+>;
+
+export const adminAnalyticsEventDetailResponseSchema = z.object({
+  event: adminAnalyticsEventSummarySchema.extend({
+    description: z.string(),
+    magicLinkToken: z.string(),
+    closedAt: z.string().nullable(),
+    analytics: z.object({
+      publicPageViews: z.number().int().nonnegative(),
+      hostPageViews: z.number().int().nonnegative(),
+      trackedEventActions: z.number().int().nonnegative(),
+    }),
+    recentTracks: z.array(
+      z.object({
+        providerTrackId: z.string(),
+        name: z.string(),
+        artist: z.string(),
+        album: z.string(),
+        addedAt: z.string(),
+        addedBy: z.string(),
+      }),
+    ),
+  }),
+});
+export type AdminAnalyticsEventDetailResponse = z.infer<
+  typeof adminAnalyticsEventDetailResponseSchema
+>;
+
+export const analyticsEventNameSchema = z.enum([
+  'app_page_view',
+  'auth_login_submit',
+  'auth_login_success',
+  'auth_login_failed',
+  'auth_register_submit',
+  'auth_register_success',
+  'auth_register_failed',
+  'auth_forgot_password_submit',
+  'auth_forgot_password_success',
+  'auth_forgot_password_failed',
+  'auth_reset_password_submit',
+  'auth_reset_password_success',
+  'auth_reset_password_failed',
+  'provider_connect_started',
+  'provider_connect_succeeded',
+  'provider_connect_failed',
+  'provider_disconnect_succeeded',
+  'provider_disconnect_failed',
+  'providers_snapshot_loaded',
+  'event_create_step_changed',
+  'event_create_provider_selected',
+  'event_create_submitted',
+  'event_create_succeeded',
+  'event_create_failed',
+]);
+export type AnalyticsEventName = z.infer<typeof analyticsEventNameSchema>;
+
+export const analyticsTargetSchema = z.enum([
+  'navigation',
+  'auth',
+  'providers',
+  'events',
+  'admin',
+  'engagement',
+]);
+export type AnalyticsTarget = z.infer<typeof analyticsTargetSchema>;
+
+export const analyticsTrackRequestSchema = z.object({
+  eventName: analyticsEventNameSchema,
+  target: analyticsTargetSchema,
+  sessionId: z.string().min(8).max(128),
+  path: z.string().min(1).max(512),
+  locale: z.enum(['en', 'fr']).optional(),
+  source: z.literal('web').default('web'),
+  properties: z.record(z.string(), z.unknown()).default({}),
+});
+export type AnalyticsTrackRequest = z.infer<typeof analyticsTrackRequestSchema>;
+
+export const analyticsTrackResponseSchema = z.object({
+  ok: z.literal(true),
+});
+export type AnalyticsTrackResponse = z.infer<typeof analyticsTrackResponseSchema>;
+
 const birthDateIsoPattern = /^\d{4}-\d{2}-\d{2}$/;
 
 export const personalInfoSchema = z.object({
@@ -487,6 +589,16 @@ export const passwordResetEmailJobSchema = z.object({
 
 export type PasswordResetEmailJob = z.infer<typeof passwordResetEmailJobSchema>;
 
+export const passwordResetEmailPreviewJobSchema = z.object({
+  toEmail: z.string().email(),
+  locale: emailLocaleSchema,
+  webAppUrl: z.string().url(),
+  resetToken: z.string().min(20),
+  requestedAt: z.string(),
+});
+
+export type PasswordResetEmailPreviewJob = z.infer<typeof passwordResetEmailPreviewJobSchema>;
+
 export const QUEUES = {
   sync: 'sync',
   notifications: 'notifications',
@@ -498,4 +610,5 @@ export const JOBS = {
   sendRegistrationConfirmationEmailPreview:
     'notifications:sendRegistrationConfirmationEmailPreview',
   sendPasswordResetEmail: 'notifications:sendPasswordResetEmail',
+  sendPasswordResetEmailPreview: 'notifications:sendPasswordResetEmailPreview',
 } as const;

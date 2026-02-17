@@ -8,3 +8,4 @@ export const LOCALE_STORAGE_KEY = 'synqit.locale.v1';
 export const PREFERENCES_STORAGE_KEY = 'synqit.preferences.v1';
 export const PROFILE_SETTINGS_STORAGE_KEY = 'synqit.profile-settings.v1';
 export const PROFILE_SETTINGS_CHANGED_EVENT = 'synqit:profile-settings-changed';
+export const ANALYTICS_SESSION_STORAGE_KEY = 'synqit.analytics.session.v1';

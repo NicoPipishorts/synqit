@@ -108,7 +108,7 @@ export const AccountMenu = () => {
                 </Link>
                 {auth.role === 'admin' ? (
                   <Link
-                    to="/admin"
+                    to="/admin/dashboard"
                     onClick={() => setIsOpen(false)}
                     className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                   >

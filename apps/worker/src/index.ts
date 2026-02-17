@@ -2,6 +2,7 @@ import {
   JOBS,
   QUEUES,
   passwordResetEmailJobSchema,
+  passwordResetEmailPreviewJobSchema,
   registrationConfirmationEmailJobSchema,
   registrationConfirmationEmailPreviewJobSchema,
 } from '@synqit/shared';
@@ -127,6 +128,33 @@ const processNotificationsJob = async (job: Job) => {
         ok: true,
         userId: parsed.data.userId,
         toEmail: parsed.data.toEmail,
+      };
+    }
+    case JOBS.sendPasswordResetEmailPreview: {
+      const parsed = passwordResetEmailPreviewJobSchema.safeParse(job.data);
+      if (!parsed.success) {
+        throw new Error(`Invalid password reset preview email payload: ${parsed.error.message}`);
+      }
+
+      const template = renderPasswordResetTemplate({
+        locale: parsed.data.locale,
+        webAppUrl: parsed.data.webAppUrl,
+        recipientEmail: parsed.data.toEmail,
+        resetToken: parsed.data.resetToken,
+      });
+
+      await sendTransactionalEmail({
+        to: parsed.data.toEmail,
+        subject: `[Preview] ${template.subject}`,
+        html: template.html,
+        text: template.text,
+      });
+
+      return {
+        ok: true,
+        preview: true,
+        toEmail: parsed.data.toEmail,
+        requestedAt: parsed.data.requestedAt,
       };
     }
     default:

@@ -7,6 +7,7 @@ import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { PasswordField } from '../components/ui/PasswordField';
 import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
 import { useI18n } from '../hooks/useI18n';
+import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { storeAuth } from '../lib/auth';
 
@@ -26,6 +27,10 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
     setIsSubmitting(true);
     setStatus(null);
     setStatusType(null);
+    trackAnalyticsEvent({
+      eventName: isLogin ? 'auth_login_submit' : 'auth_register_submit',
+      target: 'auth',
+    });
 
     try {
       const result = await callApi(
@@ -40,11 +45,22 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
       const auth = storeAuth(result);
       setStatus(t('auth.authenticated', { email: auth.userEmail }));
       setStatusType('success');
+      trackAnalyticsEvent({
+        eventName: isLogin ? 'auth_login_success' : 'auth_register_success',
+        target: 'auth',
+      });
       void navigate({ to: '/dashboard' });
     } catch (error) {
       const apiError = toApiError(error);
       setStatus(apiError.message);
       setStatusType('error');
+      trackAnalyticsEvent({
+        eventName: isLogin ? 'auth_login_failed' : 'auth_register_failed',
+        target: 'auth',
+        properties: {
+          code: apiError.code,
+        },
+      });
     } finally {
       setIsSubmitting(false);
     }

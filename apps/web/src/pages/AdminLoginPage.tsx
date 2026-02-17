@@ -30,7 +30,7 @@ export const AdminLoginPage = () => {
       );
 
       storeAuth(result);
-      void navigate({ to: '/admin' });
+      void navigate({ to: '/admin/dashboard' });
     } catch (error) {
       setStatus(toApiError(error).message);
     } finally {

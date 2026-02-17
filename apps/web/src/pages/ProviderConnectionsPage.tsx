@@ -11,6 +11,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CTAButton, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
+import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { getAccessToken } from '../lib/auth';
 import {
@@ -148,6 +149,16 @@ export const ProviderConnectionsPage = () => {
 
       setIntegrationByProvider(nextIntegrationByProvider);
       setEventCountByProvider(nextEventCountByProvider);
+      trackAnalyticsEvent({
+        eventName: 'providers_snapshot_loaded',
+        target: 'providers',
+        properties: {
+          connectedCount: Object.values(nextIntegrationByProvider).filter(
+            (integration) => integration.status === 'connected',
+          ).length,
+          totalProviders: providerSchema.options.length,
+        },
+      });
       return nextIntegrationByProvider;
     } catch (error) {
       const apiError = toApiError(error);
@@ -259,9 +270,25 @@ export const ProviderConnectionsPage = () => {
             }),
             { variant: 'success' },
           );
+          trackAnalyticsEvent({
+            eventName: 'provider_disconnect_succeeded',
+            target: 'providers',
+            properties: {
+              provider,
+            },
+          });
           await loadSnapshot();
           return;
         }
+
+        trackAnalyticsEvent({
+          eventName: 'provider_connect_started',
+          target: 'providers',
+          properties: {
+            provider,
+            action,
+          },
+        });
 
         if (provider === 'apple') {
           await connectAppleMusic();
@@ -273,6 +300,14 @@ export const ProviderConnectionsPage = () => {
               }),
               { variant: 'success' },
             );
+            trackAnalyticsEvent({
+              eventName: 'provider_connect_succeeded',
+              target: 'providers',
+              properties: {
+                provider,
+                action,
+              },
+            });
           } else {
             showToast(
               t('profile.connectionFailed', {
@@ -280,6 +315,15 @@ export const ProviderConnectionsPage = () => {
               }),
               { variant: 'error' },
             );
+            trackAnalyticsEvent({
+              eventName: 'provider_connect_failed',
+              target: 'providers',
+              properties: {
+                provider,
+                action,
+                reason: 'not_connected_after_callback',
+              },
+            });
           }
           return;
         }
@@ -293,6 +337,14 @@ export const ProviderConnectionsPage = () => {
             }),
             { variant: 'success' },
           );
+          trackAnalyticsEvent({
+            eventName: 'provider_connect_succeeded',
+            target: 'providers',
+            properties: {
+              provider,
+              action,
+            },
+          });
           return;
         }
 
@@ -303,6 +355,15 @@ export const ProviderConnectionsPage = () => {
             }),
             { variant: 'error' },
           );
+          trackAnalyticsEvent({
+            eventName: 'provider_connect_failed',
+            target: 'providers',
+            properties: {
+              provider,
+              action,
+              popupResult,
+            },
+          });
         }
       } catch (error) {
         const normalized = error as { message?: string };
@@ -312,6 +373,16 @@ export const ProviderConnectionsPage = () => {
           const apiError = toApiError(error);
           showToast(t('profile.connectionsLoadError', { message: apiError.message }), {
             variant: 'error',
+          });
+          trackAnalyticsEvent({
+            eventName:
+              action === 'disconnect' ? 'provider_disconnect_failed' : 'provider_connect_failed',
+            target: 'providers',
+            properties: {
+              provider,
+              action,
+              code: apiError.code,
+            },
           });
         }
       } finally {

@@ -1,5 +1,12 @@
-import { JOBS, QUEUES, passwordResetEmailJobSchema, type EmailLocale } from '@synqit/shared';
+import {
+  JOBS,
+  QUEUES,
+  passwordResetEmailJobSchema,
+  passwordResetEmailPreviewJobSchema,
+  type EmailLocale,
+} from '@synqit/shared';
 import { Queue } from 'bullmq';
+import { randomBytes } from 'node:crypto';
 
 const DEFAULT_REDIS_URL = 'redis://localhost:6380';
 const DEFAULT_WEB_APP_URL = 'http://127.0.0.1:5173';
@@ -71,6 +78,36 @@ export const enqueuePasswordResetEmail = async (params: {
       removeOnComplete: true,
       removeOnFail: false,
     });
+  } finally {
+    await queue.close();
+  }
+};
+
+export const enqueuePasswordResetEmailPreview = async (params: {
+  toEmail: string;
+  locale: EmailLocale;
+}) => {
+  const payload = passwordResetEmailPreviewJobSchema.parse({
+    toEmail: params.toEmail,
+    locale: params.locale,
+    webAppUrl: process.env.WEB_APP_URL ?? DEFAULT_WEB_APP_URL,
+    resetToken: randomBytes(24).toString('hex'),
+    requestedAt: new Date().toISOString(),
+  });
+
+  const queue = new Queue(QUEUES.notifications, { connection: createRedisConnection() });
+  try {
+    const job = await queue.add(JOBS.sendPasswordResetEmailPreview, payload, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1_000,
+      },
+      removeOnComplete: false,
+      removeOnFail: false,
+    });
+
+    return job.id;
   } finally {
     await queue.close();
   }

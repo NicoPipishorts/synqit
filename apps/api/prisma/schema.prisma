@@ -145,6 +145,7 @@ model users {
   created_at     DateTime         @db.Timestamptz(6)
   auth_identities user_auth_identities[]
   admin_permissions user_admin_permissions[]
+  analytics_events analyticsEvents[]
   event_drafts   eventDrafts[]
   events         events[]
   integrations   integrations[]
@@ -164,4 +165,25 @@ model user_admin_permissions {
 
   @@id([user_id, scope])
   @@index([user_id], map: "idx_user_admin_permissions_user_id")
+}
+
+model analyticsEvents {
+  id         String   @id
+  user_id    String?
+  session_id String
+  event_name String
+  target     String
+  page_path  String
+  locale     String?
+  source     String
+  referrer   String?
+  properties Json     @default("{}")
+  created_at DateTime @db.Timestamptz(6)
+  users      users?   @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@index([created_at], map: "idx_analytics_events_created_at")
+  @@index([event_name], map: "idx_analytics_events_event_name")
+  @@index([target], map: "idx_analytics_events_target")
+  @@index([user_id], map: "idx_analytics_events_user_id")
+  @@map("analytics_events")
 }

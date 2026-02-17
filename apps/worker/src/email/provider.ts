@@ -8,6 +8,22 @@ type SendTransactionalEmailParams = {
   text: string;
 };
 
+const parseBoolean = (raw: string | undefined, fallback: boolean): boolean => {
+  if (!raw) {
+    return fallback;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+
+  return fallback;
+};
+
 const parseProvider = (): EmailProvider => {
   const raw = (process.env.EMAIL_PROVIDER ?? 'log').trim().toLowerCase();
   if (raw === 'resend' || raw === 'disabled') {
@@ -20,10 +36,12 @@ const readEmailConfig = (): {
   provider: EmailProvider;
   fromAddress: string;
   replyTo: string | undefined;
+  suppressSend: boolean;
 } => ({
   provider: parseProvider(),
   fromAddress: process.env.EMAIL_FROM ?? 'Synqit <no-reply@synqit.local>',
   replyTo: process.env.EMAIL_REPLY_TO?.trim() || undefined,
+  suppressSend: parseBoolean(process.env.EMAIL_SUPPRESS_SEND, false),
 });
 
 const sendViaResend = async (
@@ -64,6 +82,15 @@ export const sendTransactionalEmail = async (
   params: SendTransactionalEmailParams,
 ): Promise<void> => {
   const config = readEmailConfig();
+
+  if (config.suppressSend) {
+    console.info('[worker] email send suppressed', {
+      provider: config.provider,
+      to: params.to,
+      subject: params.subject,
+    });
+    return;
+  }
 
   // Read provider config at send-time so values loaded from .env/.env.local
   // in the worker entrypoint are respected.

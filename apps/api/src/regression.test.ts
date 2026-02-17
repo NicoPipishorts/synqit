@@ -83,8 +83,17 @@ const connectProvider = async (
 
 describe('API regression', () => {
   let app: FastifyInstance;
+  let previousRegistrationEmailEnabled: string | undefined;
+  let previousPasswordResetEmailEnabled: string | undefined;
 
   before(async () => {
+    previousRegistrationEmailEnabled = process.env.AUTH_REGISTRATION_EMAIL_ENABLED;
+    previousPasswordResetEmailEnabled = process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED;
+
+    // Regression must never enqueue real emails, even if local env enables them.
+    process.env.AUTH_REGISTRATION_EMAIL_ENABLED = 'false';
+    process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED = 'false';
+
     process.env.SPOTIFY_CLIENT_ID = 'replace-me';
     process.env.SPOTIFY_CLIENT_SECRET = 'replace-me';
     process.env.SPOTIFY_SCOPES =
@@ -103,6 +112,17 @@ describe('API regression', () => {
   });
 
   after(async () => {
+    if (previousRegistrationEmailEnabled === undefined) {
+      delete process.env.AUTH_REGISTRATION_EMAIL_ENABLED;
+    } else {
+      process.env.AUTH_REGISTRATION_EMAIL_ENABLED = previousRegistrationEmailEnabled;
+    }
+    if (previousPasswordResetEmailEnabled === undefined) {
+      delete process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED;
+    } else {
+      process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED = previousPasswordResetEmailEnabled;
+    }
+
     await cleanupTestData();
     await app.close();
     await prisma.$disconnect();
@@ -293,6 +313,118 @@ describe('API regression', () => {
     assert.equal(refreshAfterResetResponse.statusCode, 401);
   });
 
+  it('analytics: ingests events with optional user attribution', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const registerBody = await registerUser(app, email);
+
+    const anonymousSessionId = `session-${randomUUID()}`;
+    const anonymousResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/analytics/events',
+      payload: {
+        eventName: 'app_page_view',
+        target: 'navigation',
+        sessionId: anonymousSessionId,
+        path: '/auth/login',
+        source: 'web',
+        properties: {
+          from: 'regression-test',
+        },
+      },
+    });
+    assert.equal(anonymousResponse.statusCode, 202);
+
+    const authenticatedSessionId = `session-${randomUUID()}`;
+    const authenticatedResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/analytics/events',
+      headers: authHeader(registerBody.tokens.accessToken),
+      payload: {
+        eventName: 'event_create_submitted',
+        target: 'events',
+        sessionId: authenticatedSessionId,
+        path: '/events/new',
+        source: 'web',
+        properties: {
+          provider: 'spotify',
+        },
+      },
+    });
+    assert.equal(authenticatedResponse.statusCode, 202);
+
+    const rows = await prisma.analyticsEvents.findMany({
+      where: {
+        session_id: {
+          in: [anonymousSessionId, authenticatedSessionId],
+        },
+      },
+      select: {
+        session_id: true,
+        event_name: true,
+        target: true,
+        user_id: true,
+      },
+    });
+
+    assert.equal(rows.length, 2);
+    const anonymousRow = rows.find((row) => row.session_id === anonymousSessionId);
+    assert.ok(anonymousRow);
+    assert.equal(anonymousRow?.event_name, 'app_page_view');
+    assert.equal(anonymousRow?.target, 'navigation');
+    assert.equal(anonymousRow?.user_id, null);
+
+    const authenticatedRow = rows.find((row) => row.session_id === authenticatedSessionId);
+    assert.ok(authenticatedRow);
+    assert.equal(authenticatedRow?.event_name, 'event_create_submitted');
+    assert.equal(authenticatedRow?.target, 'events');
+    assert.equal(authenticatedRow?.user_id, registerBody.user.id);
+  });
+
+  it('analytics: validates payload and resolves locale header fallback', async () => {
+    const invalidPayloadResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/analytics/events',
+      payload: {
+        eventName: 'not_a_real_event',
+        target: 'navigation',
+        sessionId: `session-${randomUUID()}`,
+        path: '/dashboard',
+        source: 'web',
+      },
+    });
+    assert.equal(invalidPayloadResponse.statusCode, 400);
+    const invalidBody = parseBody(invalidPayloadResponse.body) as { code?: string };
+    assert.equal(invalidBody.code, 'validation_error');
+
+    const localeSessionId = `session-${randomUUID()}`;
+    const localeResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/analytics/events',
+      headers: {
+        'x-synqit-locale': 'fr-FR',
+      },
+      payload: {
+        eventName: 'app_page_view',
+        target: 'navigation',
+        sessionId: localeSessionId,
+        path: '/profile',
+        source: 'web',
+      },
+    });
+    assert.equal(localeResponse.statusCode, 202);
+
+    const localeRow = await prisma.analyticsEvents.findFirst({
+      where: {
+        session_id: localeSessionId,
+      },
+      select: {
+        locale: true,
+      },
+    });
+    assert.ok(localeRow);
+    assert.equal(localeRow?.locale, 'fr');
+  });
+
   it('auth: deleted users cannot access protected integrations/events routes', async () => {
     const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
     const registerBody = await registerUser(app, email);
@@ -416,6 +548,159 @@ describe('API regression', () => {
         },
       });
       assert.equal(forbiddenPreviewResponse.statusCode, 403);
+
+      const forbiddenResetPreviewResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/email/preview/password-reset',
+        headers: authHeader(limitedAdminLoginBody.tokens.accessToken),
+        payload: {
+          toEmail: `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`,
+          locale: 'en',
+        },
+      });
+      assert.equal(forbiddenResetPreviewResponse.statusCode, 403);
+    } finally {
+      if (previousBootstrapKey === undefined) {
+        delete process.env.ADMIN_BOOTSTRAP_KEY;
+      } else {
+        process.env.ADMIN_BOOTSTRAP_KEY = previousBootstrapKey;
+      }
+    }
+  });
+
+  it('admin: analytics events list and details return event metrics', async () => {
+    const hostEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const hostUser = await registerUser(app, hostEmail);
+
+    await connectProvider(app, {
+      provider: 'spotify',
+      accessToken: hostUser.tokens.accessToken,
+    });
+
+    const createEventResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/events',
+      headers: authHeader(hostUser.tokens.accessToken),
+      payload: {
+        provider: 'spotify',
+        name: 'Analytics Event Test',
+        description: 'Validate admin analytics list and detail endpoints.',
+      },
+    });
+    assert.equal(createEventResponse.statusCode, 200);
+    const createEventBody = parseBody(createEventResponse.body) as {
+      event: { id: string; magicLinkToken: string };
+    };
+
+    const addTrackResponse = await app.inject({
+      method: 'POST',
+      url: `/v1/events/link/${createEventBody.event.magicLinkToken}/tracks`,
+      payload: {
+        providerTrackId: 'analytics-track-1',
+        name: 'Analytics Track',
+        artist: 'Synqit',
+        album: 'Regression',
+        durationMs: 180000,
+        artworkUrl: null,
+      },
+    });
+    assert.equal(addTrackResponse.statusCode, 200);
+
+    const pageViewPublicResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/analytics/events',
+      payload: {
+        eventName: 'app_page_view',
+        target: 'navigation',
+        sessionId: `session-${randomUUID()}`,
+        path: `/event/${createEventBody.event.magicLinkToken}`,
+        source: 'web',
+      },
+    });
+    assert.equal(pageViewPublicResponse.statusCode, 202);
+
+    const actionEventResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/analytics/events',
+      payload: {
+        eventName: 'event_create_succeeded',
+        target: 'events',
+        sessionId: `session-${randomUUID()}`,
+        path: '/events/new',
+        source: 'web',
+        properties: {
+          eventId: createEventBody.event.id,
+        },
+      },
+    });
+    assert.equal(actionEventResponse.statusCode, 202);
+
+    const adminEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    await registerUser(app, adminEmail);
+
+    const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
+    process.env.ADMIN_BOOTSTRAP_KEY = 'regression-bootstrap-key';
+    try {
+      const bootstrapResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/bootstrap/promote',
+        headers: {
+          'x-admin-bootstrap-key': process.env.ADMIN_BOOTSTRAP_KEY,
+        },
+        payload: {
+          email: adminEmail,
+        },
+      });
+      assert.equal(bootstrapResponse.statusCode, 200);
+
+      const adminLoginResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/auth/login',
+        payload: {
+          email: adminEmail,
+          password: TEST_PASSWORD,
+        },
+      });
+      assert.equal(adminLoginResponse.statusCode, 200);
+      const adminLoginBody = parseBody(adminLoginResponse.body) as {
+        tokens: { accessToken: string };
+      };
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/admin/analytics/events',
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+      });
+      assert.equal(listResponse.statusCode, 200);
+      const listBody = parseBody(listResponse.body) as {
+        events: Array<{ eventId: string; name: string }>;
+      };
+      const matched = listBody.events.find((event) => event.eventId === createEventBody.event.id);
+      assert.ok(matched);
+      assert.equal(matched?.name, 'Analytics Event Test');
+
+      const detailResponse = await app.inject({
+        method: 'GET',
+        url: `/v1/admin/analytics/events/${createEventBody.event.id}`,
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+      });
+      assert.equal(detailResponse.statusCode, 200);
+      const detailBody = parseBody(detailResponse.body) as {
+        event: {
+          eventId: string;
+          tracksCount: number;
+          analytics: {
+            publicPageViews: number;
+            trackedEventActions: number;
+          };
+          recentTracks: Array<{ name: string }>;
+        };
+      };
+      assert.equal(detailBody.event.eventId, createEventBody.event.id);
+      assert.equal(detailBody.event.tracksCount, 1);
+      assert.ok(detailBody.event.analytics.publicPageViews >= 1);
+      assert.ok(detailBody.event.analytics.trackedEventActions >= 1);
+      assert.ok(detailBody.event.recentTracks.some((track) => track.name === 'Analytics Track'));
     } finally {
       if (previousBootstrapKey === undefined) {
         delete process.env.ADMIN_BOOTSTRAP_KEY;

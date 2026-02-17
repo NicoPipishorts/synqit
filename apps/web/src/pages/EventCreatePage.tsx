@@ -15,6 +15,7 @@ import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButto
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
+import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { getAccessToken } from '../lib/auth';
 import {
@@ -334,6 +335,14 @@ export const EventCreatePage = () => {
       }
 
       setIsConnectingProvider(true);
+      trackAnalyticsEvent({
+        eventName: 'provider_connect_started',
+        target: 'providers',
+        properties: {
+          provider: selectedProvider,
+          context: 'event_create',
+        },
+      });
       try {
         if (selectedProvider === 'apple') {
           await connectAppleMusic();
@@ -345,6 +354,14 @@ export const EventCreatePage = () => {
               }),
               { variant: 'success' },
             );
+            trackAnalyticsEvent({
+              eventName: 'provider_connect_succeeded',
+              target: 'providers',
+              properties: {
+                provider: selectedProvider,
+                context: 'event_create',
+              },
+            });
           }
           return;
         }
@@ -362,6 +379,14 @@ export const EventCreatePage = () => {
             }),
             { variant: 'success' },
           );
+          trackAnalyticsEvent({
+            eventName: 'provider_connect_succeeded',
+            target: 'providers',
+            properties: {
+              provider: selectedProvider,
+              context: 'event_create',
+            },
+          });
           return;
         }
 
@@ -372,6 +397,15 @@ export const EventCreatePage = () => {
               variant: 'error',
             },
           );
+          trackAnalyticsEvent({
+            eventName: 'provider_connect_failed',
+            target: 'providers',
+            properties: {
+              provider: selectedProvider,
+              context: 'event_create',
+              popupResult,
+            },
+          });
         }
       } catch (error) {
         const apiError = toApiError(error);
@@ -381,6 +415,15 @@ export const EventCreatePage = () => {
           }),
           { variant: 'error' },
         );
+        trackAnalyticsEvent({
+          eventName: 'provider_connect_failed',
+          target: 'providers',
+          properties: {
+            provider: selectedProvider,
+            context: 'event_create',
+            code: apiError.code,
+          },
+        });
       } finally {
         setIsConnectingProvider(false);
       }
@@ -395,6 +438,14 @@ export const EventCreatePage = () => {
     }
 
     setIsCreatingEvent(true);
+    trackAnalyticsEvent({
+      eventName: 'event_create_submitted',
+      target: 'events',
+      properties: {
+        provider,
+        hasDescription: description.trim().length > 0,
+      },
+    });
     try {
       const result = await callApi(
         '/v1/events',
@@ -417,6 +468,14 @@ export const EventCreatePage = () => {
         eventId: result.event.id,
         magicLinkUrl: result.magicLinkUrl,
       });
+      trackAnalyticsEvent({
+        eventName: 'event_create_succeeded',
+        target: 'events',
+        properties: {
+          provider,
+          eventId: result.event.id,
+        },
+      });
       setDraftId(null);
       syncDraftIdInQuery(null);
       showToast(t('eventsPage.createFlow.created', { name: result.event.name }), {
@@ -424,6 +483,14 @@ export const EventCreatePage = () => {
       });
     } catch (error) {
       const apiError = toApiError(error);
+      trackAnalyticsEvent({
+        eventName: 'event_create_failed',
+        target: 'events',
+        properties: {
+          provider,
+          code: apiError.code,
+        },
+      });
       showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
     } finally {
       setIsCreatingEvent(false);
@@ -442,6 +509,30 @@ export const EventCreatePage = () => {
   useEffect(() => {
     void loadIntegrations();
   }, [loadIntegrations]);
+
+  useEffect(() => {
+    trackAnalyticsEvent({
+      eventName: 'event_create_step_changed',
+      target: 'events',
+      properties: {
+        step,
+      },
+    });
+  }, [step]);
+
+  useEffect(() => {
+    if (!provider) {
+      return;
+    }
+
+    trackAnalyticsEvent({
+      eventName: 'event_create_provider_selected',
+      target: 'events',
+      properties: {
+        provider,
+      },
+    });
+  }, [provider]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

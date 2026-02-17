@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { BackgroundBlurSpots } from './BackgroundBlurSpots';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
+import { trackPageView } from '../../lib/analytics';
 import { THEME_CHANGED_EVENT } from '../../lib/constants';
 import { applyTheme, loadTheme } from '../../lib/theme';
 import { AccountMenu } from '../ui/AccountMenu';
@@ -75,6 +76,10 @@ export const AppShell = () => {
     window.addEventListener('scroll', updateScrollState, { passive: true });
     return () => window.removeEventListener('scroll', updateScrollState);
   }, []);
+
+  useEffect(() => {
+    trackPageView(pathname);
+  }, [pathname]);
 
   return (
     <div className="relative min-h-screen overflow-x-clip bg-app-bg text-app-text transition-colors">

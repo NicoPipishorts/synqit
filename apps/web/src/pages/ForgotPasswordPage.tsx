@@ -5,6 +5,7 @@ import { FormEvent, useState } from 'react';
 import { CTAButton } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { useI18n } from '../hooks/useI18n';
+import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 
 export const ForgotPasswordPage = () => {
@@ -19,6 +20,10 @@ export const ForgotPasswordPage = () => {
     setIsSubmitting(true);
     setStatus(null);
     setStatusType(null);
+    trackAnalyticsEvent({
+      eventName: 'auth_forgot_password_submit',
+      target: 'auth',
+    });
 
     try {
       await callApi(
@@ -31,9 +36,21 @@ export const ForgotPasswordPage = () => {
       );
       setStatus(null);
       setStatusType('success');
+      trackAnalyticsEvent({
+        eventName: 'auth_forgot_password_success',
+        target: 'auth',
+      });
     } catch (error) {
-      setStatus(toApiError(error).message);
+      const apiError = toApiError(error);
+      setStatus(apiError.message);
       setStatusType('error');
+      trackAnalyticsEvent({
+        eventName: 'auth_forgot_password_failed',
+        target: 'auth',
+        properties: {
+          code: apiError.code,
+        },
+      });
     } finally {
       setIsSubmitting(false);
     }

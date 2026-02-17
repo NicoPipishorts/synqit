@@ -11,8 +11,11 @@ import { AppShell } from './components/shell/AppShell';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { isAdminAuthenticated, isAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
+import { AdminAnalyticsPage } from './pages/AdminAnalyticsPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { AdminEmailsPage } from './pages/AdminEmailsPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
-import { AdminPortalPage } from './pages/AdminPortalPage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AuthForm } from './pages/AuthForm';
 import { DashboardPage } from './pages/DashboardPage';
 import { EventCreatePage } from './pages/EventCreatePage';
@@ -62,7 +65,7 @@ const requireAdminAuth = () => {
 const redirectIfAdminAuthenticated = () => {
   if (isAuthenticated() && isAdminAuthenticated()) {
     throw redirect({
-      to: '/admin',
+      to: '/admin/dashboard',
     });
   }
 };
@@ -156,8 +159,40 @@ const adminLoginRoute = createRoute({
 const adminPortalRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin',
+  beforeLoad: () => {
+    requireAdminAuth();
+    throw redirect({
+      to: '/admin/dashboard',
+    });
+  },
+});
+
+const adminDashboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/dashboard',
   beforeLoad: requireAdminAuth,
-  component: AdminPortalPage,
+  component: AdminDashboardPage,
+});
+
+const adminUsersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/users',
+  beforeLoad: requireAdminAuth,
+  component: AdminUsersPage,
+});
+
+const adminAnalyticsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/analytics',
+  beforeLoad: requireAdminAuth,
+  component: AdminAnalyticsPage,
+});
+
+const adminEmailsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/emails',
+  beforeLoad: requireAdminAuth,
+  component: AdminEmailsPage,
 });
 
 const providerOauthCallbackRoute = createRoute({
@@ -215,6 +250,10 @@ const routeTree = rootRoute.addChildren([
   resetPasswordRoute,
   adminLoginRoute,
   adminPortalRoute,
+  adminDashboardRoute,
+  adminUsersRoute,
+  adminAnalyticsRoute,
+  adminEmailsRoute,
   providerOauthCallbackRoute,
   dashboardRoute,
   profileRoute,

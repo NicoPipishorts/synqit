@@ -7,6 +7,7 @@ import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { PasswordField } from '../components/ui/PasswordField';
 import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
 import { useI18n } from '../hooks/useI18n';
+import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 
 export const ResetPasswordPage = () => {
@@ -29,14 +30,33 @@ export const ResetPasswordPage = () => {
     if (!token) {
       setStatus(t('auth.resetPasswordInvalidToken'));
       setStatusType('error');
+      trackAnalyticsEvent({
+        eventName: 'auth_reset_password_failed',
+        target: 'auth',
+        properties: {
+          reason: 'missing_token',
+        },
+      });
       return;
     }
 
     if (newPassword !== confirmPassword) {
       setStatus(t('profile.passwordMismatch'));
       setStatusType('error');
+      trackAnalyticsEvent({
+        eventName: 'auth_reset_password_failed',
+        target: 'auth',
+        properties: {
+          reason: 'mismatch',
+        },
+      });
       return;
     }
+
+    trackAnalyticsEvent({
+      eventName: 'auth_reset_password_submit',
+      target: 'auth',
+    });
 
     setIsSubmitting(true);
     try {
@@ -55,9 +75,21 @@ export const ResetPasswordPage = () => {
       setStatusType('success');
       setNewPassword('');
       setConfirmPassword('');
+      trackAnalyticsEvent({
+        eventName: 'auth_reset_password_success',
+        target: 'auth',
+      });
     } catch (error) {
-      setStatus(toApiError(error).message);
+      const apiError = toApiError(error);
+      setStatus(apiError.message);
       setStatusType('error');
+      trackAnalyticsEvent({
+        eventName: 'auth_reset_password_failed',
+        target: 'auth',
+        properties: {
+          code: apiError.code,
+        },
+      });
     } finally {
       setIsSubmitting(false);
     }
