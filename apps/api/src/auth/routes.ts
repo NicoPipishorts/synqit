@@ -3,6 +3,7 @@ import {
   authResponseSchema,
   authUserSchema,
   changePasswordRequestSchema,
+  type EmailLocale,
   personalInfoResponseSchema,
   registerCredentialsSchema,
   refreshResponseSchema,
@@ -21,6 +22,10 @@ import {
 } from './avatar-storage';
 import { createRefreshToken, hashPassword, hashToken, verifyPassword } from './crypto';
 import { authStore, UserRecord } from './store';
+import {
+  enqueueRegistrationConfirmationEmail,
+  isRegistrationConfirmationEmailEnabled,
+} from '../jobs/registration-email';
 
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
@@ -84,6 +89,17 @@ const normalizeOptionalText = (value: string | null | undefined): string | null 
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+};
+
+const resolveRegistrationEmailLocale = (request: FastifyRequest): EmailLocale => {
+  const headerValue = request.headers['accept-language'];
+  if (typeof headerValue !== 'string') {
+    return 'en';
+  }
+
+  const firstLocale = headerValue.split(',')[0]?.trim().toLowerCase();
+
+  return firstLocale?.startsWith('fr') ? 'fr' : 'en';
 };
 
 const formatPersonalInfo = (
@@ -229,6 +245,25 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     });
 
     const tokens = await issueTokens(app, user);
+
+    if (isRegistrationConfirmationEmailEnabled()) {
+      try {
+        await enqueueRegistrationConfirmationEmail({
+          userId: user.id,
+          toEmail: user.email,
+          locale: resolveRegistrationEmailLocale(request),
+        });
+      } catch (error) {
+        request.log.warn(
+          {
+            err: error,
+            userId: user.id,
+            email: user.email,
+          },
+          'failed to enqueue registration confirmation email',
+        );
+      }
+    }
 
     return authResponseSchema.parse({
       user: formatPublicUser(user),

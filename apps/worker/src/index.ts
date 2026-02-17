@@ -1,7 +1,15 @@
-import { JOBS, QUEUES } from '@synqit/shared';
-import { Queue, Worker } from 'bullmq';
+import {
+  JOBS,
+  QUEUES,
+  registrationConfirmationEmailJobSchema,
+  registrationConfirmationEmailPreviewJobSchema,
+} from '@synqit/shared';
+import { Job, Queue, Worker } from 'bullmq';
 import IORedis from 'ioredis';
 import { resolve } from 'node:path';
+
+import { sendTransactionalEmail } from './email/provider';
+import { renderRegistrationConfirmationTemplate } from './email/templates/registration-confirmation';
 
 const loadEnvFileIfPresent = (filePath: string): void => {
   try {
@@ -25,56 +33,112 @@ const connection = new IORedis(REDIS_URL, {
 });
 
 const syncQueue = new Queue(QUEUES.sync, { connection });
+const notificationsQueue = new Queue(QUEUES.notifications, { connection });
 
-const worker = new Worker(
-  QUEUES.sync,
-  async (job) => {
-    switch (job.name) {
-      case JOBS.pullPlaylists:
-        return {
-          ok: true,
-          message: 'Pull playlists job placeholder completed',
-          input: job.data,
-        };
-      default:
-        throw new Error(`Unknown job name: ${job.name}`);
+const processSyncJob = async (job: Job) => {
+  switch (job.name) {
+    case JOBS.pullPlaylists:
+      return {
+        ok: true,
+        message: 'Pull playlists job placeholder completed',
+        input: job.data,
+      };
+    default:
+      throw new Error(`Unknown sync job name: ${job.name}`);
+  }
+};
+
+const processNotificationsJob = async (job: Job) => {
+  switch (job.name) {
+    case JOBS.sendRegistrationConfirmationEmail: {
+      const parsed = registrationConfirmationEmailJobSchema.safeParse(job.data);
+      if (!parsed.success) {
+        throw new Error(`Invalid registration email payload: ${parsed.error.message}`);
+      }
+
+      const template = renderRegistrationConfirmationTemplate({
+        locale: parsed.data.locale,
+        webAppUrl: parsed.data.webAppUrl,
+        recipientEmail: parsed.data.toEmail,
+      });
+
+      await sendTransactionalEmail({
+        to: parsed.data.toEmail,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      return {
+        ok: true,
+        userId: parsed.data.userId,
+        toEmail: parsed.data.toEmail,
+      };
     }
-  },
-  { connection },
-);
+    case JOBS.sendRegistrationConfirmationEmailPreview: {
+      const parsed = registrationConfirmationEmailPreviewJobSchema.safeParse(job.data);
+      if (!parsed.success) {
+        throw new Error(`Invalid registration preview email payload: ${parsed.error.message}`);
+      }
 
-worker.on('completed', (job) => {
-  console.log(`[worker] completed job=${job.id} name=${job.name}`);
+      const template = renderRegistrationConfirmationTemplate({
+        locale: parsed.data.locale,
+        webAppUrl: parsed.data.webAppUrl,
+        recipientEmail: parsed.data.toEmail,
+      });
+
+      await sendTransactionalEmail({
+        to: parsed.data.toEmail,
+        subject: `[Preview] ${template.subject}`,
+        html: template.html,
+        text: template.text,
+      });
+
+      return {
+        ok: true,
+        preview: true,
+        toEmail: parsed.data.toEmail,
+        requestedAt: parsed.data.requestedAt,
+      };
+    }
+    default:
+      throw new Error(`Unknown notifications job name: ${job.name}`);
+  }
+};
+
+const syncWorker = new Worker(QUEUES.sync, processSyncJob, { connection });
+
+const notificationsWorker = new Worker(QUEUES.notifications, processNotificationsJob, {
+  connection,
 });
 
-worker.on('failed', (job, error) => {
-  console.error(`[worker] failed job=${job?.id ?? 'n/a'} name=${job?.name ?? 'n/a'}`, error);
-});
+const bindWorkerEvents = (worker: Worker, workerLabel: string): void => {
+  worker.on('completed', (job) => {
+    console.log(`[worker:${workerLabel}] completed job=${job.id} name=${job.name}`);
+  });
+
+  worker.on('failed', (job, error) => {
+    console.error(
+      `[worker:${workerLabel}] failed job=${job?.id ?? 'n/a'} name=${job?.name ?? 'n/a'}`,
+      error,
+    );
+  });
+};
+
+bindWorkerEvents(syncWorker, 'sync');
+bindWorkerEvents(notificationsWorker, 'notifications');
 
 const bootstrap = async () => {
-  console.log('[worker] booted and waiting for jobs');
-
-  await syncQueue.add(
-    JOBS.pullPlaylists,
-    {
-      userId: 'seed-user',
-      provider: 'spotify',
-    },
-    {
-      attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 2000,
-      },
-      removeOnComplete: true,
-      removeOnFail: false,
-    },
-  );
+  console.log('[worker] booted and waiting for jobs', {
+    emailProvider: process.env.EMAIL_PROVIDER ?? 'log',
+  });
 };
 
 const shutdown = async () => {
-  await worker.close();
+  await syncWorker.close();
+  await notificationsWorker.close();
   await syncQueue.close();
+  await notificationsQueue.close();
   await connection.quit();
 };
 

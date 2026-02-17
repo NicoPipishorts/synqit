@@ -21,6 +21,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 
 import { eventsStore, EventDraftRecord, EventRecord } from './store';
+import { authStore } from '../auth/store';
 import { getAppleDeveloperToken, getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
 import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
@@ -87,7 +88,16 @@ const verifyAndGetUserId = async (request: FastifyRequest): Promise<string | nul
   }
 
   const userId = String(request.user.sub);
-  return userId || null;
+  if (!userId) {
+    return null;
+  }
+
+  const user = await authStore.findUserById(userId);
+  if (!user) {
+    return null;
+  }
+
+  return userId;
 };
 
 const buildEventMagicLinkUrl = (magicLinkToken: string): string => {

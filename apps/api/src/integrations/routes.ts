@@ -23,6 +23,7 @@ import {
   isSpotifyOauthLiveMode,
 } from './spotify';
 import { integrationStore } from './store';
+import { authStore } from '../auth/store';
 
 const DEFAULT_OAUTH_STATE_TTL_SECONDS = 10 * 60;
 const DEFAULT_SPOTIFY_SCOPES =
@@ -165,6 +166,12 @@ const verifyAndGetUserId = async (
   const userId = String(request.user.sub);
   if (!userId) {
     app.log.warn('missing user id in jwt payload');
+    return null;
+  }
+
+  const user = await authStore.findUserById(userId);
+  if (!user) {
+    app.log.warn({ userId }, 'jwt user not found');
     return null;
   }
 

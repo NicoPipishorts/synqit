@@ -143,3 +143,6 @@ vite.config.ts.timestamp-*
 # Playwright artifacts
 apps/web/test-results/
 apps/web/playwright-report/
+
+# Local deployment notes
+docs/vps-deploy-ubuntu24.md

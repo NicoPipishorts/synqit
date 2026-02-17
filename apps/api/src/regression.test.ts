@@ -204,6 +204,102 @@ describe('API regression', () => {
     assert.equal(body.code, 'validation_error');
   });
 
+  it('auth: deleted users cannot access protected integrations/events routes', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const registerBody = await registerUser(app, email);
+    const accessToken = registerBody.tokens.accessToken;
+
+    await prisma.users.delete({
+      where: {
+        id: registerBody.user.id,
+      },
+    });
+
+    const meResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/me',
+      headers: authHeader(accessToken),
+    });
+    assert.equal(meResponse.statusCode, 401);
+
+    const integrationsResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/integrations',
+      headers: authHeader(accessToken),
+    });
+    assert.equal(integrationsResponse.statusCode, 401);
+
+    const eventsResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/events',
+      headers: authHeader(accessToken),
+    });
+    assert.equal(eventsResponse.statusCode, 401);
+  });
+
+  it('admin: preview email endpoint requires admin key configuration', async () => {
+    const previousAdminPreviewKey = process.env.ADMIN_EMAIL_PREVIEW_KEY;
+    delete process.env.ADMIN_EMAIL_PREVIEW_KEY;
+
+    try {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/email/preview',
+        payload: {
+          toEmail: `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`,
+          locale: 'en',
+        },
+      });
+
+      assert.equal(response.statusCode, 503);
+      const body = parseBody(response.body) as { code?: string };
+      assert.equal(body.code, 'admin_email_preview_not_configured');
+    } finally {
+      if (previousAdminPreviewKey === undefined) {
+        delete process.env.ADMIN_EMAIL_PREVIEW_KEY;
+      } else {
+        process.env.ADMIN_EMAIL_PREVIEW_KEY = previousAdminPreviewKey;
+      }
+    }
+  });
+
+  it('auth: register succeeds even if registration email enqueue fails', async () => {
+    const previousRegistrationEmailFlag = process.env.AUTH_REGISTRATION_EMAIL_ENABLED;
+    const previousRedisUrl = process.env.REDIS_URL;
+    process.env.AUTH_REGISTRATION_EMAIL_ENABLED = 'true';
+    process.env.REDIS_URL = 'not-a-valid-redis-url';
+
+    try {
+      const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+      const response = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/register',
+        headers: {
+          'accept-language': 'fr-FR,fr;q=0.9,en;q=0.8',
+        },
+        payload: {
+          email,
+          password: TEST_PASSWORD,
+        },
+      });
+
+      assert.equal(response.statusCode, 200);
+      const body = parseBody(response.body) as { user?: { email: string } };
+      assert.equal(body.user?.email, email);
+    } finally {
+      if (previousRegistrationEmailFlag === undefined) {
+        delete process.env.AUTH_REGISTRATION_EMAIL_ENABLED;
+      } else {
+        process.env.AUTH_REGISTRATION_EMAIL_ENABLED = previousRegistrationEmailFlag;
+      }
+      if (previousRedisUrl === undefined) {
+        delete process.env.REDIS_URL;
+      } else {
+        process.env.REDIS_URL = previousRedisUrl;
+      }
+    }
+  });
+
   it('auth: login works via password identity when users.password_hash is null', async () => {
     const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
     const registerBody = await registerUser(app, email);

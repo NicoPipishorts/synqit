@@ -379,10 +379,39 @@ export const apiErrorSchema = z.object({
 
 export type ApiError = z.infer<typeof apiErrorSchema>;
 
+export const emailLocaleSchema = z.enum(['en', 'fr']);
+export type EmailLocale = z.infer<typeof emailLocaleSchema>;
+
+export const registrationConfirmationEmailJobSchema = z.object({
+  userId: z.string(),
+  toEmail: z.string().email(),
+  locale: emailLocaleSchema,
+  webAppUrl: z.string().url(),
+});
+
+export type RegistrationConfirmationEmailJob = z.infer<
+  typeof registrationConfirmationEmailJobSchema
+>;
+
+export const registrationConfirmationEmailPreviewJobSchema = z.object({
+  toEmail: z.string().email(),
+  locale: emailLocaleSchema,
+  webAppUrl: z.string().url(),
+  requestedAt: z.string(),
+});
+
+export type RegistrationConfirmationEmailPreviewJob = z.infer<
+  typeof registrationConfirmationEmailPreviewJobSchema
+>;
+
 export const QUEUES = {
   sync: 'sync',
+  notifications: 'notifications',
 } as const;
 
 export const JOBS = {
   pullPlaylists: 'sync:pullPlaylists',
+  sendRegistrationConfirmationEmail: 'notifications:sendRegistrationConfirmationEmail',
+  sendRegistrationConfirmationEmailPreview:
+    'notifications:sendRegistrationConfirmationEmailPreview',
 } as const;
