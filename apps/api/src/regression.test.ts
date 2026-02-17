@@ -237,28 +237,101 @@ describe('API regression', () => {
     assert.equal(eventsResponse.statusCode, 401);
   });
 
-  it('admin: preview email endpoint requires admin key configuration', async () => {
-    const previousAdminPreviewKey = process.env.ADMIN_EMAIL_PREVIEW_KEY;
-    delete process.env.ADMIN_EMAIL_PREVIEW_KEY;
+  it('admin: login requires admin role and RBAC blocks unauthorized actions', async () => {
+    const hostEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    await registerUser(app, hostEmail);
 
+    const nonAdminLoginResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/admin/auth/login',
+      payload: {
+        email: hostEmail,
+        password: TEST_PASSWORD,
+      },
+    });
+    assert.equal(nonAdminLoginResponse.statusCode, 403);
+
+    const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
+    process.env.ADMIN_BOOTSTRAP_KEY = 'regression-bootstrap-key';
     try {
-      const response = await app.inject({
+      const bootstrapResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/bootstrap/promote',
+        headers: {
+          'x-admin-bootstrap-key': process.env.ADMIN_BOOTSTRAP_KEY,
+        },
+        payload: {
+          email: hostEmail,
+        },
+      });
+      assert.equal(bootstrapResponse.statusCode, 200);
+
+      const adminLoginResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/auth/login',
+        payload: {
+          email: hostEmail,
+          password: TEST_PASSWORD,
+        },
+      });
+      assert.equal(adminLoginResponse.statusCode, 200);
+      const adminLoginBody = parseBody(adminLoginResponse.body) as {
+        tokens: { accessToken: string };
+      };
+
+      const usersResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/admin/users',
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+      });
+      assert.equal(usersResponse.statusCode, 200);
+
+      const limitedEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+      const limitedUser = await registerUser(app, limitedEmail);
+      const grantLimitedAdminResponse = await app.inject({
+        method: 'PUT',
+        url: `/v1/admin/users/${limitedUser.user.id}/access`,
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+        payload: {
+          role: 'admin',
+          adminPermissions: [
+            {
+              scope: 'dashboard',
+              level: 'read',
+            },
+          ],
+        },
+      });
+      assert.equal(grantLimitedAdminResponse.statusCode, 200);
+
+      const limitedAdminLoginResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/auth/login',
+        payload: {
+          email: limitedEmail,
+          password: TEST_PASSWORD,
+        },
+      });
+      assert.equal(limitedAdminLoginResponse.statusCode, 200);
+      const limitedAdminLoginBody = parseBody(limitedAdminLoginResponse.body) as {
+        tokens: { accessToken: string };
+      };
+
+      const forbiddenPreviewResponse = await app.inject({
         method: 'POST',
         url: '/v1/admin/email/preview',
+        headers: authHeader(limitedAdminLoginBody.tokens.accessToken),
         payload: {
           toEmail: `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`,
           locale: 'en',
         },
       });
-
-      assert.equal(response.statusCode, 503);
-      const body = parseBody(response.body) as { code?: string };
-      assert.equal(body.code, 'admin_email_preview_not_configured');
+      assert.equal(forbiddenPreviewResponse.statusCode, 403);
     } finally {
-      if (previousAdminPreviewKey === undefined) {
-        delete process.env.ADMIN_EMAIL_PREVIEW_KEY;
+      if (previousBootstrapKey === undefined) {
+        delete process.env.ADMIN_BOOTSTRAP_KEY;
       } else {
-        process.env.ADMIN_EMAIL_PREVIEW_KEY = previousAdminPreviewKey;
+        process.env.ADMIN_BOOTSTRAP_KEY = previousBootstrapKey;
       }
     }
   });

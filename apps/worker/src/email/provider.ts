@@ -1,4 +1,5 @@
 const DEFAULT_RESEND_API_URL = 'https://api.resend.com/emails';
+type EmailProvider = 'log' | 'resend' | 'disabled';
 
 type SendTransactionalEmailParams = {
   to: string;
@@ -7,7 +8,7 @@ type SendTransactionalEmailParams = {
   text: string;
 };
 
-const parseProvider = (): 'log' | 'resend' | 'disabled' => {
+const parseProvider = (): EmailProvider => {
   const raw = (process.env.EMAIL_PROVIDER ?? 'log').trim().toLowerCase();
   if (raw === 'resend' || raw === 'disabled') {
     return raw;
@@ -15,11 +16,23 @@ const parseProvider = (): 'log' | 'resend' | 'disabled' => {
   return 'log';
 };
 
-const provider = parseProvider();
-const fromAddress = process.env.EMAIL_FROM ?? 'Synqit <no-reply@synqit.local>';
-const replyTo = process.env.EMAIL_REPLY_TO?.trim() || undefined;
+const readEmailConfig = (): {
+  provider: EmailProvider;
+  fromAddress: string;
+  replyTo: string | undefined;
+} => ({
+  provider: parseProvider(),
+  fromAddress: process.env.EMAIL_FROM ?? 'Synqit <no-reply@synqit.local>',
+  replyTo: process.env.EMAIL_REPLY_TO?.trim() || undefined,
+});
 
-const sendViaResend = async (params: SendTransactionalEmailParams): Promise<void> => {
+const sendViaResend = async (
+  params: SendTransactionalEmailParams,
+  config: {
+    fromAddress: string;
+    replyTo: string | undefined;
+  },
+): Promise<void> => {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     throw new Error('RESEND_API_KEY is missing while EMAIL_PROVIDER=resend.');
@@ -32,12 +45,12 @@ const sendViaResend = async (params: SendTransactionalEmailParams): Promise<void
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      from: fromAddress,
+      from: config.fromAddress,
       to: [params.to],
       subject: params.subject,
       html: params.html,
       text: params.text,
-      reply_to: replyTo,
+      reply_to: config.replyTo,
     }),
   });
 
@@ -50,19 +63,26 @@ const sendViaResend = async (params: SendTransactionalEmailParams): Promise<void
 export const sendTransactionalEmail = async (
   params: SendTransactionalEmailParams,
 ): Promise<void> => {
-  if (provider === 'disabled') {
+  const config = readEmailConfig();
+
+  // Read provider config at send-time so values loaded from .env/.env.local
+  // in the worker entrypoint are respected.
+  if (config.provider === 'disabled') {
     return;
   }
 
-  if (provider === 'resend') {
-    await sendViaResend(params);
+  if (config.provider === 'resend') {
+    await sendViaResend(params, {
+      fromAddress: config.fromAddress,
+      replyTo: config.replyTo,
+    });
     return;
   }
 
   console.info('[worker] email log transport', {
-    provider: 'log',
-    from: fromAddress,
-    replyTo,
+    provider: config.provider,
+    from: config.fromAddress,
+    replyTo: config.replyTo,
     to: params.to,
     subject: params.subject,
     text: params.text,

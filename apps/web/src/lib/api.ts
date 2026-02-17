@@ -58,16 +58,21 @@ export const callApi = async <TResponse>(
     statusCode === 401 &&
     path !== '/v1/auth/login' &&
     path !== '/v1/auth/register' &&
-    path !== '/v1/auth/refresh';
+    path !== '/v1/auth/refresh' &&
+    path !== '/v1/admin/auth/login';
 
   const redirectToLoginIfNeeded = (): void => {
     if (typeof window === 'undefined') {
       return;
     }
-    if (window.location.pathname.startsWith('/auth/')) {
+    const isAdminPath = path.startsWith('/v1/admin/');
+    if (!isAdminPath && window.location.pathname.startsWith('/auth/')) {
       return;
     }
-    window.location.assign('/auth/login');
+    if (isAdminPath && window.location.pathname.startsWith('/admin/login')) {
+      return;
+    }
+    window.location.assign(isAdminPath ? '/admin/login' : '/auth/login');
   };
 
   const refreshAccessToken = async (): Promise<string | null> => {

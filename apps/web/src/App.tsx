@@ -9,8 +9,10 @@ import {
 
 import { AppShell } from './components/shell/AppShell';
 import { ToastProvider } from './components/ui/ToastProvider';
-import { isAuthenticated } from './lib/auth';
+import { isAdminAuthenticated, isAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
+import { AdminLoginPage } from './pages/AdminLoginPage';
+import { AdminPortalPage } from './pages/AdminPortalPage';
 import { AuthForm } from './pages/AuthForm';
 import { DashboardPage } from './pages/DashboardPage';
 import { EventCreatePage } from './pages/EventCreatePage';
@@ -43,6 +45,22 @@ const redirectIfAuthenticated = () => {
   if (isAuthenticated()) {
     throw redirect({
       to: '/dashboard',
+    });
+  }
+};
+
+const requireAdminAuth = () => {
+  if (!isAuthenticated() || !isAdminAuthenticated()) {
+    throw redirect({
+      to: '/admin/login',
+    });
+  }
+};
+
+const redirectIfAdminAuthenticated = () => {
+  if (isAuthenticated() && isAdminAuthenticated()) {
+    throw redirect({
+      to: '/admin',
     });
   }
 };
@@ -112,6 +130,20 @@ const loginRoute = createRoute({
   component: () => <AuthForm endpoint="/v1/auth/login" />,
 });
 
+const adminLoginRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/login',
+  beforeLoad: redirectIfAdminAuthenticated,
+  component: AdminLoginPage,
+});
+
+const adminPortalRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin',
+  beforeLoad: requireAdminAuth,
+  component: AdminPortalPage,
+});
+
 const providerOauthCallbackRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/provider-connected',
@@ -163,6 +195,8 @@ const routeTree = rootRoute.addChildren([
   eventPublicRoute,
   registerRoute,
   loginRoute,
+  adminLoginRoute,
+  adminPortalRoute,
   providerOauthCallbackRoute,
   dashboardRoute,
   profileRoute,

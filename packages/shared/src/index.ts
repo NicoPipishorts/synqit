@@ -75,11 +75,35 @@ export const refreshTokenRequestSchema = z.object({
 
 export type RefreshTokenRequest = z.infer<typeof refreshTokenRequestSchema>;
 
+export const accountRoleSchema = z.enum(['user', 'admin']);
+export type AccountRole = z.infer<typeof accountRoleSchema>;
+
+export const adminPermissionScopeSchema = z.enum([
+  'dashboard',
+  'users',
+  'events',
+  'integrations',
+  'emails',
+  'analytics',
+]);
+export type AdminPermissionScope = z.infer<typeof adminPermissionScopeSchema>;
+
+export const adminPermissionLevelSchema = z.enum(['read', 'write']);
+export type AdminPermissionLevel = z.infer<typeof adminPermissionLevelSchema>;
+
+export const adminPermissionSchema = z.object({
+  scope: adminPermissionScopeSchema,
+  level: adminPermissionLevelSchema,
+});
+export type AdminPermission = z.infer<typeof adminPermissionSchema>;
+
 export const authUserSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   createdAt: z.string(),
   avatarUrl: z.string().url().nullable().default(null),
+  role: accountRoleSchema.default('user'),
+  adminPermissions: z.array(adminPermissionSchema).default([]),
 });
 
 export type AuthUser = z.infer<typeof authUserSchema>;
@@ -105,6 +129,34 @@ export const refreshResponseSchema = z.object({
 });
 
 export type RefreshResponse = z.infer<typeof refreshResponseSchema>;
+
+export const adminLoginRequestSchema = authCredentialsSchema;
+export type AdminLoginRequest = z.infer<typeof adminLoginRequestSchema>;
+
+export const adminMeResponseSchema = z.object({
+  user: authUserSchema,
+});
+export type AdminMeResponse = z.infer<typeof adminMeResponseSchema>;
+
+export const adminUserAccessUpdateSchema = z.object({
+  role: accountRoleSchema,
+  adminPermissions: z.array(adminPermissionSchema).default([]),
+});
+export type AdminUserAccessUpdate = z.infer<typeof adminUserAccessUpdateSchema>;
+
+export const adminUserSummarySchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  role: accountRoleSchema,
+  createdAt: z.string(),
+  adminPermissions: z.array(adminPermissionSchema),
+});
+export type AdminUserSummary = z.infer<typeof adminUserSummarySchema>;
+
+export const adminUserListResponseSchema = z.object({
+  users: z.array(adminUserSummarySchema),
+});
+export type AdminUserListResponse = z.infer<typeof adminUserListResponseSchema>;
 
 const birthDateIsoPattern = /^\d{4}-\d{2}-\d{2}$/;
 

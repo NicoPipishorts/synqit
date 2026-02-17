@@ -25,7 +25,15 @@ export const loadAuth = (): StoredAuth | null => {
       return null;
     }
 
-    return parsed as StoredAuth;
+    return {
+      accessToken: parsed.accessToken,
+      refreshToken: parsed.refreshToken,
+      userId: parsed.userId,
+      userEmail: parsed.userEmail,
+      avatarUrl: parsed.avatarUrl,
+      role: parsed.role === 'admin' ? 'admin' : 'user',
+      adminPermissions: Array.isArray(parsed.adminPermissions) ? parsed.adminPermissions : [],
+    };
   } catch {
     return null;
   }
@@ -39,6 +47,8 @@ export const storeAuth = (authResponse: unknown): StoredAuth => {
     userId: parsed.user.id,
     userEmail: parsed.user.email,
     avatarUrl: parsed.user.avatarUrl,
+    role: parsed.user.role,
+    adminPermissions: parsed.user.adminPermissions,
   };
 
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuth));
@@ -49,6 +59,8 @@ export const storeAuth = (authResponse: unknown): StoredAuth => {
 export const updateStoredAuthUser = (patch: {
   userEmail?: string;
   avatarUrl?: string | null;
+  role?: 'user' | 'admin';
+  adminPermissions?: StoredAuth['adminPermissions'];
 }): StoredAuth | null => {
   const current = loadAuth();
   if (!current) {
@@ -59,6 +71,8 @@ export const updateStoredAuthUser = (patch: {
     ...current,
     ...(patch.userEmail !== undefined ? { userEmail: patch.userEmail } : {}),
     ...(patch.avatarUrl !== undefined ? { avatarUrl: patch.avatarUrl } : {}),
+    ...(patch.role !== undefined ? { role: patch.role } : {}),
+    ...(patch.adminPermissions !== undefined ? { adminPermissions: patch.adminPermissions } : {}),
   };
 
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
@@ -94,6 +108,8 @@ export const clearAuth = (): void => {
 export const getAccessToken = (): string | null => loadAuth()?.accessToken ?? null;
 
 export const isAuthenticated = (): boolean => Boolean(loadAuth()?.accessToken);
+
+export const isAdminAuthenticated = (): boolean => loadAuth()?.role === 'admin';
 
 export const getInitials = (email: string): string => {
   const trimmed = email.trim();

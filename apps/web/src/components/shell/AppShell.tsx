@@ -1,6 +1,6 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
-import { CalendarDays, LayoutDashboard, ListMusic, UserRound } from 'lucide-react';
+import { CalendarDays, LayoutDashboard, ListMusic, Shield, UserRound } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { BackgroundBlurSpots } from './BackgroundBlurSpots';
@@ -26,6 +26,9 @@ export const AppShell = () => {
     { to: '/events', label: t('accountMenu.myEvents'), icon: CalendarDays },
     { to: '/synced-lists', label: t('accountMenu.syncedLists'), icon: ListMusic },
     { to: '/profile', label: t('accountMenu.profile'), icon: UserRound },
+    ...(auth?.role === 'admin'
+      ? [{ to: '/admin', label: t('accountMenu.admin'), icon: Shield }]
+      : []),
   ] as const;
   const isNavItemActive = (to: string): boolean => {
     if (to === '/events') {

@@ -1,3 +1,10 @@
+import {
+  accountRoleSchema,
+  adminPermissionLevelSchema,
+  adminPermissionScopeSchema,
+  type AccountRole,
+  type AdminPermission,
+} from '@synqit/shared';
 import { randomUUID } from 'node:crypto';
 
 import { prisma } from '../db/prisma';
@@ -5,6 +12,8 @@ import { prisma } from '../db/prisma';
 type UserRecord = {
   id: string;
   email: string;
+  role: AccountRole;
+  adminPermissions: AdminPermission[];
   passwordHash: string | null;
   avatarPath: string | null;
   createdAt: Date;
@@ -40,9 +49,16 @@ type UserPersonalInfoRecord = {
 type UserRow = {
   id: string;
   email: string;
+  role?: string | null;
   password_hash: string | null;
   avatar_url?: string | null;
   created_at: Date;
+};
+
+type UserAdminPermissionRow = {
+  user_id: string;
+  scope: string;
+  access_level: string;
 };
 
 type PasswordIdentityRow = {
@@ -75,6 +91,8 @@ type RefreshTokenRow = {
 const toUserRecord = (row: UserRow): UserRecord => ({
   id: row.id,
   email: row.email,
+  role: accountRoleSchema.safeParse(row.role).success ? (row.role as AccountRole) : 'user',
+  adminPermissions: [],
   passwordHash: row.password_hash,
   avatarPath: row.avatar_url ?? null,
   createdAt: new Date(row.created_at),
@@ -182,6 +200,19 @@ const isMissingAvatarColumnError = (error: unknown): boolean => {
   return sqlCode === '42703';
 };
 
+const toAdminPermission = (row: UserAdminPermissionRow): AdminPermission | null => {
+  const scope = adminPermissionScopeSchema.safeParse(row.scope);
+  const level = adminPermissionLevelSchema.safeParse(row.access_level);
+  if (!scope.success || !level.success) {
+    return null;
+  }
+
+  return {
+    scope: scope.data,
+    level: level.data,
+  };
+};
+
 const PASSWORD_AUTH_PROVIDER = 'password';
 
 export const authStore = {
@@ -193,9 +224,14 @@ export const authStore = {
       const rows = await prisma.$queryRaw<UserRow[]>`
         INSERT INTO "users" (id, email, password_hash, avatar_url, created_at)
         VALUES (${userId}, ${normalizedEmail}, ${params.passwordHash}, ${null}, ${createdAt})
-        RETURNING id, email, password_hash, avatar_url, created_at
+        RETURNING id, email, role, password_hash, avatar_url, created_at
       `;
-      return rows.length > 0 ? toUserRecord(rows[0]) : null;
+      if (rows.length === 0) {
+        return null;
+      }
+      const record = toUserRecord(rows[0]);
+      record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+      return record;
     } catch (error) {
       if (isMissingAvatarColumnError(error)) {
         try {
@@ -204,7 +240,12 @@ export const authStore = {
             VALUES (${userId}, ${normalizedEmail}, ${params.passwordHash}, ${createdAt})
             RETURNING id, email, password_hash, created_at
           `;
-          return rows.length > 0 ? toUserRecord(rows[0]) : null;
+          if (rows.length === 0) {
+            return null;
+          }
+          const record = toUserRecord(rows[0]);
+          record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+          return record;
         } catch (fallbackError) {
           if (isUniqueConstraintViolation(fallbackError)) {
             return null;
@@ -224,12 +265,17 @@ export const authStore = {
     const normalizedEmail = email.trim().toLowerCase();
     try {
       const rows = await prisma.$queryRaw<UserRow[]>`
-        SELECT id, email, password_hash, avatar_url, created_at
+        SELECT id, email, role, password_hash, avatar_url, created_at
         FROM "users"
         WHERE email = ${normalizedEmail}
         LIMIT 1
       `;
-      return rows.length > 0 ? toUserRecord(rows[0]) : null;
+      if (rows.length === 0) {
+        return null;
+      }
+      const record = toUserRecord(rows[0]);
+      record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+      return record;
     } catch (error) {
       if (isMissingAvatarColumnError(error)) {
         const rows = await prisma.$queryRaw<UserRow[]>`
@@ -238,7 +284,12 @@ export const authStore = {
           WHERE email = ${normalizedEmail}
           LIMIT 1
         `;
-        return rows.length > 0 ? toUserRecord(rows[0]) : null;
+        if (rows.length === 0) {
+          return null;
+        }
+        const record = toUserRecord(rows[0]);
+        record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+        return record;
       }
       throw error;
     }
@@ -247,12 +298,17 @@ export const authStore = {
   async findUserById(id: string): Promise<UserRecord | null> {
     try {
       const rows = await prisma.$queryRaw<UserRow[]>`
-        SELECT id, email, password_hash, avatar_url, created_at
+        SELECT id, email, role, password_hash, avatar_url, created_at
         FROM "users"
         WHERE id = ${id}
         LIMIT 1
       `;
-      return rows.length > 0 ? toUserRecord(rows[0]) : null;
+      if (rows.length === 0) {
+        return null;
+      }
+      const record = toUserRecord(rows[0]);
+      record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+      return record;
     } catch (error) {
       if (isMissingAvatarColumnError(error)) {
         const rows = await prisma.$queryRaw<UserRow[]>`
@@ -261,10 +317,129 @@ export const authStore = {
           WHERE id = ${id}
           LIMIT 1
         `;
-        return rows.length > 0 ? toUserRecord(rows[0]) : null;
+        if (rows.length === 0) {
+          return null;
+        }
+        const record = toUserRecord(rows[0]);
+        record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+        return record;
       }
       throw error;
     }
+  },
+
+  async listUserAdminPermissionsByUserId(userId: string): Promise<AdminPermission[]> {
+    try {
+      const rows = await prisma.$queryRaw<UserAdminPermissionRow[]>`
+        SELECT user_id, scope, access_level
+        FROM "user_admin_permissions"
+        WHERE user_id = ${userId}
+      `;
+
+      return rows
+        .map(toAdminPermission)
+        .filter((value): value is AdminPermission => value !== null);
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async setUserRoleById(userId: string, role: AccountRole): Promise<boolean> {
+    const updatedCount = await prisma.$executeRaw`
+      UPDATE "users"
+      SET role = ${role}
+      WHERE id = ${userId}
+    `;
+
+    return Number(updatedCount) === 1;
+  },
+
+  async replaceUserAdminPermissionsByUserId(
+    userId: string,
+    permissions: AdminPermission[],
+  ): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+        DELETE FROM "user_admin_permissions"
+        WHERE user_id = ${userId}
+      `;
+
+      if (permissions.length === 0) {
+        return;
+      }
+
+      const now = new Date();
+      for (const permission of permissions) {
+        await tx.$executeRaw`
+          INSERT INTO "user_admin_permissions" (
+            user_id,
+            scope,
+            access_level,
+            created_at,
+            updated_at
+          )
+          VALUES (
+            ${userId},
+            ${permission.scope},
+            ${permission.level},
+            ${now},
+            ${now}
+          )
+        `;
+      }
+    });
+  },
+
+  async listUsers(): Promise<UserRecord[]> {
+    let rows: UserRow[];
+    try {
+      rows = await prisma.$queryRaw<UserRow[]>`
+        SELECT id, email, role, password_hash, avatar_url, created_at
+        FROM "users"
+        ORDER BY created_at DESC
+        LIMIT 200
+      `;
+    } catch (error) {
+      if (!isMissingAvatarColumnError(error)) {
+        throw error;
+      }
+      rows = await prisma.$queryRaw<UserRow[]>`
+        SELECT id, email, password_hash, created_at
+        FROM "users"
+        ORDER BY created_at DESC
+        LIMIT 200
+      `;
+    }
+
+    const users = rows.map((row) => toUserRecord(row));
+    const permissionsByUser = new Map<string, AdminPermission[]>();
+    try {
+      const permissionRows = await prisma.$queryRaw<UserAdminPermissionRow[]>`
+        SELECT user_id, scope, access_level
+        FROM "user_admin_permissions"
+      `;
+      for (const row of permissionRows) {
+        const permission = toAdminPermission(row);
+        if (!permission) {
+          continue;
+        }
+        const existing = permissionsByUser.get(row.user_id) ?? [];
+        existing.push(permission);
+        permissionsByUser.set(row.user_id, existing);
+      }
+    } catch (error) {
+      if (!isMissingRelationError(error)) {
+        throw error;
+      }
+    }
+
+    return users.map((user) => ({
+      ...user,
+      adminPermissions: permissionsByUser.get(user.id) ?? [],
+    }));
   },
 
   async updateUserPasswordById(userId: string, passwordHash: string): Promise<boolean> {

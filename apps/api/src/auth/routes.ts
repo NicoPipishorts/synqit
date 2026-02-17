@@ -80,6 +80,8 @@ const formatPublicUser = (user: UserRecord) =>
     email: user.email,
     createdAt: user.createdAt.toISOString(),
     avatarUrl: buildAvatarUrl(user.avatarPath),
+    role: user.role,
+    adminPermissions: user.adminPermissions,
   });
 
 const normalizeOptionalText = (value: string | null | undefined): string | null => {
@@ -184,6 +186,7 @@ const issueTokens = async (app: FastifyInstance, user: UserRecord) => {
     {
       sub: user.id,
       email: user.email,
+      role: user.role,
     },
     {
       expiresIn: accessTokenTtlSeconds,
@@ -371,6 +374,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       {
         sub: user.id,
         email: user.email,
+        role: user.role,
       },
       {
         expiresIn: accessTokenTtlSeconds,
