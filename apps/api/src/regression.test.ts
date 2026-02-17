@@ -4,6 +4,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, beforeEach, describe, it } from 'node:test';
 
+import { hashToken } from './auth/crypto';
+import { authStore } from './auth/store';
 import { closeDatabase } from './db';
 import { prisma } from './db/prisma';
 import { buildServer } from './index';
@@ -202,6 +204,93 @@ describe('API regression', () => {
     assert.equal(response.statusCode, 400);
     const body = parseBody(response.body) as { code?: string };
     assert.equal(body.code, 'validation_error');
+  });
+
+  it('auth: forgot/reset password flow updates credentials and invalidates old refresh tokens', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const registerBody = await registerUser(app, email);
+
+    const previousResetEmailEnabled = process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED;
+    const previousRedisUrl = process.env.REDIS_URL;
+    process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED = 'true';
+    process.env.REDIS_URL = 'not-a-valid-redis-url';
+    try {
+      const forgotResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/forgot-password',
+        payload: {
+          email,
+        },
+      });
+      assert.equal(forgotResponse.statusCode, 200);
+    } finally {
+      if (previousResetEmailEnabled === undefined) {
+        delete process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED;
+      } else {
+        process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED = previousResetEmailEnabled;
+      }
+      if (previousRedisUrl === undefined) {
+        delete process.env.REDIS_URL;
+      } else {
+        process.env.REDIS_URL = previousRedisUrl;
+      }
+    }
+
+    const resetToken = `reset-${randomUUID()}-${Date.now()}`;
+    const tokenRecord = await authStore.createPasswordResetToken({
+      userId: registerBody.user.id,
+      tokenHash: hashToken(resetToken),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    });
+    assert.ok(tokenRecord);
+
+    const resetResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/reset-password',
+      payload: {
+        token: resetToken,
+        newPassword: UPDATED_TEST_PASSWORD,
+      },
+    });
+    assert.equal(resetResponse.statusCode, 200);
+
+    const refreshedTokenRecord = await prisma.$queryRaw<Array<{ used_at: Date | null }>>`
+      SELECT used_at
+      FROM "password_reset_tokens"
+      WHERE id = ${tokenRecord!.id}
+      LIMIT 1
+    `;
+    assert.equal(refreshedTokenRecord.length, 1);
+    assert.ok(refreshedTokenRecord[0]?.used_at);
+
+    const oldLoginResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: {
+        email,
+        password: TEST_PASSWORD,
+      },
+    });
+    assert.equal(oldLoginResponse.statusCode, 401);
+
+    const newLoginResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: {
+        email,
+        password: UPDATED_TEST_PASSWORD,
+      },
+    });
+    assert.equal(newLoginResponse.statusCode, 200);
+
+    const refreshAfterResetResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      payload: {
+        refreshToken: registerBody.tokens.refreshToken,
+      },
+    });
+    assert.equal(refreshAfterResetResponse.statusCode, 401);
   });
 
   it('auth: deleted users cannot access protected integrations/events routes', async () => {

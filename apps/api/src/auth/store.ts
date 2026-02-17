@@ -35,6 +35,15 @@ type RefreshTokenRecord = {
   replacedByTokenId: string | null;
 };
 
+type PasswordResetTokenRecord = {
+  id: string;
+  userId: string;
+  tokenHash: string;
+  createdAt: Date;
+  expiresAt: Date;
+  usedAt: Date | null;
+};
+
 type UserPersonalInfoRecord = {
   userId: string;
   displayName: string | null;
@@ -88,6 +97,15 @@ type RefreshTokenRow = {
   replaced_by_token_id: string | null;
 };
 
+type PasswordResetTokenRow = {
+  id: string;
+  user_id: string;
+  token_hash: string;
+  created_at: Date;
+  expires_at: Date;
+  used_at: Date | null;
+};
+
 const toUserRecord = (row: UserRow): UserRecord => ({
   id: row.id,
   email: row.email,
@@ -112,6 +130,15 @@ const toPasswordIdentityRecord = (row: PasswordIdentityRow): PasswordIdentityRec
   userId: row.user_id,
   providerUserId: row.provider_user_id,
   passwordHash: row.password_hash,
+});
+
+const toPasswordResetTokenRecord = (row: PasswordResetTokenRow): PasswordResetTokenRecord => ({
+  id: row.id,
+  userId: row.user_id,
+  tokenHash: row.token_hash,
+  createdAt: new Date(row.created_at),
+  expiresAt: new Date(row.expires_at),
+  usedAt: row.used_at ? new Date(row.used_at) : null,
 });
 
 const toDateOnlyString = (value: string | null): string | null => {
@@ -652,6 +679,83 @@ export const authStore = {
     return toRefreshTokenRecord(row);
   },
 
+  async createPasswordResetToken(params: {
+    userId: string;
+    tokenHash: string;
+    expiresAt: Date;
+  }): Promise<PasswordResetTokenRecord | null> {
+    const id = randomUUID();
+    const createdAt = new Date();
+    try {
+      const rows = await prisma.$queryRaw<PasswordResetTokenRow[]>`
+        INSERT INTO "password_reset_tokens" (
+          id,
+          user_id,
+          token_hash,
+          created_at,
+          expires_at,
+          used_at
+        )
+        VALUES (
+          ${id},
+          ${params.userId},
+          ${params.tokenHash},
+          ${createdAt},
+          ${params.expiresAt},
+          ${null}
+        )
+        RETURNING id, user_id, token_hash, created_at, expires_at, used_at
+      `;
+
+      return rows.length > 0 ? toPasswordResetTokenRecord(rows[0]) : null;
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async findActivePasswordResetTokenByHash(
+    tokenHash: string,
+  ): Promise<PasswordResetTokenRecord | null> {
+    try {
+      const rows = await prisma.$queryRaw<PasswordResetTokenRow[]>`
+        SELECT id, user_id, token_hash, created_at, expires_at, used_at
+        FROM "password_reset_tokens"
+        WHERE token_hash = ${tokenHash}
+          AND used_at IS NULL
+          AND expires_at > NOW()
+        LIMIT 1
+      `;
+
+      return rows.length > 0 ? toPasswordResetTokenRecord(rows[0]) : null;
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async markPasswordResetTokenUsedById(id: string): Promise<boolean> {
+    try {
+      const updatedCount = await prisma.$executeRaw`
+        UPDATE "password_reset_tokens"
+        SET used_at = NOW()
+        WHERE id = ${id}
+          AND used_at IS NULL
+      `;
+
+      return Number(updatedCount) === 1;
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return false;
+      }
+      throw error;
+    }
+  },
+
   async findRefreshTokenByHash(tokenHash: string): Promise<RefreshTokenRecord | null> {
     const row = await prisma.refresh_tokens.findUnique({
       where: { token_hash: tokenHash },
@@ -727,6 +831,24 @@ export const authStore = {
 
     return true;
   },
+
+  async revokeAllRefreshTokensByUserId(userId: string): Promise<number> {
+    const now = new Date();
+    const updatedCount = await prisma.$executeRaw`
+      UPDATE "refresh_tokens"
+      SET revoked_at = ${now}
+      WHERE user_id = ${userId}
+        AND revoked_at IS NULL
+    `;
+
+    return Number(updatedCount);
+  },
 };
 
-export type { PasswordIdentityRecord, RefreshTokenRecord, UserPersonalInfoRecord, UserRecord };
+export type {
+  PasswordIdentityRecord,
+  PasswordResetTokenRecord,
+  RefreshTokenRecord,
+  UserPersonalInfoRecord,
+  UserRecord,
+};

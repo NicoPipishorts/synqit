@@ -50,7 +50,18 @@
     "authenticated": "Authenticated as {{email}}. Redirecting...",
     "noAccount": "No account yet?",
     "alreadyAccount": "Already have an account?",
-    "createOne": "Create one"
+    "createOne": "Create one",
+    "forgotPassword": "Forgot password?",
+    "forgotPasswordTitle": "Reset your password",
+    "forgotPasswordDescription": "Enter your account email and we will send you a reset link.",
+    "forgotPasswordSubmit": "Send reset link",
+    "forgotPasswordSent": "If this email exists, a reset link has been sent.",
+    "resetPasswordTitle": "Choose a new password",
+    "resetPasswordDescription": "Set your new password to restore access to your account.",
+    "resetPasswordSubmit": "Update password",
+    "resetPasswordSuccess": "Your password has been updated. You can now log in.",
+    "resetPasswordInvalidToken": "Reset link is invalid or expired.",
+    "backToLogin": "Back to login"
   },
   "admin": {
     "loginTitle": "Admin Login",

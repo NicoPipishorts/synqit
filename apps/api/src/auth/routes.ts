@@ -4,10 +4,14 @@ import {
   authUserSchema,
   changePasswordRequestSchema,
   type EmailLocale,
+  forgotPasswordRequestSchema,
+  forgotPasswordResponseSchema,
   personalInfoResponseSchema,
   registerCredentialsSchema,
   refreshResponseSchema,
   refreshTokenRequestSchema,
+  resetPasswordRequestSchema,
+  resetPasswordResponseSchema,
   updatePersonalInfoRequestSchema,
 } from '@synqit/shared';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
@@ -20,8 +24,18 @@ import {
   resolveAvatarFile,
   saveAvatarImage,
 } from './avatar-storage';
-import { createRefreshToken, hashPassword, hashToken, verifyPassword } from './crypto';
+import {
+  createOpaqueToken,
+  createRefreshToken,
+  hashPassword,
+  hashToken,
+  verifyPassword,
+} from './crypto';
 import { authStore, UserRecord } from './store';
+import {
+  enqueuePasswordResetEmail,
+  isPasswordResetEmailEnabled,
+} from '../jobs/password-reset-email';
 import {
   enqueueRegistrationConfirmationEmail,
   isRegistrationConfirmationEmailEnabled,
@@ -29,6 +43,7 @@ import {
 
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
+const DEFAULT_PASSWORD_RESET_TOKEN_TTL_MINUTES = 30;
 const AVATAR_UPLOAD_ROUTE_BODY_LIMIT_BYTES = 3_000_000;
 
 const parsePositiveNumber = (raw: string | undefined, fallback: number): number => {
@@ -53,6 +68,11 @@ const refreshTokenTtlDays = parsePositiveNumber(
   DEFAULT_REFRESH_TOKEN_TTL_DAYS,
 );
 const refreshTokenTtlMs = refreshTokenTtlDays * 24 * 60 * 60 * 1000;
+const passwordResetTokenTtlMinutes = parsePositiveNumber(
+  process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES,
+  DEFAULT_PASSWORD_RESET_TOKEN_TTL_MINUTES,
+);
+const passwordResetTokenTtlMs = passwordResetTokenTtlMinutes * 60 * 1000;
 const avatarUploadRequestSchema = z.object({
   imageDataUrl: z.string().min(1),
 });
@@ -74,6 +94,13 @@ const sendValidationError = (reply: FastifyReply, details: unknown) =>
     details,
   });
 
+const sendForgotPasswordAccepted = (reply: FastifyReply) =>
+  reply.status(200).send(
+    forgotPasswordResponseSchema.parse({
+      ok: true,
+    }),
+  );
+
 const formatPublicUser = (user: UserRecord) =>
   authUserSchema.parse({
     id: user.id,
@@ -93,15 +120,40 @@ const normalizeOptionalText = (value: string | null | undefined): string | null 
   return trimmed.length > 0 ? trimmed : null;
 };
 
-const resolveRegistrationEmailLocale = (request: FastifyRequest): EmailLocale => {
-  const headerValue = request.headers['accept-language'];
-  if (typeof headerValue !== 'string') {
+const normalizeLocaleHeader = (headerValue: string | string[] | undefined): EmailLocale | null => {
+  const raw = Array.isArray(headerValue) ? headerValue[0] : headerValue;
+  if (typeof raw !== 'string') {
+    return null;
+  }
+
+  const firstLocale = raw.split(',')[0]?.trim().toLowerCase();
+  if (!firstLocale) {
+    return null;
+  }
+
+  if (firstLocale.startsWith('fr')) {
+    return 'fr';
+  }
+
+  if (firstLocale.startsWith('en')) {
     return 'en';
   }
 
-  const firstLocale = headerValue.split(',')[0]?.trim().toLowerCase();
+  return null;
+};
 
-  return firstLocale?.startsWith('fr') ? 'fr' : 'en';
+const resolveRequestEmailLocale = (request: FastifyRequest): EmailLocale => {
+  const explicitLocale = normalizeLocaleHeader(request.headers['x-synqit-locale']);
+  if (explicitLocale) {
+    return explicitLocale;
+  }
+
+  const acceptLanguageLocale = normalizeLocaleHeader(request.headers['accept-language']);
+  if (acceptLanguageLocale) {
+    return acceptLanguageLocale;
+  }
+
+  return 'en';
 };
 
 const formatPersonalInfo = (
@@ -254,7 +306,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         await enqueueRegistrationConfirmationEmail({
           userId: user.id,
           toEmail: user.email,
-          locale: resolveRegistrationEmailLocale(request),
+          locale: resolveRequestEmailLocale(request),
         });
       } catch (error) {
         request.log.warn(
@@ -320,6 +372,104 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     return authResponseSchema.parse({
       user: formatPublicUser(user),
       tokens,
+    });
+  });
+
+  app.post('/auth/forgot-password', async (request, reply) => {
+    const parsed = forgotPasswordRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendValidationError(reply, parsed.error.flatten());
+    }
+
+    const user = await authStore.findUserByEmail(parsed.data.email);
+    if (!user || !isPasswordResetEmailEnabled()) {
+      return sendForgotPasswordAccepted(reply);
+    }
+
+    try {
+      const resetToken = createOpaqueToken();
+      const tokenRecord = await authStore.createPasswordResetToken({
+        userId: user.id,
+        tokenHash: hashToken(resetToken),
+        expiresAt: new Date(Date.now() + passwordResetTokenTtlMs),
+      });
+
+      if (!tokenRecord) {
+        request.log.warn({ userId: user.id }, 'password reset token storage unavailable');
+        return sendForgotPasswordAccepted(reply);
+      }
+
+      await enqueuePasswordResetEmail({
+        userId: user.id,
+        toEmail: user.email,
+        locale: resolveRequestEmailLocale(request),
+        resetToken,
+      });
+    } catch (error) {
+      request.log.warn(
+        {
+          err: error,
+          userId: user.id,
+          email: user.email,
+        },
+        'failed to enqueue password reset email',
+      );
+    }
+
+    return sendForgotPasswordAccepted(reply);
+  });
+
+  app.post('/auth/reset-password', async (request, reply) => {
+    const parsed = resetPasswordRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return sendValidationError(reply, parsed.error.flatten());
+    }
+
+    const tokenRecord = await authStore.findActivePasswordResetTokenByHash(
+      hashToken(parsed.data.token),
+    );
+    if (!tokenRecord) {
+      return reply.status(400).send({
+        code: 'invalid_reset_token',
+        message: 'Reset link is invalid or expired.',
+      });
+    }
+
+    const user = await authStore.findUserById(tokenRecord.userId);
+    if (!user) {
+      await authStore.markPasswordResetTokenUsedById(tokenRecord.id);
+      return reply.status(400).send({
+        code: 'invalid_reset_token',
+        message: 'Reset link is invalid or expired.',
+      });
+    }
+
+    const nextPasswordHash = await hashPassword(parsed.data.newPassword);
+    const updated = await authStore.updateUserPasswordById(user.id, nextPasswordHash);
+    if (!updated) {
+      return reply.status(500).send({
+        code: 'password_update_failed',
+        message: 'Unable to update password at this time.',
+      });
+    }
+
+    const identityUpdated = await authStore.upsertPasswordIdentity({
+      userId: user.id,
+      email: user.email,
+      passwordHash: nextPasswordHash,
+    });
+    if (!identityUpdated) {
+      return reply.status(500).send({
+        code: 'password_update_failed',
+        message: 'Unable to update password at this time.',
+      });
+    }
+
+    await authStore.markPasswordResetTokenUsedById(tokenRecord.id);
+    await authStore.revokeAllRefreshTokensByUserId(user.id);
+
+    return resetPasswordResponseSchema.parse({
+      ok: true,
     });
   });
 

@@ -2,6 +2,7 @@ import { ApiError, refreshResponseSchema } from '@synqit/shared';
 
 import { clearAuth, loadAuth, updateStoredAuthTokens } from './auth';
 import { API_URL } from './constants';
+import { loadAnonymousPreferences } from './preferences';
 
 export const toApiError = (value: unknown): ApiError => {
   if (value instanceof Error) {
@@ -36,8 +37,12 @@ export const callApi = async <TResponse>(
   const hasBody = init.body !== undefined && init.body !== null;
   const buildHeaders = (overrideAccessToken?: string): Headers => {
     const headers = new Headers(init.headers ?? {});
+    const preferredLocale = loadAnonymousPreferences().locale;
     if (hasBody && !headers.has('content-type')) {
       headers.set('content-type', 'application/json');
+    }
+    if (preferredLocale && !headers.has('x-synqit-locale')) {
+      headers.set('x-synqit-locale', preferredLocale);
     }
     if (overrideAccessToken) {
       headers.set('authorization', `Bearer ${overrideAccessToken}`);

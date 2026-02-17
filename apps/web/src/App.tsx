@@ -17,6 +17,7 @@ import { AuthForm } from './pages/AuthForm';
 import { DashboardPage } from './pages/DashboardPage';
 import { EventCreatePage } from './pages/EventCreatePage';
 import { EventPublicPage } from './pages/EventPublicPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { HomePage } from './pages/HomePage';
 import { HostEventDetailsPage } from './pages/HostEventDetailsPage';
 import { HostEventsPage } from './pages/HostEventsPage';
@@ -25,6 +26,7 @@ import { ProfilePersonalInfoPage } from './pages/ProfilePersonalInfoPage';
 import { ProfilePlatformsPage } from './pages/ProfilePlatformsPage';
 import { ProfileSecurityPage } from './pages/ProfileSecurityPage';
 import { ProviderOauthCallbackPage } from './pages/ProviderOauthCallbackPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { SyncedListsPage } from './pages/SyncedListsPage';
 
 const queryClient = new QueryClient();
@@ -130,6 +132,20 @@ const loginRoute = createRoute({
   component: () => <AuthForm endpoint="/v1/auth/login" />,
 });
 
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/forgot-password',
+  beforeLoad: redirectIfAuthenticated,
+  component: ForgotPasswordPage,
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/auth/reset-password',
+  beforeLoad: redirectIfAuthenticated,
+  component: ResetPasswordPage,
+});
+
 const adminLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/login',
@@ -195,6 +211,8 @@ const routeTree = rootRoute.addChildren([
   eventPublicRoute,
   registerRoute,
   loginRoute,
+  forgotPasswordRoute,
+  resetPasswordRoute,
   adminLoginRoute,
   adminPortalRoute,
   providerOauthCallbackRoute,

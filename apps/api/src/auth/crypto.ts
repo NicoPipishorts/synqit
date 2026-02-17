@@ -27,7 +27,9 @@ export const verifyPassword = async (password: string, storedHash: string): Prom
   return timingSafeEqual(derived, hashBuffer);
 };
 
-export const createRefreshToken = (): string => randomBytes(48).toString('base64url');
+export const createOpaqueToken = (): string => randomBytes(48).toString('base64url');
+
+export const createRefreshToken = (): string => createOpaqueToken();
 
 export const hashToken = (token: string): string =>
   createHash('sha256').update(token, 'utf8').digest('hex');

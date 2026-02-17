@@ -1,6 +1,7 @@
 import {
   JOBS,
   QUEUES,
+  passwordResetEmailJobSchema,
   registrationConfirmationEmailJobSchema,
   registrationConfirmationEmailPreviewJobSchema,
 } from '@synqit/shared';
@@ -9,6 +10,7 @@ import IORedis from 'ioredis';
 import { resolve } from 'node:path';
 
 import { sendTransactionalEmail } from './email/provider';
+import { renderPasswordResetTemplate } from './email/templates/password-reset';
 import { renderRegistrationConfirmationTemplate } from './email/templates/registration-confirmation';
 
 const loadEnvFileIfPresent = (filePath: string): void => {
@@ -99,6 +101,32 @@ const processNotificationsJob = async (job: Job) => {
         preview: true,
         toEmail: parsed.data.toEmail,
         requestedAt: parsed.data.requestedAt,
+      };
+    }
+    case JOBS.sendPasswordResetEmail: {
+      const parsed = passwordResetEmailJobSchema.safeParse(job.data);
+      if (!parsed.success) {
+        throw new Error(`Invalid password reset email payload: ${parsed.error.message}`);
+      }
+
+      const template = renderPasswordResetTemplate({
+        locale: parsed.data.locale,
+        webAppUrl: parsed.data.webAppUrl,
+        recipientEmail: parsed.data.toEmail,
+        resetToken: parsed.data.resetToken,
+      });
+
+      await sendTransactionalEmail({
+        to: parsed.data.toEmail,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      return {
+        ok: true,
+        userId: parsed.data.userId,
+        toEmail: parsed.data.toEmail,
       };
     }
     default:

@@ -75,6 +75,27 @@ export const refreshTokenRequestSchema = z.object({
 
 export type RefreshTokenRequest = z.infer<typeof refreshTokenRequestSchema>;
 
+export const forgotPasswordRequestSchema = z.object({
+  email: authEmailSchema,
+});
+export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
+
+export const forgotPasswordResponseSchema = z.object({
+  ok: z.literal(true),
+});
+export type ForgotPasswordResponse = z.infer<typeof forgotPasswordResponseSchema>;
+
+export const resetPasswordRequestSchema = z.object({
+  token: z.string().min(20).max(512),
+  newPassword: strongPasswordSchema,
+});
+export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;
+
+export const resetPasswordResponseSchema = z.object({
+  ok: z.literal(true),
+});
+export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
+
 export const accountRoleSchema = z.enum(['user', 'admin']);
 export type AccountRole = z.infer<typeof accountRoleSchema>;
 
@@ -456,6 +477,16 @@ export type RegistrationConfirmationEmailPreviewJob = z.infer<
   typeof registrationConfirmationEmailPreviewJobSchema
 >;
 
+export const passwordResetEmailJobSchema = z.object({
+  userId: z.string(),
+  toEmail: z.string().email(),
+  locale: emailLocaleSchema,
+  webAppUrl: z.string().url(),
+  resetToken: z.string().min(20),
+});
+
+export type PasswordResetEmailJob = z.infer<typeof passwordResetEmailJobSchema>;
+
 export const QUEUES = {
   sync: 'sync',
   notifications: 'notifications',
@@ -466,4 +497,5 @@ export const JOBS = {
   sendRegistrationConfirmationEmail: 'notifications:sendRegistrationConfirmationEmail',
   sendRegistrationConfirmationEmailPreview:
     'notifications:sendRegistrationConfirmationEmailPreview',
+  sendPasswordResetEmail: 'notifications:sendPasswordResetEmail',
 } as const;

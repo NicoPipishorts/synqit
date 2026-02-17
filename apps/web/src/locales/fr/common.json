@@ -50,7 +50,18 @@
     "authenticated": "Connecté en tant que {{email}}. Redirection...",
     "noAccount": "Pas encore de compte ?",
     "alreadyAccount": "Vous avez déjà un compte ?",
-    "createOne": "En créer un"
+    "createOne": "En créer un",
+    "forgotPassword": "Mot de passe oublié ?",
+    "forgotPasswordTitle": "Réinitialiser le mot de passe",
+    "forgotPasswordDescription": "Saisissez votre e-mail et nous vous enverrons un lien de réinitialisation.",
+    "forgotPasswordSubmit": "Envoyer le lien",
+    "forgotPasswordSent": "Si cet e-mail existe, un lien de réinitialisation a été envoyé.",
+    "resetPasswordTitle": "Choisissez un nouveau mot de passe",
+    "resetPasswordDescription": "Définissez votre nouveau mot de passe pour retrouver l'accès au compte.",
+    "resetPasswordSubmit": "Mettre à jour le mot de passe",
+    "resetPasswordSuccess": "Votre mot de passe a été mis à jour. Vous pouvez vous connecter.",
+    "resetPasswordInvalidToken": "Le lien de réinitialisation est invalide ou expiré.",
+    "backToLogin": "Retour à la connexion"
   },
   "admin": {
     "loginTitle": "Connexion admin",

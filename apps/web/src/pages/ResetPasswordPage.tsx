@@ -1,6 +1,6 @@
-import { PASSWORD_MIN_LENGTH } from '@synqit/shared';
-import { Link, useNavigate } from '@tanstack/react-router';
-import { FormEvent, useState } from 'react';
+import { PASSWORD_MIN_LENGTH, resetPasswordResponseSchema } from '@synqit/shared';
+import { Link, useRouterState } from '@tanstack/react-router';
+import { FormEvent, useMemo, useState } from 'react';
 
 import { CTAButton } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
@@ -8,42 +8,55 @@ import { PasswordField } from '../components/ui/PasswordField';
 import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
 import { useI18n } from '../hooks/useI18n';
 import { callApi, toApiError } from '../lib/api';
-import { storeAuth } from '../lib/auth';
 
-export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/auth/login' }) => {
-  const navigate = useNavigate();
+export const ResetPasswordPage = () => {
   const { t } = useI18n();
-  const isLogin = endpoint === '/v1/auth/login';
-  const title = isLogin ? t('auth.loginTitle') : t('auth.registerTitle');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [status, setStatus] = useState<string | null>(null);
-  const [statusType, setStatusType] = useState<'error' | 'success' | null>(null);
+  const search = useRouterState({
+    select: (state) => state.location.searchStr,
+  });
+  const token = useMemo(() => new URLSearchParams(search).get('token')?.trim() ?? '', [search]);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [statusType, setStatusType] = useState<'success' | 'error' | null>(null);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsSubmitting(true);
     setStatus(null);
     setStatusType(null);
 
+    if (!token) {
+      setStatus(t('auth.resetPasswordInvalidToken'));
+      setStatusType('error');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setStatus(t('profile.passwordMismatch'));
+      setStatusType('error');
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      const result = await callApi(
-        endpoint,
+      await callApi(
+        '/v1/auth/reset-password',
         {
           method: 'POST',
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({
+            token,
+            newPassword,
+          }),
         },
-        (payload) => payload,
+        (payload) => resetPasswordResponseSchema.parse(payload),
       );
-
-      const auth = storeAuth(result);
-      setStatus(t('auth.authenticated', { email: auth.userEmail }));
+      setStatus(t('auth.resetPasswordSuccess'));
       setStatusType('success');
-      void navigate({ to: '/dashboard' });
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (error) {
-      const apiError = toApiError(error);
-      setStatus(apiError.message);
+      setStatus(toApiError(error).message);
       setStatusType('error');
     } finally {
       setIsSubmitting(false);
@@ -58,8 +71,9 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
       <div className="relative grid w-full gap-6">
         <div className="mx-auto grid w-full max-w-xl gap-2 text-center">
           <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
-            {isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
+            {t('auth.resetPasswordTitle')}
           </h1>
+          <p className="text-sm text-app-text-secondary">{t('auth.resetPasswordDescription')}</p>
         </div>
 
         <form
@@ -67,44 +81,34 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
           className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 shadow-soft-lift dark:bg-app-card sm:p-8"
         >
           <label className="grid gap-2 text-sm font-medium">
-            <span>{t('auth.email')}</span>
-            <input
-              required
-              type="email"
-              autoComplete={isLogin ? 'username' : 'email'}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-app-text outline-none transition focus:border-brand-lime"
-              placeholder={t('auth.emailPlaceholder')}
-            />
-          </label>
-
-          <label className="grid gap-2 text-sm font-medium">
-            <span>{t('auth.password')}</span>
+            <span>{t('profile.newPassword')}</span>
             <PasswordField
               required
               minLength={PASSWORD_MIN_LENGTH}
-              autoComplete={isLogin ? 'current-password' : 'new-password'}
-              value={password}
-              onChange={setPassword}
-              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={setNewPassword}
               placeholder={t('auth.passwordPlaceholder')}
+              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
             />
-            {!isLogin ? <PasswordStrengthMeter password={password} showTooltip /> : null}
+            <PasswordStrengthMeter password={newPassword} showTooltip />
           </label>
-          {isLogin ? (
-            <div className="flex justify-end">
-              <Link
-                to="/auth/forgot-password"
-                className="text-xs font-semibold text-brand-pink hover:text-[#d12074]"
-              >
-                {t('auth.forgotPassword')}
-              </Link>
-            </div>
-          ) : null}
+
+          <label className="grid gap-2 text-sm font-medium">
+            <span>{t('profile.confirmPassword')}</span>
+            <PasswordField
+              required
+              minLength={PASSWORD_MIN_LENGTH}
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={setConfirmPassword}
+              placeholder={t('profile.confirmPassword')}
+              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
+            />
+          </label>
 
           <CTAButton disabled={isSubmitting} type="submit" variant="primary">
-            {isSubmitting ? t('auth.submitting') : title}
+            {isSubmitting ? t('auth.submitting') : t('auth.resetPasswordSubmit')}
           </CTAButton>
 
           {status ? (
@@ -120,12 +124,8 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
           ) : null}
 
           <p className="text-sm text-app-text-secondary">
-            {isLogin ? t('auth.noAccount') : t('auth.alreadyAccount')}{' '}
-            <Link
-              to={isLogin ? '/auth/register' : '/auth/login'}
-              className="font-semibold text-brand-pink hover:text-[#d12074]"
-            >
-              {isLogin ? t('auth.createOne') : t('auth.loginTitle')}
+            <Link to="/auth/login" className="font-semibold text-brand-pink hover:text-[#d12074]">
+              {t('auth.backToLogin')}
             </Link>
           </p>
         </form>
