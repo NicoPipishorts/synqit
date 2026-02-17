@@ -30,14 +30,6 @@ const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> => ({
   analytics: 'none',
 });
 
-const permissionsSummary = (scopeLevels: Record<AdminPermissionScope, AccessLevelUi>): string => {
-  const entries = Object.entries(scopeLevels).filter((entry) => entry[1] !== 'none');
-  if (entries.length === 0) {
-    return 'none';
-  }
-  return entries.map(([scope, level]) => `${scope}:${level}`).join(', ');
-};
-
 export const AdminPortalPage = () => {
   const { t } = useI18n();
   const navigate = useNavigate();
@@ -258,44 +250,41 @@ export const AdminPortalPage = () => {
         ) : null}
       </article>
 
-      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-        <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+      <div className="grid items-start gap-5 lg:grid-cols-2">
+        <article className="flex min-h-[30rem] flex-col gap-4 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card lg:h-[36rem]">
           <h2 className="text-lg font-black text-app-text">{t('admin.usersTitle')}</h2>
           {isLoadingUsers ? (
             <p className="text-sm text-app-text-secondary">{t('admin.loadingUsers')}</p>
           ) : (
-            <div className="grid gap-2">
-              {users.map((user) => {
-                const active = editor?.userId === user.id;
-                const levels = defaultScopeLevels();
-                for (const permission of user.adminPermissions) {
-                  levels[permission.scope] = permission.level;
-                }
-                return (
-                  <button
-                    key={user.id}
-                    type="button"
-                    onClick={() => selectUser(user.id)}
-                    className={`grid cursor-pointer gap-1 rounded-xl border px-3 py-3 text-left transition ${
-                      active
-                        ? 'border-brand-lime bg-brand-lime/10'
-                        : 'border-app-border bg-app-surface hover:border-brand-lime'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
+            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-app-border bg-app-surface dark:bg-app-card">
+              <div className="grid grid-cols-[1fr_auto] border-b border-app-border px-3 py-2 text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+                <span>{t('auth.email')}</span>
+                <span>{t('admin.roleLabel')}</span>
+              </div>
+              <div className="min-h-0 max-h-full overflow-y-auto">
+                {users.map((user) => {
+                  const active = editor?.userId === user.id;
+                  return (
+                    <button
+                      key={user.id}
+                      type="button"
+                      onClick={() => selectUser(user.id)}
+                      className={`grid w-full cursor-pointer grid-cols-[1fr_auto] items-center gap-2 border-b border-app-border px-3 py-3 text-left transition last:border-b-0 ${
+                        active
+                          ? 'bg-brand-lime/10'
+                          : 'bg-transparent hover:bg-app-elevated dark:hover:bg-app-elevated/70'
+                      }`}
+                    >
                       <span className="truncate text-sm font-black text-app-text">
                         {user.email}
                       </span>
                       <span className="rounded-full border border-app-border px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-app-text-secondary">
                         {user.role}
                       </span>
-                    </div>
-                    <span className="text-[11px] font-semibold text-app-text-secondary">
-                      {permissionsSummary(levels)}
-                    </span>
-                  </button>
-                );
-              })}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
           {usersStatus ? (
@@ -305,74 +294,76 @@ export const AdminPortalPage = () => {
           ) : null}
         </article>
 
-        <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+        <article className="flex min-h-[30rem] flex-col gap-4 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card lg:h-[36rem]">
           <h2 className="text-lg font-black text-app-text">{t('admin.accessEditorTitle')}</h2>
           {!editor ? (
             <p className="text-sm text-app-text-secondary">{t('admin.noUserSelected')}</p>
           ) : (
-            <div className="grid gap-4">
-              <label className="grid gap-2 text-sm font-semibold">
-                <span>{t('admin.roleLabel')}</span>
-                <select
-                  value={editor.role}
-                  onChange={(event) =>
-                    setEditor((current) =>
-                      current
-                        ? {
-                            ...current,
-                            role: event.target.value === 'admin' ? 'admin' : 'user',
-                          }
-                        : current,
-                    )
-                  }
-                  className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text"
-                >
-                  <option value="user">user</option>
-                  <option value="admin">admin</option>
-                </select>
-              </label>
-
-              <div className="grid gap-2">
-                {scopes.map((scope) => (
-                  <label
-                    key={scope}
-                    className="grid gap-1 text-xs font-semibold uppercase tracking-wide"
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+              <div className="grid gap-4">
+                <label className="grid gap-2 text-sm font-semibold">
+                  <span>{t('admin.roleLabel')}</span>
+                  <select
+                    value={editor.role}
+                    onChange={(event) =>
+                      setEditor((current) =>
+                        current
+                          ? {
+                              ...current,
+                              role: event.target.value === 'admin' ? 'admin' : 'user',
+                            }
+                          : current,
+                      )
+                    }
+                    className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text"
                   >
-                    <span className="text-app-text-secondary">{scope}</span>
-                    <select
-                      value={editor.scopeLevels[scope]}
-                      disabled={editor.role !== 'admin'}
-                      onChange={(event) =>
-                        setEditor((current) =>
-                          current
-                            ? {
-                                ...current,
-                                scopeLevels: {
-                                  ...current.scopeLevels,
-                                  [scope]: event.target.value as AccessLevelUi,
-                                },
-                              }
-                            : current,
-                        )
-                      }
-                      className="rounded-lg border border-app-border bg-app-bg px-2.5 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
-                    >
-                      <option value="none">none</option>
-                      <option value="read">read</option>
-                      <option value="write">write</option>
-                    </select>
-                  </label>
-                ))}
-              </div>
+                    <option value="user">user</option>
+                    <option value="admin">admin</option>
+                  </select>
+                </label>
 
-              <CTAButton
-                type="button"
-                variant="primary"
-                onClick={() => void saveAccess()}
-                disabled={isSaving}
-              >
-                {isSaving ? t('admin.savingAccess') : t('admin.saveAccess')}
-              </CTAButton>
+                <div className="grid gap-2">
+                  {scopes.map((scope) => (
+                    <label
+                      key={scope}
+                      className="grid gap-1 text-xs font-semibold uppercase tracking-wide"
+                    >
+                      <span className="text-app-text-secondary">{scope}</span>
+                      <select
+                        value={editor.scopeLevels[scope]}
+                        disabled={editor.role !== 'admin'}
+                        onChange={(event) =>
+                          setEditor((current) =>
+                            current
+                              ? {
+                                  ...current,
+                                  scopeLevels: {
+                                    ...current.scopeLevels,
+                                    [scope]: event.target.value as AccessLevelUi,
+                                  },
+                                }
+                              : current,
+                          )
+                        }
+                        className="rounded-lg border border-app-border bg-app-bg px-2.5 py-2 text-sm font-semibold text-app-text disabled:opacity-60"
+                      >
+                        <option value="none">none</option>
+                        <option value="read">read</option>
+                        <option value="write">write</option>
+                      </select>
+                    </label>
+                  ))}
+                </div>
+
+                <CTAButton
+                  type="button"
+                  variant="primary"
+                  onClick={() => void saveAccess()}
+                  disabled={isSaving}
+                >
+                  {isSaving ? t('admin.savingAccess') : t('admin.saveAccess')}
+                </CTAButton>
+              </div>
             </div>
           )}
         </article>
