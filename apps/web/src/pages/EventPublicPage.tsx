@@ -15,6 +15,7 @@ import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
+import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import {
   EventProvider,
@@ -83,6 +84,14 @@ export const EventPublicPage = () => {
       const message = t('eventsPage.error', { message: apiError.message });
       setPageError(message);
       showToast(message, { variant: 'error' });
+      trackAnalyticsEvent({
+        eventName: 'event_tracks_load_failed',
+        target: 'events',
+        properties: {
+          scope: 'public',
+          code: apiError.code,
+        },
+      });
     } finally {
       setIsLoadingTracks(false);
     }
@@ -122,6 +131,13 @@ export const EventPublicPage = () => {
         const message = t('eventsPage.error', { message: apiError.message });
         setPageError(message);
         showToast(message, { variant: 'error' });
+        trackAnalyticsEvent({
+          eventName: 'event_public_load_failed',
+          target: 'events',
+          properties: {
+            code: apiError.code,
+          },
+        });
       } finally {
         setIsLoading(false);
       }
@@ -154,6 +170,15 @@ export const EventPublicPage = () => {
 
     if (eventState !== 'open') {
       setSearchStatus(t('eventPublicPage.statusEventClosed'));
+      trackAnalyticsEvent({
+        eventName: 'event_track_add_blocked',
+        target: 'events',
+        properties: {
+          scope: 'public',
+          reason: 'event_closed',
+          action: 'search',
+        },
+      });
       return;
     }
 
@@ -182,6 +207,13 @@ export const EventPublicPage = () => {
       const message = t('eventsPage.error', { message: apiError.message });
       setSearchStatus(message);
       showToast(message, { variant: 'error' });
+      trackAnalyticsEvent({
+        eventName: 'event_track_search_failed',
+        target: 'events',
+        properties: {
+          code: apiError.code,
+        },
+      });
     } finally {
       setIsSearching(false);
     }
@@ -222,6 +254,14 @@ export const EventPublicPage = () => {
       const message = t('eventsPage.error', { message: apiError.message });
       setSearchStatus(message);
       showToast(message, { variant: 'error' });
+      trackAnalyticsEvent({
+        eventName: 'event_track_search_failed',
+        target: 'events',
+        properties: {
+          code: apiError.code,
+          action: 'load_more',
+        },
+      });
     } finally {
       setIsLoadingMoreSearchResults(false);
     }
@@ -230,6 +270,15 @@ export const EventPublicPage = () => {
   const addTrack = async (track: SearchTrackResult) => {
     if (eventState !== 'open') {
       setSearchStatus(t('eventPublicPage.statusEventClosed'));
+      trackAnalyticsEvent({
+        eventName: 'event_track_add_blocked',
+        target: 'events',
+        properties: {
+          scope: 'public',
+          reason: 'event_closed',
+          providerTrackId: track.providerTrackId,
+        },
+      });
       return;
     }
 
@@ -259,6 +308,14 @@ export const EventPublicPage = () => {
       const message = t('eventsPage.error', { message: apiError.message });
       setSearchStatus(message);
       showToast(message, { variant: 'error' });
+      trackAnalyticsEvent({
+        eventName: 'event_track_add_failed',
+        target: 'events',
+        properties: {
+          code: apiError.code,
+          providerTrackId: track.providerTrackId,
+        },
+      });
     } finally {
       setAddingTrackId(null);
     }

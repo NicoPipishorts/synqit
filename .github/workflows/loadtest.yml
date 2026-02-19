@@ -1,0 +1,72 @@
+name: API Load Test (Manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Public API URL to test (example: https://api.example.com/healthz)'
+        required: true
+        type: string
+      method:
+        description: 'HTTP method'
+        required: false
+        default: 'GET'
+        type: choice
+        options:
+          - GET
+          - POST
+      duration_seconds:
+        description: 'Duration in seconds'
+        required: false
+        default: '60'
+        type: string
+      concurrency:
+        description: 'Concurrent workers'
+        required: false
+        default: '20'
+        type: string
+      body_json:
+        description: 'Optional JSON body (POST only)'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  loadtest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Setup Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Run load test
+        run: |
+          if [ "${{ github.event.inputs.method }}" = "POST" ] && [ -n "${{ github.event.inputs.body_json }}" ]; then
+            yarn loadtest:api -- \
+              --url "${{ github.event.inputs.target_url }}" \
+              --method "${{ github.event.inputs.method }}" \
+              --duration "${{ github.event.inputs.duration_seconds }}" \
+              --concurrency "${{ github.event.inputs.concurrency }}" \
+              --header "content-type: application/json" \
+              --body '${{ github.event.inputs.body_json }}'
+          else
+            yarn loadtest:api -- \
+              --url "${{ github.event.inputs.target_url }}" \
+              --method "${{ github.event.inputs.method }}" \
+              --duration "${{ github.event.inputs.duration_seconds }}" \
+              --concurrency "${{ github.event.inputs.concurrency }}"
+          fi

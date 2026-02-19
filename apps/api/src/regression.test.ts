@@ -619,6 +619,20 @@ describe('API regression', () => {
     });
     assert.equal(pageViewPublicResponse.statusCode, 202);
 
+    const pageViewHostResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/analytics/events',
+      headers: authHeader(hostUser.tokens.accessToken),
+      payload: {
+        eventName: 'app_page_view',
+        target: 'navigation',
+        sessionId: `session-${randomUUID()}`,
+        path: '/dashboard',
+        source: 'web',
+      },
+    });
+    assert.equal(pageViewHostResponse.statusCode, 202);
+
     const actionEventResponse = await app.inject({
       method: 'POST',
       url: '/v1/analytics/events',
@@ -678,6 +692,82 @@ describe('API regression', () => {
       const matched = listBody.events.find((event) => event.eventId === createEventBody.event.id);
       assert.ok(matched);
       assert.equal(matched?.name, 'Analytics Event Test');
+
+      const usersListResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/admin/analytics/users',
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+      });
+      assert.equal(usersListResponse.statusCode, 200);
+      const usersListBody = parseBody(usersListResponse.body) as {
+        users: Array<{
+          userId: string;
+          eventPlaylistsCount: number;
+          sharedPlaylistsCount: number;
+        }>;
+      };
+      const hostSummary = usersListBody.users.find((user) => user.userId === hostUser.user.id);
+      assert.ok(hostSummary);
+      assert.ok((hostSummary?.eventPlaylistsCount ?? 0) >= 1);
+      assert.ok((hostSummary?.sharedPlaylistsCount ?? 0) >= 1);
+
+      const overviewResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/admin/analytics/overview',
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+      });
+      assert.equal(overviewResponse.statusCode, 200);
+      const overviewBody = parseBody(overviewResponse.body) as {
+        totals: {
+          usersCount: number;
+          eventPlaylistsCount: number;
+          pageViewsCount: number;
+        };
+        pageViewsByPath: Array<{ path: string; views: number }>;
+      };
+      assert.ok(overviewBody.totals.usersCount >= 1);
+      assert.ok(overviewBody.totals.eventPlaylistsCount >= 1);
+      assert.ok(overviewBody.totals.pageViewsCount >= 1);
+      assert.ok(overviewBody.pageViewsByPath.length >= 1);
+
+      const overviewAllTimeResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/admin/analytics/overview?range=all',
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+      });
+      assert.equal(overviewAllTimeResponse.statusCode, 200);
+
+      const overviewInvalidRangeResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/admin/analytics/overview?range=2d',
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+      });
+      assert.equal(overviewInvalidRangeResponse.statusCode, 400);
+
+      const userDetailResponse = await app.inject({
+        method: 'GET',
+        url: `/v1/admin/analytics/users/${hostUser.user.id}`,
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+      });
+      assert.equal(userDetailResponse.statusCode, 200);
+      const userDetailBody = parseBody(userDetailResponse.body) as {
+        user: {
+          userId: string;
+          eventPlaylistsCount: number;
+          sharedPlaylistsCount: number;
+          events: Array<{ eventId: string; shared: boolean }>;
+          pageViewsByPath: Array<{ path: string; views: number }>;
+        };
+      };
+      assert.equal(userDetailBody.user.userId, hostUser.user.id);
+      assert.ok(userDetailBody.user.eventPlaylistsCount >= 1);
+      assert.ok(userDetailBody.user.sharedPlaylistsCount >= 1);
+      assert.ok(userDetailBody.user.pageViewsByPath.some((view) => view.path === '/dashboard'));
+      assert.ok(
+        userDetailBody.user.events.some(
+          (event) => event.eventId === createEventBody.event.id && event.shared,
+        ),
+      );
 
       const detailResponse = await app.inject({
         method: 'GET',

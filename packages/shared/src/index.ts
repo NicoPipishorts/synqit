@@ -227,6 +227,80 @@ export type AdminAnalyticsEventDetailResponse = z.infer<
   typeof adminAnalyticsEventDetailResponseSchema
 >;
 
+export const adminAnalyticsUserSummarySchema = z.object({
+  userId: z.string(),
+  email: z.string().email(),
+  role: accountRoleSchema,
+  createdAt: z.string(),
+  eventPlaylistsCount: z.number().int().nonnegative(),
+  sharedPlaylistsCount: z.number().int().nonnegative(),
+});
+export type AdminAnalyticsUserSummary = z.infer<typeof adminAnalyticsUserSummarySchema>;
+
+export const adminAnalyticsUsersListResponseSchema = z.object({
+  users: z.array(adminAnalyticsUserSummarySchema),
+});
+export type AdminAnalyticsUsersListResponse = z.infer<typeof adminAnalyticsUsersListResponseSchema>;
+
+export const adminAnalyticsUserEventSummarySchema = z.object({
+  eventId: z.string(),
+  name: z.string(),
+  provider: providerSchema,
+  status: adminAnalyticsEventStatusSchema,
+  tracksCount: z.number().int().nonnegative(),
+  shared: z.boolean(),
+  updatedAt: z.string(),
+});
+export type AdminAnalyticsUserEventSummary = z.infer<typeof adminAnalyticsUserEventSummarySchema>;
+
+export const adminAnalyticsPageViewsByPathSchema = z.object({
+  path: z.string(),
+  views: z.number().int().nonnegative(),
+});
+export type AdminAnalyticsPageViewsByPath = z.infer<typeof adminAnalyticsPageViewsByPathSchema>;
+
+export const adminAnalyticsPageViewsByDaySchema = z.object({
+  day: z.string(),
+  views: z.number().int().nonnegative(),
+});
+export type AdminAnalyticsPageViewsByDay = z.infer<typeof adminAnalyticsPageViewsByDaySchema>;
+
+export const adminAnalyticsUserDetailResponseSchema = z.object({
+  user: adminAnalyticsUserSummarySchema.extend({
+    adminPermissions: z.array(adminPermissionSchema),
+    events: z.array(adminAnalyticsUserEventSummarySchema),
+    pageViewsByPath: z.array(adminAnalyticsPageViewsByPathSchema),
+  }),
+});
+export type AdminAnalyticsUserDetailResponse = z.infer<
+  typeof adminAnalyticsUserDetailResponseSchema
+>;
+
+export const adminAnalyticsOverviewResponseSchema = z.object({
+  totals: z.object({
+    usersCount: z.number().int().nonnegative(),
+    eventPlaylistsCount: z.number().int().nonnegative(),
+    sharedPlaylistsCount: z.number().int().nonnegative(),
+    pageViewsCount: z.number().int().nonnegative(),
+    uniqueSessionsCount: z.number().int().nonnegative(),
+    trackedEventsCount: z.number().int().nonnegative(),
+  }),
+  pageViewsByPath: z.array(adminAnalyticsPageViewsByPathSchema),
+  pageViewsByDay: z.array(adminAnalyticsPageViewsByDaySchema),
+});
+export type AdminAnalyticsOverviewResponse = z.infer<typeof adminAnalyticsOverviewResponseSchema>;
+
+export const adminAnalyticsOverviewRangeSchema = z.enum([
+  '24h',
+  '7d',
+  '14d',
+  '30d',
+  '45d',
+  '90d',
+  'all',
+]);
+export type AdminAnalyticsOverviewRange = z.infer<typeof adminAnalyticsOverviewRangeSchema>;
+
 export const analyticsEventNameSchema = z.enum([
   'app_page_view',
   'auth_login_submit',
@@ -252,6 +326,13 @@ export const analyticsEventNameSchema = z.enum([
   'event_create_submitted',
   'event_create_succeeded',
   'event_create_failed',
+  'event_public_load_failed',
+  'event_host_load_failed',
+  'event_tracks_load_failed',
+  'event_track_search_failed',
+  'event_track_add_failed',
+  'event_track_add_blocked',
+  'event_provider_disconnected_warning',
 ]);
 export type AnalyticsEventName = z.infer<typeof analyticsEventNameSchema>;
 

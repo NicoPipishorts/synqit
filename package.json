@@ -22,8 +22,11 @@
     "prisma:migrate:status": "yarn workspace @synqit/api prisma:migrate:status",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
     "infra:up:core": "docker compose -f infra/docker-compose.yml up -d postgres redis",
+    "infra:up:obs": "docker compose -f infra/docker-compose.yml up -d prometheus grafana",
     "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "infra:down:obs": "docker compose -f infra/docker-compose.yml stop prometheus grafana",
     "infra:ps": "docker compose -f infra/docker-compose.yml ps",
+    "infra:ps:obs": "docker compose -f infra/docker-compose.yml ps prometheus grafana",
     "infra:logs": "docker compose -f infra/docker-compose.yml logs -f --tail=100",
     "build": "yarn workspaces run build",
     "lint": "yarn workspaces run lint",
@@ -35,6 +38,7 @@
     "test:api:regression": "yarn workspace @synqit/api test",
     "test:web:e2e": "yarn workspace @synqit/web test:e2e",
     "test:ci": "yarn test:api:regression && yarn test:web:e2e",
+    "loadtest:api": "node scripts/loadtest-api.mjs",
     "prepare": "husky"
   },
   "devDependencies": {

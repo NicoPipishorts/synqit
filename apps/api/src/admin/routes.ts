@@ -1,6 +1,10 @@
 import {
   adminAnalyticsEventDetailResponseSchema,
   adminAnalyticsEventsListResponseSchema,
+  adminAnalyticsOverviewRangeSchema,
+  adminAnalyticsOverviewResponseSchema,
+  adminAnalyticsUserDetailResponseSchema,
+  adminAnalyticsUsersListResponseSchema,
   adminLoginRequestSchema,
   adminMeResponseSchema,
   adminPermissionScopeSchema,
@@ -44,6 +48,14 @@ const userAccessParamsSchema = z.object({
 
 const adminEventAnalyticsParamsSchema = z.object({
   eventId: z.string().uuid(),
+});
+
+const adminUserAnalyticsParamsSchema = z.object({
+  userId: z.string().uuid(),
+});
+
+const adminAnalyticsOverviewQuerySchema = z.object({
+  range: adminAnalyticsOverviewRangeSchema.optional().default('24h'),
 });
 
 const bootstrapAdminRequestSchema = z.object({
@@ -395,6 +407,338 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         createdAt: row.created_at.toISOString(),
         updatedAt: row.updated_at.toISOString(),
       })),
+    });
+  });
+
+  app.get('/admin/analytics/overview', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'analytics',
+      level: 'read',
+    });
+    if (!access) {
+      return;
+    }
+
+    const parsedQuery = adminAnalyticsOverviewQuerySchema.safeParse(request.query ?? {});
+    if (!parsedQuery.success) {
+      reply.status(400);
+      return {
+        code: 'invalid_request',
+        message: 'Invalid analytics range.',
+      };
+    }
+
+    const range = parsedQuery.data.range;
+    const now = Date.now();
+    const rangeToMilliseconds = {
+      '24h': 24 * 60 * 60 * 1000,
+      '7d': 7 * 24 * 60 * 60 * 1000,
+      '14d': 14 * 24 * 60 * 60 * 1000,
+      '30d': 30 * 24 * 60 * 60 * 1000,
+      '45d': 45 * 24 * 60 * 60 * 1000,
+      '90d': 90 * 24 * 60 * 60 * 1000,
+      all: null,
+    } as const;
+    const rangeMs = rangeToMilliseconds[range];
+    const since = rangeMs === null ? null : new Date(now - rangeMs);
+    const hasSince = Boolean(since);
+    const usersSinceClause = hasSince ? 'WHERE created_at >= $1' : '';
+    const eventsSinceClause = hasSince ? 'WHERE created_at >= $1' : '';
+    const sharedTracksSinceClause = hasSince ? 'AND t.added_at >= $1' : '';
+    const analyticsSinceClause = hasSince ? 'AND created_at >= $1' : '';
+    const analyticsWhereSinceClause = hasSince ? 'WHERE created_at >= $1' : '';
+    const pageViewsByDayLimit = (() => {
+      switch (range) {
+        case '24h':
+          return 'LIMIT 2';
+        case '7d':
+          return 'LIMIT 7';
+        case '14d':
+          return 'LIMIT 14';
+        case '30d':
+          return 'LIMIT 30';
+        case '45d':
+          return 'LIMIT 45';
+        case '90d':
+          return 'LIMIT 90';
+        default:
+          return '';
+      }
+    })();
+
+    const totalsQuery = `
+      SELECT
+        (SELECT COUNT(*)::int FROM "users" ${usersSinceClause}) AS users_count,
+        (SELECT COUNT(*)::int FROM "events" ${eventsSinceClause}) AS event_playlists_count,
+        (
+          SELECT COUNT(DISTINCT e.id)::int
+          FROM "events" e
+          JOIN "event_tracks" t ON t.event_id = e.id
+          WHERE t.added_by = 'guest'
+            ${sharedTracksSinceClause}
+        ) AS shared_playlists_count,
+        (
+          SELECT COUNT(*)::int
+          FROM "analytics_events"
+          WHERE event_name = 'app_page_view'
+            ${analyticsSinceClause}
+        ) AS page_views_count,
+        (
+          SELECT COUNT(DISTINCT session_id)::int
+          FROM "analytics_events"
+          ${analyticsWhereSinceClause}
+        ) AS unique_sessions_count,
+        (
+          SELECT COUNT(*)::int
+          FROM "analytics_events"
+          ${analyticsWhereSinceClause}
+        ) AS tracked_events_count
+    `;
+    const totalsRows = (
+      hasSince
+        ? await prisma.$queryRawUnsafe(totalsQuery, since)
+        : await prisma.$queryRawUnsafe(totalsQuery)
+    ) as Array<{
+      users_count: number;
+      event_playlists_count: number;
+      shared_playlists_count: number;
+      page_views_count: number;
+      unique_sessions_count: number;
+      tracked_events_count: number;
+    }>;
+
+    const pageViewsByPathQuery = `
+      SELECT
+        page_path,
+        COUNT(*)::int AS views
+      FROM "analytics_events"
+      WHERE event_name = 'app_page_view'
+        ${analyticsSinceClause}
+      GROUP BY page_path
+      ORDER BY views DESC
+      LIMIT 12
+    `;
+    const pageViewsByPathRows = (
+      hasSince
+        ? await prisma.$queryRawUnsafe(pageViewsByPathQuery, since)
+        : await prisma.$queryRawUnsafe(pageViewsByPathQuery)
+    ) as Array<{
+      page_path: string;
+      views: number;
+    }>;
+
+    const pageViewsByDayQuery = `
+      SELECT
+        TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD') AS day,
+        COUNT(*)::int AS views
+      FROM "analytics_events"
+      WHERE event_name = 'app_page_view'
+        ${analyticsSinceClause}
+      GROUP BY DATE_TRUNC('day', created_at)
+      ORDER BY DATE_TRUNC('day', created_at) DESC
+      ${pageViewsByDayLimit}
+    `;
+    const pageViewsByDayRows = (
+      hasSince
+        ? await prisma.$queryRawUnsafe(pageViewsByDayQuery, since)
+        : await prisma.$queryRawUnsafe(pageViewsByDayQuery)
+    ) as Array<{
+      day: string;
+      views: number;
+    }>;
+
+    const totals = totalsRows[0] ?? {
+      users_count: 0,
+      event_playlists_count: 0,
+      shared_playlists_count: 0,
+      page_views_count: 0,
+      unique_sessions_count: 0,
+      tracked_events_count: 0,
+    };
+
+    return adminAnalyticsOverviewResponseSchema.parse({
+      totals: {
+        usersCount: Number(totals.users_count) || 0,
+        eventPlaylistsCount: Number(totals.event_playlists_count) || 0,
+        sharedPlaylistsCount: Number(totals.shared_playlists_count) || 0,
+        pageViewsCount: Number(totals.page_views_count) || 0,
+        uniqueSessionsCount: Number(totals.unique_sessions_count) || 0,
+        trackedEventsCount: Number(totals.tracked_events_count) || 0,
+      },
+      pageViewsByPath: pageViewsByPathRows.map((row) => ({
+        path: row.page_path,
+        views: Number(row.views) || 0,
+      })),
+      pageViewsByDay: pageViewsByDayRows
+        .map((row) => ({
+          day: row.day,
+          views: Number(row.views) || 0,
+        }))
+        .reverse(),
+    });
+  });
+
+  app.get('/admin/analytics/users', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'analytics',
+      level: 'read',
+    });
+    if (!access) {
+      return;
+    }
+
+    const rows = await prisma.$queryRaw<
+      Array<{
+        user_id: string;
+        email: string;
+        role: string;
+        created_at: Date;
+        event_playlists_count: number;
+        shared_playlists_count: number;
+      }>
+    >`
+      SELECT
+        u.id AS user_id,
+        u.email,
+        u.role,
+        u.created_at,
+        COUNT(DISTINCT e.id)::int AS event_playlists_count,
+        COUNT(DISTINCT CASE WHEN tg.id IS NOT NULL THEN e.id END)::int AS shared_playlists_count
+      FROM "users" u
+      LEFT JOIN "events" e ON e.host_user_id = u.id
+      LEFT JOIN "event_tracks" tg ON tg.event_id = e.id AND tg.added_by = 'guest'
+      GROUP BY u.id, u.email, u.role, u.created_at
+      ORDER BY u.created_at DESC
+      LIMIT 300
+    `;
+
+    return adminAnalyticsUsersListResponseSchema.parse({
+      users: rows.map((row) => ({
+        userId: row.user_id,
+        email: row.email,
+        role: row.role === 'admin' ? 'admin' : 'user',
+        createdAt: row.created_at.toISOString(),
+        eventPlaylistsCount: Number(row.event_playlists_count) || 0,
+        sharedPlaylistsCount: Number(row.shared_playlists_count) || 0,
+      })),
+    });
+  });
+
+  app.get('/admin/analytics/users/:userId', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'analytics',
+      level: 'read',
+    });
+    if (!access) {
+      return;
+    }
+
+    const params = adminUserAnalyticsParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Request params are invalid.',
+        details: params.error.flatten(),
+      });
+    }
+
+    const targetUser = await authStore.findUserById(params.data.userId);
+    if (!targetUser) {
+      return reply.status(404).send({
+        code: 'user_not_found',
+        message: 'User not found.',
+      });
+    }
+
+    const summaryRows = await prisma.$queryRaw<
+      Array<{
+        event_playlists_count: number;
+        shared_playlists_count: number;
+      }>
+    >`
+      SELECT
+        COUNT(DISTINCT e.id)::int AS event_playlists_count,
+        COUNT(DISTINCT CASE WHEN tg.id IS NOT NULL THEN e.id END)::int AS shared_playlists_count
+      FROM "users" u
+      LEFT JOIN "events" e ON e.host_user_id = u.id
+      LEFT JOIN "event_tracks" tg ON tg.event_id = e.id AND tg.added_by = 'guest'
+      WHERE u.id = ${params.data.userId}
+      GROUP BY u.id
+      LIMIT 1
+    `;
+
+    const eventRows = await prisma.$queryRaw<
+      Array<{
+        event_id: string;
+        name: string;
+        provider: 'spotify' | 'apple';
+        status: 'open' | 'closed';
+        tracks_count: number;
+        shared: boolean;
+        updated_at: Date;
+      }>
+    >`
+      SELECT
+        e.id AS event_id,
+        e.name,
+        e.provider,
+        e.status,
+        COUNT(t.id)::int AS tracks_count,
+        BOOL_OR(t.added_by = 'guest') AS shared,
+        e.updated_at
+      FROM "events" e
+      LEFT JOIN "event_tracks" t ON t.event_id = e.id
+      WHERE e.host_user_id = ${params.data.userId}
+      GROUP BY e.id, e.name, e.provider, e.status, e.updated_at
+      ORDER BY e.updated_at DESC
+      LIMIT 300
+    `;
+
+    const pageViewsByPathRows = await prisma.$queryRaw<
+      Array<{
+        page_path: string;
+        views: number;
+      }>
+    >`
+      SELECT
+        page_path,
+        COUNT(*)::int AS views
+      FROM "analytics_events"
+      WHERE user_id = ${params.data.userId}
+        AND event_name = 'app_page_view'
+      GROUP BY page_path
+      ORDER BY views DESC
+      LIMIT 15
+    `;
+
+    const summary = summaryRows[0] ?? {
+      event_playlists_count: 0,
+      shared_playlists_count: 0,
+    };
+
+    return adminAnalyticsUserDetailResponseSchema.parse({
+      user: {
+        userId: targetUser.id,
+        email: targetUser.email,
+        role: targetUser.role,
+        createdAt: targetUser.createdAt.toISOString(),
+        eventPlaylistsCount: Number(summary.event_playlists_count) || 0,
+        sharedPlaylistsCount: Number(summary.shared_playlists_count) || 0,
+        adminPermissions: targetUser.adminPermissions,
+        events: eventRows.map((row) => ({
+          eventId: row.event_id,
+          name: row.name,
+          provider: row.provider,
+          status: row.status,
+          tracksCount: Number(row.tracks_count) || 0,
+          shared: Boolean(row.shared),
+          updatedAt: row.updated_at.toISOString(),
+        })),
+        pageViewsByPath: pageViewsByPathRows.map((row) => ({
+          path: row.page_path,
+          views: Number(row.views) || 0,
+        })),
+      },
     });
   });
 

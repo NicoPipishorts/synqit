@@ -4,7 +4,7 @@ import {
   updateEventRequestSchema,
 } from '@synqit/shared';
 import { useParams } from '@tanstack/react-router';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { EventEditFormCard } from '../components/events/EventEditFormCard';
 import { EventMagicLinkCard } from '../components/events/EventMagicLinkCard';
@@ -14,6 +14,7 @@ import { CTAButton, CTALink } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
+import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { getAccessToken } from '../lib/auth';
 import { EventTrackItem, getPublicEventUrl, HostEvent } from '../lib/events';
@@ -31,6 +32,7 @@ export const HostEventDetailsPage = () => {
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const trackedDisconnectedWarningEventIdsRef = useRef<Set<string>>(new Set());
 
   const dateFormatter = useMemo(
     () =>
@@ -105,6 +107,14 @@ export const HostEventDetailsPage = () => {
     } catch (error) {
       const apiError = toApiError(error);
       setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
+      trackAnalyticsEvent({
+        eventName: 'event_host_load_failed',
+        target: 'events',
+        properties: {
+          code: apiError.code,
+          eventId,
+        },
+      });
     }
   }, [eventId, requireAccessToken, setStatusAndToast, t]);
 
@@ -130,6 +140,15 @@ export const HostEventDetailsPage = () => {
     } catch (error) {
       const apiError = toApiError(error);
       setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
+      trackAnalyticsEvent({
+        eventName: 'event_tracks_load_failed',
+        target: 'events',
+        properties: {
+          scope: 'host',
+          code: apiError.code,
+          eventId,
+        },
+      });
     } finally {
       setIsLoadingTracks(false);
     }
@@ -139,6 +158,26 @@ export const HostEventDetailsPage = () => {
     void loadEvent();
     void loadTracks();
   }, [loadEvent, loadTracks]);
+
+  useEffect(() => {
+    if (!event || event.providerConnectionStatus !== 'not_connected') {
+      return;
+    }
+    if (trackedDisconnectedWarningEventIdsRef.current.has(event.id)) {
+      return;
+    }
+    trackedDisconnectedWarningEventIdsRef.current.add(event.id);
+
+    trackAnalyticsEvent({
+      eventName: 'event_provider_disconnected_warning',
+      target: 'events',
+      properties: {
+        scope: 'host',
+        eventId: event.id,
+        provider: event.provider,
+      },
+    });
+  }, [event]);
 
   const saveEvent = async (submitEvent: FormEvent<HTMLFormElement>) => {
     submitEvent.preventDefault();

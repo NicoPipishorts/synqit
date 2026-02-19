@@ -14,6 +14,7 @@ import { registerAuthRoutes } from './auth/routes';
 import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
+import { registerMetricsEndpoint } from './observability/metrics';
 
 const loadEnvFileIfPresent = (filePath: string): void => {
   try {
@@ -130,6 +131,8 @@ export const buildServer = async () => {
       });
     },
   );
+
+  await registerMetricsEndpoint(app);
 
   app.register(
     async (v1) => {

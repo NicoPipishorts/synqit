@@ -1,8 +1,8 @@
 import { PASSWORD_MIN_LENGTH, resetPasswordResponseSchema } from '@synqit/shared';
-import { Link, useRouterState } from '@tanstack/react-router';
-import { FormEvent, useMemo, useState } from 'react';
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 
-import { CTAButton } from '../components/ui/cta';
+import { CTAButton, CTALink } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { PasswordField } from '../components/ui/PasswordField';
 import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
@@ -12,6 +12,7 @@ import { callApi, toApiError } from '../lib/api';
 
 export const ResetPasswordPage = () => {
   const { t } = useI18n();
+  const navigate = useNavigate();
   const search = useRouterState({
     select: (state) => state.location.searchStr,
   });
@@ -21,6 +22,18 @@ export const ResetPasswordPage = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<'success' | 'error' | null>(null);
+
+  useEffect(() => {
+    if (statusType !== 'success') {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void navigate({ to: '/auth/login' });
+    }, 1800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [navigate, statusType]);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -112,54 +125,72 @@ export const ResetPasswordPage = () => {
           onSubmit={onSubmit}
           className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 shadow-soft-lift dark:bg-app-card sm:p-8"
         >
-          <label className="grid gap-2 text-sm font-medium">
-            <span>{t('profile.newPassword')}</span>
-            <PasswordField
-              required
-              minLength={PASSWORD_MIN_LENGTH}
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={setNewPassword}
-              placeholder={t('auth.passwordPlaceholder')}
-              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
-            />
-            <PasswordStrengthMeter password={newPassword} showTooltip />
-          </label>
+          {statusType === 'success' ? (
+            <>
+              <p className="rounded-lg border border-brand-lime/35 bg-brand-lime/10 px-3 py-2 text-center text-sm text-[#6d9600] dark:text-[#d5ff5c]">
+                {t('auth.resetPasswordSuccess')}
+              </p>
+              <div className="flex justify-center">
+                <CTALink to="/auth/login" variant="secondary">
+                  {t('auth.backToLogin')}
+                </CTALink>
+              </div>
+            </>
+          ) : (
+            <>
+              <label className="grid gap-2 text-sm font-medium">
+                <span>{t('profile.newPassword')}</span>
+                <PasswordField
+                  required
+                  minLength={PASSWORD_MIN_LENGTH}
+                  autoComplete="new-password"
+                  value={newPassword}
+                  onChange={setNewPassword}
+                  placeholder={t('auth.passwordPlaceholder')}
+                  inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
+                />
+                <PasswordStrengthMeter password={newPassword} showTooltip />
+              </label>
 
-          <label className="grid gap-2 text-sm font-medium">
-            <span>{t('profile.confirmPassword')}</span>
-            <PasswordField
-              required
-              minLength={PASSWORD_MIN_LENGTH}
-              autoComplete="new-password"
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              placeholder={t('profile.confirmPassword')}
-              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
-            />
-          </label>
+              <label className="grid gap-2 text-sm font-medium">
+                <span>{t('profile.confirmPassword')}</span>
+                <PasswordField
+                  required
+                  minLength={PASSWORD_MIN_LENGTH}
+                  autoComplete="new-password"
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  placeholder={t('profile.confirmPassword')}
+                  inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
+                />
+              </label>
 
-          <CTAButton disabled={isSubmitting} type="submit" variant="primary">
-            {isSubmitting ? t('auth.submitting') : t('auth.resetPasswordSubmit')}
-          </CTAButton>
+              <CTAButton disabled={isSubmitting} type="submit" variant="primary">
+                {isSubmitting ? t('auth.submitting') : t('auth.resetPasswordSubmit')}
+              </CTAButton>
 
-          {status ? (
-            <p
-              className={`rounded-lg border px-3 py-2 text-sm ${
-                statusType === 'error'
-                  ? 'border-brand-pink/35 bg-brand-pink/10 text-[#b41563] dark:text-[#ff8ac0]'
-                  : 'border-brand-lime/35 bg-brand-lime/10 text-[#6d9600] dark:text-[#d5ff5c]'
-              }`}
-            >
-              {status}
-            </p>
-          ) : null}
+              {status ? (
+                <p
+                  className={`rounded-lg border px-3 py-2 text-sm ${
+                    statusType === 'error'
+                      ? 'border-brand-pink/35 bg-brand-pink/10 text-[#b41563] dark:text-[#ff8ac0]'
+                      : 'border-brand-lime/35 bg-brand-lime/10 text-[#6d9600] dark:text-[#d5ff5c]'
+                  }`}
+                >
+                  {status}
+                </p>
+              ) : null}
 
-          <p className="text-sm text-app-text-secondary">
-            <Link to="/auth/login" className="font-semibold text-brand-pink hover:text-[#d12074]">
-              {t('auth.backToLogin')}
-            </Link>
-          </p>
+              <p className="text-center text-sm text-app-text-secondary">
+                <Link
+                  to="/auth/login"
+                  className="font-semibold text-brand-pink hover:text-[#d12074]"
+                >
+                  {t('auth.backToLogin')}
+                </Link>
+              </p>
+            </>
+          )}
         </form>
 
         <div className="mx-auto flex w-full max-w-xl justify-center">
