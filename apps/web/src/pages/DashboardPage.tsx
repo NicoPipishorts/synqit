@@ -534,26 +534,28 @@ export const DashboardPage = () => {
                   >
                     {activityPageTransition.direction === 1 ? (
                       <>
-                        <ul className="grid w-full shrink-0 gap-2">
+                        <ul className="grid w-full shrink-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
                           {renderActivityRows(getActivityRowsForPage(activityPageTransition.from))}
                         </ul>
-                        <ul className="grid w-full shrink-0 gap-2">
+                        <ul className="grid w-full shrink-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
                           {renderActivityRows(getActivityRowsForPage(activityPageTransition.to))}
                         </ul>
                       </>
                     ) : (
                       <>
-                        <ul className="grid w-full shrink-0 gap-2">
+                        <ul className="grid w-full shrink-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
                           {renderActivityRows(getActivityRowsForPage(activityPageTransition.to))}
                         </ul>
-                        <ul className="grid w-full shrink-0 gap-2">
+                        <ul className="grid w-full shrink-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
                           {renderActivityRows(getActivityRowsForPage(activityPageTransition.from))}
                         </ul>
                       </>
                     )}
                   </motion.div>
                 ) : (
-                  <ul className="grid gap-2">{renderActivityRows(currentActivityRows)}</ul>
+                  <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+                    {renderActivityRows(currentActivityRows)}
+                  </ul>
                 )}
               </div>
 

@@ -853,7 +853,6 @@ export const EventCreatePage = () => {
                   {providerSchema.options.map((value) => {
                     const isSelected = provider === value;
                     const isConnected = providerStatusByType[value] === 'connected';
-                    const isOtherProviderLocked = provider !== null && provider !== value;
                     const label =
                       value === 'apple'
                         ? t('eventsPage.createFlow.providerApple')
@@ -869,27 +868,26 @@ export const EventCreatePage = () => {
                             void connectSelectedProvider(value);
                           }
                         }}
-                        disabled={isConnectingProvider || isOtherProviderLocked}
+                        disabled={isConnectingProvider}
                         aria-label={label}
                         className={`relative inline-flex items-center justify-center rounded-full p-2 sm:p-3 transition ${
                           isSelected ? 'scale-[1.03]' : ''
                         } ${
-                          isConnectingProvider || isOtherProviderLocked
-                            ? 'cursor-not-allowed opacity-50'
-                            : 'cursor-pointer'
+                          isConnectingProvider ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                         }`}
                       >
                         <span className="relative inline-flex">
                           <EventProviderIcon
                             provider={value}
                             sizeClassName="h-20 w-20 sm:h-24 sm:w-24"
+                            imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}
                             className={
                               isSelected
                                 ? 'ring-2 ring-brand-lime/70 ring-offset-1 ring-offset-app-bg'
                                 : ''
                             }
                           />
-                          {isConnected ? (
+                          {isSelected ? (
                             <span className="absolute bottom-0.75 right-0 inline-flex h-6 w-6 items-center justify-center rounded-full border border-app-border bg-brand-lime text-brand-white shadow-soft-lift">
                               <Check size={15} strokeWidth={4} aria-hidden="true" />
                             </span>
