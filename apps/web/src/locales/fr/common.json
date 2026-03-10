@@ -307,7 +307,28 @@
     "activityClosed": "Playlist fermé",
     "openEvent": "Ouvrir",
     "error": "Erreur : {{message}}",
-    "sessionCardTitle": "Contrôles de session"
+    "sessionCardTitle": "Contrôles de session",
+    "pwa": {
+      "title": "Installer Synqit",
+      "eyebrow": "Accès rapide",
+      "headline": "Gardez Synqit à une touche de votre téléphone.",
+      "body": "Installez l'app pour ouvrir directement votre dashboard, vos playlists et l'activité invités sans repasser par un onglet navigateur.",
+      "instantInstallTitle": "Installation directe depuis ce navigateur",
+      "instantInstallBody": "Votre appareil est prêt. Confirmez la fenêtre d'installation et Synqit sera ajouté à votre écran d'accueil ou à votre lanceur d'apps.",
+      "iosStepOneTitle": "Ouvrez les options de partage Safari",
+      "iosStepOneBody": "Touchez le bouton Partager dans Safari pour afficher les actions d'installation de cette page.",
+      "iosStepTwoTitle": "Choisissez Ajouter à l'écran d'accueil",
+      "iosStepTwoBody": "Faites défiler la liste des actions, puis touchez Ajouter à l'écran d'accueil pour créer le raccourci.",
+      "iosStepThreeTitle": "Confirmez et lancez",
+      "iosStepThreeBody": "Touchez Ajouter en haut à droite. Synqit apparaîtra sur votre écran d'accueil comme une app classique.",
+      "dismiss": "Plus tard",
+      "install": "Installer l'app",
+      "installing": "Installation...",
+      "gotIt": "Compris",
+      "installedSuccess": "Synqit a bien été ajouté à votre appareil.",
+      "installAccepted": "La demande d'installation a été acceptée.",
+      "installFailed": "La fenêtre d'installation n'a pas pu être ouverte."
+    }
   },
   "syncedListsPage": {
     "title": "Listes synchronisées",

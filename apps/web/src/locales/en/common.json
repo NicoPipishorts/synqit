@@ -307,7 +307,28 @@
     "activityClosed": "Playlist closed",
     "openEvent": "Open",
     "error": "Error: {{message}}",
-    "sessionCardTitle": "Session Controls"
+    "sessionCardTitle": "Session Controls",
+    "pwa": {
+      "title": "Install Synqit",
+      "eyebrow": "Quick access",
+      "headline": "Keep Synqit one tap away on your phone.",
+      "body": "Install the app to jump straight into your dashboard, playlists, and guest activity without opening a browser tab first.",
+      "instantInstallTitle": "Install directly from this browser",
+      "instantInstallBody": "Your device is ready. Confirm the install prompt and Synqit will be added to your home screen or app launcher.",
+      "iosStepOneTitle": "Open Safari share options",
+      "iosStepOneBody": "Tap the Share button in Safari to reveal the install actions for this page.",
+      "iosStepTwoTitle": "Choose Add to Home Screen",
+      "iosStepTwoBody": "Scroll the action list, then tap Add to Home Screen to create the app shortcut.",
+      "iosStepThreeTitle": "Confirm and launch",
+      "iosStepThreeBody": "Tap Add in the top-right corner. Synqit will appear on your home screen like a regular app.",
+      "dismiss": "Maybe later",
+      "install": "Install app",
+      "installing": "Installing...",
+      "gotIt": "Got it",
+      "installedSuccess": "Synqit was added to your device.",
+      "installAccepted": "Install request accepted.",
+      "installFailed": "The install prompt could not be opened."
+    }
   },
   "syncedListsPage": {
     "title": "Synced lists",

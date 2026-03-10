@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Eye, RefreshCcw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { PwaInstallPrompt } from '../components/dashboard/PwaInstallPrompt';
 import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { EventStatusIndicator } from '../components/events/EventStatusIndicator';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
@@ -339,6 +340,8 @@ export const DashboardPage = () => {
       <div className="pointer-events-none absolute right-0 top-16 h-52 w-52 rounded-full bg-brand-pink/15 blur-3xl" />
 
       <div className="relative grid gap-6">
+        <PwaInstallPrompt />
+
         <article>
           <div className="grid px-5 py-7 sm:px-8 sm:py-9">
             <div className="grid gap-1">

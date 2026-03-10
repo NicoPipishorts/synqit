@@ -106,15 +106,6 @@ export const AccountMenu = () => {
                 >
                   {t('accountMenu.dashboard')}
                 </Link>
-                {auth.role === 'admin' ? (
-                  <Link
-                    to="/admin/dashboard"
-                    onClick={() => setIsOpen(false)}
-                    className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
-                  >
-                    {t('accountMenu.admin')}
-                  </Link>
-                ) : null}
                 <Link
                   to="/playlists"
                   onClick={() => setIsOpen(false)}
