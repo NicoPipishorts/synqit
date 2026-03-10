@@ -2,7 +2,8 @@ name: Web E2E Smoke Tests
 
 on:
   push:
-  pull_request:
+    branches:
+      - main
 
 jobs:
   web-e2e:

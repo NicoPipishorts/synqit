@@ -2,7 +2,8 @@ name: API Regression Tests
 
 on:
   push:
-  pull_request:
+    branches:
+      - main
 
 jobs:
   api-regression:
