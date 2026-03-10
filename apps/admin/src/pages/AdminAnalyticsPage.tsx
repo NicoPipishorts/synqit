@@ -317,9 +317,8 @@ export const AdminAnalyticsPage = () => {
     overview?.pageViewsByDay.reduce((max, row) => Math.max(max, row.views), 0) ?? 1;
 
   return (
-    <section className="grid gap-5">
+    <section className="grid content-start gap-6">
       <AdminSectionHeader
-        eyebrow={t('admin.portalTitle')}
         title={t('admin.analyticsOverviewTitle')}
         description={t('admin.portalSubtitle')}
       />

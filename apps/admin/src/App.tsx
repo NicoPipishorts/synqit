@@ -15,6 +15,7 @@ import { AdminAnalyticsPage } from './pages/AdminAnalyticsPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminEmailsPage } from './pages/AdminEmailsPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
+import { AdminUserDetailsPage } from './pages/AdminUserDetailsPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
 
 const rootRoute = createRootRoute({
@@ -68,6 +69,13 @@ const usersRoute = createRoute({
   component: AdminUsersPage,
 });
 
+const userDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/users/$userId',
+  beforeLoad: requireAdminAuth,
+  component: AdminUserDetailsPage,
+});
+
 const analyticsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/analytics',
@@ -87,6 +95,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   dashboardRoute,
   usersRoute,
+  userDetailRoute,
   analyticsRoute,
   emailsRoute,
 ]);

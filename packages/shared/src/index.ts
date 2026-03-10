@@ -265,8 +265,15 @@ export const adminAnalyticsPageViewsByDaySchema = z.object({
 });
 export type AdminAnalyticsPageViewsByDay = z.infer<typeof adminAnalyticsPageViewsByDaySchema>;
 
+const adminUserProfileNameSchema = z.object({
+  displayName: z.string().max(80).nullable(),
+  firstName: z.string().max(80).nullable(),
+  lastName: z.string().max(80).nullable(),
+});
+
 export const adminAnalyticsUserDetailResponseSchema = z.object({
   user: adminAnalyticsUserSummarySchema.extend({
+    personalInfo: adminUserProfileNameSchema,
     adminPermissions: z.array(adminPermissionSchema),
     events: z.array(adminAnalyticsUserEventSummarySchema),
     pageViewsByPath: z.array(adminAnalyticsPageViewsByPathSchema),

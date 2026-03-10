@@ -12,6 +12,7 @@ import {
   adminUserListResponseSchema,
   authResponseSchema,
   authUserSchema,
+  personalInfoSchema,
   QUEUES,
   type AccountRole,
   type AdminPermission,
@@ -650,6 +651,8 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    const personalInfo = await authStore.findUserPersonalInfoByUserId(params.data.userId);
+
     const summaryRows = await prisma.$queryRaw<
       Array<{
         event_playlists_count: number;
@@ -722,6 +725,17 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         email: targetUser.email,
         role: targetUser.role,
         createdAt: targetUser.createdAt.toISOString(),
+        personalInfo: personalInfoSchema
+          .pick({
+            displayName: true,
+            firstName: true,
+            lastName: true,
+          })
+          .parse({
+            displayName: personalInfo?.displayName ?? null,
+            firstName: personalInfo?.firstName ?? null,
+            lastName: personalInfo?.lastName ?? null,
+          }),
         eventPlaylistsCount: Number(summary.event_playlists_count) || 0,
         sharedPlaylistsCount: Number(summary.shared_playlists_count) || 0,
         adminPermissions: targetUser.adminPermissions,
