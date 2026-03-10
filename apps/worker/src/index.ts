@@ -6,8 +6,8 @@ import {
   registrationConfirmationEmailJobSchema,
   registrationConfirmationEmailPreviewJobSchema,
 } from '@synqit/shared';
-import { Job, Queue, Worker } from 'bullmq';
-import IORedis from 'ioredis';
+import { Queue, Worker } from 'bullmq';
+import type { ConnectionOptions, Job } from 'bullmq';
 import { resolve } from 'node:path';
 
 import { sendTransactionalEmail } from './email/provider';
@@ -31,9 +31,14 @@ loadEnvFileIfPresent(resolve(process.cwd(), '.env'));
 
 const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6380';
 
-const connection = new IORedis(REDIS_URL, {
+const redisUrl = new URL(REDIS_URL);
+
+const connection: ConnectionOptions = {
+  host: redisUrl.hostname,
+  port: redisUrl.port ? Number.parseInt(redisUrl.port, 10) : 6379,
+  password: redisUrl.password || undefined,
   maxRetriesPerRequest: null,
-});
+};
 
 const syncQueue = new Queue(QUEUES.sync, { connection });
 const notificationsQueue = new Queue(QUEUES.notifications, { connection });
@@ -195,7 +200,6 @@ const shutdown = async () => {
   await notificationsWorker.close();
   await syncQueue.close();
   await notificationsQueue.close();
-  await connection.quit();
 };
 
 process.on('SIGINT', () => {
