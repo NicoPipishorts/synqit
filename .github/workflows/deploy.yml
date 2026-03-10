@@ -104,6 +104,24 @@ jobs:
           tags: ${{ steps.meta_worker.outputs.tags }}
           labels: ${{ steps.meta_worker.outputs.labels }}
 
+      - name: Extract metadata for admin
+        id: meta_admin
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/nicopipishorts/synqit-admin
+          tags: |
+            type=sha
+            type=raw,value=latest
+
+      - name: Build and push admin
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/admin/Dockerfile
+          push: true
+          tags: ${{ steps.meta_admin.outputs.tags }}
+          labels: ${{ steps.meta_admin.outputs.labels }}
+
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
