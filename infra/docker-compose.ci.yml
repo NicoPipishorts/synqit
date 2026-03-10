@@ -32,13 +32,14 @@ services:
     env_file:
       - ./.env
     environment:
+      NODE_ENV: production
       PORT: 3001
       HOST: 0.0.0.0
+      DATABASE_URL: postgresql://synqit:${POSTGRES_PASSWORD}@postgres:5432/synqit
+      REDIS_URL: redis://redis:6379
       API_BASE_URL: https://app.synqit.fr/api
       CORS_ORIGINS: https://app.synqit.fr,https://synqit.fr
-      DATABASE_URL: postgresql://synqit:${POSTGRES_PASSWORD}@postgres:5432/synqit
       EVENT_LINK_BASE_URL: https://app.synqit.fr
-      REDIS_URL: redis://redis:6379
       SPOTIFY_REDIRECT_URI: https://app.synqit.fr/api/v1/auth/spotify/callback
       WEB_APP_URL: https://app.synqit.fr
     ports:
@@ -55,6 +56,7 @@ services:
     env_file:
       - ./.env
     environment:
+      NODE_ENV: production
       DATABASE_URL: postgresql://synqit:${POSTGRES_PASSWORD}@postgres:5432/synqit
       REDIS_URL: redis://redis:6379
     depends_on:
@@ -62,6 +64,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
+
+  admin:
+    image: ghcr.io/nicopipishorts/synqit-admin:${IMAGE_TAG:-latest}
+    ports:
+      - "127.0.0.1:4174:4174"
     restart: unless-stopped
 
   site:
@@ -75,3 +83,29 @@ services:
     ports:
       - "127.0.0.1:5173:5173"
     restart: unless-stopped
+
+  migrate:
+    image: ghcr.io/nicopipishorts/synqit-api:${IMAGE_TAG:-latest}
+    env_file:
+      - ./.env
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://synqit:${POSTGRES_PASSWORD}@postgres:5432/synqit
+    working_dir: /app/apps/api
+    command:
+      [
+        "npx",
+        "prisma",
+        "migrate",
+        "deploy",
+        "--config",
+        "/app/apps/api/prisma.config.ts"
+      ]
+    volumes:
+      - /srv/synqit/repo/apps/api/prisma:/app/apps/api/prisma:ro
+      - /srv/synqit/repo/apps/api/prisma.config.ts:/app/apps/api/prisma.config.ts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - tools
