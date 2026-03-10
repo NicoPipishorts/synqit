@@ -21,7 +21,6 @@ import { DashboardPage } from './pages/DashboardPage';
 import { EventCreatePage } from './pages/EventCreatePage';
 import { EventPublicPage } from './pages/EventPublicPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { HomePage } from './pages/HomePage';
 import { HostEventDetailsPage } from './pages/HostEventDetailsPage';
 import { HostEventsPage } from './pages/HostEventsPage';
 import { ProfilePage } from './pages/ProfilePage';
@@ -70,10 +69,14 @@ const redirectIfAdminAuthenticated = () => {
   }
 };
 
-const homeRoute = createRoute({
+const appEntryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: HomePage,
+  beforeLoad: () => {
+    throw redirect({
+      to: isAuthenticated() ? '/dashboard' : '/auth/login',
+    });
+  },
 });
 
 const providersRoute = createRoute({
@@ -271,7 +274,7 @@ const profileSecurityRoute = createRoute({
 });
 
 const routeTree = rootRoute.addChildren([
-  homeRoute,
+  appEntryRoute,
   providersRoute,
   syncedListsRoute,
   eventsRoute,

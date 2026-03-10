@@ -22,7 +22,6 @@ export const AppShell = () => {
   });
   const isPrivateRoute =
     !pathname.startsWith('/auth/') &&
-    pathname !== '/' &&
     !pathname.startsWith('/playlist/') &&
     !pathname.startsWith('/event/');
   const navItems = [

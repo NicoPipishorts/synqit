@@ -9,7 +9,8 @@
   ],
   "scripts": {
     "build:shared": "yarn workspace @synqit/shared build",
-    "dev": "yarn build:shared && concurrently -n shared,api,worker,web -c yellow,cyan,magenta,green \"yarn workspace @synqit/shared dev\" \"yarn workspace @synqit/api dev\" \"yarn workspace @synqit/worker dev\" \"yarn workspace @synqit/web dev\"",
+    "dev": "yarn build:shared && concurrently -n shared,site,api,worker,web -c yellow,blue,cyan,magenta,green \"yarn workspace @synqit/shared dev\" \"yarn workspace @synqit/site dev\" \"yarn workspace @synqit/api dev\" \"yarn workspace @synqit/worker dev\" \"yarn workspace @synqit/web dev\"",
+    "dev:site": "yarn workspace @synqit/site dev",
     "dev:api": "yarn build:shared && yarn workspace @synqit/api dev",
     "dev:worker": "yarn build:shared && yarn workspace @synqit/worker dev",
     "dev:web": "yarn build:shared && yarn workspace @synqit/web dev",

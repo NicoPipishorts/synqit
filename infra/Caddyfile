@@ -1,4 +1,8 @@
-:80 {
+{$SITE_ADDRESS:http://localhost} {
+  reverse_proxy site:4173
+}
+
+{$APP_ADDRESS:http://app.localhost} {
   handle_path /api/* {
     reverse_proxy api:3001
   }
