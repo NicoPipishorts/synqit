@@ -102,7 +102,7 @@ const verifyAndGetUserId = async (request: FastifyRequest): Promise<string | nul
 
 const buildEventMagicLinkUrl = (magicLinkToken: string): string => {
   const eventLinkBaseUrl = process.env.EVENT_LINK_BASE_URL ?? DEFAULT_EVENT_LINK_BASE_URL;
-  const url = new URL(`/event/${magicLinkToken}`, eventLinkBaseUrl);
+  const url = new URL(`/playlist/${magicLinkToken}`, eventLinkBaseUrl);
   return url.toString();
 };
 
@@ -226,7 +226,7 @@ const requireActiveMagicLinkEvent = async (
   if (!event) {
     reply.status(404).send({
       code: 'event_not_found',
-      message: 'No event found for this link.',
+      message: 'No playlist found for this link.',
     });
     return null;
   }
@@ -456,7 +456,7 @@ const syncEventTracksFromProvider = async (params: {
 };
 
 export const registerEventRoutes = async (app: FastifyInstance): Promise<void> => {
-  app.get('/events/drafts', async (request, reply) => {
+  app.get('/playlists/drafts', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -480,7 +480,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.get('/events/drafts/:draftId', async (request, reply) => {
+  app.get('/playlists/drafts/:draftId', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -508,7 +508,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     return toEventDraftResponse(draft);
   });
 
-  app.post('/events/drafts', async (request, reply) => {
+  app.post('/playlists/drafts', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -537,7 +537,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     return toEventDraftResponse(draft);
   });
 
-  app.patch('/events/drafts/:draftId', async (request, reply) => {
+  app.patch('/playlists/drafts/:draftId', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -581,7 +581,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     return toEventDraftResponse(draft);
   });
 
-  app.delete('/events/drafts/:draftId', async (request, reply) => {
+  app.delete('/playlists/drafts/:draftId', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -612,7 +612,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.post('/events', async (request, reply) => {
+  app.post('/playlists', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -625,7 +625,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!parsedBody.success) {
       return reply.status(400).send({
         code: 'validation_error',
-        message: 'Event payload is invalid.',
+        message: 'Playlist payload is invalid.',
         details: parsedBody.error.flatten(),
       });
     }
@@ -752,7 +752,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.get('/events', async (request, reply) => {
+  app.get('/playlists', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -783,7 +783,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.get('/events/link/:magicLinkToken', async (request, reply) => {
+  app.get('/playlists/link/:magicLinkToken', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
     const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
@@ -808,7 +808,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.get('/events/link/:magicLinkToken/tracks', async (request, reply) => {
+  app.get('/playlists/link/:magicLinkToken/tracks', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
     const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
@@ -830,7 +830,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.get('/events/link/:magicLinkToken/search', async (request, reply) => {
+  app.get('/playlists/link/:magicLinkToken/search', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
     const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
@@ -840,7 +840,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (event.status !== 'open') {
       return reply.status(409).send({
         code: 'event_closed',
-        message: 'This event is closed and no longer accepts new tracks.',
+        message: 'This playlist is closed and no longer accepts new tracks.',
       });
     }
 
@@ -957,7 +957,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.post('/events/link/:magicLinkToken/tracks', async (request, reply) => {
+  app.post('/playlists/link/:magicLinkToken/tracks', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
     const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
     if (!event) {
@@ -967,7 +967,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (event.status !== 'open') {
       return reply.status(409).send({
         code: 'event_closed',
-        message: 'This event is closed and no longer accepts new tracks.',
+        message: 'This playlist is closed and no longer accepts new tracks.',
       });
     }
 
@@ -1220,7 +1220,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.get('/events/:eventId', async (request, reply) => {
+  app.get('/playlists/:eventId', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -1237,7 +1237,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!event) {
       return reply.status(404).send({
         code: 'event_not_found',
-        message: 'Event not found.',
+        message: 'Playlist not found.',
       });
     }
 
@@ -1252,7 +1252,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.get('/events/:eventId/tracks', async (request, reply) => {
+  app.get('/playlists/:eventId/tracks', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -1269,7 +1269,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!event) {
       return reply.status(404).send({
         code: 'event_not_found',
-        message: 'Event not found.',
+        message: 'Playlist not found.',
       });
     }
 
@@ -1287,7 +1287,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.delete('/events/:eventId/tracks/:providerTrackId', async (request, reply) => {
+  app.delete('/playlists/:eventId/tracks/:providerTrackId', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -1305,7 +1305,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!event) {
       return reply.status(404).send({
         code: 'event_not_found',
-        message: 'Event not found.',
+        message: 'Playlist not found.',
       });
     }
 
@@ -1317,7 +1317,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     ) {
       return reply.status(404).send({
         code: 'track_not_found',
-        message: 'Track not found for this event.',
+        message: 'Track not found for this playlist.',
       });
     }
 
@@ -1458,7 +1458,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!removedTrack) {
       return reply.status(404).send({
         code: 'track_not_found',
-        message: 'Track not found for this event.',
+        message: 'Track not found for this playlist.',
       });
     }
 
@@ -1469,7 +1469,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.patch('/events/:eventId', async (request, reply) => {
+  app.patch('/playlists/:eventId', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -1482,7 +1482,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!parsedBody.success) {
       return reply.status(400).send({
         code: 'validation_error',
-        message: 'Event payload is invalid.',
+        message: 'Playlist payload is invalid.',
         details: parsedBody.error.flatten(),
       });
     }
@@ -1497,7 +1497,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!event) {
       return reply.status(404).send({
         code: 'event_not_found',
-        message: 'Event not found.',
+        message: 'Playlist not found.',
       });
     }
 
@@ -1512,7 +1512,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.delete('/events/:eventId', async (request, reply) => {
+  app.delete('/playlists/:eventId', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -1529,7 +1529,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!deleted) {
       return reply.status(404).send({
         code: 'event_not_found',
-        message: 'Event not found.',
+        message: 'Playlist not found.',
       });
     }
 
@@ -1540,7 +1540,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.post('/events/:eventId/close', async (request, reply) => {
+  app.post('/playlists/:eventId/close', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -1557,7 +1557,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!event) {
       return reply.status(404).send({
         code: 'event_not_found',
-        message: 'Event not found.',
+        message: 'Playlist not found.',
       });
     }
 
@@ -1572,7 +1572,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.post('/events/:eventId/magic-link/revoke', async (request, reply) => {
+  app.post('/playlists/:eventId/magic-link/revoke', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -1589,7 +1589,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!event) {
       return reply.status(404).send({
         code: 'event_not_found',
-        message: 'Event not found.',
+        message: 'Playlist not found.',
       });
     }
 
@@ -1604,7 +1604,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.post('/events/:eventId/magic-link/regenerate', async (request, reply) => {
+  app.post('/playlists/:eventId/magic-link/regenerate', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {
       return reply.status(401).send({
@@ -1621,7 +1621,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!event) {
       return reply.status(404).send({
         code: 'event_not_found',
-        message: 'Event not found.',
+        message: 'Playlist not found.',
       });
     }
 

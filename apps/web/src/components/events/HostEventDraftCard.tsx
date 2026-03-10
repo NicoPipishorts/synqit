@@ -60,7 +60,7 @@ export const HostEventDraftCard = ({ draft, onDelete, isDeleting }: HostEventDra
             <CTAMobileIconLabel icon={<Trash2 size={14} />} label={t('eventsPage.deleteDraft')} />
           </CTAButton>
           <CTALink
-            to={`/events/new?draftId=${encodeURIComponent(draft.id)}`}
+            to={`/playlists/new?draftId=${encodeURIComponent(draft.id)}`}
             variant="secondary"
             className="cursor-pointer"
             disabled={isDeleting}

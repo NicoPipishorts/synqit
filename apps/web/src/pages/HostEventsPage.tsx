@@ -73,7 +73,7 @@ export const HostEventsPage = () => {
     try {
       const [eventResult, draftResult] = await Promise.all([
         callApi(
-          '/v1/events',
+          '/v1/playlists',
           {
             method: 'GET',
             headers: {
@@ -83,7 +83,7 @@ export const HostEventsPage = () => {
           (payload) => eventListResponseSchema.parse(payload),
         ),
         callApi(
-          '/v1/events/drafts',
+          '/v1/playlists/drafts',
           {
             method: 'GET',
             headers: {
@@ -157,7 +157,7 @@ export const HostEventsPage = () => {
       setActiveDraftDeleteId(draft.id);
       try {
         await callApi(
-          `/v1/events/drafts/${encodeURIComponent(draft.id)}`,
+          `/v1/playlists/drafts/${encodeURIComponent(draft.id)}`,
           {
             method: 'DELETE',
             headers: {
@@ -219,7 +219,7 @@ export const HostEventsPage = () => {
           </div>
           <div className="py-4 justify-center flex">
             <CTALink
-              to="/events/new"
+              to="/playlists/new"
               variant="primary"
               className="w-[90%] justify-center px-4 py-3 text-sm font-black sm:text-base"
             >
@@ -235,7 +235,7 @@ export const HostEventsPage = () => {
             </p>
             <p className="mt-2 text-sm text-app-text-secondary">{t('eventsPage.emptyBody')}</p>
             <div className="mt-4 flex justify-center">
-              <CTALink to="/events/new" variant="primary">
+              <CTALink to="/playlists/new" variant="primary">
                 {t('eventsPage.create')}
               </CTALink>
             </div>

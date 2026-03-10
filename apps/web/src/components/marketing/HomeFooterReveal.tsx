@@ -55,13 +55,13 @@ export const HomeFooterReveal = () => {
             <p className="text-xs font-black uppercase tracking-wide text-brand-white/50 dark:text-brand-dark/50">
               {t('footer.platform')}
             </p>
-            <Link to="/events" className="hover:text-brand-lime">
+            <Link to="/playlists" className="hover:text-brand-lime">
               {t('footer.events')}
             </Link>
             <Link to="/profile/platforms" className="hover:text-brand-lime">
               {t('footer.connections')}
             </Link>
-            <Link to="/events/new" className="hover:text-brand-lime">
+            <Link to="/playlists/new" className="hover:text-brand-lime">
               {t('footer.createEvent')}
             </Link>
           </div>

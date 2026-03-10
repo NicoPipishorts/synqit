@@ -49,7 +49,7 @@ export const getEventProviderAsset = (provider: EventProvider): { src: string; a
 };
 
 export const getPublicEventPath = (magicLinkToken: string): string => {
-  return `/event/${magicLinkToken}`;
+  return `/playlist/${magicLinkToken}`;
 };
 
 export const getPublicEventUrl = (magicLinkToken: string): string => {

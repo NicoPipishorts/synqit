@@ -21,10 +21,13 @@ export const AppShell = () => {
     select: (state) => state.location.pathname,
   });
   const isPrivateRoute =
-    !pathname.startsWith('/auth/') && pathname !== '/' && !pathname.startsWith('/event/');
+    !pathname.startsWith('/auth/') &&
+    pathname !== '/' &&
+    !pathname.startsWith('/playlist/') &&
+    !pathname.startsWith('/event/');
   const navItems = [
     { to: '/dashboard', label: t('accountMenu.dashboard'), icon: LayoutDashboard },
-    { to: '/events', label: t('accountMenu.myEvents'), icon: CalendarDays },
+    { to: '/playlists', label: t('accountMenu.myEvents'), icon: CalendarDays },
     { to: '/synced-lists', label: t('accountMenu.syncedLists'), icon: ListMusic },
     { to: '/profile', label: t('accountMenu.profile'), icon: UserRound },
     ...(auth?.role === 'admin'
@@ -32,8 +35,8 @@ export const AppShell = () => {
       : []),
   ] as const;
   const isNavItemActive = (to: string): boolean => {
-    if (to === '/events') {
-      return pathname.startsWith('/events');
+    if (to === '/playlists') {
+      return pathname.startsWith('/playlists');
     }
     if (to === '/synced-lists') {
       return pathname.startsWith('/synced-lists');

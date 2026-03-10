@@ -49,7 +49,7 @@ export const HostEventCard = ({ event, onCopyMagicLink }: HostEventCardProps) =>
 
         <div className="flex justify-end">
           <CTALink
-            to={`/events/${event.id}`}
+            to={`/playlists/${event.id}`}
             variant="secondary"
             aria-label={t('eventsPage.detailsCta')}
           >

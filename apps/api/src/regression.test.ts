@@ -343,7 +343,7 @@ describe('API regression', () => {
         eventName: 'event_create_submitted',
         target: 'events',
         sessionId: authenticatedSessionId,
-        path: '/events/new',
+        path: '/playlists/new',
         source: 'web',
         properties: {
           provider: 'spotify',
@@ -452,7 +452,7 @@ describe('API regression', () => {
 
     const eventsResponse = await app.inject({
       method: 'GET',
-      url: '/v1/events',
+      url: '/v1/playlists',
       headers: authHeader(accessToken),
     });
     assert.equal(eventsResponse.statusCode, 401);
@@ -579,7 +579,7 @@ describe('API regression', () => {
 
     const createEventResponse = await app.inject({
       method: 'POST',
-      url: '/v1/events',
+      url: '/v1/playlists',
       headers: authHeader(hostUser.tokens.accessToken),
       payload: {
         provider: 'spotify',
@@ -594,7 +594,7 @@ describe('API regression', () => {
 
     const addTrackResponse = await app.inject({
       method: 'POST',
-      url: `/v1/events/link/${createEventBody.event.magicLinkToken}/tracks`,
+      url: `/v1/playlists/link/${createEventBody.event.magicLinkToken}/tracks`,
       payload: {
         providerTrackId: 'analytics-track-1',
         name: 'Analytics Track',
@@ -613,7 +613,7 @@ describe('API regression', () => {
         eventName: 'app_page_view',
         target: 'navigation',
         sessionId: `session-${randomUUID()}`,
-        path: `/event/${createEventBody.event.magicLinkToken}`,
+        path: `/playlist/${createEventBody.event.magicLinkToken}`,
         source: 'web',
       },
     });
@@ -640,7 +640,7 @@ describe('API regression', () => {
         eventName: 'event_create_succeeded',
         target: 'events',
         sessionId: `session-${randomUUID()}`,
-        path: '/events/new',
+        path: '/playlists/new',
         source: 'web',
         properties: {
           eventId: createEventBody.event.id,
@@ -682,7 +682,7 @@ describe('API regression', () => {
 
       const listResponse = await app.inject({
         method: 'GET',
-        url: '/v1/admin/analytics/events',
+        url: '/v1/admin/analytics/playlists',
         headers: authHeader(adminLoginBody.tokens.accessToken),
       });
       assert.equal(listResponse.statusCode, 200);
@@ -771,7 +771,7 @@ describe('API regression', () => {
 
       const detailResponse = await app.inject({
         method: 'GET',
-        url: `/v1/admin/analytics/events/${createEventBody.event.id}`,
+        url: `/v1/admin/analytics/playlists/${createEventBody.event.id}`,
         headers: authHeader(adminLoginBody.tokens.accessToken),
       });
       assert.equal(detailResponse.statusCode, 200);
@@ -1034,7 +1034,7 @@ describe('API regression', () => {
 
     const initialDraftListResponse = await app.inject({
       method: 'GET',
-      url: '/v1/events/drafts',
+      url: '/v1/playlists/drafts',
       headers: authHeader(accessToken),
     });
     assert.equal(initialDraftListResponse.statusCode, 200);
@@ -1045,7 +1045,7 @@ describe('API regression', () => {
 
     const createDraftResponse = await app.inject({
       method: 'POST',
-      url: '/v1/events/drafts',
+      url: '/v1/playlists/drafts',
       headers: authHeader(accessToken),
       payload: {
         provider: 'spotify',
@@ -1074,14 +1074,14 @@ describe('API regression', () => {
 
     const getDraftResponse = await app.inject({
       method: 'GET',
-      url: `/v1/events/drafts/${draftId}`,
+      url: `/v1/playlists/drafts/${draftId}`,
       headers: authHeader(accessToken),
     });
     assert.equal(getDraftResponse.statusCode, 200);
 
     const updateDraftResponse = await app.inject({
       method: 'PATCH',
-      url: `/v1/events/drafts/${draftId}`,
+      url: `/v1/playlists/drafts/${draftId}`,
       headers: authHeader(accessToken),
       payload: {
         name: 'Draft Event Updated',
@@ -1103,7 +1103,7 @@ describe('API regression', () => {
 
     const draftListAfterUpdateResponse = await app.inject({
       method: 'GET',
-      url: '/v1/events/drafts',
+      url: '/v1/playlists/drafts',
       headers: authHeader(accessToken),
     });
     assert.equal(draftListAfterUpdateResponse.statusCode, 200);
@@ -1115,7 +1115,7 @@ describe('API regression', () => {
 
     const deleteDraftResponse = await app.inject({
       method: 'DELETE',
-      url: `/v1/events/drafts/${draftId}`,
+      url: `/v1/playlists/drafts/${draftId}`,
       headers: authHeader(accessToken),
     });
     assert.equal(deleteDraftResponse.statusCode, 200);
@@ -1128,7 +1128,7 @@ describe('API regression', () => {
 
     const getDeletedDraftResponse = await app.inject({
       method: 'GET',
-      url: `/v1/events/drafts/${draftId}`,
+      url: `/v1/playlists/drafts/${draftId}`,
       headers: authHeader(accessToken),
     });
     assert.equal(getDeletedDraftResponse.statusCode, 404);
@@ -1213,7 +1213,7 @@ describe('API regression', () => {
 
     const createEventResponse = await app.inject({
       method: 'POST',
-      url: '/v1/events',
+      url: '/v1/playlists',
       headers: authHeader(hostAccessToken),
       payload: {
         name: 'Regression Event',
@@ -1233,7 +1233,7 @@ describe('API regression', () => {
 
     const updateEventResponse = await app.inject({
       method: 'PATCH',
-      url: `/v1/events/${eventId}`,
+      url: `/v1/playlists/${eventId}`,
       headers: authHeader(hostAccessToken),
       payload: {
         name: 'Regression Event Updated',
@@ -1244,7 +1244,7 @@ describe('API regression', () => {
 
     const addTrackResponse = await app.inject({
       method: 'POST',
-      url: `/v1/events/link/${firstMagicLinkToken}/tracks`,
+      url: `/v1/playlists/link/${firstMagicLinkToken}/tracks`,
       payload: {
         providerTrackId: 'mock-track-1',
         name: 'Midnight Drive',
@@ -1258,7 +1258,7 @@ describe('API regression', () => {
 
     const addDuplicateTrackResponse = await app.inject({
       method: 'POST',
-      url: `/v1/events/link/${firstMagicLinkToken}/tracks`,
+      url: `/v1/playlists/link/${firstMagicLinkToken}/tracks`,
       payload: {
         providerTrackId: 'mock-track-1',
         name: 'Midnight Drive',
@@ -1272,7 +1272,7 @@ describe('API regression', () => {
 
     const hostTracksResponse = await app.inject({
       method: 'GET',
-      url: `/v1/events/${eventId}/tracks`,
+      url: `/v1/playlists/${eventId}/tracks`,
       headers: authHeader(hostAccessToken),
     });
     assert.equal(hostTracksResponse.statusCode, 200);
@@ -1284,27 +1284,27 @@ describe('API regression', () => {
 
     const removeTrackResponse = await app.inject({
       method: 'DELETE',
-      url: `/v1/events/${eventId}/tracks/mock-track-1`,
+      url: `/v1/playlists/${eventId}/tracks/mock-track-1`,
       headers: authHeader(hostAccessToken),
     });
     assert.equal(removeTrackResponse.statusCode, 200);
 
     const revokeMagicLinkResponse = await app.inject({
       method: 'POST',
-      url: `/v1/events/${eventId}/magic-link/revoke`,
+      url: `/v1/playlists/${eventId}/magic-link/revoke`,
       headers: authHeader(hostAccessToken),
     });
     assert.equal(revokeMagicLinkResponse.statusCode, 200);
 
     const revokedLinkResponse = await app.inject({
       method: 'GET',
-      url: `/v1/events/link/${firstMagicLinkToken}`,
+      url: `/v1/playlists/link/${firstMagicLinkToken}`,
     });
     assert.equal(revokedLinkResponse.statusCode, 410);
 
     const regenerateMagicLinkResponse = await app.inject({
       method: 'POST',
-      url: `/v1/events/${eventId}/magic-link/regenerate`,
+      url: `/v1/playlists/${eventId}/magic-link/regenerate`,
       headers: authHeader(hostAccessToken),
     });
     assert.equal(regenerateMagicLinkResponse.statusCode, 200);
@@ -1317,14 +1317,14 @@ describe('API regression', () => {
 
     const closeEventResponse = await app.inject({
       method: 'POST',
-      url: `/v1/events/${eventId}/close`,
+      url: `/v1/playlists/${eventId}/close`,
       headers: authHeader(hostAccessToken),
     });
     assert.equal(closeEventResponse.statusCode, 200);
 
     const closedEventAddTrackResponse = await app.inject({
       method: 'POST',
-      url: `/v1/events/link/${secondMagicLinkToken}/tracks`,
+      url: `/v1/playlists/link/${secondMagicLinkToken}/tracks`,
       payload: {
         providerTrackId: 'mock-track-2',
         name: 'Golden Hour',
@@ -1338,14 +1338,14 @@ describe('API regression', () => {
 
     const deleteEventResponse = await app.inject({
       method: 'DELETE',
-      url: `/v1/events/${eventId}`,
+      url: `/v1/playlists/${eventId}`,
       headers: authHeader(hostAccessToken),
     });
     assert.equal(deleteEventResponse.statusCode, 200);
 
     const deletedEventGetResponse = await app.inject({
       method: 'GET',
-      url: `/v1/events/${eventId}`,
+      url: `/v1/playlists/${eventId}`,
       headers: authHeader(hostAccessToken),
     });
     assert.equal(deletedEventGetResponse.statusCode, 404);
@@ -1363,7 +1363,7 @@ describe('API regression', () => {
 
     const createEventResponse = await app.inject({
       method: 'POST',
-      url: '/v1/events',
+      url: '/v1/playlists',
       headers: authHeader(hostAccessToken),
       payload: {
         provider: 'apple',
@@ -1380,7 +1380,7 @@ describe('API regression', () => {
 
     const addTrackResponse = await app.inject({
       method: 'POST',
-      url: `/v1/events/link/${createEventBody.event.magicLinkToken}/tracks`,
+      url: `/v1/playlists/link/${createEventBody.event.magicLinkToken}/tracks`,
       payload: {
         providerTrackId: 'mock-track-2',
         name: 'Golden Hour',
@@ -1394,7 +1394,7 @@ describe('API regression', () => {
 
     const hostTracksResponse = await app.inject({
       method: 'GET',
-      url: `/v1/events/${createEventBody.event.id}/tracks`,
+      url: `/v1/playlists/${createEventBody.event.id}/tracks`,
       headers: authHeader(hostAccessToken),
     });
     assert.equal(hostTracksResponse.statusCode, 200);
@@ -1406,7 +1406,7 @@ describe('API regression', () => {
 
     const removeTrackResponse = await app.inject({
       method: 'DELETE',
-      url: `/v1/events/${createEventBody.event.id}/tracks/mock-track-2`,
+      url: `/v1/playlists/${createEventBody.event.id}/tracks/mock-track-2`,
       headers: authHeader(hostAccessToken),
     });
     assert.equal(removeTrackResponse.statusCode, 200);
@@ -1495,7 +1495,7 @@ describe('API regression', () => {
 
       const createEventResponse = await app.inject({
         method: 'POST',
-        url: '/v1/events',
+        url: '/v1/playlists',
         headers: authHeader(hostAccessToken),
         payload: {
           name: 'Missing Playlist Regression Event',
@@ -1511,7 +1511,7 @@ describe('API regression', () => {
 
       const addTrackResponse = await app.inject({
         method: 'POST',
-        url: `/v1/events/link/${magicLinkToken}/tracks`,
+        url: `/v1/playlists/link/${magicLinkToken}/tracks`,
         payload: {
           providerTrackId: 'spotify-track-missing-playlist',
           name: 'Any Song',
@@ -1527,7 +1527,7 @@ describe('API regression', () => {
 
       const hostEventResponse = await app.inject({
         method: 'GET',
-        url: `/v1/events/${eventId}`,
+        url: `/v1/playlists/${eventId}`,
         headers: authHeader(hostAccessToken),
       });
       assert.equal(hostEventResponse.statusCode, 200);

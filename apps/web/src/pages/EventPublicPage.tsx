@@ -40,7 +40,7 @@ const SEARCH_FETCH_LIMIT = 25;
 const MAX_SEARCH_RESULTS = 50;
 
 export const EventPublicPage = () => {
-  const params = useParams({ from: '/event/$magicLinkToken' });
+  const params = useParams({ from: '/playlist/$magicLinkToken' });
   const { t } = useI18n();
   const { showToast } = useToast();
 
@@ -71,7 +71,7 @@ export const EventPublicPage = () => {
     setIsLoadingTracks(true);
     try {
       const result = await callApi(
-        `/v1/events/link/${encodeURIComponent(params.magicLinkToken)}/tracks`,
+        `/v1/playlists/link/${encodeURIComponent(params.magicLinkToken)}/tracks`,
         {
           method: 'GET',
         },
@@ -104,14 +104,14 @@ export const EventPublicPage = () => {
       try {
         const [eventResult, tracksResult] = await Promise.all([
           callApi(
-            `/v1/events/link/${encodeURIComponent(params.magicLinkToken)}`,
+            `/v1/playlists/link/${encodeURIComponent(params.magicLinkToken)}`,
             {
               method: 'GET',
             },
             (payload) => eventPublicResponseSchema.parse(payload),
           ),
           callApi(
-            `/v1/events/link/${encodeURIComponent(params.magicLinkToken)}/tracks`,
+            `/v1/playlists/link/${encodeURIComponent(params.magicLinkToken)}/tracks`,
             {
               method: 'GET',
             },
@@ -154,7 +154,7 @@ export const EventPublicPage = () => {
         offset: String(offset),
       });
       const result = await callApi(
-        `/v1/events/link/${encodeURIComponent(params.magicLinkToken)}/search?${query.toString()}`,
+        `/v1/playlists/link/${encodeURIComponent(params.magicLinkToken)}/search?${query.toString()}`,
         {
           method: 'GET',
         },
@@ -285,7 +285,7 @@ export const EventPublicPage = () => {
     setAddingTrackId(track.providerTrackId);
     try {
       const result = await callApi(
-        `/v1/events/link/${encodeURIComponent(params.magicLinkToken)}/tracks`,
+        `/v1/playlists/link/${encodeURIComponent(params.magicLinkToken)}/tracks`,
         {
           method: 'POST',
           body: JSON.stringify(track),

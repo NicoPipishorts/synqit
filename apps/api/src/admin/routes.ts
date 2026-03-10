@@ -355,7 +355,7 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.get('/admin/analytics/events', async (request, reply) => {
+  app.get('/admin/analytics/playlists', async (request, reply) => {
     const access = await resolveAdminAccess(request, reply, {
       scope: 'analytics',
       level: 'read',
@@ -387,9 +387,9 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         MAX(t.added_at) AS last_track_added_at,
         e.created_at,
         e.updated_at
-      FROM "events" e
+      FROM "playlists" e
       JOIN "users" u ON u.id = e.host_user_id
-      LEFT JOIN "event_tracks" t ON t.event_id = e.id
+      LEFT JOIN "playlist_tracks" t ON t.event_id = e.id
       GROUP BY e.id, e.name, e.provider, e.status, u.email, e.created_at, e.updated_at
       ORDER BY e.updated_at DESC
       LIMIT 250
@@ -469,11 +469,11 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
     const totalsQuery = `
       SELECT
         (SELECT COUNT(*)::int FROM "users" ${usersSinceClause}) AS users_count,
-        (SELECT COUNT(*)::int FROM "events" ${eventsSinceClause}) AS event_playlists_count,
+        (SELECT COUNT(*)::int FROM "playlists" ${eventsSinceClause}) AS event_playlists_count,
         (
           SELECT COUNT(DISTINCT e.id)::int
-          FROM "events" e
-          JOIN "event_tracks" t ON t.event_id = e.id
+          FROM "playlists" e
+          JOIN "playlist_tracks" t ON t.event_id = e.id
           WHERE t.added_by = 'guest'
             ${sharedTracksSinceClause}
         ) AS shared_playlists_count,
@@ -605,8 +605,8 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         COUNT(DISTINCT e.id)::int AS event_playlists_count,
         COUNT(DISTINCT CASE WHEN tg.id IS NOT NULL THEN e.id END)::int AS shared_playlists_count
       FROM "users" u
-      LEFT JOIN "events" e ON e.host_user_id = u.id
-      LEFT JOIN "event_tracks" tg ON tg.event_id = e.id AND tg.added_by = 'guest'
+      LEFT JOIN "playlists" e ON e.host_user_id = u.id
+      LEFT JOIN "playlist_tracks" tg ON tg.event_id = e.id AND tg.added_by = 'guest'
       GROUP BY u.id, u.email, u.role, u.created_at
       ORDER BY u.created_at DESC
       LIMIT 300
@@ -660,8 +660,8 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         COUNT(DISTINCT e.id)::int AS event_playlists_count,
         COUNT(DISTINCT CASE WHEN tg.id IS NOT NULL THEN e.id END)::int AS shared_playlists_count
       FROM "users" u
-      LEFT JOIN "events" e ON e.host_user_id = u.id
-      LEFT JOIN "event_tracks" tg ON tg.event_id = e.id AND tg.added_by = 'guest'
+      LEFT JOIN "playlists" e ON e.host_user_id = u.id
+      LEFT JOIN "playlist_tracks" tg ON tg.event_id = e.id AND tg.added_by = 'guest'
       WHERE u.id = ${params.data.userId}
       GROUP BY u.id
       LIMIT 1
@@ -686,8 +686,8 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         COUNT(t.id)::int AS tracks_count,
         BOOL_OR(t.added_by = 'guest') AS shared,
         e.updated_at
-      FROM "events" e
-      LEFT JOIN "event_tracks" t ON t.event_id = e.id
+      FROM "playlists" e
+      LEFT JOIN "playlist_tracks" t ON t.event_id = e.id
       WHERE e.host_user_id = ${params.data.userId}
       GROUP BY e.id, e.name, e.provider, e.status, e.updated_at
       ORDER BY e.updated_at DESC
@@ -742,7 +742,7 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.get('/admin/analytics/events/:eventId', async (request, reply) => {
+  app.get('/admin/analytics/playlists/:eventId', async (request, reply) => {
     const access = await resolveAdminAccess(request, reply, {
       scope: 'analytics',
       level: 'read',
@@ -789,9 +789,9 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         MAX(t.added_at) AS last_track_added_at,
         e.created_at,
         e.updated_at
-      FROM "events" e
+      FROM "playlists" e
       JOIN "users" u ON u.id = e.host_user_id
-      LEFT JOIN "event_tracks" t ON t.event_id = e.id
+      LEFT JOIN "playlist_tracks" t ON t.event_id = e.id
       WHERE e.id = ${params.data.eventId}
       GROUP BY e.id, e.name, e.description, e.provider, e.status, u.email, e.magic_link_token, e.closed_at, e.created_at, e.updated_at
       LIMIT 1
@@ -801,7 +801,7 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
     if (!eventRow) {
       return reply.status(404).send({
         code: 'event_not_found',
-        message: 'Event not found.',
+        message: 'Playlist not found.',
       });
     }
 
@@ -815,11 +815,11 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       SELECT
         COUNT(*) FILTER (
           WHERE event_name = 'app_page_view'
-            AND page_path LIKE ${`/event/${eventRow.magic_link_token}%`}
+            AND page_path LIKE ${`/playlist/${eventRow.magic_link_token}%`}
         )::int AS public_page_views,
         COUNT(*) FILTER (
           WHERE event_name = 'app_page_view'
-            AND page_path LIKE ${`/events/${eventRow.event_id}%`}
+            AND page_path LIKE ${`/playlists/${eventRow.event_id}%`}
         )::int AS host_page_views,
         COUNT(*) FILTER (
           WHERE properties ->> 'eventId' = ${eventRow.event_id}
@@ -850,7 +850,7 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         album,
         added_at,
         added_by
-      FROM "event_tracks"
+      FROM "playlist_tracks"
       WHERE event_id = ${eventRow.event_id}
       ORDER BY added_at DESC
       LIMIT 20

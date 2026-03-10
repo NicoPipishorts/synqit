@@ -96,29 +96,63 @@ const syncedListsRoute = createRoute({
 
 const eventsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/events',
+  path: '/playlists',
   beforeLoad: requireAuth,
   component: HostEventsPage,
+});
+const legacyEventsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/events',
+  beforeLoad: () => {
+    requireAuth();
+    throw redirect({ to: '/playlists' });
+  },
 });
 
 const eventDetailsRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/events/$eventId',
+  path: '/playlists/$eventId',
   beforeLoad: requireAuth,
   component: HostEventDetailsPage,
+});
+const legacyEventDetailsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/events/$eventId',
+  beforeLoad: ({ params }) => {
+    requireAuth();
+    throw redirect({ to: '/playlists/$eventId', params: { eventId: params.eventId } });
+  },
 });
 
 const eventCreateRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/events/new',
+  path: '/playlists/new',
   beforeLoad: requireAuth,
   component: EventCreatePage,
+});
+const legacyEventCreateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/events/new',
+  beforeLoad: () => {
+    requireAuth();
+    throw redirect({ to: '/playlists/new' });
+  },
 });
 
 const eventPublicRoute = createRoute({
   getParentRoute: () => rootRoute,
-  path: '/event/$magicLinkToken',
+  path: '/playlist/$magicLinkToken',
   component: EventPublicPage,
+});
+const legacyEventPublicRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/event/$magicLinkToken',
+  beforeLoad: ({ params }) => {
+    throw redirect({
+      to: '/playlist/$magicLinkToken',
+      params: { magicLinkToken: params.magicLinkToken },
+    });
+  },
 });
 
 const registerRoute = createRoute({
@@ -241,9 +275,13 @@ const routeTree = rootRoute.addChildren([
   providersRoute,
   syncedListsRoute,
   eventsRoute,
+  legacyEventsRoute,
   eventDetailsRoute,
+  legacyEventDetailsRoute,
   eventCreateRoute,
+  legacyEventCreateRoute,
   eventPublicRoute,
+  legacyEventPublicRoute,
   registerRoute,
   loginRoute,
   forgotPasswordRoute,

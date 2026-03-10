@@ -119,7 +119,7 @@ export const ProviderConnectionsPage = () => {
           (payload) => integrationListResponseSchema.parse(payload),
         ),
         callApi(
-          '/v1/events',
+          '/v1/playlists',
           {
             method: 'GET',
             headers: {

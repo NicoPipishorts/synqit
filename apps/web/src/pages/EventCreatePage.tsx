@@ -177,7 +177,7 @@ export const EventCreatePage = () => {
       }
 
       const result = await callApi(
-        '/v1/events/drafts',
+        '/v1/playlists/drafts',
         {
           method: 'POST',
           headers: {
@@ -212,7 +212,7 @@ export const EventCreatePage = () => {
       }
 
       const result = await callApi(
-        `/v1/events/drafts/${params.draftId}`,
+        `/v1/playlists/drafts/${params.draftId}`,
         {
           method: 'PATCH',
           headers: {
@@ -448,7 +448,7 @@ export const EventCreatePage = () => {
     });
     try {
       const result = await callApi(
-        '/v1/events',
+        '/v1/playlists',
         {
           method: 'POST',
           headers: {
@@ -553,7 +553,7 @@ export const EventCreatePage = () => {
 
       try {
         const result = await callApi(
-          `/v1/events/drafts/${draftIdParam}`,
+          `/v1/playlists/drafts/${draftIdParam}`,
           {
             method: 'GET',
             headers: {
@@ -769,7 +769,7 @@ export const EventCreatePage = () => {
       <div className="relative grid gap-5">
         <article>
           <div className="flex items-start gap-4 px-5 py-7 sm:px-8 sm:py-9">
-            <CircleChevronBackButton to="/events" label={t('eventsPage.backToEvents')} />
+            <CircleChevronBackButton to="/playlists" label={t('eventsPage.backToEvents')} />
             <div className="grid w-full gap-2">
               <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
                 {t('eventsPage.createFlow.title')}
@@ -1029,13 +1029,13 @@ export const EventCreatePage = () => {
                       </CTAButton>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <CTALink to={`/events/${createdEvent.eventId}`} variant="primary">
+                      <CTALink to={`/playlists/${createdEvent.eventId}`} variant="primary">
                         <CTAMobileIconLabel
                           icon={<Eye size={14} aria-hidden="true" />}
                           label={t('eventsPage.createFlow.openEventDetails')}
                         />
                       </CTALink>
-                      <CTALink to="/events" variant="secondary">
+                      <CTALink to="/playlists" variant="secondary">
                         {t('eventsPage.backToEvents')}
                       </CTALink>
                     </div>

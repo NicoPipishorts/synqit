@@ -30,7 +30,7 @@ export const HostEventDetailsHeader = ({
   onOpenCloseConfirm,
   showCloseAction = true,
   showBackButton = true,
-  backTo = '/events',
+  backTo = '/playlists',
   backLabel,
   statusMessage,
 }: HostEventDetailsHeaderProps) => {

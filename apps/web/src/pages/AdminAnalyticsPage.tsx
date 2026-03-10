@@ -300,13 +300,13 @@ export const AdminAnalyticsPage = () => {
         if (row.path.startsWith('/admin')) {
           return false;
         }
-        if (row.path.startsWith('/events/link/')) {
+        if (row.path.startsWith('/playlists/link/')) {
           return false;
         }
-        if (row.path.startsWith('/event/')) {
+        if (row.path.startsWith('/playlist/')) {
           return false;
         }
-        if (row.path.startsWith('/events/') && row.path !== '/events/new') {
+        if (row.path.startsWith('/playlists/') && row.path !== '/playlists/new') {
           return false;
         }
         return true;

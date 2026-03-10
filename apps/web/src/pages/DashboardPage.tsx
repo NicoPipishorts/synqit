@@ -114,7 +114,7 @@ export const DashboardPage = () => {
             (payload) => integrationListResponseSchema.parse(payload),
           ),
           callApi(
-            '/v1/events',
+            '/v1/playlists',
             {
               method: 'GET',
               headers: {
@@ -149,7 +149,7 @@ export const DashboardPage = () => {
         const trackResponses = await Promise.allSettled(
           nextEvents.map((event) =>
             callApi(
-              `/v1/events/${encodeURIComponent(event.id)}/tracks`,
+              `/v1/playlists/${encodeURIComponent(event.id)}/tracks`,
               {
                 method: 'GET',
                 headers: {
@@ -318,7 +318,7 @@ export const DashboardPage = () => {
     return rows.map((activity) => (
       <li key={`${activity.eventId}-${activity.trackName}-${activity.addedAt}`} className="min-w-0">
         <CTALink
-          to={`/events/${activity.eventId}`}
+          to={`/playlists/${activity.eventId}`}
           variant="secondary"
           className="flex-col w-full min-w-0 items-start justify-start gap-0 overflow-hidden whitespace-normal rounded-xl bg-app-bg px-3 py-3 text-left dark:bg-app-elevated"
         >
@@ -347,7 +347,7 @@ export const DashboardPage = () => {
                   {t('dashboard.title')}
                 </h1>
                 <div className="flex items-center gap-2">
-                  <CTALink to="/events/new" variant="primary" className="hidden sm:inline-flex">
+                  <CTALink to="/playlists/new" variant="primary" className="hidden sm:inline-flex">
                     {t('dashboard.ctaCreateEvent')}
                   </CTALink>
                   <CTAButton
@@ -377,7 +377,7 @@ export const DashboardPage = () => {
             </div>
           </div>
           <div className="flex justify-center px-5 pb-1 sm:hidden">
-            <CTALink to="/events/new" variant="primary" className="w-full justify-center">
+            <CTALink to="/playlists/new" variant="primary" className="w-full justify-center">
               {t('dashboard.ctaCreateEvent')}
             </CTALink>
           </div>
@@ -471,7 +471,7 @@ export const DashboardPage = () => {
                       mode="pill"
                     />
                     <CTALink
-                      to={`/events/${event.id}`}
+                      to={`/playlists/${event.id}`}
                       variant="secondary"
                       className="px-2.5 py-1.5 text-[11px]"
                       aria-label={t('dashboard.openEvent')}

@@ -22,7 +22,7 @@ import { EventTrackItem, getPublicEventUrl, HostEvent } from '../lib/events';
 export const HostEventDetailsPage = () => {
   const { t, locale } = useI18n();
   const { showToast } = useToast();
-  const params = useParams({ from: '/events/$eventId' });
+  const params = useParams({ from: '/playlists/$eventId' });
   const { eventId } = params;
 
   const [event, setEvent] = useState<HostEvent | null>(null);
@@ -81,7 +81,7 @@ export const HostEventDetailsPage = () => {
 
     try {
       const result = await callApi(
-        `/v1/events/${encodeURIComponent(eventId)}`,
+        `/v1/playlists/${encodeURIComponent(eventId)}`,
         {
           method: 'GET',
           headers: {
@@ -127,7 +127,7 @@ export const HostEventDetailsPage = () => {
     setIsLoadingTracks(true);
     try {
       const result = await callApi(
-        `/v1/events/${encodeURIComponent(eventId)}/tracks`,
+        `/v1/playlists/${encodeURIComponent(eventId)}/tracks`,
         {
           method: 'GET',
           headers: {
@@ -195,7 +195,7 @@ export const HostEventDetailsPage = () => {
       });
 
       const result = await callApi(
-        `/v1/events/${encodeURIComponent(event.id)}`,
+        `/v1/playlists/${encodeURIComponent(event.id)}`,
         {
           method: 'PATCH',
           headers: {
@@ -236,7 +236,7 @@ export const HostEventDetailsPage = () => {
     setIsWorking(true);
     try {
       const result = await callApi(
-        `/v1/events/${encodeURIComponent(event.id)}/close`,
+        `/v1/playlists/${encodeURIComponent(event.id)}/close`,
         {
           method: 'POST',
           headers: {
@@ -276,7 +276,7 @@ export const HostEventDetailsPage = () => {
     setIsWorking(true);
     try {
       const result = await callApi(
-        `/v1/events/${encodeURIComponent(event.id)}/magic-link/revoke`,
+        `/v1/playlists/${encodeURIComponent(event.id)}/magic-link/revoke`,
         {
           method: 'POST',
           headers: {
@@ -315,7 +315,7 @@ export const HostEventDetailsPage = () => {
     setIsWorking(true);
     try {
       const result = await callApi(
-        `/v1/events/${encodeURIComponent(event.id)}/magic-link/regenerate`,
+        `/v1/playlists/${encodeURIComponent(event.id)}/magic-link/regenerate`,
         {
           method: 'POST',
           headers: {
