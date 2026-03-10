@@ -101,6 +101,12 @@ const sendForgotPasswordAccepted = (reply: FastifyReply) =>
     }),
   );
 
+const sendBlockedAccountError = (reply: FastifyReply) =>
+  reply.status(403).send({
+    code: 'account_blocked',
+    message: 'This account has been blocked.',
+  });
+
 const formatPublicUser = (user: UserRecord) =>
   authUserSchema.parse({
     id: user.id,
@@ -218,6 +224,11 @@ const loadAuthenticatedUser = async (
       code: 'unauthorized',
       message: 'Authentication required.',
     });
+    return null;
+  }
+
+  if (user.isBlocked) {
+    await sendBlockedAccountError(reply);
     return null;
   }
 
@@ -349,6 +360,10 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         code: 'invalid_credentials',
         message: 'Invalid email or password.',
       });
+    }
+
+    if (user.isBlocked) {
+      return sendBlockedAccountError(reply);
     }
 
     const isPasswordValid = await verifyPassword(parsed.data.password, passwordHash);
@@ -503,6 +518,11 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         code: 'invalid_refresh_token',
         message: 'Refresh token is invalid.',
       });
+    }
+
+    if (user.isBlocked) {
+      await authStore.revokeRefreshTokenByHash(oldTokenHash);
+      return sendBlockedAccountError(reply);
     }
 
     const nextRefreshToken = createRefreshToken();

@@ -175,6 +175,11 @@ const verifyAndGetUserId = async (
     return null;
   }
 
+  if (user.isBlocked) {
+    app.log.warn({ userId }, 'blocked user attempted integration access');
+    return null;
+  }
+
   return userId;
 };
 

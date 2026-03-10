@@ -13,6 +13,8 @@ type UserRecord = {
   id: string;
   email: string;
   role: AccountRole;
+  isBlocked: boolean;
+  blockedAt: Date | null;
   adminPermissions: AdminPermission[];
   passwordHash: string | null;
   avatarPath: string | null;
@@ -59,6 +61,8 @@ type UserRow = {
   id: string;
   email: string;
   role?: string | null;
+  is_blocked?: boolean | null;
+  blocked_at?: Date | null;
   password_hash: string | null;
   avatar_url?: string | null;
   created_at: Date;
@@ -110,6 +114,8 @@ const toUserRecord = (row: UserRow): UserRecord => ({
   id: row.id,
   email: row.email,
   role: accountRoleSchema.safeParse(row.role).success ? (row.role as AccountRole) : 'user',
+  isBlocked: row.is_blocked === true,
+  blockedAt: row.blocked_at ? new Date(row.blocked_at) : null,
   adminPermissions: [],
   passwordHash: row.password_hash,
   avatarPath: row.avatar_url ?? null,
@@ -249,9 +255,17 @@ export const authStore = {
     const createdAt = new Date();
     try {
       const rows = await prisma.$queryRaw<UserRow[]>`
-        INSERT INTO "users" (id, email, password_hash, avatar_url, created_at)
-        VALUES (${userId}, ${normalizedEmail}, ${params.passwordHash}, ${null}, ${createdAt})
-        RETURNING id, email, role, password_hash, avatar_url, created_at
+        INSERT INTO "users" (
+          id,
+          email,
+          password_hash,
+          is_blocked,
+          blocked_at,
+          avatar_url,
+          created_at
+        )
+        VALUES (${userId}, ${normalizedEmail}, ${params.passwordHash}, ${false}, ${null}, ${null}, ${createdAt})
+        RETURNING id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
       `;
       if (rows.length === 0) {
         return null;
@@ -292,7 +306,7 @@ export const authStore = {
     const normalizedEmail = email.trim().toLowerCase();
     try {
       const rows = await prisma.$queryRaw<UserRow[]>`
-        SELECT id, email, role, password_hash, avatar_url, created_at
+        SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
         FROM "users"
         WHERE email = ${normalizedEmail}
         LIMIT 1
@@ -325,7 +339,7 @@ export const authStore = {
   async findUserById(id: string): Promise<UserRecord | null> {
     try {
       const rows = await prisma.$queryRaw<UserRow[]>`
-        SELECT id, email, role, password_hash, avatar_url, created_at
+        SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
         FROM "users"
         WHERE id = ${id}
         LIMIT 1
@@ -384,6 +398,19 @@ export const authStore = {
     return Number(updatedCount) === 1;
   },
 
+  async setUserBlockedStatusById(userId: string, blocked: boolean): Promise<boolean> {
+    const blockedAt = blocked ? new Date() : null;
+    const updatedCount = await prisma.$executeRaw`
+      UPDATE "users"
+      SET
+        is_blocked = ${blocked},
+        blocked_at = ${blockedAt}
+      WHERE id = ${userId}
+    `;
+
+    return Number(updatedCount) === 1;
+  },
+
   async replaceUserAdminPermissionsByUserId(
     userId: string,
     permissions: AdminPermission[],
@@ -415,6 +442,10 @@ export const authStore = {
             ${now},
             ${now}
           )
+          ON CONFLICT (user_id, scope)
+          DO UPDATE SET
+            access_level = EXCLUDED.access_level,
+            updated_at = EXCLUDED.updated_at
         `;
       }
     });
@@ -424,7 +455,7 @@ export const authStore = {
     let rows: UserRow[];
     try {
       rows = await prisma.$queryRaw<UserRow[]>`
-        SELECT id, email, role, password_hash, avatar_url, created_at
+        SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
         FROM "users"
         ORDER BY created_at DESC
         LIMIT 200

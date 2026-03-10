@@ -8,6 +8,7 @@ import {
   adminLoginRequestSchema,
   adminMeResponseSchema,
   adminPermissionScopeSchema,
+  adminUserBlockUpdateSchema,
   adminUserAccessUpdateSchema,
   adminUserListResponseSchema,
   authResponseSchema,
@@ -200,6 +201,14 @@ const loadJwtAdminUser = async (
     return null;
   }
 
+  if (user.isBlocked) {
+    await reply.status(403).send({
+      code: 'account_blocked',
+      message: 'This account has been blocked.',
+    });
+    return null;
+  }
+
   return user;
 };
 
@@ -310,6 +319,13 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    if (user.isBlocked) {
+      return reply.status(403).send({
+        code: 'account_blocked',
+        message: 'This account has been blocked.',
+      });
+    }
+
     if (user.role !== 'admin') {
       return reply.status(403).send({
         code: 'forbidden',
@@ -350,6 +366,8 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         id: user.id,
         email: user.email,
         role: user.role,
+        isBlocked: user.isBlocked,
+        blockedAt: user.blockedAt ? user.blockedAt.toISOString() : null,
         createdAt: user.createdAt.toISOString(),
         adminPermissions: user.adminPermissions,
       })),
@@ -593,6 +611,8 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         user_id: string;
         email: string;
         role: string;
+        is_blocked: boolean;
+        blocked_at: Date | null;
         created_at: Date;
         event_playlists_count: number;
         shared_playlists_count: number;
@@ -602,13 +622,15 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         u.id AS user_id,
         u.email,
         u.role,
+        u.is_blocked,
+        u.blocked_at,
         u.created_at,
         COUNT(DISTINCT e.id)::int AS event_playlists_count,
         COUNT(DISTINCT CASE WHEN tg.id IS NOT NULL THEN e.id END)::int AS shared_playlists_count
       FROM "users" u
       LEFT JOIN "playlists" e ON e.host_user_id = u.id
       LEFT JOIN "playlist_tracks" tg ON tg.event_id = e.id AND tg.added_by = 'guest'
-      GROUP BY u.id, u.email, u.role, u.created_at
+      GROUP BY u.id, u.email, u.role, u.is_blocked, u.blocked_at, u.created_at
       ORDER BY u.created_at DESC
       LIMIT 300
     `;
@@ -618,6 +640,8 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         userId: row.user_id,
         email: row.email,
         role: row.role === 'admin' ? 'admin' : 'user',
+        isBlocked: Boolean(row.is_blocked),
+        blockedAt: row.blocked_at ? row.blocked_at.toISOString() : null,
         createdAt: row.created_at.toISOString(),
         eventPlaylistsCount: Number(row.event_playlists_count) || 0,
         sharedPlaylistsCount: Number(row.shared_playlists_count) || 0,
@@ -724,6 +748,8 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         userId: targetUser.id,
         email: targetUser.email,
         role: targetUser.role,
+        isBlocked: targetUser.isBlocked,
+        blockedAt: targetUser.blockedAt ? targetUser.blockedAt.toISOString() : null,
         createdAt: targetUser.createdAt.toISOString(),
         personalInfo: personalInfoSchema
           .pick({
@@ -959,6 +985,77 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         id: refreshed.id,
         email: refreshed.email,
         role: refreshed.role,
+        isBlocked: refreshed.isBlocked,
+        blockedAt: refreshed.blockedAt ? refreshed.blockedAt.toISOString() : null,
+        createdAt: refreshed.createdAt.toISOString(),
+        adminPermissions: refreshed.adminPermissions,
+      },
+    });
+  });
+
+  app.put('/admin/users/:userId/block', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'users',
+      level: 'write',
+    });
+    if (!access || !access.user) {
+      return;
+    }
+
+    const params = userAccessParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Request params are invalid.',
+        details: params.error.flatten(),
+      });
+    }
+
+    const body = adminUserBlockUpdateSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Request payload is invalid.',
+        details: body.error.flatten(),
+      });
+    }
+
+    if (body.data.blocked && access.user.id === params.data.userId) {
+      return reply.status(409).send({
+        code: 'self_block_not_allowed',
+        message: 'You cannot block your own account.',
+      });
+    }
+
+    const existing = await authStore.findUserById(params.data.userId);
+    if (!existing) {
+      return reply.status(404).send({
+        code: 'user_not_found',
+        message: 'User not found.',
+      });
+    }
+
+    await authStore.setUserBlockedStatusById(existing.id, body.data.blocked);
+    if (body.data.blocked) {
+      await authStore.revokeAllRefreshTokensByUserId(existing.id);
+    }
+
+    const refreshed = await authStore.findUserById(existing.id);
+    if (!refreshed) {
+      return reply.status(500).send({
+        code: 'admin_user_update_failed',
+        message: 'Unable to load updated admin user.',
+      });
+    }
+
+    return reply.status(200).send({
+      ok: true,
+      user: {
+        id: refreshed.id,
+        email: refreshed.email,
+        role: refreshed.role,
+        isBlocked: refreshed.isBlocked,
+        blockedAt: refreshed.blockedAt ? refreshed.blockedAt.toISOString() : null,
         createdAt: refreshed.createdAt.toISOString(),
         adminPermissions: refreshed.adminPermissions,
       },

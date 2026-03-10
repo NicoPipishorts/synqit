@@ -2,112 +2,241 @@
 
 Playlist sync platform scaffold for the v1 scope.
 
-## Monorepo layout
+Synqit is a monorepo containing the API, web application, background
+workers, shared libraries, and infrastructure configuration required to
+run the platform.
 
-- `apps/api`: Fastify API (health, version, docs scaffold)
-- `apps/worker`: BullMQ worker scaffold
-- `apps/web`: React + Vite web shell
-- `packages/shared`: shared Zod schemas/types/constants
-- `infra`: Docker Compose + Caddy bootstrap
-- `docs`: roadmap, scope, conventions, deployment plan
+---
 
-## Prerequisites
+# Monorepo layout
+
+    apps/
+      api/        Fastify API
+      worker/     background queue workers
+      web/        React + Vite web application
+
+    packages/
+      shared/     shared schemas, types, and constants
+
+    infra/
+      container orchestration and reverse proxy configuration
+
+    docs/
+      roadmap, scope, conventions, deployment plan
+
+---
+
+# Prerequisites
+
+The project requires the following tools:
 
 - Node.js 20 LTS
 - Yarn 1.x (classic)
-- Docker + Docker Compose (for infra stack)
+- Docker
+- Docker Compose
 
-## Getting started
+Optional but recommended:
+
+- TablePlus / DBeaver / Postico for database inspection
+- Node.js version manager (nvm, fnm, asdf)
+
+---
+
+# Getting started
+
+Install dependencies:
 
 ```bash
 yarn install
-yarn infra:up:core
-yarn prisma:migrate:deploy
-yarn dev
 ```
 
-This starts:
+Start core infrastructure services (database + redis):
 
-- API on `http://localhost:3001`
-- Web on `http://localhost:5173`
-- Worker process connected to Redis URL in env
+```bash
+yarn infra:up:core
+```
 
-## Useful commands
+Run database migrations:
+
+```bash
+yarn prisma:migrate:deploy
+```
+
+Start the development environment:
 
 ```bash
 yarn dev
+```
+
+This launches the development stack including:
+
+- API server
+- Web frontend
+- Background worker
+
+---
+
+# Useful commands
+
+Development
+
+```bash
+yarn dev
+```
+
+Database utilities
+
+```bash
 yarn db:check
 yarn prisma:pull
 yarn prisma:generate
 yarn prisma:studio
 yarn prisma:migrate:status
 yarn prisma:migrate:deploy
+```
+
+Infrastructure
+
+```bash
 yarn infra:up
 yarn infra:up:core
 yarn infra:ps
 yarn infra:down
+```
+
+Project maintenance
+
+```bash
 yarn build
 yarn lint
 yarn format
 yarn typecheck
 ```
 
-## Environment files
+---
 
-Create env files from examples:
+# Environment configuration
 
-- `cp apps/api/.env.example apps/api/.env`
-- `cp apps/worker/.env.example apps/worker/.env`
-- `cp apps/web/.env.example apps/web/.env`
+Create local environment files from the provided templates.
 
-## Infra (early bootstrap)
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/worker/.env.example apps/worker/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+Environment files contain runtime configuration such as:
+
+- database connection
+- redis connection
+- API base URL
+- storage paths
+- feature configuration
+
+**Never commit populated `.env` files or production secrets to version
+control.**
+
+---
+
+# Infrastructure
+
+The project includes a containerized development environment.
+
+Start the full stack:
 
 ```bash
 yarn infra:up
 ```
 
-Services included:
+The development infrastructure includes:
 
-- `postgres`
-- `redis`
-- `api`
-- `worker`
-- `web`
-- `caddy`
+- PostgreSQL
+- Redis
+- API service
+- Worker service
+- Web service
+- Reverse proxy
 
-All infra services are grouped under the Compose project name `synqit`, so they stay isolated from other local Docker projects.
+Services run within a dedicated compose project to avoid conflicts with
+other local Docker environments.
 
-## Database (local)
+---
 
-The API now uses PostgreSQL for auth, integrations, and events.
+# Database
 
-### Start only DB + Redis
+The application uses PostgreSQL as its primary datastore.
+
+Core entities include:
+
+- users
+- integrations
+- events
+- event tracks
+
+---
+
+## Starting only core services
+
+For local development you can start only the required services:
 
 ```bash
 yarn infra:up:core
 ```
 
-### API database config
+This starts:
 
-- `apps/api/.env.local` (or `.env`) should contain:
-- `DATABASE_URL=postgresql://synqit:synqit@localhost:5435/synqit`
-- `REDIS_URL=redis://localhost:6380`
-- `API_BASE_URL=http://localhost:3001`
-- `AVATAR_STORAGE_DIR=./data/uploads/avatars`
-- `AVATAR_MAX_BYTES=1500000`
+- PostgreSQL
+- Redis
 
-On API startup, the API verifies DB connectivity.
-Schema changes are managed by Prisma migrations (not runtime SQL bootstrap).
+---
 
-When running fully containerized (`yarn infra:up`), API and worker automatically use internal Docker service URLs (`postgres:5432`, `redis:6379`).
+## Database configuration
 
-### Access DB from terminal
+Database configuration is provided through environment variables.
+
+Typical variables include:
+
+- DATABASE_URL
+- REDIS_URL
+- API_BASE_URL
+
+The API validates database connectivity during startup.
+
+Schema changes are handled using Prisma migrations rather than runtime
+schema creation.
+
+---
+
+# Prisma
+
+Prisma is used for database access and migrations.
+
+Common commands:
 
 ```bash
-docker compose -f infra/docker-compose.yml exec postgres psql -U synqit -d synqit
+yarn prisma:migrate:status
+yarn prisma:migrate:deploy
+yarn prisma:pull
+yarn prisma:generate
+yarn prisma:studio
 ```
 
-Useful SQL:
+Project files:
+
+    apps/api/prisma/schema.prisma
+    apps/api/prisma.config.ts
+
+---
+
+# Accessing the database from terminal
+
+You can connect to the running database container:
+
+```bash
+docker compose -f infra/docker-compose.yml exec postgres psql -U <user> -d <database>
+```
+
+Useful SQL commands:
 
 ```sql
 \dt
@@ -117,50 +246,63 @@ SELECT COUNT(*) FROM events;
 SELECT COUNT(*) FROM event_tracks;
 ```
 
-Quick count check via script:
+Quick check script:
 
 ```bash
 yarn db:check
 ```
 
-### Prisma
+---
 
-Prisma is installed in `apps/api` and introspected from the existing DB schema.
+# Avatar storage
 
-```bash
-yarn prisma:migrate:status
-yarn prisma:migrate:deploy
-yarn prisma:pull
-yarn prisma:generate
-yarn prisma:studio
-```
+User avatars are stored on disk.
 
-- Prisma schema: `apps/api/prisma/schema.prisma`
-- Prisma config: `apps/api/prisma.config.ts` (loads `.env.local` first)
-- New migration for avatars: `apps/api/prisma/migrations/0002_user_avatar_url`
+The database stores the avatar file reference and the API serves the
+file through a public endpoint.
 
-### Avatar storage (VPS-friendly)
+Avatar upload and removal are handled through authenticated API routes.
 
-Avatar files are stored on disk (not S3), which works well on single-server VPS setups (Hostinger/OVH).
+For production environments, the avatar storage directory should:
 
-- DB stores avatar path on `users.avatar_url`.
-- API serves files from `GET /v1/public/avatars/:fileName`.
-- Profile upload/remove endpoints:
-- `POST /v1/auth/avatar` with `{ "imageDataUrl": "data:image/...;base64,..." }`
-- `DELETE /v1/auth/avatar`
+- be outside ephemeral deploy directories
+- be persisted across deployments
+- have appropriate filesystem permissions
 
-For production, point `AVATAR_STORAGE_DIR` to a persistent folder outside ephemeral deploy paths, for example:
+---
 
-- `/var/www/synqit-data/avatars`
+# Accessing the database from a GUI
 
-Then keep that directory mounted/preserved across deploys.
+You can inspect the database using a GUI client such as:
 
-### Access DB from GUI (TablePlus, DBeaver, Postico)
+- TablePlus
+- DBeaver
+- Postico
 
-GUI access from host machine:
+Connection settings should match the values defined in your local
+environment configuration.
 
-1. Host: `localhost`
-2. Port: `5435`
-3. Database: `synqit`
-4. User: `synqit`
-5. Password: `synqit`
+Typical fields:
+
+Host: localhost\
+Port: `<postgres_port>`{=html}\
+Database: `<database_name>`{=html}\
+User: `<database_user>`{=html}\
+Password: `<database_password>`{=html}
+
+---
+
+# Documentation
+
+Additional documentation is available in the `docs` folder:
+
+- product roadmap
+- architecture notes
+- deployment plan
+- development conventions
+
+---
+
+# License
+
+This project is currently under private development.

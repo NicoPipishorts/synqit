@@ -93,7 +93,7 @@ const verifyAndGetUserId = async (request: FastifyRequest): Promise<string | nul
   }
 
   const user = await authStore.findUserById(userId);
-  if (!user) {
+  if (!user || user.isBlocked) {
     return null;
   }
 

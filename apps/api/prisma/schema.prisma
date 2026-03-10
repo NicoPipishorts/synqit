@@ -142,6 +142,8 @@ model users {
   id             String           @id
   email          String           @unique
   role           String           @default("user")
+  is_blocked     Boolean          @default(false)
+  blocked_at     DateTime?        @db.Timestamptz(6)
   password_hash  String?
   avatar_url     String?
   created_at     DateTime         @db.Timestamptz(6)

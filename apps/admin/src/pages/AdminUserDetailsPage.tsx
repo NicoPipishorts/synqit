@@ -7,14 +7,16 @@ import {
 } from '@synqit/shared';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { ArrowLeft } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AdminDetailCard } from '../components/admin/AdminDetailCard';
 import { PermissionLevelSlider } from '../components/admin/PermissionLevelSlider';
 import { CTAButton } from '../components/ui/cta';
+import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
+import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
-import { clearAuth } from '../lib/auth';
+import { clearAuth, loadAuth } from '../lib/auth';
 
 type AnalyticsUserDetail = AdminAnalyticsUserDetailResponse['user'];
 type AccessLevelUi = AdminPermissionLevel | 'none';
@@ -71,8 +73,26 @@ const getUserTitle = (user: AnalyticsUserDetail): string => {
   return user.email;
 };
 
+const areAccessEditorsEqual = (
+  a: AccessEditorState | null,
+  b: AccessEditorState | null,
+): boolean => {
+  if (!a || !b) {
+    return a === b;
+  }
+
+  if (a.role !== b.role) {
+    return false;
+  }
+
+  return adminPermissionScopeSchema.options.every(
+    (scope) => a.scopeLevels[scope] === b.scopeLevels[scope],
+  );
+};
+
 export const AdminUserDetailsPage = () => {
   const { t, locale } = useI18n();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const { userId } = useParams({ from: '/users/$userId' });
 
@@ -80,9 +100,16 @@ export const AdminUserDetailsPage = () => {
   const [accessEditor, setAccessEditor] = useState<AccessEditorState | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingAccess, setIsSavingAccess] = useState(false);
+  const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
+  const [isUpdatingBlockedState, setIsUpdatingBlockedState] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   const scopes = useMemo(() => adminPermissionScopeSchema.options, []);
+  const currentAdminUserId = useMemo(() => loadAuth()?.userId ?? null, []);
+  const persistedAccessRef = useRef<AccessEditorState | null>(null);
+  const queuedAccessRef = useRef<AccessEditorState | null>(null);
+  const saveTimeoutRef = useRef<number | null>(null);
+  const isSavingAccessRef = useRef(false);
 
   const formatDate = useMemo(() => {
     return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
@@ -137,10 +164,12 @@ export const AdminUserDetailsPage = () => {
       }
 
       setUserDetail(result.user);
-      setAccessEditor({
+      const nextAccessEditor = {
         role: result.user.role,
         scopeLevels: nextScopeLevels,
-      });
+      };
+      setAccessEditor(nextAccessEditor);
+      persistedAccessRef.current = nextAccessEditor;
     } catch (error) {
       const message = handleAccessError(error);
       if (message) {
@@ -151,12 +180,18 @@ export const AdminUserDetailsPage = () => {
     }
   }, [handleAccessError, userId]);
 
-  const saveAccess = useCallback(
+  const flushPendingAccessSave = useCallback(
     async (nextAccessEditor: AccessEditorState) => {
-      if (!userDetail) {
+      if (!userDetail || isSavingAccessRef.current) {
         return;
       }
 
+      if (areAccessEditorsEqual(nextAccessEditor, persistedAccessRef.current)) {
+        queuedAccessRef.current = null;
+        return;
+      }
+
+      isSavingAccessRef.current = true;
       setIsSavingAccess(true);
       setStatus(null);
       try {
@@ -188,18 +223,57 @@ export const AdminUserDetailsPage = () => {
           (payload) => payload,
         );
 
-        await loadUserDetail();
+        persistedAccessRef.current = nextAccessEditor;
+        setUserDetail((current) =>
+          current
+            ? {
+                ...current,
+                role: nextAccessEditor.role,
+                adminPermissions,
+              }
+            : current,
+        );
         setStatus(t('admin.accessUpdated'));
+        showToast(t('admin.accessUpdated'), { variant: 'success' });
       } catch (error) {
         const message = handleAccessError(error);
         if (message) {
           setStatus(message);
+          showToast(message, { variant: 'error' });
         }
+        setAccessEditor(persistedAccessRef.current);
       } finally {
+        isSavingAccessRef.current = false;
         setIsSavingAccess(false);
+        const queuedAccess = queuedAccessRef.current;
+        if (queuedAccess && !areAccessEditorsEqual(queuedAccess, persistedAccessRef.current)) {
+          queuedAccessRef.current = null;
+          void flushPendingAccessSave(queuedAccess);
+        }
       }
     },
-    [handleAccessError, loadUserDetail, scopes, t, userDetail],
+    [handleAccessError, scopes, showToast, t, userDetail],
+  );
+
+  const scheduleAccessSave = useCallback(
+    (nextAccessEditor: AccessEditorState) => {
+      queuedAccessRef.current = nextAccessEditor;
+
+      if (saveTimeoutRef.current !== null) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+
+      saveTimeoutRef.current = window.setTimeout(() => {
+        saveTimeoutRef.current = null;
+        const queuedAccess = queuedAccessRef.current;
+        if (!queuedAccess) {
+          return;
+        }
+        queuedAccessRef.current = null;
+        void flushPendingAccessSave(queuedAccess);
+      }, 220);
+    },
+    [flushPendingAccessSave],
   );
 
   const updateAccessEditor = useCallback(
@@ -210,11 +284,11 @@ export const AdminUserDetailsPage = () => {
         }
 
         const next = updater(current);
-        void saveAccess(next);
+        scheduleAccessSave(next);
         return next;
       });
     },
-    [saveAccess],
+    [scheduleAccessSave],
   );
 
   const appPageViews = useMemo(() => {
@@ -231,9 +305,71 @@ export const AdminUserDetailsPage = () => {
     );
   }, [userDetail]);
 
+  const canToggleBlockedState = Boolean(
+    userDetail && currentAdminUserId && userDetail.userId !== currentAdminUserId,
+  );
+  const blockActionLabel = userDetail?.isBlocked ? 'Reactivate account' : 'Block account';
+  const blockModalTitle = userDetail?.isBlocked ? 'Reactivate account?' : 'Block account?';
+  const blockModalMessage = userDetail?.isBlocked
+    ? 'This will restore access to login, refresh sessions, and use the customer app again.'
+    : 'This will immediately prevent the account from refreshing sessions and accessing the customer app.';
+
+  const toggleBlockedState = useCallback(async () => {
+    if (!userDetail || !canToggleBlockedState) {
+      return;
+    }
+
+    const nextBlocked = !userDetail.isBlocked;
+    setIsUpdatingBlockedState(true);
+    setStatus(null);
+
+    try {
+      await callApi(
+        `/v1/admin/users/${userDetail.userId}/block`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            blocked: nextBlocked,
+          }),
+        },
+        (payload) => payload,
+      );
+
+      setUserDetail((current) =>
+        current
+          ? {
+              ...current,
+              isBlocked: nextBlocked,
+              blockedAt: nextBlocked ? new Date().toISOString() : null,
+            }
+          : current,
+      );
+      const message = nextBlocked ? 'Account blocked.' : 'Account reactivated.';
+      setStatus(message);
+      showToast(message, { variant: 'success' });
+      setIsBlockModalOpen(false);
+    } catch (error) {
+      const message = handleAccessError(error);
+      if (message) {
+        setStatus(message);
+        showToast(message, { variant: 'error' });
+      }
+    } finally {
+      setIsUpdatingBlockedState(false);
+    }
+  }, [canToggleBlockedState, handleAccessError, showToast, userDetail]);
+
   useEffect(() => {
     void loadUserDetail();
   }, [loadUserDetail]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current !== null) {
+        window.clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -263,18 +399,29 @@ export const AdminUserDetailsPage = () => {
 
   return (
     <section className="grid content-start gap-6">
-      <div className="flex items-center gap-3">
-        <CTAButton
-          type="button"
-          variant="secondary"
-          onClick={() => void navigate({ to: '/users' })}
-        >
-          <ArrowLeft size={14} aria-hidden="true" />
-          {t('admin.analyticsDetailClose')}
-        </CTAButton>
-        <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white">
-          {getUserTitle(userDetail)}
-        </h1>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <CTAButton
+            type="button"
+            variant="secondary"
+            onClick={() => void navigate({ to: '/users' })}
+          >
+            <ArrowLeft size={14} aria-hidden="true" />
+            {t('admin.analyticsDetailClose')}
+          </CTAButton>
+          <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white">
+            {getUserTitle(userDetail)}
+          </h1>
+        </div>
+        {canToggleBlockedState ? (
+          <CTAButton
+            type="button"
+            variant={userDetail.isBlocked ? 'secondary' : 'danger'}
+            onClick={() => setIsBlockModalOpen(true)}
+          >
+            {blockActionLabel}
+          </CTAButton>
+        ) : null}
       </div>
 
       <article className="grid gap-6 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
@@ -318,6 +465,12 @@ export const AdminUserDetailsPage = () => {
                   <span className="font-black capitalize text-app-text">{userDetail.role}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
+                  <span>Account status</span>
+                  <span className="font-black text-app-text">
+                    {userDetail.isBlocked ? 'Blocked' : 'Active'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
                   <span>{t('admin.analyticsMetricEventPlaylists')}</span>
                   <span className="font-black text-app-text">{userDetail.eventPlaylistsCount}</span>
                 </div>
@@ -325,6 +478,12 @@ export const AdminUserDetailsPage = () => {
                   <span>{t('admin.analyticsMetricSharedPlaylists')}</span>
                   <span className="font-black text-app-text">
                     {userDetail.sharedPlaylistsCount}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span>Blocked at</span>
+                  <span className="font-black text-app-text">
+                    {normalizeDate(userDetail.blockedAt)}
                   </span>
                 </div>
               </div>
@@ -475,6 +634,38 @@ export const AdminUserDetailsPage = () => {
           </p>
         ) : null}
       </article>
+
+      <Modal
+        open={isBlockModalOpen}
+        title={blockModalTitle}
+        onClose={() => {
+          if (!isUpdatingBlockedState) {
+            setIsBlockModalOpen(false);
+          }
+        }}
+      >
+        <div className="grid gap-5">
+          <p className="text-sm text-app-text-secondary">{blockModalMessage}</p>
+          <div className="flex justify-end gap-3">
+            <CTAButton
+              type="button"
+              variant="secondary"
+              onClick={() => setIsBlockModalOpen(false)}
+              disabled={isUpdatingBlockedState}
+            >
+              Cancel
+            </CTAButton>
+            <CTAButton
+              type="button"
+              variant={userDetail.isBlocked ? 'primary' : 'danger'}
+              onClick={() => void toggleBlockedState()}
+              disabled={isUpdatingBlockedState}
+            >
+              {isUpdatingBlockedState ? 'Working...' : blockActionLabel}
+            </CTAButton>
+          </div>
+        </div>
+      </Modal>
     </section>
   );
 };

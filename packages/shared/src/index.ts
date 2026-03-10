@@ -165,10 +165,17 @@ export const adminUserAccessUpdateSchema = z.object({
 });
 export type AdminUserAccessUpdate = z.infer<typeof adminUserAccessUpdateSchema>;
 
+export const adminUserBlockUpdateSchema = z.object({
+  blocked: z.boolean(),
+});
+export type AdminUserBlockUpdate = z.infer<typeof adminUserBlockUpdateSchema>;
+
 export const adminUserSummarySchema = z.object({
   id: z.string(),
   email: z.string().email(),
   role: accountRoleSchema,
+  isBlocked: z.boolean().default(false),
+  blockedAt: z.string().nullable().default(null),
   createdAt: z.string(),
   adminPermissions: z.array(adminPermissionSchema),
 });
@@ -231,6 +238,8 @@ export const adminAnalyticsUserSummarySchema = z.object({
   userId: z.string(),
   email: z.string().email(),
   role: accountRoleSchema,
+  isBlocked: z.boolean().default(false),
+  blockedAt: z.string().nullable().default(null),
   createdAt: z.string(),
   eventPlaylistsCount: z.number().int().nonnegative(),
   sharedPlaylistsCount: z.number().int().nonnegative(),
