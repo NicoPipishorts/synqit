@@ -11,3 +11,13 @@
     reverse_proxy web:5173
   }
 }
+
+{$ADMIN_ADDRESS:http://admin.localhost} {
+  handle_path /api/* {
+    reverse_proxy api:3001
+  }
+
+  handle {
+    reverse_proxy admin:4174
+  }
+}

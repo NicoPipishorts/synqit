@@ -6,16 +6,13 @@ import {
   redirect,
   RouterProvider,
 } from '@tanstack/react-router';
+import { useEffect } from 'react';
 
 import { AppShell } from './components/shell/AppShell';
 import { ToastProvider } from './components/ui/ToastProvider';
-import { isAdminAuthenticated, isAuthenticated } from './lib/auth';
+import { buildAdminAppUrl } from './lib/admin-url';
+import { isAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
-import { AdminAnalyticsPage } from './pages/AdminAnalyticsPage';
-import { AdminDashboardPage } from './pages/AdminDashboardPage';
-import { AdminEmailsPage } from './pages/AdminEmailsPage';
-import { AdminLoginPage } from './pages/AdminLoginPage';
-import { AdminUsersPage } from './pages/AdminUsersPage';
 import { AuthForm } from './pages/AuthForm';
 import { DashboardPage } from './pages/DashboardPage';
 import { EventCreatePage } from './pages/EventCreatePage';
@@ -53,20 +50,16 @@ const redirectIfAuthenticated = () => {
   }
 };
 
-const requireAdminAuth = () => {
-  if (!isAuthenticated() || !isAdminAuthenticated()) {
-    throw redirect({
-      to: '/admin/login',
-    });
-  }
-};
+const AdminAppRedirect = ({ path }: { path: string }) => {
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
 
-const redirectIfAdminAuthenticated = () => {
-  if (isAuthenticated() && isAdminAuthenticated()) {
-    throw redirect({
-      to: '/admin/dashboard',
-    });
-  }
+    window.location.replace(buildAdminAppUrl(path));
+  }, [path]);
+
+  return null;
 };
 
 const appEntryRoute = createRoute({
@@ -189,47 +182,37 @@ const resetPasswordRoute = createRoute({
 const adminLoginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/login',
-  beforeLoad: redirectIfAdminAuthenticated,
-  component: AdminLoginPage,
+  component: () => <AdminAppRedirect path="/login" />,
 });
 
 const adminPortalRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin',
-  beforeLoad: () => {
-    requireAdminAuth();
-    throw redirect({
-      to: '/admin/dashboard',
-    });
-  },
+  component: () => <AdminAppRedirect path="/dashboard" />,
 });
 
 const adminDashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/dashboard',
-  beforeLoad: requireAdminAuth,
-  component: AdminDashboardPage,
+  component: () => <AdminAppRedirect path="/dashboard" />,
 });
 
 const adminUsersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/users',
-  beforeLoad: requireAdminAuth,
-  component: AdminUsersPage,
+  component: () => <AdminAppRedirect path="/users" />,
 });
 
 const adminAnalyticsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/analytics',
-  beforeLoad: requireAdminAuth,
-  component: AdminAnalyticsPage,
+  component: () => <AdminAppRedirect path="/analytics" />,
 });
 
 const adminEmailsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/emails',
-  beforeLoad: requireAdminAuth,
-  component: AdminEmailsPage,
+  component: () => <AdminAppRedirect path="/emails" />,
 });
 
 const providerOauthCallbackRoute = createRoute({
