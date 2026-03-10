@@ -1,0 +1,25 @@
+www.synqit.fr {
+	redir https://synqit.fr{uri} permanent
+}
+
+synqit.fr {
+	encode gzip zstd
+	reverse_proxy 127.0.0.1:4173
+}
+
+app.synqit.fr {
+	encode gzip zstd
+
+	handle_path /api/* {
+		reverse_proxy 127.0.0.1:3001
+	}
+
+	handle {
+		reverse_proxy 127.0.0.1:5173
+	}
+}
+
+admin.synqit.fr {
+	encode gzip zstd
+	reverse_proxy 127.0.0.1:4174
+}
