@@ -110,8 +110,9 @@ const installApiMocks = async (page: Page, options?: { trackDelayMs?: number }) 
   await page.route('**/v1/**', async (route) => {
     const url = new URL(route.request().url());
     const method = route.request().method().toUpperCase();
+    const normalizedPath = url.pathname.replace(/^\/api/, '');
 
-    if (url.pathname === '/v1/integrations' && method === 'GET') {
+    if (normalizedPath === '/v1/integrations' && method === 'GET') {
       counters.integrations += 1;
       await route.fulfill({
         status: 200,
@@ -136,7 +137,7 @@ const installApiMocks = async (page: Page, options?: { trackDelayMs?: number }) 
       return;
     }
 
-    if (url.pathname === '/v1/events' && method === 'GET') {
+    if (normalizedPath === '/v1/playlists' && method === 'GET') {
       counters.events += 1;
       await route.fulfill({
         status: 200,
@@ -148,7 +149,7 @@ const installApiMocks = async (page: Page, options?: { trackDelayMs?: number }) 
       return;
     }
 
-    if (url.pathname === '/v1/events/drafts' && method === 'GET') {
+    if (normalizedPath === '/v1/playlists/drafts' && method === 'GET') {
       counters.drafts += 1;
       await route.fulfill({
         status: 200,
@@ -160,7 +161,7 @@ const installApiMocks = async (page: Page, options?: { trackDelayMs?: number }) 
       return;
     }
 
-    const trackMatch = url.pathname.match(/^\/v1\/events\/([^/]+)\/tracks$/);
+    const trackMatch = normalizedPath.match(/^\/v1\/playlists\/([^/]+)\/tracks$/);
     if (trackMatch && method === 'GET') {
       counters.tracks += 1;
       if (options?.trackDelayMs) {
@@ -181,7 +182,7 @@ const installApiMocks = async (page: Page, options?: { trackDelayMs?: number }) 
       contentType: 'application/json',
       body: JSON.stringify({
         code: 'not_found',
-        message: `${method} ${url.pathname} is not mocked in smoke test.`,
+        message: `${method} ${normalizedPath} is not mocked in smoke test.`,
       }),
     });
   });
@@ -246,8 +247,8 @@ test.describe('web smoke regressions', () => {
     expect(languageLabelBox).not.toBeNull();
     expect(Math.abs((themeLabelBox?.y ?? 0) - (languageLabelBox?.y ?? 0))).toBeLessThan(8);
 
-    await page.goto('/events');
-    await expect(page.getByRole('heading', { name: 'My events' })).toBeVisible();
+    await page.goto('/playlists');
+    await expect(page.getByRole('heading', { name: 'My playlists' })).toBeVisible();
     await expect(page.getByText('Launch Party')).toBeVisible();
     await expect(page.getByText('Draft', { exact: true })).toBeVisible();
   });
