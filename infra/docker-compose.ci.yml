@@ -7,10 +7,12 @@ services:
       POSTGRES_USER: synqit
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: synqit
+    ports:
+      - '127.0.0.1:5432:5432'
     volumes:
       - /srv/synqit/data/postgres:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U synqit -d synqit"]
+      test: ['CMD-SHELL', 'pg_isready -U synqit -d synqit']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -21,7 +23,7 @@ services:
     volumes:
       - /srv/synqit/data/redis:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,7 +45,7 @@ services:
       SPOTIFY_REDIRECT_URI: https://app.synqit.fr/api/v1/auth/spotify/callback
       WEB_APP_URL: https://app.synqit.fr
     ports:
-      - "127.0.0.1:3001:3001"
+      - '127.0.0.1:3001:3001'
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,19 +71,19 @@ services:
   admin:
     image: ghcr.io/nicopipishorts/synqit-admin:${IMAGE_TAG:-latest}
     ports:
-      - "127.0.0.1:4174:4174"
+      - '127.0.0.1:4174:4174'
     restart: unless-stopped
 
   site:
     image: ghcr.io/nicopipishorts/synqit-site:${IMAGE_TAG:-latest}
     ports:
-      - "127.0.0.1:4173:4173"
+      - '127.0.0.1:4173:4173'
     restart: unless-stopped
 
   web:
     image: ghcr.io/nicopipishorts/synqit-web:${IMAGE_TAG:-latest}
     ports:
-      - "127.0.0.1:5173:5173"
+      - '127.0.0.1:5173:5173'
     restart: unless-stopped
 
   migrate:
@@ -92,15 +94,7 @@ services:
       NODE_ENV: production
       DATABASE_URL: postgresql://synqit:${POSTGRES_PASSWORD}@postgres:5432/synqit
     working_dir: /app/apps/api
-    command:
-      [
-        "npx",
-        "prisma",
-        "migrate",
-        "deploy",
-        "--config",
-        "/app/apps/api/prisma.config.ts"
-      ]
+    command: ['npx', 'prisma', 'migrate', 'deploy', '--config', '/app/apps/api/prisma.config.ts']
     volumes:
       - /srv/synqit/repo/apps/api/prisma:/app/apps/api/prisma:ro
       - /srv/synqit/repo/apps/api/prisma.config.ts:/app/apps/api/prisma.config.ts:ro
