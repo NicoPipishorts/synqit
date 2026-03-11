@@ -13,6 +13,41 @@ export default defineConfig({
   optimizeDeps: {
     exclude: ['@synqit/shared'],
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('/react/') || id.includes('/react-dom/')) {
+              return 'react-vendor';
+            }
+
+            if (id.includes('@tanstack/react-router')) {
+              return 'router-vendor';
+            }
+
+            if (
+              id.includes('/framer-motion/') ||
+              id.includes('/motion-dom/') ||
+              id.includes('/motion-utils/')
+            ) {
+              return 'motion-vendor';
+            }
+
+            if (id.includes('/lucide-react/')) {
+              return 'icons-vendor';
+            }
+          }
+
+          if (id.includes('/packages/shared/src/')) {
+            return 'shared-schemas';
+          }
+
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     host: '127.0.0.1',
     port: 5173,

@@ -115,6 +115,7 @@ export const ResetPasswordPage = () => {
     >
       <form
         onSubmit={onSubmit}
+        autoComplete="on"
         className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 shadow-soft-lift dark:bg-app-card sm:p-8"
       >
         {statusType === 'success' ? (
@@ -133,13 +134,15 @@ export const ResetPasswordPage = () => {
             <label className="grid gap-2 text-sm font-medium">
               <span>{t('profile.newPassword')}</span>
               <PasswordField
+                id="reset-password-new"
+                name="newPassword"
                 required
                 minLength={PASSWORD_MIN_LENGTH}
                 autoComplete="new-password"
                 value={newPassword}
                 onChange={setNewPassword}
                 placeholder={t('auth.passwordPlaceholder')}
-                inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
+                inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text outline-none transition focus:border-brand-pink"
               />
               <PasswordStrengthMeter password={newPassword} showTooltip />
             </label>
@@ -147,13 +150,15 @@ export const ResetPasswordPage = () => {
             <label className="grid gap-2 text-sm font-medium">
               <span>{t('profile.confirmPassword')}</span>
               <PasswordField
+                id="reset-password-confirm"
+                name="confirmPassword"
                 required
                 minLength={PASSWORD_MIN_LENGTH}
                 autoComplete="new-password"
                 value={confirmPassword}
                 onChange={setConfirmPassword}
                 placeholder={t('profile.confirmPassword')}
-                inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
+                inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text outline-none transition focus:border-brand-pink"
               />
             </label>
 

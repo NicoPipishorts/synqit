@@ -70,30 +70,39 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
     <AuthPageLayout title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}>
       <form
         onSubmit={onSubmit}
+        autoComplete="on"
         className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 shadow-soft-lift dark:bg-app-card sm:p-8"
       >
-        <label className="grid gap-2 text-sm font-medium">
+        <label htmlFor="auth-email" className="grid gap-2 text-sm font-medium">
           <span>{t('auth.email')}</span>
           <input
+            id="auth-email"
+            name="email"
             required
             type="email"
+            inputMode="email"
             autoComplete={isLogin ? 'username' : 'email'}
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-app-text outline-none transition focus:border-brand-lime"
+            className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text outline-none transition focus:border-brand-lime"
             placeholder={t('auth.emailPlaceholder')}
           />
         </label>
 
-        <label className="grid gap-2 text-sm font-medium">
+        <label htmlFor="auth-password" className="grid gap-2 text-sm font-medium">
           <span>{t('auth.password')}</span>
           <PasswordField
+            id="auth-password"
+            name="password"
             required
             minLength={PASSWORD_MIN_LENGTH}
             autoComplete={isLogin ? 'current-password' : 'new-password'}
             value={password}
             onChange={setPassword}
-            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
+            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text outline-none transition focus:border-brand-pink"
             placeholder={t('auth.passwordPlaceholder')}
           />
           {!isLogin ? <PasswordStrengthMeter password={password} showTooltip /> : null}

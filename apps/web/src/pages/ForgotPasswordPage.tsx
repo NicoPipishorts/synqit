@@ -63,6 +63,7 @@ export const ForgotPasswordPage = () => {
     >
       <form
         onSubmit={onSubmit}
+        autoComplete="on"
         className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 shadow-soft-lift dark:bg-app-card sm:p-8"
       >
         {statusType === 'success' ? (
@@ -81,12 +82,18 @@ export const ForgotPasswordPage = () => {
             <label className="grid gap-2 text-sm font-medium">
               <span>{t('auth.email')}</span>
               <input
+                id="forgot-password-email"
+                name="email"
                 required
                 type="email"
                 autoComplete="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-app-text outline-none transition focus:border-brand-lime"
+                className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text outline-none transition focus:border-brand-lime"
                 placeholder={t('auth.emailPlaceholder')}
               />
             </label>
