@@ -2,7 +2,9 @@ import { isPasswordStrong, PASSWORD_MIN_LENGTH } from '@synqit/shared';
 import { Trash2 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
-import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
+import { AppPageHeader } from '../components/app/AppPageHeader';
+import { AppPageLayout } from '../components/app/AppPageLayout';
+import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { CTAButton, CTAMobileIconLabel } from '../components/ui/cta';
 import { PasswordField } from '../components/ui/PasswordField';
 import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
@@ -68,93 +70,84 @@ export const ProfileSecurityPage = () => {
   };
 
   return (
-    <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-      <div className="relative grid gap-6">
-        <article>
-          <div className="flex items-start gap-4 px-5 py-7 sm:px-8 sm:py-9">
-            <CircleChevronBackButton to="/profile" label={t('profile.backToProfile')} />
-            <div className="grid gap-1">
-              <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-                {t('profile.securityTitle')}
-              </h1>
-              <p className="text-sm text-app-text-secondary sm:text-base">
-                {t('profile.securityDescription')}
-              </p>
-            </div>
+    <AppPageLayout>
+      <AppPageHeader
+        backTo="/profile"
+        backLabel={t('profile.backToProfile')}
+        title={t('profile.securityTitle')}
+        description={t('profile.securityDescription')}
+      />
+
+      <AppSurfaceCard>
+        <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+          {t('profile.changePassword')}
+        </h2>
+        <form onSubmit={changePassword} className="mt-4 grid w-full gap-3">
+          <PasswordField
+            value={currentPassword}
+            onChange={setCurrentPassword}
+            placeholder={t('profile.currentPassword')}
+            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+            autoComplete="current-password"
+            required
+          />
+          <PasswordField
+            value={newPassword}
+            onChange={setNewPassword}
+            placeholder={t('profile.newPassword')}
+            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+            autoComplete="new-password"
+            required
+            minLength={PASSWORD_MIN_LENGTH}
+          />
+          <PasswordStrengthMeter password={newPassword} showTooltip />
+          <PasswordField
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            placeholder={t('profile.confirmPassword')}
+            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+            autoComplete="new-password"
+            required
+            minLength={PASSWORD_MIN_LENGTH}
+          />
+          <div className="mt-1 flex justify-end">
+            <CTAButton type="submit" disabled={isChangingPassword} variant="primary">
+              {isChangingPassword ? t('profile.changingPassword') : t('profile.changePassword')}
+            </CTAButton>
           </div>
-        </article>
+        </form>
+      </AppSurfaceCard>
 
-        <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-            {t('profile.changePassword')}
-          </h2>
-          <form onSubmit={changePassword} className="mt-4 grid w-full gap-3">
-            <PasswordField
-              value={currentPassword}
-              onChange={setCurrentPassword}
-              placeholder={t('profile.currentPassword')}
-              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
-              autoComplete="current-password"
-              required
-            />
-            <PasswordField
-              value={newPassword}
-              onChange={setNewPassword}
-              placeholder={t('profile.newPassword')}
-              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
-              autoComplete="new-password"
-              required
-              minLength={PASSWORD_MIN_LENGTH}
-            />
-            <PasswordStrengthMeter password={newPassword} showTooltip />
-            <PasswordField
-              value={confirmPassword}
-              onChange={setConfirmPassword}
-              placeholder={t('profile.confirmPassword')}
-              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
-              autoComplete="new-password"
-              required
-              minLength={PASSWORD_MIN_LENGTH}
-            />
-            <div className="mt-1 flex justify-end">
-              <CTAButton type="submit" disabled={isChangingPassword} variant="primary">
-                {isChangingPassword ? t('profile.changingPassword') : t('profile.changePassword')}
-              </CTAButton>
-            </div>
-          </form>
-        </article>
+      <AppSurfaceCard className="flex flex-col">
+        <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+          {t('profile.otpTitle')}
+        </h2>
+        <p className="mt-2 text-sm text-app-text-secondary">{t('profile.otpBody')}</p>
+        <CTAButton
+          type="button"
+          onClick={() => showToast(t('profile.otpSoon'), { variant: 'info' })}
+          variant="secondary"
+          className="mt-auto self-end"
+        >
+          {t('profile.otpCta')}
+        </CTAButton>
+      </AppSurfaceCard>
 
-        <article className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-            {t('profile.otpTitle')}
-          </h2>
-          <p className="mt-2 text-sm text-app-text-secondary">{t('profile.otpBody')}</p>
-          <CTAButton
-            type="button"
-            onClick={() => showToast(t('profile.otpSoon'), { variant: 'info' })}
-            variant="secondary"
-            className="mt-auto self-end"
-          >
-            {t('profile.otpCta')}
-          </CTAButton>
-        </article>
-
-        <article className="flex flex-col rounded-2xl border border-brand-pink/40 bg-brand-pink/5 p-5 shadow-soft-lift dark:bg-brand-pink/10">
-          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-            {t('profile.deleteZoneTitle')}
-          </h2>
-          <p className="mt-2 text-sm text-app-text-secondary">{t('profile.deleteZoneBody')}</p>
-          <CTAButton
-            type="button"
-            onClick={() => showToast(t('profile.deleteAccountSoon'), { variant: 'error' })}
-            variant="danger"
-            className="mt-auto self-end"
-            aria-label={t('profile.deleteAccount')}
-          >
-            <CTAMobileIconLabel icon={<Trash2 size={14} />} label={t('profile.deleteAccount')} />
-          </CTAButton>
-        </article>
-      </div>
-    </section>
+      <article className="flex flex-col rounded-2xl border border-brand-pink/40 bg-brand-pink/5 p-5 shadow-soft-lift dark:bg-brand-pink/10">
+        <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+          {t('profile.deleteZoneTitle')}
+        </h2>
+        <p className="mt-2 text-sm text-app-text-secondary">{t('profile.deleteZoneBody')}</p>
+        <CTAButton
+          type="button"
+          onClick={() => showToast(t('profile.deleteAccountSoon'), { variant: 'error' })}
+          variant="danger"
+          className="mt-auto self-end"
+          aria-label={t('profile.deleteAccount')}
+        >
+          <CTAMobileIconLabel icon={<Trash2 size={14} />} label={t('profile.deleteAccount')} />
+        </CTAButton>
+      </article>
+    </AppPageLayout>
   );
 };

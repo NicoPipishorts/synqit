@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
+import { AppAuthActions } from './components/marketing/AppAuthActions';
 import { BrandLogo } from './components/ui/BrandLogo';
-import { HeroLink } from './components/ui/HeroLink';
 import { HomePage } from './HomePage';
 import { buildAppUrl, shouldRedirectToApp } from './lib/app-url';
 import { I18nProvider, useI18n } from './lib/i18n';
@@ -52,14 +52,12 @@ const AppShell = () => {
           <a href="/" aria-label="Synqit home" className="inline-flex">
             <BrandLogo className="h-12 w-auto sm:h-24" />
           </a>
-          <div className="flex items-center gap-2">
-            <HeroLink href={buildAppUrl('/auth/login')} variant="outline" size="sm">
-              {t('accountMenu.login')}
-            </HeroLink>
-            <HeroLink href={buildAppUrl('/auth/register')} variant="lime" size="sm">
-              {t('footer.getStarted')}
-            </HeroLink>
-          </div>
+          <AppAuthActions
+            primaryLabel={t('footer.getStarted')}
+            secondaryLabel={t('accountMenu.login')}
+            size="sm"
+            className="gap-2"
+          />
         </div>
       </header>
       <main className="relative z-10 min-h-screen">

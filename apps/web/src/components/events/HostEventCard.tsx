@@ -5,6 +5,7 @@ import { EventProviderIcon } from './EventProviderIcon';
 import { EventStatusIndicator } from './EventStatusIndicator';
 import { useI18n } from '../../hooks/useI18n';
 import { HostEvent } from '../../lib/events';
+import { AppSurfaceCard } from '../app/AppSurfaceCard';
 import { CTALink, CTAMobileIconLabel } from '../ui/cta';
 
 type HostEventCardProps = {
@@ -16,7 +17,7 @@ export const HostEventCard = ({ event, onCopyMagicLink }: HostEventCardProps) =>
   const { t } = useI18n();
 
   return (
-    <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+    <AppSurfaceCard>
       <div className="grid gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="grid min-w-0 flex-1 gap-1">
@@ -57,6 +58,6 @@ export const HostEventCard = ({ event, onCopyMagicLink }: HostEventCardProps) =>
           </CTALink>
         </div>
       </div>
-    </article>
+    </AppSurfaceCard>
   );
 };
