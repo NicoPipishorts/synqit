@@ -1,6 +1,7 @@
 import { EventMagicLinkRow } from './EventMagicLinkRow';
 import { useI18n } from '../../hooks/useI18n';
 import { HostEvent } from '../../lib/events';
+import { AppSurfaceCard } from '../app/AppSurfaceCard';
 import { CTAButton } from '../ui/cta';
 
 type EventMagicLinkCardProps = {
@@ -23,7 +24,7 @@ export const EventMagicLinkCard = ({
   const { t } = useI18n();
 
   return (
-    <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+    <AppSurfaceCard>
       <span className="text-xs sm:text-sm text-app-text-secondary pl-2 sm:pl-3">
         {t('eventsPage.lastUpdated')} {formatDateTime(event.updatedAt)}
       </span>
@@ -47,6 +48,6 @@ export const EventMagicLinkCard = ({
           {isWorking ? t('eventsPage.working') : t('eventsPage.regenerateLink')}
         </CTAButton>
       </div>
-    </article>
+    </AppSurfaceCard>
   );
 };

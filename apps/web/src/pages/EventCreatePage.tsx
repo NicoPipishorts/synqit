@@ -10,8 +10,9 @@ import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { Check, ChevronLeft, ChevronRight, Copy, Eye } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { AppPageHeader } from '../components/app/AppPageHeader';
+import { AppPageLayout } from '../components/app/AppPageLayout';
 import { EventProviderIcon } from '../components/events/EventProviderIcon';
-import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
@@ -765,356 +766,347 @@ export const EventCreatePage = () => {
     : t('eventsPage.createFlow.providerNotSelected');
 
   return (
-    <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-      <div className="relative grid gap-5">
-        <article>
-          <div className="flex items-start gap-4 px-5 py-7 sm:px-8 sm:py-9">
-            <CircleChevronBackButton to="/playlists" label={t('eventsPage.backToEvents')} />
-            <div className="grid w-full gap-2">
-              <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-                {t('eventsPage.createFlow.title')}
-              </h1>
-              <p className="max-w-full text-sm text-app-text-secondary sm:max-w-full sm:text-base">
-                {t('eventsPage.createFlow.description')}
-              </p>
-            </div>
-          </div>
-          <LayoutGroup id="create-event-breadcrumbs">
-            <div className="my-5 flex w-full flex-wrap items-center justify-center gap-2 sm:gap-3">
-              {stepItems.map((item) => {
-                const isActive = step === item.value;
-                const isClickable = canOpenStep(item.value);
+    <AppPageLayout bodyClassName="gap-5">
+      <AppPageHeader
+        backTo="/playlists"
+        backLabel={t('eventsPage.backToEvents')}
+        title={t('eventsPage.createFlow.title')}
+        description={t('eventsPage.createFlow.description')}
+      />
+      <LayoutGroup id="create-event-breadcrumbs">
+        <div className="my-5 flex w-full flex-wrap items-center justify-center gap-2 sm:gap-3">
+          {stepItems.map((item) => {
+            const isActive = step === item.value;
+            const isClickable = canOpenStep(item.value);
 
-                return (
-                  <motion.button
-                    key={item.value}
-                    type="button"
-                    layout
+            return (
+              <motion.button
+                key={item.value}
+                type="button"
+                layout
+                transition={BREADCRUMB_LAYOUT_TRANSITION}
+                disabled={!isClickable || isActive}
+                onClick={() => navigateToStep(item.value)}
+                className={`relative inline-flex items-center justify-center overflow-hidden rounded-full border text-xs font-black transition sm:text-sm ${
+                  isActive ? 'h-8 px-3 sm:h-9 sm:px-3.5' : 'h-8 w-8 sm:h-9 sm:w-9'
+                } ${
+                  isActive
+                    ? 'border-brand-lime/50 text-brand-dark dark:text-brand-white'
+                    : isClickable
+                      ? 'cursor-pointer border-app-border bg-app-elevated text-app-text hover:border-brand-lime dark:bg-app-card'
+                      : 'cursor-not-allowed border-app-border bg-app-bg text-app-text-secondary opacity-60 dark:bg-app-elevated'
+                }`}
+              >
+                {isActive ? (
+                  <motion.span
+                    layoutId="create-event-breadcrumb-active"
                     transition={BREADCRUMB_LAYOUT_TRANSITION}
-                    disabled={!isClickable || isActive}
-                    onClick={() => navigateToStep(item.value)}
-                    className={`relative inline-flex items-center justify-center overflow-hidden rounded-full border text-xs font-black transition sm:text-sm ${
-                      isActive ? 'h-8 px-3 sm:h-9 sm:px-3.5' : 'h-8 w-8 sm:h-9 sm:w-9'
-                    } ${
-                      isActive
-                        ? 'border-brand-lime/50 text-brand-dark dark:text-brand-white'
-                        : isClickable
-                          ? 'cursor-pointer border-app-border bg-app-elevated text-app-text hover:border-brand-lime dark:bg-app-card'
-                          : 'cursor-not-allowed border-app-border bg-app-bg text-app-text-secondary opacity-60 dark:bg-app-elevated'
-                    }`}
-                  >
+                    className="absolute inset-0 rounded-full bg-brand-lime/10"
+                  />
+                ) : null}
+                <span className="relative z-10 inline-flex items-center">
+                  <span>{isActive ? `0${item.value}` : item.value}</span>
+                  <AnimatePresence initial={false}>
                     {isActive ? (
                       <motion.span
-                        layoutId="create-event-breadcrumb-active"
-                        transition={BREADCRUMB_LAYOUT_TRANSITION}
-                        className="absolute inset-0 rounded-full bg-brand-lime/10"
-                      />
+                        key={`label-${item.value}`}
+                        initial={{ width: 0, opacity: 0, x: -6 }}
+                        animate={{ width: 'auto', opacity: 1, x: 0 }}
+                        exit={{ width: 0, opacity: 0, x: 6 }}
+                        transition={{ duration: 0.22, ease: STEP_SLIDE_EASE }}
+                        className="ml-1 overflow-hidden whitespace-nowrap"
+                      >
+                        {item.label}
+                      </motion.span>
                     ) : null}
-                    <span className="relative z-10 inline-flex items-center">
-                      <span>{isActive ? `0${item.value}` : item.value}</span>
-                      <AnimatePresence initial={false}>
-                        {isActive ? (
-                          <motion.span
-                            key={`label-${item.value}`}
-                            initial={{ width: 0, opacity: 0, x: -6 }}
-                            animate={{ width: 'auto', opacity: 1, x: 0 }}
-                            exit={{ width: 0, opacity: 0, x: 6 }}
-                            transition={{ duration: 0.22, ease: STEP_SLIDE_EASE }}
-                            className="ml-1 overflow-hidden whitespace-nowrap"
-                          >
-                            {item.label}
-                          </motion.span>
-                        ) : null}
-                      </AnimatePresence>
-                    </span>
-                  </motion.button>
-                );
-              })}
-            </div>
-          </LayoutGroup>
-        </article>
-
-        <div className="mx-auto w-full max-w-3xl">
-          <AnimatePresence mode="wait" initial={false} custom={stepDirection}>
-            {step === 1 ? (
-              <motion.article
-                key="step-1"
-                custom={stepDirection}
-                variants={STEP_SLIDE_VARIANTS}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="p-1 sm:p-2"
-              >
-                <p className="mx-auto max-w-[70%] text-center text-sm text-app-text-secondary sm:max-w-[50%]">
-                  {t('eventsPage.createFlow.stepProviderBody')}
-                </p>
-                <div className="mt-5 flex flex-wrap items-center justify-center gap-6 sm:gap-8">
-                  {providerSchema.options.map((value) => {
-                    const isSelected = provider === value;
-                    const isConnected = providerStatusByType[value] === 'connected';
-                    const label =
-                      value === 'apple'
-                        ? t('eventsPage.createFlow.providerApple')
-                        : t('eventsPage.createFlow.providerSpotify');
-
-                    return (
-                      <button
-                        key={value}
-                        type="button"
-                        onClick={() => {
-                          setProvider(value);
-                          if (providerStatusByType[value] !== 'connected') {
-                            void connectSelectedProvider(value);
-                          }
-                        }}
-                        disabled={isConnectingProvider}
-                        aria-label={label}
-                        className={`relative inline-flex items-center justify-center rounded-full p-2 sm:p-3 transition ${
-                          isSelected ? 'scale-[1.03]' : ''
-                        } ${
-                          isConnectingProvider ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-                        }`}
-                      >
-                        <span className="relative inline-flex">
-                          <EventProviderIcon
-                            provider={value}
-                            sizeClassName="h-20 w-20 sm:h-24 sm:w-24"
-                            imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}
-                            className={
-                              isSelected
-                                ? 'ring-2 ring-brand-lime/70 ring-offset-1 ring-offset-app-bg'
-                                : ''
-                            }
-                          />
-                          {isSelected ? (
-                            <span className="absolute bottom-0.75 right-0 inline-flex h-6 w-6 items-center justify-center rounded-full border border-app-border bg-brand-lime text-brand-white shadow-soft-lift">
-                              <Check size={15} strokeWidth={4} aria-hidden="true" />
-                            </span>
-                          ) : null}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </motion.article>
-            ) : null}
-
-            {step === 2 ? (
-              <motion.article
-                key="step-2"
-                custom={stepDirection}
-                variants={STEP_SLIDE_VARIANTS}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="p-1 sm:p-2"
-              >
-                <p className="mx-auto max-w-[70%] text-center text-sm text-app-text-secondary sm:max-w-[50%]">
-                  {t('eventsPage.createFlow.stepNameBody')}
-                </p>
-                <div className="mx-auto mt-5 w-[75vw] sm:w-full sm:max-w-xl">
-                  <label className="sr-only" htmlFor="event-name-input">
-                    {t('eventsPage.eventName')}
-                  </label>
-                  <input
-                    id="event-name-input"
-                    required
-                    maxLength={100}
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    className="w-full rounded-xl border-2 border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                    placeholder={t('eventsPage.createFlow.eventNamePlaceholder')}
-                  />
-                </div>
-              </motion.article>
-            ) : null}
-
-            {step === 3 ? (
-              <motion.article
-                key="step-3"
-                custom={stepDirection}
-                variants={STEP_SLIDE_VARIANTS}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="p-1 sm:p-2"
-              >
-                <p className="mx-auto max-w-[75%] text-center text-sm text-app-text-secondary sm:max-w-[50%]">
-                  {t('eventsPage.createFlow.stepDescriptionBody')}
-                </p>
-                <div className="mx-auto mt-5 w-[75vw] sm:w-full sm:max-w-xl">
-                  <label className="sr-only" htmlFor="event-description-input">
-                    {t('eventsPage.eventDescription')}
-                  </label>
-                  <textarea
-                    id="event-description-input"
-                    maxLength={500}
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    className="min-h-24 w-full rounded-xl border-2 border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                    placeholder={t('eventsPage.createFlow.eventDescriptionPlaceholder')}
-                  />
-                </div>
-              </motion.article>
-            ) : null}
-
-            {step === 4 ? (
-              <motion.article
-                key="step-4"
-                custom={stepDirection}
-                variants={STEP_SLIDE_VARIANTS}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card sm:p-6"
-              >
-                <p className="max-w-full text-sm text-app-text-secondary sm:max-w-[50%]">
-                  {t('eventsPage.createFlow.stepReviewBody')}
-                </p>
-                <div className="mt-4 grid gap-3 rounded-xl border border-app-border bg-app-bg p-4 text-sm dark:bg-app-elevated">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-app-text-secondary">
-                      {t('eventsPage.createFlow.summaryProvider')}
-                    </span>
-                    {provider ? (
-                      <EventProviderIcon provider={provider} sizeClassName="h-10 w-10" />
-                    ) : (
-                      <span className="font-bold text-app-text">{providerLabel}</span>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-app-text-secondary">
-                      {t('eventsPage.createFlow.summaryName')}
-                    </span>
-                    <span className="font-bold text-app-text">{trimmedName}</span>
-                  </div>
-                  <div className="grid gap-1">
-                    <span className="text-app-text-secondary">
-                      {t('eventsPage.createFlow.summaryDescription')}
-                    </span>
-                    <p className="text-app-text">
-                      {description.trim().length > 0
-                        ? description.trim()
-                        : t('eventsPage.createFlow.summaryDescriptionEmpty')}
-                    </p>
-                  </div>
-                </div>
-
-                <p className="mt-4 rounded-xl border border-brand-lime/50 bg-brand-lime/10 px-4 py-3 text-sm text-app-text">
-                  {t('eventsPage.createFlow.playlistNotice')}
-                </p>
-
-                {createdEvent ? (
-                  <div className="mt-4 grid gap-3 rounded-xl border border-brand-lime/50 bg-brand-lime/10 p-4">
-                    <p className="text-base font-black text-brand-dark dark:text-brand-white">
-                      {t('eventsPage.createFlow.magicLinkReady')}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <a
-                        href={createdEvent.magicLinkUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="truncate text-sm font-bold text-brand-pink hover:text-[#d12074]"
-                      >
-                        {createdEvent.magicLinkUrl}
-                      </a>
-                      <CTAButton
-                        type="button"
-                        onClick={() => void copyMagicLink()}
-                        variant="secondary"
-                      >
-                        <Copy size={14} aria-hidden="true" />
-                        {t('eventsPage.copy')}
-                      </CTAButton>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <CTALink to={`/playlists/${createdEvent.eventId}`} variant="primary">
-                        <CTAMobileIconLabel
-                          icon={<Eye size={14} aria-hidden="true" />}
-                          label={t('eventsPage.createFlow.openEventDetails')}
-                        />
-                      </CTALink>
-                      <CTALink to="/playlists" variant="secondary">
-                        {t('eventsPage.backToEvents')}
-                      </CTALink>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="mt-4 flex justify-center">
-                    <CTAButton
-                      type="button"
-                      onClick={() => void createEvent()}
-                      disabled={isCreatingEvent || !provider}
-                      variant="primary"
-                    >
-                      {isCreatingEvent
-                        ? t('eventsPage.createFlow.creating')
-                        : t('eventsPage.createFlow.create')}
-                    </CTAButton>
-                  </div>
-                )}
-              </motion.article>
-            ) : null}
-          </AnimatePresence>
-
-          <LayoutGroup id="create-event-actions">
-            <motion.div
-              layout
-              transition={STEP_ACTIONS_LAYOUT_TRANSITION}
-              className="mt-10 flex min-h-10 items-center justify-center gap-2"
-            >
-              <AnimatePresence initial={false} mode="popLayout">
-                {step > 1 ? (
-                  <motion.div
-                    key="create-step-back"
-                    layout
-                    transition={STEP_ACTIONS_LAYOUT_TRANSITION}
-                    initial={{ opacity: 0, x: -18, scale: 0.96 }}
-                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                    exit={{ opacity: 0, x: -18, scale: 0.96 }}
-                  >
-                    <CTAButton type="button" onClick={goBackStep} variant="secondary">
-                      <CTAMobileIconLabel
-                        icon={<ChevronLeft size={14} aria-hidden="true" />}
-                        label={t('eventsPage.createFlow.back')}
-                      />
-                    </CTAButton>
-                  </motion.div>
-                ) : null}
-
-                {step < 4 ? (
-                  <motion.div
-                    key="create-step-next"
-                    layout
-                    transition={STEP_ACTIONS_LAYOUT_TRANSITION}
-                    initial={{ opacity: 0, x: 18, scale: 0.96 }}
-                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                    exit={{ opacity: 0, x: 18, scale: 0.96 }}
-                  >
-                    <CTAButton
-                      type="button"
-                      onClick={goNextStep}
-                      disabled={
-                        (step === 1 &&
-                          (!provider || !selectedProviderConnected || isConnectingProvider)) ||
-                        (step === 2 && trimmedName.length === 0) ||
-                        isLoadingIntegrations
-                      }
-                      variant="primary"
-                    >
-                      <CTAMobileIconLabel
-                        icon={<ChevronRight size={14} aria-hidden="true" />}
-                        label={t('eventsPage.createFlow.next')}
-                      />
-                    </CTAButton>
-                  </motion.div>
-                ) : null}
-              </AnimatePresence>
-            </motion.div>
-          </LayoutGroup>
+                  </AnimatePresence>
+                </span>
+              </motion.button>
+            );
+          })}
         </div>
+      </LayoutGroup>
+
+      <div className="mx-auto w-full max-w-3xl">
+        <AnimatePresence mode="wait" initial={false} custom={stepDirection}>
+          {step === 1 ? (
+            <motion.article
+              key="step-1"
+              custom={stepDirection}
+              variants={STEP_SLIDE_VARIANTS}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="p-1 sm:p-2"
+            >
+              <p className="mx-auto max-w-[70%] text-center text-sm text-app-text-secondary sm:max-w-[50%]">
+                {t('eventsPage.createFlow.stepProviderBody')}
+              </p>
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-6 sm:gap-8">
+                {providerSchema.options.map((value) => {
+                  const isSelected = provider === value;
+                  const isConnected = providerStatusByType[value] === 'connected';
+                  const label =
+                    value === 'apple'
+                      ? t('eventsPage.createFlow.providerApple')
+                      : t('eventsPage.createFlow.providerSpotify');
+
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => {
+                        setProvider(value);
+                        if (providerStatusByType[value] !== 'connected') {
+                          void connectSelectedProvider(value);
+                        }
+                      }}
+                      disabled={isConnectingProvider}
+                      aria-label={label}
+                      className={`relative inline-flex items-center justify-center rounded-full p-2 sm:p-3 transition ${
+                        isSelected ? 'scale-[1.03]' : ''
+                      } ${
+                        isConnectingProvider ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+                      }`}
+                    >
+                      <span className="relative inline-flex">
+                        <EventProviderIcon
+                          provider={value}
+                          sizeClassName="h-20 w-20 sm:h-24 sm:w-24"
+                          imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}
+                          className={
+                            isSelected
+                              ? 'ring-2 ring-brand-lime/70 ring-offset-1 ring-offset-app-bg'
+                              : ''
+                          }
+                        />
+                        {isSelected ? (
+                          <span className="absolute bottom-0.75 right-0 inline-flex h-6 w-6 items-center justify-center rounded-full border border-app-border bg-brand-lime text-brand-white shadow-soft-lift">
+                            <Check size={15} strokeWidth={4} aria-hidden="true" />
+                          </span>
+                        ) : null}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </motion.article>
+          ) : null}
+
+          {step === 2 ? (
+            <motion.article
+              key="step-2"
+              custom={stepDirection}
+              variants={STEP_SLIDE_VARIANTS}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="p-1 sm:p-2"
+            >
+              <p className="mx-auto max-w-[70%] text-center text-sm text-app-text-secondary sm:max-w-[50%]">
+                {t('eventsPage.createFlow.stepNameBody')}
+              </p>
+              <div className="mx-auto mt-5 w-[75vw] sm:w-full sm:max-w-xl">
+                <label className="sr-only" htmlFor="event-name-input">
+                  {t('eventsPage.eventName')}
+                </label>
+                <input
+                  id="event-name-input"
+                  required
+                  maxLength={100}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  className="w-full rounded-xl border-2 border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                  placeholder={t('eventsPage.createFlow.eventNamePlaceholder')}
+                />
+              </div>
+            </motion.article>
+          ) : null}
+
+          {step === 3 ? (
+            <motion.article
+              key="step-3"
+              custom={stepDirection}
+              variants={STEP_SLIDE_VARIANTS}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="p-1 sm:p-2"
+            >
+              <p className="mx-auto max-w-[75%] text-center text-sm text-app-text-secondary sm:max-w-[50%]">
+                {t('eventsPage.createFlow.stepDescriptionBody')}
+              </p>
+              <div className="mx-auto mt-5 w-[75vw] sm:w-full sm:max-w-xl">
+                <label className="sr-only" htmlFor="event-description-input">
+                  {t('eventsPage.eventDescription')}
+                </label>
+                <textarea
+                  id="event-description-input"
+                  maxLength={500}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  className="min-h-24 w-full rounded-xl border-2 border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                  placeholder={t('eventsPage.createFlow.eventDescriptionPlaceholder')}
+                />
+              </div>
+            </motion.article>
+          ) : null}
+
+          {step === 4 ? (
+            <motion.article
+              key="step-4"
+              custom={stepDirection}
+              variants={STEP_SLIDE_VARIANTS}
+              initial="enter"
+              animate="center"
+              exit="exit"
+              className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card sm:p-6"
+            >
+              <p className="max-w-full text-sm text-app-text-secondary sm:max-w-[50%]">
+                {t('eventsPage.createFlow.stepReviewBody')}
+              </p>
+              <div className="mt-4 grid gap-3 rounded-xl border border-app-border bg-app-bg p-4 text-sm dark:bg-app-elevated">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-app-text-secondary">
+                    {t('eventsPage.createFlow.summaryProvider')}
+                  </span>
+                  {provider ? (
+                    <EventProviderIcon provider={provider} sizeClassName="h-10 w-10" />
+                  ) : (
+                    <span className="font-bold text-app-text">{providerLabel}</span>
+                  )}
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-app-text-secondary">
+                    {t('eventsPage.createFlow.summaryName')}
+                  </span>
+                  <span className="font-bold text-app-text">{trimmedName}</span>
+                </div>
+                <div className="grid gap-1">
+                  <span className="text-app-text-secondary">
+                    {t('eventsPage.createFlow.summaryDescription')}
+                  </span>
+                  <p className="text-app-text">
+                    {description.trim().length > 0
+                      ? description.trim()
+                      : t('eventsPage.createFlow.summaryDescriptionEmpty')}
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-4 rounded-xl border border-brand-lime/50 bg-brand-lime/10 px-4 py-3 text-sm text-app-text">
+                {t('eventsPage.createFlow.playlistNotice')}
+              </p>
+
+              {createdEvent ? (
+                <div className="mt-4 grid gap-3 rounded-xl border border-brand-lime/50 bg-brand-lime/10 p-4">
+                  <p className="text-base font-black text-brand-dark dark:text-brand-white">
+                    {t('eventsPage.createFlow.magicLinkReady')}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <a
+                      href={createdEvent.magicLinkUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="truncate text-sm font-bold text-brand-pink hover:text-[#d12074]"
+                    >
+                      {createdEvent.magicLinkUrl}
+                    </a>
+                    <CTAButton
+                      type="button"
+                      onClick={() => void copyMagicLink()}
+                      variant="secondary"
+                    >
+                      <Copy size={14} aria-hidden="true" />
+                      {t('eventsPage.copy')}
+                    </CTAButton>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <CTALink to={`/playlists/${createdEvent.eventId}`} variant="primary">
+                      <CTAMobileIconLabel
+                        icon={<Eye size={14} aria-hidden="true" />}
+                        label={t('eventsPage.createFlow.openEventDetails')}
+                      />
+                    </CTALink>
+                    <CTALink to="/playlists" variant="secondary">
+                      {t('eventsPage.backToEvents')}
+                    </CTALink>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-4 flex justify-center">
+                  <CTAButton
+                    type="button"
+                    onClick={() => void createEvent()}
+                    disabled={isCreatingEvent || !provider}
+                    variant="primary"
+                  >
+                    {isCreatingEvent
+                      ? t('eventsPage.createFlow.creating')
+                      : t('eventsPage.createFlow.create')}
+                  </CTAButton>
+                </div>
+              )}
+            </motion.article>
+          ) : null}
+        </AnimatePresence>
+
+        <LayoutGroup id="create-event-actions">
+          <motion.div
+            layout
+            transition={STEP_ACTIONS_LAYOUT_TRANSITION}
+            className="mt-10 flex min-h-10 items-center justify-center gap-2"
+          >
+            <AnimatePresence initial={false} mode="popLayout">
+              {step > 1 ? (
+                <motion.div
+                  key="create-step-back"
+                  layout
+                  transition={STEP_ACTIONS_LAYOUT_TRANSITION}
+                  initial={{ opacity: 0, x: -18, scale: 0.96 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: -18, scale: 0.96 }}
+                >
+                  <CTAButton type="button" onClick={goBackStep} variant="secondary">
+                    <CTAMobileIconLabel
+                      icon={<ChevronLeft size={14} aria-hidden="true" />}
+                      label={t('eventsPage.createFlow.back')}
+                    />
+                  </CTAButton>
+                </motion.div>
+              ) : null}
+
+              {step < 4 ? (
+                <motion.div
+                  key="create-step-next"
+                  layout
+                  transition={STEP_ACTIONS_LAYOUT_TRANSITION}
+                  initial={{ opacity: 0, x: 18, scale: 0.96 }}
+                  animate={{ opacity: 1, x: 0, scale: 1 }}
+                  exit={{ opacity: 0, x: 18, scale: 0.96 }}
+                >
+                  <CTAButton
+                    type="button"
+                    onClick={goNextStep}
+                    disabled={
+                      (step === 1 &&
+                        (!provider || !selectedProviderConnected || isConnectingProvider)) ||
+                      (step === 2 && trimmedName.length === 0) ||
+                      isLoadingIntegrations
+                    }
+                    variant="primary"
+                  >
+                    <CTAMobileIconLabel
+                      icon={<ChevronRight size={14} aria-hidden="true" />}
+                      label={t('eventsPage.createFlow.next')}
+                    />
+                  </CTAButton>
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
+          </motion.div>
+        </LayoutGroup>
       </div>
-    </section>
+    </AppPageLayout>
   );
 };

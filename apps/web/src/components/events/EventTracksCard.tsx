@@ -2,6 +2,7 @@ import { RefreshCcw } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
 import { EventTrackItem } from '../../lib/events';
+import { AppSurfaceCard } from '../app/AppSurfaceCard';
 import { CTAButton, CTAMobileIconLabel } from '../ui/cta';
 
 type EventTracksCardProps = {
@@ -18,7 +19,7 @@ export const EventTracksCard = ({
   const { t } = useI18n();
 
   return (
-    <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+    <AppSurfaceCard>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
           {t('eventsPage.tracksTitle')}
@@ -66,6 +67,6 @@ export const EventTracksCard = ({
       ) : (
         <p className="text-sm text-app-text-secondary">{t('eventsPage.noTracks')}</p>
       )}
-    </article>
+    </AppSurfaceCard>
   );
 };

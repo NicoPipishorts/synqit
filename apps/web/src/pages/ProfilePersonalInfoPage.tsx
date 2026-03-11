@@ -4,7 +4,9 @@ import enCountryNames from 'i18n-iso-countries/langs/en.json';
 import frCountryNames from 'i18n-iso-countries/langs/fr.json';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
-import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
+import { AppPageHeader } from '../components/app/AppPageHeader';
+import { AppPageLayout } from '../components/app/AppPageLayout';
+import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
@@ -230,157 +232,148 @@ export const ProfilePersonalInfoPage = () => {
   };
 
   return (
-    <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-      <div className="relative grid gap-6">
-        <article>
-          <div className="flex items-start gap-4 px-5 py-7 sm:px-8 sm:py-9">
-            <CircleChevronBackButton to="/profile" label={t('profile.backToProfile')} />
-            <div className="grid gap-1">
-              <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-                {t('profile.personalInfoTitle')}
-              </h1>
-              <p className="text-sm text-app-text-secondary sm:text-base">
-                {t('profile.personalInfoDescription')}
-              </p>
+    <AppPageLayout>
+      <AppPageHeader
+        backTo="/profile"
+        backLabel={t('profile.backToProfile')}
+        title={t('profile.personalInfoTitle')}
+        description={t('profile.personalInfoDescription')}
+      />
+
+      <AppSurfaceCard className="w-full">
+        <form onSubmit={savePersonalInfo} className="grid gap-4 md:grid-cols-2">
+          <label className="grid gap-1 text-sm">
+            <span>{t('profile.displayNameLabel')}</span>
+            <input
+              value={draft.displayName}
+              onChange={(event) => updateField('displayName', event.target.value)}
+              placeholder={t('profile.displayNamePlaceholder')}
+              disabled={isLoading || isSaving}
+              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span>{t('profile.emailLabel')}</span>
+            <input
+              value={auth?.userEmail ?? ''}
+              readOnly
+              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text-secondary outline-none dark:bg-app-elevated"
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span>{t('profile.firstNameLabel')}</span>
+            <input
+              value={draft.firstName}
+              onChange={(event) => updateField('firstName', event.target.value)}
+              placeholder={t('profile.firstNamePlaceholder')}
+              disabled={isLoading || isSaving}
+              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+            />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span>{t('profile.lastNameLabel')}</span>
+            <input
+              value={draft.lastName}
+              onChange={(event) => updateField('lastName', event.target.value)}
+              placeholder={t('profile.lastNamePlaceholder')}
+              disabled={isLoading || isSaving}
+              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+            />
+          </label>
+          <label className="grid gap-1 text-sm md:col-span-2">
+            <span>{t('profile.birthDateLabel')}</span>
+            <div className="grid grid-cols-3 gap-2">
+              <input
+                inputMode="numeric"
+                value={draft.birthDay}
+                onChange={(event) =>
+                  updateField('birthDay', event.target.value.replace(/\D/g, '').slice(0, 2))
+                }
+                placeholder={t('profile.birthDayPlaceholder')}
+                disabled={isLoading || isSaving}
+                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+              />
+              <select
+                value={draft.birthMonth}
+                onChange={(event) => updateField('birthMonth', event.target.value)}
+                disabled={isLoading || isSaving}
+                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+              >
+                <option value="">{t('profile.birthMonthPlaceholder')}</option>
+                {monthOptions.map((monthOption) => (
+                  <option key={monthOption.value} value={monthOption.value}>
+                    {monthOption.label}
+                  </option>
+                ))}
+              </select>
+              <input
+                inputMode="numeric"
+                value={draft.birthYear}
+                onChange={(event) =>
+                  updateField('birthYear', event.target.value.replace(/\D/g, '').slice(0, 4))
+                }
+                placeholder={t('profile.birthYearPlaceholder')}
+                disabled={isLoading || isSaving}
+                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+              />
             </div>
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span>{t('profile.countryLabel')}</span>
+            <div className="relative">
+              <input
+                value={draft.country}
+                onChange={(event) => {
+                  updateField('country', event.target.value);
+                  setIsCountryMenuOpen(true);
+                }}
+                onFocus={() => setIsCountryMenuOpen(true)}
+                onBlur={() => {
+                  window.setTimeout(() => {
+                    setIsCountryMenuOpen(false);
+                  }, 120);
+                }}
+                placeholder={t('profile.countryPlaceholder')}
+                disabled={isLoading || isSaving}
+                className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+              />
+              {isCountryMenuOpen ? (
+                <div className="absolute z-[120] mt-1 max-h-32 w-full overflow-auto rounded-xl border border-app-border bg-app-elevated p-0.5 shadow-soft-lift dark:bg-app-card">
+                  {filteredCountryOptions.length > 0 ? (
+                    filteredCountryOptions.map((countryName) => (
+                      <button
+                        key={countryName}
+                        type="button"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          updateField('country', countryName);
+                          setIsCountryMenuOpen(false);
+                        }}
+                        className="flex w-full cursor-pointer items-center rounded-md px-2 py-1 text-left text-xs text-app-text transition hover:bg-brand-lime/20"
+                      >
+                        {countryName}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-2 py-1 text-xs text-app-text-secondary">
+                      {t('profile.countryNoResult')}
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </label>
+
+          <div className="mt-2 flex flex-wrap justify-end gap-2 sm:col-span-2">
+            <CTAButton type="submit" disabled={isLoading || isSaving} variant="primary">
+              {t('profile.personalInfoSave')}
+            </CTAButton>
+            <CTALink to="/profile" variant="secondary">
+              {t('profile.personalInfoCancel')}
+            </CTALink>
           </div>
-        </article>
-
-        <article className="w-full rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-          <form onSubmit={savePersonalInfo} className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-1 text-sm">
-              <span>{t('profile.displayNameLabel')}</span>
-              <input
-                value={draft.displayName}
-                onChange={(event) => updateField('displayName', event.target.value)}
-                placeholder={t('profile.displayNamePlaceholder')}
-                disabled={isLoading || isSaving}
-                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span>{t('profile.emailLabel')}</span>
-              <input
-                value={auth?.userEmail ?? ''}
-                readOnly
-                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text-secondary outline-none dark:bg-app-elevated"
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span>{t('profile.firstNameLabel')}</span>
-              <input
-                value={draft.firstName}
-                onChange={(event) => updateField('firstName', event.target.value)}
-                placeholder={t('profile.firstNamePlaceholder')}
-                disabled={isLoading || isSaving}
-                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-              />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span>{t('profile.lastNameLabel')}</span>
-              <input
-                value={draft.lastName}
-                onChange={(event) => updateField('lastName', event.target.value)}
-                placeholder={t('profile.lastNamePlaceholder')}
-                disabled={isLoading || isSaving}
-                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-              />
-            </label>
-            <label className="grid gap-1 text-sm md:col-span-2">
-              <span>{t('profile.birthDateLabel')}</span>
-              <div className="grid grid-cols-3 gap-2">
-                <input
-                  inputMode="numeric"
-                  value={draft.birthDay}
-                  onChange={(event) =>
-                    updateField('birthDay', event.target.value.replace(/\D/g, '').slice(0, 2))
-                  }
-                  placeholder={t('profile.birthDayPlaceholder')}
-                  disabled={isLoading || isSaving}
-                  className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                />
-                <select
-                  value={draft.birthMonth}
-                  onChange={(event) => updateField('birthMonth', event.target.value)}
-                  disabled={isLoading || isSaving}
-                  className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                >
-                  <option value="">{t('profile.birthMonthPlaceholder')}</option>
-                  {monthOptions.map((monthOption) => (
-                    <option key={monthOption.value} value={monthOption.value}>
-                      {monthOption.label}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  inputMode="numeric"
-                  value={draft.birthYear}
-                  onChange={(event) =>
-                    updateField('birthYear', event.target.value.replace(/\D/g, '').slice(0, 4))
-                  }
-                  placeholder={t('profile.birthYearPlaceholder')}
-                  disabled={isLoading || isSaving}
-                  className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                />
-              </div>
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span>{t('profile.countryLabel')}</span>
-              <div className="relative">
-                <input
-                  value={draft.country}
-                  onChange={(event) => {
-                    updateField('country', event.target.value);
-                    setIsCountryMenuOpen(true);
-                  }}
-                  onFocus={() => setIsCountryMenuOpen(true)}
-                  onBlur={() => {
-                    window.setTimeout(() => {
-                      setIsCountryMenuOpen(false);
-                    }, 120);
-                  }}
-                  placeholder={t('profile.countryPlaceholder')}
-                  disabled={isLoading || isSaving}
-                  className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                />
-                {isCountryMenuOpen ? (
-                  <div className="absolute z-[120] mt-1 max-h-32 w-full overflow-auto rounded-xl border border-app-border bg-app-elevated p-0.5 shadow-soft-lift dark:bg-app-card">
-                    {filteredCountryOptions.length > 0 ? (
-                      filteredCountryOptions.map((countryName) => (
-                        <button
-                          key={countryName}
-                          type="button"
-                          onMouseDown={(event) => {
-                            event.preventDefault();
-                            updateField('country', countryName);
-                            setIsCountryMenuOpen(false);
-                          }}
-                          className="flex w-full cursor-pointer items-center rounded-md px-2 py-1 text-left text-xs text-app-text transition hover:bg-brand-lime/20"
-                        >
-                          {countryName}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-2 py-1 text-xs text-app-text-secondary">
-                        {t('profile.countryNoResult')}
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            </label>
-
-            <div className="mt-2 flex flex-wrap justify-end gap-2 sm:col-span-2">
-              <CTAButton type="submit" disabled={isLoading || isSaving} variant="primary">
-                {t('profile.personalInfoSave')}
-              </CTAButton>
-              <CTALink to="/profile" variant="secondary">
-                {t('profile.personalInfoCancel')}
-              </CTALink>
-            </div>
-          </form>
-        </article>
-      </div>
-    </section>
+        </form>
+      </AppSurfaceCard>
+    </AppPageLayout>
   );
 };

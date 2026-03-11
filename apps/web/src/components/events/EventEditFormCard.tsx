@@ -1,6 +1,7 @@
 import { FormEvent } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
+import { AppSurfaceCard } from '../app/AppSurfaceCard';
 import { CTAButton } from '../ui/cta';
 
 type EventEditFormCardProps = {
@@ -25,7 +26,7 @@ export const EventEditFormCard = ({
   const { t } = useI18n();
 
   return (
-    <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+    <AppSurfaceCard>
       <form onSubmit={onSubmit} className="grid gap-3">
         <label className="grid gap-1 text-sm">
           <span>{t('eventsPage.eventName')}</span>
@@ -55,6 +56,6 @@ export const EventEditFormCard = ({
           </CTAButton>
         </div>
       </form>
-    </article>
+    </AppSurfaceCard>
   );
 };

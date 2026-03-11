@@ -3,6 +3,7 @@ import { Trash2 } from 'lucide-react';
 import { EventProviderIcon } from './EventProviderIcon';
 import { useI18n } from '../../hooks/useI18n';
 import { HostEventDraft } from '../../lib/events';
+import { AppSurfaceCard } from '../app/AppSurfaceCard';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../ui/cta';
 
 type HostEventDraftCardProps = {
@@ -17,7 +18,7 @@ export const HostEventDraftCard = ({ draft, onDelete, isDeleting }: HostEventDra
   const hasDescription = draft.description.trim().length > 0;
 
   return (
-    <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+    <AppSurfaceCard>
       <div className="grid gap-3">
         <div className="flex items-start justify-between gap-2">
           <div className="grid min-w-0 flex-1 gap-1">
@@ -69,6 +70,6 @@ export const HostEventDraftCard = ({ draft, onDelete, isDeleting }: HostEventDra
           </CTALink>
         </div>
       </div>
-    </article>
+    </AppSurfaceCard>
   );
 };

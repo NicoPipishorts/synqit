@@ -2,6 +2,8 @@ import { authUserSchema } from '@synqit/shared';
 import { Pencil } from 'lucide-react';
 import { ChangeEvent, DragEvent, useRef, useState } from 'react';
 
+import { AppPageLayout } from '../components/app/AppPageLayout';
+import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { CircularImage } from '../components/ui/CircularImage';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
@@ -151,116 +153,114 @@ export const ProfilePage = () => {
   };
 
   return (
-    <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-      <div className="relative grid gap-6">
-        <article>
-          <div className="grid grid-cols-[minmax(0,14rem)_auto] items-start gap-5 px-5 py-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:px-8 sm:py-9">
-            <div className="grid gap-2">
-              <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-                {t('profile.pageTitle')}
-              </h1>
-              <p className="text-sm text-app-text-secondary sm:text-base">
-                {t('profile.pageDescription')}
-              </p>
-              <p className="text-sm text-app-text-secondary">
-                {auth ? auth.userEmail : t('profile.notLoggedIn')}
-              </p>
-            </div>
-
-            <div className="relative">
-              <div className="rounded-full bg-brand-gradient p-[2px]">
-                <div className="h-24 w-24 overflow-hidden rounded-full border border-app-border bg-app-bg sm:h-28 sm:w-28 lg:h-32 lg:w-32">
-                  {avatarSrc ? (
-                    <img
-                      src={avatarSrc}
-                      alt={t('profile.avatarAlt')}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-app-text-muted">
-                      {t('profile.noAvatar')}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAvatarModalOpen(true)}
-                aria-label={t('profile.editAvatar')}
-                className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated p-1.5 text-xs font-semibold shadow-soft-lift transition hover:border-brand-pink dark:bg-app-card sm:gap-1.5 sm:px-3 sm:py-1"
-              >
-                <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="hidden sm:inline">{t('profile.editAvatar')}</span>
-              </button>
-            </div>
-          </div>
-        </article>
-
-        <article className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-          <div className="grid gap-1">
-            <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-              {t('profile.preferencesTitle')}
-            </h2>
-            <p className="text-sm text-app-text-secondary">{t('profile.preferencesDescription')}</p>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-0">
-            <div className="grid gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
-                {t('profile.preferencesThemeLabel')}
-              </p>
-              <div className="flex items-center">
-                <ThemeToggle />
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
-                {t('profile.preferencesLanguageLabel')}
-              </p>
-              <div className="flex items-center">
-                <LanguageSwitcher />
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <div className="grid gap-5 lg:grid-cols-3">
-          <article className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-            <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-              {t('profile.platformsCardTitle')}
-            </h2>
-            <p className="mt-2 text-sm text-app-text-secondary">{t('profile.platformsCardBody')}</p>
-            <div className="mt-4 flex items-center gap-2">
-              <CircularImage src="/assets/logos/Providers/Spotify.png" alt="Spotify" />
-              <CircularImage src="/assets/logos/Providers/AppleMusic.png" alt="Apple Music" />
-            </div>
-            <CTALink to="/profile/platforms" variant="secondary" className="mt-auto self-end">
-              {t('profile.platformsCardCta')}
-            </CTALink>
-          </article>
-
-          <article className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-            <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-              {t('profile.personalInfoCardTitle')}
-            </h2>
-            <p className="mt-2 text-sm text-app-text-secondary">
-              {t('profile.personalInfoCardBody')}
+    <AppPageLayout>
+      <article>
+        <div className="grid grid-cols-[minmax(0,14rem)_auto] items-start gap-5 px-5 py-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:px-8 sm:py-9">
+          <div className="grid gap-2">
+            <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+              {t('profile.pageTitle')}
+            </h1>
+            <p className="text-sm text-app-text-secondary sm:text-base">
+              {t('profile.pageDescription')}
             </p>
-            <CTALink to="/profile/personal-info" variant="secondary" className="mt-auto self-end">
-              {t('profile.personalInfoCardCta')}
-            </CTALink>
-          </article>
+            <p className="text-sm text-app-text-secondary">
+              {auth ? auth.userEmail : t('profile.notLoggedIn')}
+            </p>
+          </div>
 
-          <article className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-            <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-              {t('profile.securityCardTitle')}
-            </h2>
-            <p className="mt-2 text-sm text-app-text-secondary">{t('profile.securityCardBody')}</p>
-            <CTALink to="/profile/security" variant="secondary" className="mt-auto self-end">
-              {t('profile.securityCardCta')}
-            </CTALink>
-          </article>
+          <div className="relative">
+            <div className="rounded-full bg-brand-gradient p-[2px]">
+              <div className="h-24 w-24 overflow-hidden rounded-full border border-app-border bg-app-bg sm:h-28 sm:w-28 lg:h-32 lg:w-32">
+                {avatarSrc ? (
+                  <img
+                    src={avatarSrc}
+                    alt={t('profile.avatarAlt')}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-app-text-muted">
+                    {t('profile.noAvatar')}
+                  </div>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAvatarModalOpen(true)}
+              aria-label={t('profile.editAvatar')}
+              className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated p-1.5 text-xs font-semibold shadow-soft-lift transition hover:border-brand-pink dark:bg-app-card sm:gap-1.5 sm:px-3 sm:py-1"
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">{t('profile.editAvatar')}</span>
+            </button>
+          </div>
         </div>
+      </article>
+
+      <AppSurfaceCard>
+        <div className="grid gap-1">
+          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+            {t('profile.preferencesTitle')}
+          </h2>
+          <p className="text-sm text-app-text-secondary">{t('profile.preferencesDescription')}</p>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-0">
+          <div className="grid gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+              {t('profile.preferencesThemeLabel')}
+            </p>
+            <div className="flex items-center">
+              <ThemeToggle />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+              {t('profile.preferencesLanguageLabel')}
+            </p>
+            <div className="flex items-center">
+              <LanguageSwitcher />
+            </div>
+          </div>
+        </div>
+      </AppSurfaceCard>
+
+      <div className="grid gap-5 lg:grid-cols-3">
+        <AppSurfaceCard className="flex flex-col">
+          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+            {t('profile.platformsCardTitle')}
+          </h2>
+          <p className="mt-2 text-sm text-app-text-secondary">{t('profile.platformsCardBody')}</p>
+          <div className="mt-4 flex items-center gap-2">
+            <CircularImage src="/assets/logos/Providers/Spotify.png" alt="Spotify" />
+            <CircularImage src="/assets/logos/Providers/AppleMusic.png" alt="Apple Music" />
+          </div>
+          <CTALink to="/profile/platforms" variant="secondary" className="mt-auto self-end">
+            {t('profile.platformsCardCta')}
+          </CTALink>
+        </AppSurfaceCard>
+
+        <AppSurfaceCard className="flex flex-col">
+          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+            {t('profile.personalInfoCardTitle')}
+          </h2>
+          <p className="mt-2 text-sm text-app-text-secondary">
+            {t('profile.personalInfoCardBody')}
+          </p>
+          <CTALink to="/profile/personal-info" variant="secondary" className="mt-auto self-end">
+            {t('profile.personalInfoCardCta')}
+          </CTALink>
+        </AppSurfaceCard>
+
+        <AppSurfaceCard className="flex flex-col">
+          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+            {t('profile.securityCardTitle')}
+          </h2>
+          <p className="mt-2 text-sm text-app-text-secondary">{t('profile.securityCardBody')}</p>
+          <CTALink to="/profile/security" variant="secondary" className="mt-auto self-end">
+            {t('profile.securityCardCta')}
+          </CTALink>
+        </AppSurfaceCard>
       </div>
 
       <Modal
@@ -321,6 +321,6 @@ export const ProfilePage = () => {
           ) : null}
         </div>
       </Modal>
-    </section>
+    </AppPageLayout>
   );
 };
