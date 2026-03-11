@@ -1,8 +1,9 @@
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, startTransition, useEffect, useMemo, useState } from 'react';
 
-import { loadAnonymousPreferences, saveAnonymousPreferences } from '../preferences';
 import { I18nContext, I18nContextValue } from './context';
-import { Locale, messages } from './messages';
+import { loadLocaleMessages, Locale, type MessageDictionary } from './messages';
+import { RouteLoadingScreen } from '../../components/ui/RouteLoadingScreen';
+import { loadAnonymousPreferences, saveAnonymousPreferences } from '../preferences';
 
 const detectInitialLocale = (): Locale => {
   const storedLocale = loadAnonymousPreferences().locale;
@@ -44,20 +45,69 @@ const interpolate = (template: string, vars?: Record<string, string | number>): 
 
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const [locale, setLocaleState] = useState<Locale>(() => detectInitialLocale());
+  const [activeMessages, setActiveMessages] = useState<MessageDictionary | null>(null);
+  const [fallbackMessages, setFallbackMessages] = useState<MessageDictionary | null>(null);
 
   const setLocale = (nextLocale: Locale) => {
-    setLocaleState(nextLocale);
-    saveAnonymousPreferences({ locale: nextLocale });
+    void loadLocaleMessages(nextLocale)
+      .then((nextMessages) => {
+        startTransition(() => {
+          setActiveMessages(nextMessages);
+          setLocaleState(nextLocale);
+        });
+        saveAnonymousPreferences({ locale: nextLocale });
+      })
+      .catch(() => undefined);
   };
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    void loadLocaleMessages('en')
+      .then((englishMessages) => {
+        if (!isCancelled) {
+          setFallbackMessages(englishMessages);
+        }
+      })
+      .catch(() => undefined);
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    void loadLocaleMessages(locale)
+      .then((localizedMessages) => {
+        if (!isCancelled) {
+          setActiveMessages(localizedMessages);
+        }
+      })
+      .catch(async () => {
+        if (locale === 'en') {
+          return;
+        }
+        const englishMessages = await loadLocaleMessages('en').catch(() => null);
+        if (!isCancelled && englishMessages) {
+          setActiveMessages(englishMessages);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [locale]);
 
   const value = useMemo<I18nContextValue>(() => {
     const t = (key: string, vars?: Record<string, string | number>): string => {
-      const localized = resolvePath(messages[locale], key);
+      const localized = activeMessages ? resolvePath(activeMessages, key) : null;
       if (localized) {
         return interpolate(localized, vars);
       }
 
-      const fallback = resolvePath(messages.en, key);
+      const fallback = fallbackMessages ? resolvePath(fallbackMessages, key) : null;
       if (fallback) {
         return interpolate(fallback, vars);
       }
@@ -70,7 +120,11 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
       setLocale,
       t,
     };
-  }, [locale]);
+  }, [activeMessages, fallbackMessages, locale]);
+
+  if (!activeMessages && !fallbackMessages) {
+    return <RouteLoadingScreen />;
+  }
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 };

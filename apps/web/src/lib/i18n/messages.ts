@@ -1,9 +1,20 @@
-import en from '../../locales/en/common.json';
-import fr from '../../locales/fr/common.json';
+export type Locale = 'en' | 'fr';
+export type MessageDictionary = Record<string, unknown>;
 
-export const messages = {
-  en,
-  fr,
-} as const;
+const localeLoaders: Record<Locale, () => Promise<MessageDictionary>> = {
+  en: () => import('../../locales/en/common.json').then((module) => module.default),
+  fr: () => import('../../locales/fr/common.json').then((module) => module.default),
+};
 
-export type Locale = keyof typeof messages;
+const messageCache = new Map<Locale, MessageDictionary>();
+
+export const loadLocaleMessages = async (locale: Locale): Promise<MessageDictionary> => {
+  const cachedMessages = messageCache.get(locale);
+  if (cachedMessages) {
+    return cachedMessages;
+  }
+
+  const loadedMessages = await localeLoaders[locale]();
+  messageCache.set(locale, loadedMessages);
+  return loadedMessages;
+};
