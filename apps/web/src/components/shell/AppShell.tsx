@@ -91,14 +91,12 @@ export const AppShell = () => {
   return (
     <div className="relative min-h-screen overflow-x-clip bg-app-bg text-app-text transition-colors">
       <header className="fixed inset-x-0 top-0 z-50">
-        <div
-          aria-hidden="true"
-          className={`pointer-events-none absolute inset-0 bg-app-bg/30 backdrop-blur-md transition-opacity duration-300 ease-out ${
-            isNavBlurActive
-              ? 'opacity-100 shadow-[0_4px_12px_-10px_rgba(0,0,0,0.22)]'
-              : 'opacity-0 shadow-none'
-          }`}
-        />
+        {isNavBlurActive && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-app-bg/30 shadow-[0_4px_12px_-10px_rgba(0,0,0,0.22)] backdrop-blur-md"
+          />
+        )}
         <div className="relative z-10 flex w-full items-center justify-between px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
           <Link to="/" aria-label="Synqit home" className="inline-flex">
             <BrandLogo className="h-12 w-auto sm:h-24" />
