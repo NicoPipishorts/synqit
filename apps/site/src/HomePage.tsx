@@ -6,6 +6,7 @@ import { PlatformPreview } from './components/marketing/PlatformPreview';
 import { RevealSection } from './components/marketing/RevealSection';
 import { SectionHeading } from './components/marketing/SectionHeading';
 import { SurfaceCard } from './components/marketing/SurfaceCard';
+import { BlurSpotLayer } from './components/ui/BlurSpotLayer';
 import { HeroPill } from './components/ui/HeroPill';
 import { useI18n } from './lib/i18n';
 
@@ -44,8 +45,14 @@ export const HomePage = () => {
             revealOnScroll={false}
             className="relative flex min-h-[calc(100svh-7rem)] items-center overflow-hidden rounded-4xl border border-app-border bg-app-elevated px-5 py-14 shadow-soft-lift dark:bg-app-card sm:min-h-[calc(100svh-8rem)] sm:px-8 sm:py-16 lg:px-12 lg:py-20"
           >
-            <div className="pointer-events-none absolute -left-12 top-12 h-40 w-40 rounded-full bg-brand-pink/20 blur-2xl" />
-            <div className="pointer-events-none absolute -right-14 -top-14 h-52 w-52 rounded-full bg-brand-lime/25 blur-3xl" />
+            <BlurSpotLayer
+              filterId="hero-blur-filter"
+              spots={[
+                { id: 'hero-spot-0', size: 180, top: 15, left: -5, color: 'rgba(255,46,139,0.22)' },
+                { id: 'hero-spot-1', size: 220, top: -5, left: 105, color: 'rgba(198,255,0,0.25)' },
+              ]}
+              className="pointer-events-none absolute inset-0"
+            />
 
             <div className="relative grid w-full items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
               <div className="grid gap-7">

@@ -1,40 +1,71 @@
-const BLUR_SPOT_COLORS = [
-  'bg-brand-lime/20',
-  'bg-brand-pink/20',
-  'bg-sky-300/20',
-  'bg-amber-300/15',
-] as const;
+import { useRef } from 'react';
 
-// Fixed positions avoid re-randomizing on every mount and keep the layout
-// predictable across renders. 4 spots instead of 10 keeps compositor layer
-// count low enough for iOS Safari to handle without hanging.
-const BLUR_SPOTS = [
-  { id: 'spot-0', size: 260, blur: 48, top: 15, left: 20, colorClass: BLUR_SPOT_COLORS[0] },
-  { id: 'spot-1', size: 240, blur: 48, top: 70, left: 80, colorClass: BLUR_SPOT_COLORS[1] },
-  { id: 'spot-2', size: 220, blur: 40, top: 40, left: 60, colorClass: BLUR_SPOT_COLORS[2] },
-  { id: 'spot-3', size: 200, blur: 40, top: 80, left: 25, colorClass: BLUR_SPOT_COLORS[3] },
-] as const;
+const SPOT_COLORS = [
+  'rgba(198,255,0,0.22)',
+  'rgba(255,46,139,0.22)',
+  'rgba(125,211,252,0.22)',
+  'rgba(252,211,77,0.18)',
+];
 
-export const BackgroundBlurSpots = () => {
-  return (
-    <div
-      aria-hidden="true"
-      className="pointer-events-none absolute inset-x-0 bottom-0 top-[88px] z-0 sm:top-[124px]"
-    >
-      {BLUR_SPOTS.map((spot) => (
+function randomSpots(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: `spot-${i}`,
+    size: 190 + Math.floor(Math.random() * 100),
+    top: 5 + Math.floor(Math.random() * 88),
+    left: Math.floor(Math.random() * 100),
+    color: SPOT_COLORS[i % SPOT_COLORS.length],
+  }));
+}
+
+// Reusable spot layer used by both BackgroundBlurSpots and AuthBlurSpots.
+// All spots share a single SVG filter so the browser composites one GPU layer
+// regardless of spot count — dramatically cheaper than per-element filter:blur().
+export const BlurSpotLayer = ({
+  filterId,
+  spots,
+  className,
+}: {
+  filterId: string;
+  spots: { id: string; size: number; top: number; left: number; color: string }[];
+  className?: string;
+}) => (
+  <div aria-hidden="true" className={className}>
+    <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
+      <defs>
+        <filter id={filterId}>
+          <feGaussianBlur stdDeviation="45" />
+        </filter>
+      </defs>
+    </svg>
+    <div style={{ filter: `url(#${filterId})`, position: 'absolute', inset: 0 }}>
+      {spots.map((spot) => (
         <span
           key={spot.id}
-          className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full ${spot.colorClass}`}
           style={{
+            position: 'absolute',
             top: `${spot.top}%`,
             left: `${spot.left}%`,
             width: `${spot.size}px`,
             height: `${spot.size}px`,
-            filter: `blur(${spot.blur}px)`,
-            willChange: 'transform',
+            borderRadius: '50%',
+            backgroundColor: spot.color,
+            transform: 'translate(-50%, -50%)',
           }}
         />
       ))}
     </div>
+  </div>
+);
+
+export const BackgroundBlurSpots = () => {
+  // useRef keeps positions stable across re-renders without causing re-randomization
+  const spots = useRef(randomSpots(6)).current;
+
+  return (
+    <BlurSpotLayer
+      filterId="bg-blur-filter"
+      spots={spots}
+      className="pointer-events-none absolute inset-x-0 bottom-0 top-[88px] z-0 sm:top-[124px]"
+    />
   );
 };
