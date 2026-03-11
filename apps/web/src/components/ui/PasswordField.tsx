@@ -8,6 +8,7 @@ type PasswordFieldProps = {
   onChange: (nextValue: string) => void;
   placeholder?: string;
   autoComplete?: string;
+  name?: string;
   required?: boolean;
   minLength?: number;
   disabled?: boolean;
@@ -24,6 +25,7 @@ export const PasswordField = ({
   onChange,
   placeholder,
   autoComplete,
+  name,
   required = false,
   minLength,
   disabled = false,
@@ -40,11 +42,15 @@ export const PasswordField = ({
     <div className={className ? `relative ${className}` : 'relative'}>
       <input
         id={inputId}
+        name={name}
         type={isVisible ? 'text' : 'password'}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         autoComplete={autoComplete}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
         required={required}
         minLength={minLength}
         disabled={disabled}
