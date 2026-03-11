@@ -1,5 +1,4 @@
-import { authResponseSchema } from '@synqit/shared';
-
+import { parseAuthResponse } from './client-models';
 import { AUTH_CHANGED_EVENT, AUTH_STORAGE_KEY } from './constants';
 import { StoredAuth } from './types';
 
@@ -40,7 +39,7 @@ export const loadAuth = (): StoredAuth | null => {
 };
 
 export const storeAuth = (authResponse: unknown): StoredAuth => {
-  const parsed = authResponseSchema.parse(authResponse);
+  const parsed = parseAuthResponse(authResponse);
   const nextAuth: StoredAuth = {
     accessToken: parsed.tokens.accessToken,
     refreshToken: parsed.tokens.refreshToken,

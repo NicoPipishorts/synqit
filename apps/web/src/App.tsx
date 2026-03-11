@@ -8,27 +8,94 @@ import {
 } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
-import { AppShell } from './components/shell/AppShell';
 import { ToastProvider } from './components/ui/ToastProvider';
 import { buildAdminAppUrl } from './lib/admin-url';
 import { isAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
-import { AuthForm } from './pages/AuthForm';
-import { DashboardPage } from './pages/DashboardPage';
-import { EventCreatePage } from './pages/EventCreatePage';
-import { EventPublicPage } from './pages/EventPublicPage';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { HostEventDetailsPage } from './pages/HostEventDetailsPage';
-import { HostEventsPage } from './pages/HostEventsPage';
-import { ProfilePage } from './pages/ProfilePage';
-import { ProfilePersonalInfoPage } from './pages/ProfilePersonalInfoPage';
-import { ProfilePlatformsPage } from './pages/ProfilePlatformsPage';
-import { ProfileSecurityPage } from './pages/ProfileSecurityPage';
-import { ProviderOauthCallbackPage } from './pages/ProviderOauthCallbackPage';
-import { ResetPasswordPage } from './pages/ResetPasswordPage';
-import { SyncedListsPage } from './pages/SyncedListsPage';
+import { createLazyRouteComponent } from './lib/lazy-route';
 
 const queryClient = new QueryClient();
+
+const AppShell = createLazyRouteComponent(() =>
+  import('./components/shell/AppShell').then((module) => ({
+    default: module.AppShell,
+  })),
+);
+const DashboardPage = createLazyRouteComponent(() =>
+  import('./pages/DashboardPage').then((module) => ({
+    default: module.DashboardPage,
+  })),
+);
+const HostEventsPage = createLazyRouteComponent(() =>
+  import('./pages/HostEventsPage').then((module) => ({
+    default: module.HostEventsPage,
+  })),
+);
+const HostEventDetailsPage = createLazyRouteComponent(() =>
+  import('./pages/HostEventDetailsPage').then((module) => ({
+    default: module.HostEventDetailsPage,
+  })),
+);
+const EventCreatePage = createLazyRouteComponent(() =>
+  import('./pages/EventCreatePage').then((module) => ({
+    default: module.EventCreatePage,
+  })),
+);
+const EventPublicPage = createLazyRouteComponent(() =>
+  import('./pages/EventPublicPage').then((module) => ({
+    default: module.EventPublicPage,
+  })),
+);
+const SyncedListsPage = createLazyRouteComponent(() =>
+  import('./pages/SyncedListsPage').then((module) => ({
+    default: module.SyncedListsPage,
+  })),
+);
+const ProfilePage = createLazyRouteComponent(() =>
+  import('./pages/ProfilePage').then((module) => ({
+    default: module.ProfilePage,
+  })),
+);
+const ProfilePlatformsPage = createLazyRouteComponent(() =>
+  import('./pages/ProfilePlatformsPage').then((module) => ({
+    default: module.ProfilePlatformsPage,
+  })),
+);
+const ProfilePersonalInfoPage = createLazyRouteComponent(() =>
+  import('./pages/ProfilePersonalInfoPage').then((module) => ({
+    default: module.ProfilePersonalInfoPage,
+  })),
+);
+const ProfileSecurityPage = createLazyRouteComponent(() =>
+  import('./pages/ProfileSecurityPage').then((module) => ({
+    default: module.ProfileSecurityPage,
+  })),
+);
+const ProviderOauthCallbackPage = createLazyRouteComponent(() =>
+  import('./pages/ProviderOauthCallbackPage').then((module) => ({
+    default: module.ProviderOauthCallbackPage,
+  })),
+);
+const ForgotPasswordPage = createLazyRouteComponent(() =>
+  import('./pages/ForgotPasswordPage').then((module) => ({
+    default: module.ForgotPasswordPage,
+  })),
+);
+const ResetPasswordPage = createLazyRouteComponent(() =>
+  import('./pages/ResetPasswordPage').then((module) => ({
+    default: module.ResetPasswordPage,
+  })),
+);
+const RegisterPage = createLazyRouteComponent(() =>
+  import('./pages/AuthForm').then((module) => ({
+    default: () => <module.AuthForm endpoint="/v1/auth/register" />,
+  })),
+);
+const LoginPage = createLazyRouteComponent(() =>
+  import('./pages/AuthForm').then((module) => ({
+    default: () => <module.AuthForm endpoint="/v1/auth/login" />,
+  })),
+);
 
 const rootRoute = createRootRoute({
   component: AppShell,
@@ -155,14 +222,14 @@ const registerRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/register',
   beforeLoad: redirectIfAuthenticated,
-  component: () => <AuthForm endpoint="/v1/auth/register" />,
+  component: RegisterPage,
 });
 
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/auth/login',
   beforeLoad: redirectIfAuthenticated,
-  component: () => <AuthForm endpoint="/v1/auth/login" />,
+  component: LoginPage,
 });
 
 const forgotPasswordRoute = createRoute({

@@ -1,4 +1,3 @@
-import { PASSWORD_MIN_LENGTH } from '@synqit/shared';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { FormEvent, useState } from 'react';
 
@@ -10,6 +9,7 @@ import { useI18n } from '../hooks/useI18n';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { storeAuth } from '../lib/auth';
+import { PASSWORD_MIN_LENGTH } from '../lib/client-models';
 
 export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/auth/login' }) => {
   const navigate = useNavigate();

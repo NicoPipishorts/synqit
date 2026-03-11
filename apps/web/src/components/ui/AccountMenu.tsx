@@ -1,4 +1,3 @@
-import { refreshTokenRequestSchema } from '@synqit/shared';
 import { Link } from '@tanstack/react-router';
 import { UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -53,15 +52,13 @@ export const AccountMenu = () => {
 
     setIsBusy(true);
     try {
-      const refreshPayload = refreshTokenRequestSchema.parse({
-        refreshToken: auth.refreshToken,
-      });
-
       await callApi(
         '/v1/auth/logout',
         {
           method: 'POST',
-          body: JSON.stringify(refreshPayload),
+          body: JSON.stringify({
+            refreshToken: auth.refreshToken,
+          }),
         },
         (payload) => payload,
       ).catch(() => undefined);

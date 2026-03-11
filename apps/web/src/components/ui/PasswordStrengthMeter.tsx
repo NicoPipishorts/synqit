@@ -1,7 +1,7 @@
-import { getPasswordCriteria, getPasswordStrengthScore } from '@synqit/shared';
 import { Info } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
+import { getPasswordCriteria, getPasswordStrengthScore } from '../../lib/client-models';
 
 type PasswordStrengthMeterProps = {
   password: string;

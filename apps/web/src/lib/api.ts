@@ -1,6 +1,5 @@
-import { ApiError, refreshResponseSchema } from '@synqit/shared';
-
 import { clearAuth, loadAuth, updateStoredAuthTokens } from './auth';
+import { type ApiError, parseRefreshResponse } from './client-models';
 import { API_URL } from './constants';
 import { loadAnonymousPreferences } from './preferences';
 
@@ -106,7 +105,7 @@ export const callApi = async <TResponse>(
           return null;
         }
 
-        const parsedRefresh = refreshResponseSchema.parse(refreshPayload);
+        const parsedRefresh = parseRefreshResponse(refreshPayload);
         updateStoredAuthTokens({
           accessToken: parsedRefresh.tokens.accessToken,
           refreshToken: parsedRefresh.tokens.refreshToken,

@@ -1,14 +1,10 @@
-import {
-  analyticsTrackRequestSchema,
-  type AnalyticsEventName,
-  type AnalyticsTarget,
-} from '@synqit/shared';
-
 import { loadAuth } from './auth';
 import { API_URL, ANALYTICS_SESSION_STORAGE_KEY } from './constants';
 import { loadAnonymousPreferences } from './preferences';
 
 type AnalyticsProperties = Record<string, unknown>;
+type AnalyticsEventName = string;
+type AnalyticsTarget = string;
 
 const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
   if (!value) {
@@ -123,17 +119,15 @@ export const trackAnalyticsEvent = (params: {
 
   let payload: string;
   try {
-    payload = JSON.stringify(
-      analyticsTrackRequestSchema.parse({
-        eventName: params.eventName,
-        target: params.target,
-        sessionId,
-        path: (params.pathOverride ?? getCurrentPath()).slice(0, 512),
-        locale: locale ?? undefined,
-        source: 'web',
-        properties: params.properties ?? {},
-      }),
-    );
+    payload = JSON.stringify({
+      eventName: params.eventName,
+      target: params.target,
+      sessionId,
+      path: (params.pathOverride ?? getCurrentPath()).slice(0, 512),
+      locale: locale ?? undefined,
+      source: 'web',
+      properties: params.properties ?? {},
+    });
   } catch {
     return;
   }

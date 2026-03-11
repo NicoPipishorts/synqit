@@ -1,6 +1,7 @@
-import { providerSchema, type AccountRole, type AdminPermission } from '@synqit/shared';
+import { type AccountRole, type AdminPermission } from './client-models';
 
-export type Provider = (typeof providerSchema.options)[number];
+export type { Provider } from './client-models';
+
 export type Theme = 'light' | 'dark' | 'auto';
 export type ThemeAccent = 'lime' | 'pink';
 
