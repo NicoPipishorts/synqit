@@ -1,7 +1,7 @@
+import { AppAuthActions } from './AppAuthActions';
 import { buildAppUrl } from '../../lib/app-url';
 import { useI18n } from '../../lib/i18n';
 import { BrandLogo } from '../ui/BrandLogo';
-import { HeroLink } from '../ui/HeroLink';
 import { LanguageToggle } from '../ui/LanguageToggle';
 import { ThemeToggle } from '../ui/ThemeToggle';
 
@@ -75,14 +75,12 @@ export const HomeFooterReveal = () => {
             <p className="mt-2 text-sm text-brand-dark/70 dark:text-brand-white/75">
               {t('footer.planDesc')}
             </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <HeroLink href={buildAppUrl('/auth/register')} variant="lime" size="sm">
-                {t('footer.getStarted')}
-              </HeroLink>
-              <HeroLink href={buildAppUrl('/auth/login')} variant="outline" size="sm">
-                {t('footer.dashboard')}
-              </HeroLink>
-            </div>
+            <AppAuthActions
+              primaryLabel={t('footer.getStarted')}
+              secondaryLabel={t('footer.dashboard')}
+              size="sm"
+              className="mt-4 gap-2"
+            />
           </div>
         </div>
 
