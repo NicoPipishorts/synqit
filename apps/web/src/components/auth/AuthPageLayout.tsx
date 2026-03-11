@@ -11,8 +11,8 @@ type AuthPageLayoutProps = {
 export const AuthPageLayout = ({ title, description, children }: AuthPageLayoutProps) => {
   return (
     <section className="relative mx-auto flex min-h-screen w-full max-w-4xl items-center px-4 py-0 sm:min-h-[calc(100svh-8rem)] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
-      <div className="pointer-events-none absolute -left-10 top-8 h-44 w-44 rounded-full bg-brand-lime/20 blur-3xl" />
-      <div className="pointer-events-none absolute -right-8 bottom-8 h-48 w-48 rounded-full bg-brand-pink/20 blur-3xl" />
+      <div className="pointer-events-none absolute -left-10 top-8 h-44 w-44 rounded-full bg-brand-lime/20 blur-2xl" />
+      <div className="pointer-events-none absolute -right-8 bottom-8 h-48 w-48 rounded-full bg-brand-pink/20 blur-2xl" />
 
       <div className="relative grid w-full gap-6">
         <div className="mx-auto grid w-full max-w-xl gap-2 text-center">
