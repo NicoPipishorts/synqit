@@ -1,8 +1,8 @@
 import { Link, useNavigate } from '@tanstack/react-router';
 import { FormEvent, useState } from 'react';
 
+import { AuthPageLayout } from '../components/auth/AuthPageLayout';
 import { CTAButton } from '../components/ui/cta';
-import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { PasswordField } from '../components/ui/PasswordField';
 import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
 import { useI18n } from '../hooks/useI18n';
@@ -67,91 +67,74 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   };
 
   return (
-    <section className="relative mx-auto flex min-h-screen w-full max-w-4xl items-center px-4 py-0 sm:min-h-[calc(100svh-8rem)] sm:px-6 sm:py-12 lg:px-8 lg:py-16">
-      <div className="pointer-events-none absolute -left-10 top-8 h-44 w-44 rounded-full bg-brand-lime/20 blur-3xl" />
-      <div className="pointer-events-none absolute -right-8 bottom-8 h-48 w-48 rounded-full bg-brand-pink/20 blur-3xl" />
+    <AuthPageLayout title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}>
+      <form
+        onSubmit={onSubmit}
+        className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 shadow-soft-lift dark:bg-app-card sm:p-8"
+      >
+        <label className="grid gap-2 text-sm font-medium">
+          <span>{t('auth.email')}</span>
+          <input
+            required
+            type="email"
+            autoComplete={isLogin ? 'username' : 'email'}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-app-text outline-none transition focus:border-brand-lime"
+            placeholder={t('auth.emailPlaceholder')}
+          />
+        </label>
 
-      <div className="relative grid w-full gap-6">
-        <div className="mx-auto grid w-full max-w-xl gap-2 text-center">
-          <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
-            {isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
-          </h1>
-        </div>
-
-        <form
-          onSubmit={onSubmit}
-          className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 shadow-soft-lift dark:bg-app-card sm:p-8"
-        >
-          <label className="grid gap-2 text-sm font-medium">
-            <span>{t('auth.email')}</span>
-            <input
-              required
-              type="email"
-              autoComplete={isLogin ? 'username' : 'email'}
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-app-text outline-none transition focus:border-brand-lime"
-              placeholder={t('auth.emailPlaceholder')}
-            />
-          </label>
-
-          <label className="grid gap-2 text-sm font-medium">
-            <span>{t('auth.password')}</span>
-            <PasswordField
-              required
-              minLength={PASSWORD_MIN_LENGTH}
-              autoComplete={isLogin ? 'current-password' : 'new-password'}
-              value={password}
-              onChange={setPassword}
-              inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
-              placeholder={t('auth.passwordPlaceholder')}
-            />
-            {!isLogin ? <PasswordStrengthMeter password={password} showTooltip /> : null}
-          </label>
-          {isLogin ? (
-            <div className="flex justify-end">
-              <Link
-                to="/auth/forgot-password"
-                className="text-xs font-semibold text-brand-pink hover:text-[#d12074]"
-              >
-                {t('auth.forgotPassword')}
-              </Link>
-            </div>
-          ) : null}
-
-          <CTAButton disabled={isSubmitting} type="submit" variant="primary">
-            {isSubmitting ? t('auth.submitting') : title}
-          </CTAButton>
-
-          {status ? (
-            <p
-              className={`rounded-lg border px-3 py-2 text-sm ${
-                statusType === 'error'
-                  ? 'border-brand-pink/35 bg-brand-pink/10 text-[#b41563] dark:text-[#ff8ac0]'
-                  : 'border-brand-lime/35 bg-brand-lime/10 text-[#6d9600] dark:text-[#d5ff5c]'
-              }`}
-            >
-              {status}
-            </p>
-          ) : null}
-
-          <p className="text-sm text-app-text-secondary">
-            {isLogin ? t('auth.noAccount') : t('auth.alreadyAccount')}{' '}
+        <label className="grid gap-2 text-sm font-medium">
+          <span>{t('auth.password')}</span>
+          <PasswordField
+            required
+            minLength={PASSWORD_MIN_LENGTH}
+            autoComplete={isLogin ? 'current-password' : 'new-password'}
+            value={password}
+            onChange={setPassword}
+            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-app-text outline-none transition focus:border-brand-pink"
+            placeholder={t('auth.passwordPlaceholder')}
+          />
+          {!isLogin ? <PasswordStrengthMeter password={password} showTooltip /> : null}
+        </label>
+        {isLogin ? (
+          <div className="flex justify-end">
             <Link
-              to={isLogin ? '/auth/register' : '/auth/login'}
-              className="font-semibold text-brand-pink hover:text-[#d12074]"
+              to="/auth/forgot-password"
+              className="text-xs font-semibold text-brand-pink hover:text-[#d12074]"
             >
-              {isLogin ? t('auth.createOne') : t('auth.loginTitle')}
+              {t('auth.forgotPassword')}
             </Link>
-          </p>
-        </form>
-
-        <div className="mx-auto flex w-full max-w-xl justify-center">
-          <div className="flex items-center rounded-full border border-app-border/70 bg-app-elevated/90 px-2 py-1.5 shadow-soft-lift backdrop-blur-md dark:bg-app-card/90">
-            <LanguageSwitcher />
           </div>
-        </div>
-      </div>
-    </section>
+        ) : null}
+
+        <CTAButton disabled={isSubmitting} type="submit" variant="primary">
+          {isSubmitting ? t('auth.submitting') : title}
+        </CTAButton>
+
+        {status ? (
+          <p
+            className={`rounded-lg border px-3 py-2 text-sm ${
+              statusType === 'error'
+                ? 'border-brand-pink/35 bg-brand-pink/10 text-[#b41563] dark:text-[#ff8ac0]'
+                : 'border-brand-lime/35 bg-brand-lime/10 text-[#6d9600] dark:text-[#d5ff5c]'
+            }`}
+          >
+            {status}
+          </p>
+        ) : null}
+
+        <p className="text-sm text-app-text-secondary">
+          {isLogin ? t('auth.noAccount') : t('auth.alreadyAccount')}{' '}
+          <Link
+            to={isLogin ? '/auth/register' : '/auth/login'}
+            className="font-semibold text-brand-pink hover:text-[#d12074]"
+          >
+            {isLogin ? t('auth.createOne') : t('auth.loginTitle')}
+          </Link>
+        </p>
+      </form>
+    </AuthPageLayout>
   );
 };

@@ -44,6 +44,11 @@ export const getPasswordStrengthScore = (password: string): number => {
   return Object.values(getPasswordCriteria(password)).filter(Boolean).length;
 };
 
+export const isPasswordStrong = (password: string): boolean => {
+  const criteria = getPasswordCriteria(password);
+  return criteria.length && criteria.case && criteria.number && criteria.special;
+};
+
 const isAdminPermission = (value: unknown): value is AdminPermission => {
   if (!value || typeof value !== 'object') {
     return false;
@@ -154,5 +159,15 @@ export const parseRefreshResponse = (
 
   return {
     tokens: value.tokens,
+  };
+};
+
+export const parseOkResponse = (value: unknown): { ok: true } => {
+  if (!value || typeof value !== 'object' || !('ok' in value) || value.ok !== true) {
+    throw new Error('Invalid response.');
+  }
+
+  return {
+    ok: true,
   };
 };

@@ -1,7 +1,5 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { motion } from 'framer-motion';
-import { CalendarDays, LayoutDashboard, ListMusic, UserRound } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 
 import { BackgroundBlurSpots } from './BackgroundBlurSpots';
 import { useAuthSession } from '../../hooks/useAuthSession';
@@ -12,9 +10,19 @@ import { applyTheme, loadTheme } from '../../lib/theme';
 import { AccountMenu } from '../ui/AccountMenu';
 import { BrandLogo } from '../ui/BrandLogo';
 
+const PrivateDesktopNavigation = lazy(() =>
+  import('./PrivateNavigation').then((module) => ({
+    default: module.PrivateDesktopNavigation,
+  })),
+);
+const PrivateMobileNavigation = lazy(() =>
+  import('./PrivateNavigation').then((module) => ({
+    default: module.PrivateMobileNavigation,
+  })),
+);
+
 export const AppShell = () => {
   const [isNavBlurActive, setIsNavBlurActive] = useState(false);
-  const [hoveredNavPath, setHoveredNavPath] = useState<string | null>(null);
   const { auth } = useAuthSession();
   const { t } = useI18n();
   const pathname = useRouterState({
@@ -25,10 +33,10 @@ export const AppShell = () => {
     !pathname.startsWith('/playlist/') &&
     !pathname.startsWith('/event/');
   const navItems = [
-    { to: '/dashboard', label: t('accountMenu.dashboard'), icon: LayoutDashboard },
-    { to: '/playlists', label: t('accountMenu.myEvents'), icon: CalendarDays },
-    { to: '/synced-lists', label: t('accountMenu.syncedLists'), icon: ListMusic },
-    { to: '/profile', label: t('accountMenu.profile'), icon: UserRound },
+    { to: '/dashboard', label: t('accountMenu.dashboard') },
+    { to: '/playlists', label: t('accountMenu.myEvents') },
+    { to: '/synced-lists', label: t('accountMenu.syncedLists') },
+    { to: '/profile', label: t('accountMenu.profile') },
   ] as const;
   const isNavItemActive = (to: string): boolean => {
     if (to === '/playlists') {
@@ -96,52 +104,13 @@ export const AppShell = () => {
             <BrandLogo className="h-12 w-auto sm:h-24" />
           </Link>
           {auth && isPrivateRoute ? (
-            <nav
-              className="hidden items-center gap-2 sm:flex"
-              aria-label={t('accountMenu.privateNav')}
-            >
-              <div
-                onMouseLeave={() => setHoveredNavPath(null)}
-                className="flex items-center gap-1.5 rounded-full border border-app-border/70 bg-app-elevated/85 px-2 py-1.5 shadow-soft-lift backdrop-blur-md"
-              >
-                {navItems.map((item) => {
-                  const isActive = isNavItemActive(item.to);
-                  const isHovered = hoveredNavPath === item.to;
-                  return (
-                    <Link
-                      key={item.to}
-                      to={item.to}
-                      onMouseEnter={() => setHoveredNavPath(item.to)}
-                      className="relative inline-flex h-10 items-center rounded-full px-4 text-sm font-black tracking-[0.01em] transition focus-ring-brand"
-                    >
-                      {isHovered ? (
-                        <motion.span
-                          layoutId="desktop-nav-hover-indicator"
-                          transition={{ type: 'spring', stiffness: 430, damping: 35, mass: 0.85 }}
-                          className="absolute inset-0 z-0 rounded-full bg-app-surface dark:bg-app-card"
-                        />
-                      ) : null}
-                      {isActive ? (
-                        <motion.span
-                          layoutId="desktop-nav-active-indicator"
-                          transition={{ type: 'spring', stiffness: 430, damping: 35, mass: 0.85 }}
-                          className="absolute inset-0 z-[1] rounded-full bg-brand-dark dark:bg-brand-white"
-                        />
-                      ) : null}
-                      <span
-                        className={`relative z-10 ${
-                          isActive
-                            ? 'text-brand-white dark:text-brand-dark'
-                            : 'text-app-text-secondary hover:text-app-text'
-                        }`}
-                      >
-                        {item.label}
-                      </span>
-                    </Link>
-                  );
-                })}
-              </div>
-            </nav>
+            <Suspense fallback={null}>
+              <PrivateDesktopNavigation
+                navItems={navItems}
+                isNavItemActive={isNavItemActive}
+                ariaLabel={t('accountMenu.privateNav')}
+              />
+            </Suspense>
           ) : null}
           <div className="flex items-center gap-2">
             <AccountMenu />
@@ -150,41 +119,13 @@ export const AppShell = () => {
       </header>
       <BackgroundBlurSpots />
       {auth && isPrivateRoute ? (
-        <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center sm:hidden">
-          <nav
-            className="pointer-events-auto relative flex items-center gap-1 rounded-full border border-app-border/70 bg-app-elevated/90 px-2 py-1.5 shadow-soft-lift backdrop-blur-md"
-            aria-label={t('accountMenu.privateNav')}
-          >
-            {navItems.map((item) => {
-              const isActive = isNavItemActive(item.to);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  aria-label={item.label}
-                  className="relative inline-flex h-11 w-11 items-center justify-center rounded-full px-0 transition focus-ring-brand"
-                >
-                  {isActive ? (
-                    <motion.span
-                      layoutId="mobile-nav-pill-indicator"
-                      transition={{ type: 'spring', stiffness: 430, damping: 35, mass: 0.85 }}
-                      className="absolute inset-0 rounded-full bg-brand-dark dark:bg-brand-white"
-                    />
-                  ) : null}
-                  <span
-                    className={`relative z-10 ${
-                      isActive ? 'text-brand-white dark:text-brand-dark' : 'text-app-text-secondary'
-                    }`}
-                  >
-                    <Icon size={16} aria-hidden="true" />
-                  </span>
-                  <span className="sr-only">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+        <Suspense fallback={null}>
+          <PrivateMobileNavigation
+            navItems={navItems}
+            isNavItemActive={isNavItemActive}
+            ariaLabel={t('accountMenu.privateNav')}
+          />
+        </Suspense>
       ) : null}
       <main
         className={`relative z-10 min-h-screen ${auth && isPrivateRoute ? 'pb-24 sm:pb-0' : ''}`}
