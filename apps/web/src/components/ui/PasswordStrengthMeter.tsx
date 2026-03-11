@@ -1,7 +1,11 @@
-import { getPasswordCriteria, getPasswordStrengthScore } from '@synqit/shared';
 import { Info } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
+import {
+  getPasswordCriteria,
+  getPasswordStrengthScore,
+  isPasswordStrong,
+} from '../../lib/client-models';
 
 type PasswordStrengthMeterProps = {
   password: string;
@@ -55,7 +59,7 @@ export const PasswordStrengthMeter = ({
 }: PasswordStrengthMeterProps) => {
   const { t } = useI18n();
   const criteria = getPasswordCriteria(password);
-  const strengthScore = getPasswordStrengthScore(password);
+  const strengthScore = isPasswordStrong(password) ? 4 : getPasswordStrengthScore(password);
   const strengthLabelKey = getStrengthLabelKey(strengthScore);
   const strengthAccentClass = getStrengthAccentClass(strengthScore);
   const barActiveClass = getBarActiveClass(strengthScore);
