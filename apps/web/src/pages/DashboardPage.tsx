@@ -1,11 +1,6 @@
-import {
-  eventListResponseSchema,
-  eventTracksResponseSchema,
-  integrationListResponseSchema,
-  providerSchema,
-} from '@synqit/shared';
+import { eventListResponseSchema, eventTracksResponseSchema } from '@synqit/shared';
 import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Eye, RefreshCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Music2, RefreshCcw, Rss, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
@@ -20,14 +15,13 @@ import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { getAccessToken } from '../lib/auth';
 import { HostEvent } from '../lib/events';
-import { Provider } from '../lib/types';
-
-type ProviderIntegrationStatus = 'connected' | 'not_connected';
 
 type RecentTrackActivity = {
   eventId: string;
   eventName: string;
   trackName: string;
+  artist: string;
+  addedBy: string;
   addedAt: string;
 };
 type ActivityPageTransition = {
@@ -36,16 +30,11 @@ type ActivityPageTransition = {
   direction: 1 | -1;
 };
 type DashboardSnapshotCache = {
-  integrationByProvider: Record<Provider, ProviderIntegrationStatus>;
   events: HostEvent[];
   recentTrackActivity: RecentTrackActivity[];
   cachedAt: number;
 };
 
-const createInitialIntegrationMap = (): Record<Provider, ProviderIntegrationStatus> => ({
-  spotify: 'not_connected',
-  apple: 'not_connected',
-});
 const ACTIVITY_PAGE_SIZE = 15;
 const ACTIVITY_MAX_ITEMS = 50;
 const DASHBOARD_CACHE_TTL_MS = 120_000;
@@ -59,10 +48,7 @@ const toTimestamp = (value: string): number => {
 export const DashboardPage = () => {
   const { t, locale } = useI18n();
   const { showToast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
-  const [integrationByProvider, setIntegrationByProvider] = useState<
-    Record<Provider, ProviderIntegrationStatus>
-  >(() => createInitialIntegrationMap());
+
   const [events, setEvents] = useState<HostEvent[]>([]);
   const [recentTrackActivity, setRecentTrackActivity] = useState<RecentTrackActivity[]>([]);
   const [isLoadingRecentTracks, setIsLoadingRecentTracks] = useState(false);
@@ -94,7 +80,6 @@ export const DashboardPage = () => {
       }
 
       if (!shouldForce && dashboardSnapshotCache) {
-        setIntegrationByProvider(dashboardSnapshotCache.integrationByProvider);
         setEvents(dashboardSnapshotCache.events);
         setRecentTrackActivity(dashboardSnapshotCache.recentTrackActivity);
 
@@ -103,39 +88,18 @@ export const DashboardPage = () => {
         }
       }
 
-      setIsLoading(true);
       setIsLoadingRecentTracks(true);
       try {
-        const [integrationResult, eventResult] = await Promise.all([
-          callApi(
-            '/v1/integrations',
-            {
-              method: 'GET',
-              headers: {
-                authorization: `Bearer ${accessToken}`,
-              },
+        const eventResult = await callApi(
+          '/v1/playlists',
+          {
+            method: 'GET',
+            headers: {
+              authorization: `Bearer ${accessToken}`,
             },
-            (payload) => integrationListResponseSchema.parse(payload),
-          ),
-          callApi(
-            '/v1/playlists',
-            {
-              method: 'GET',
-              headers: {
-                authorization: `Bearer ${accessToken}`,
-              },
-            },
-            (payload) => eventListResponseSchema.parse(payload),
-          ),
-        ]);
-
-        const nextIntegrationByProvider = createInitialIntegrationMap();
-        for (const provider of providerSchema.options) {
-          nextIntegrationByProvider[provider] =
-            integrationResult.integrations.find((item) => item.provider === provider)?.status ??
-            'not_connected';
-        }
-        setIntegrationByProvider(nextIntegrationByProvider);
+          },
+          (payload) => eventListResponseSchema.parse(payload),
+        );
 
         const nextEvents = eventResult.events.map((event) => ({
           id: event.id,
@@ -180,6 +144,8 @@ export const DashboardPage = () => {
               eventId: response.value.eventId,
               eventName: response.value.eventName,
               trackName: track.name,
+              artist: track.artist,
+              addedBy: track.addedBy,
               addedAt: track.addedAt,
             });
           }
@@ -190,7 +156,6 @@ export const DashboardPage = () => {
           .slice(0, ACTIVITY_MAX_ITEMS);
         setRecentTrackActivity(sortedRecentTrackActivity);
         dashboardSnapshotCache = {
-          integrationByProvider: nextIntegrationByProvider,
           events: nextEvents,
           recentTrackActivity: sortedRecentTrackActivity,
           cachedAt: Date.now(),
@@ -199,7 +164,6 @@ export const DashboardPage = () => {
         const apiError = toApiError(error);
         showToast(t('dashboard.error', { message: apiError.message }), { variant: 'error' });
       } finally {
-        setIsLoading(false);
         setIsLoadingRecentTracks(false);
       }
     },
@@ -209,25 +173,6 @@ export const DashboardPage = () => {
   useEffect(() => {
     void loadSnapshot();
   }, [loadSnapshot]);
-
-  const connectedProviderCount = useMemo(() => {
-    return providerSchema.options.filter(
-      (provider) => integrationByProvider[provider] === 'connected',
-    ).length;
-  }, [integrationByProvider]);
-
-  const eventsByProvider = useMemo(() => {
-    const counts: Record<Provider, number> = {
-      spotify: 0,
-      apple: 0,
-    };
-
-    for (const event of events) {
-      counts[event.provider] += 1;
-    }
-
-    return counts;
-  }, [events]);
 
   const currentEvents = useMemo(() => {
     return events
@@ -268,11 +213,6 @@ export const DashboardPage = () => {
     }
   }, [activityPageCount, activityPageTransition]);
 
-  const getProviderLabel = (provider: Provider): string => {
-    return provider === 'apple'
-      ? t('eventsPage.createFlow.providerApple')
-      : t('eventsPage.createFlow.providerSpotify');
-  };
   const slideToActivityPage = (direction: 1 | -1) => {
     if (activityPageTransition) {
       return;
@@ -319,22 +259,47 @@ export const DashboardPage = () => {
     slideToActivityPage(-1);
   };
   const renderActivityRows = (rows: RecentTrackActivity[]) => {
-    return rows.map((activity) => (
-      <li key={`${activity.eventId}-${activity.trackName}-${activity.addedAt}`} className="min-w-0">
-        <CTALink
-          to={`/playlists/${activity.eventId}`}
-          variant="secondary"
-          className="flex-col w-full min-w-0 items-start justify-start gap-0 overflow-hidden whitespace-normal rounded-xl bg-app-bg px-3 py-3 text-left dark:bg-app-elevated"
-        >
-          <p className="w-full min-w-0 truncate text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
-            {activity.eventName}
-          </p>
-          <p className="mt-1 w-full min-w-0 truncate text-sm font-bold text-brand-dark dark:text-brand-white">
-            {activity.trackName}
-          </p>
-        </CTALink>
-      </li>
-    ));
+    return rows.map((activity) => {
+      const isGuest = activity.addedBy === 'guest';
+      const SourceIcon = isGuest ? Users : Rss;
+      const sourceLabel = isGuest
+        ? t('dashboard.activityAddedByGuest')
+        : t('dashboard.activityAddedByProviderSync');
+      return (
+        <li key={`${activity.eventId}-${activity.trackName}-${activity.addedAt}`}>
+          <CTALink
+            to={`/playlists/${activity.eventId}`}
+            variant="secondary"
+            className="flex min-w-0 w-full items-center gap-2 rounded-xl border border-app-border bg-white px-3 py-2 shadow-none transition-transform duration-150 hover:-translate-y-0.5 dark:bg-app-elevated"
+          >
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-app-bg text-app-text-secondary dark:bg-app-elevated">
+              <Music2 size={14} aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
+                {activity.trackName}
+              </p>
+              <p className="truncate text-xs text-app-text-secondary">{activity.artist}</p>
+            </div>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                  isGuest
+                    ? 'bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
+                    : 'bg-sky-400/15 text-sky-700 dark:text-sky-300'
+                }`}
+              >
+                <SourceIcon size={9} aria-hidden="true" />
+                {sourceLabel}
+              </span>
+              <p className="text-[10px] text-app-text-secondary">
+                {formatDateTime(activity.addedAt)}
+              </p>
+            </div>
+          </CTALink>
+        </li>
+      );
+    });
   };
 
   return (
@@ -348,149 +313,74 @@ export const DashboardPage = () => {
         title={t('dashboard.title')}
         description={t('dashboard.description')}
         descriptionClassName="max-w-3xl text-sm text-app-text-secondary sm:text-base"
-        actions={
-          <>
-            <CTALink to="/playlists/new" variant="primary" className="hidden sm:inline-flex">
-              {t('dashboard.ctaCreateEvent')}
-            </CTALink>
-            <CTAButton
-              type="button"
-              variant="secondary"
-              onClick={() => void loadSnapshot({ force: true })}
-              disabled={isLoading}
-              className="h-10 w-10 px-0 sm:h-auto sm:w-auto sm:px-3"
-              aria-label={t('dashboard.refresh')}
-            >
-              <CTAMobileIconLabel
-                icon={
-                  <RefreshCcw
-                    size={14}
-                    className={isLoading ? 'animate-spin' : ''}
-                    aria-hidden="true"
-                  />
-                }
-                label={isLoading ? t('dashboard.loading') : t('dashboard.refresh')}
-              />
-            </CTAButton>
-          </>
-        }
       >
-        <div className="flex justify-center pb-1 sm:hidden">
-          <CTALink to="/playlists/new" variant="primary" className="w-full justify-center">
+        <div className="flex pb-1">
+          <CTALink
+            to="/playlists/new"
+            variant="primary"
+            size="lg"
+            className="w-full justify-center"
+          >
             {t('dashboard.ctaCreateEvent')}
           </CTALink>
         </div>
       </AppPageHeader>
 
-      <div className="px-5 sm:px-8">
-        <div className="grid gap-5 lg:grid-cols-[1.15fr_1fr]">
-          <AppSurfaceCard>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-                {t('dashboard.servicesTitle')}
-              </h2>
-              <span className="rounded-full border border-brand-lime/40 bg-brand-lime/15 px-2 py-1 text-xs font-semibold text-[#6d9600] dark:text-[#d5ff5c]">
-                {t('dashboard.servicesSummary', {
-                  connected: connectedProviderCount,
-                  total: providerSchema.options.length,
-                })}
-              </span>
-            </div>
+      <div>
+        <AppSurfaceCard className="shadow-none">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+              {t('dashboard.activePlaylistsTitle')}
+            </h2>
+            <span className="text-xs font-semibold text-app-text-secondary">
+              {t('dashboard.currentEventsCount', { count: currentEvents.length })}
+            </span>
+          </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              {providerSchema.options.map((provider) => {
-                const isConnected = integrationByProvider[provider] === 'connected';
+          {currentEvents.length === 0 ? (
+            <p className="rounded-xl border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text-secondary dark:bg-app-elevated">
+              {t('dashboard.currentEventsEmpty')}
+            </p>
+          ) : (
+            <ul className="grid gap-3 sm:grid-cols-2">
+              {currentEvents.map((event) => {
+                const hasIssue = event.providerConnectionStatus === 'not_connected';
                 return (
-                  <div
-                    key={provider}
-                    className="rounded-xl border border-app-border bg-app-bg px-3 py-3 dark:bg-app-elevated"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <EventProviderIcon provider={provider} />
-                        <p className="text-sm font-bold text-brand-dark dark:text-brand-white">
-                          {getProviderLabel(provider)}
-                        </p>
-                      </div>
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[11px] font-black uppercase tracking-wide ${
-                          isConnected
-                            ? 'border border-brand-lime/40 bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
-                            : 'border border-amber-400/45 bg-amber-400/15 text-amber-700 dark:text-amber-300'
-                        }`}
-                      >
-                        {isConnected
-                          ? t('dashboard.serviceConnected')
-                          : t('dashboard.serviceNotConnected')}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-xs text-app-text-secondary">
-                      {t('dashboard.serviceEventsLinked', {
-                        count: eventsByProvider[provider],
-                      })}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </AppSurfaceCard>
-
-          <AppSurfaceCard>
-            <div className="mb-3 flex items-center justify-between gap-3">
-              <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-                {t('dashboard.currentEventsTitle')}
-              </h2>
-              <span className="text-xs font-semibold text-app-text-secondary">
-                {t('dashboard.currentEventsCount', { count: currentEvents.length })}
-              </span>
-            </div>
-
-            {currentEvents.length === 0 ? (
-              <p className="rounded-xl border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text-secondary dark:bg-app-elevated">
-                {t('dashboard.currentEventsEmpty')}
-              </p>
-            ) : (
-              <ul className="grid gap-2">
-                {currentEvents.slice(0, 5).map((event) => (
-                  <li
-                    key={event.id}
-                    className="flex min-w-0 items-center gap-2 rounded-xl border border-app-border bg-app-bg px-3 py-2 dark:bg-app-elevated"
-                  >
-                    <EventProviderIcon provider={event.provider} sizeClassName="h-8 w-8" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
-                        {event.name}
-                      </p>
-                      <p className="truncate text-xs text-app-text-secondary">
-                        {formatDateTime(event.updatedAt)}
-                      </p>
-                    </div>
-                    <EventStatusIndicator
-                      status={event.status}
-                      connectionStatus={event.providerConnectionStatus}
-                      mode="pill"
-                    />
+                  <li key={event.id}>
                     <CTALink
                       to={`/playlists/${event.id}`}
                       variant="secondary"
-                      className="px-2.5 py-1.5 text-[11px]"
-                      aria-label={t('dashboard.openEvent')}
+                      className={`flex min-w-0 w-full items-center gap-2 rounded-xl border px-3 py-2 shadow-none transition-transform duration-150 hover:-translate-y-0.5 ${
+                        hasIssue
+                          ? 'border-[#DC5C48]/50 bg-[#DC5C48]/10 dark:bg-[#DC5C48]/15'
+                          : 'border-app-border bg-white dark:bg-app-elevated'
+                      }`}
                     >
-                      <CTAMobileIconLabel
-                        icon={<Eye size={14} />}
-                        label={t('dashboard.openEvent')}
+                      <EventProviderIcon provider={event.provider} sizeClassName="h-8 w-8" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
+                          {event.name}
+                        </p>
+                        <p className="truncate text-xs text-app-text-secondary">
+                          {formatDateTime(event.updatedAt)}
+                        </p>
+                      </div>
+                      <EventStatusIndicator
+                        status={event.status}
+                        connectionStatus={event.providerConnectionStatus}
+                        mode="pill"
                       />
                     </CTALink>
                   </li>
-                ))}
-              </ul>
-            )}
-          </AppSurfaceCard>
-        </div>
+                );
+              })}
+            </ul>
+          )}
+        </AppSurfaceCard>
       </div>
 
-      <div className="px-5 sm:px-8">
-        <AppSurfaceCard>
+      <div>
+        <AppSurfaceCard className="shadow-none">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
               {t('dashboard.latestActivityTitle')}
@@ -510,7 +400,7 @@ export const DashboardPage = () => {
               {t('dashboard.latestActivityEmpty')}
             </p>
           ) : (
-            <div className="grid gap-3 overflow-hidden">
+            <div className="grid gap-3">
               {isLoadingRecentTracks ? (
                 <div className="flex items-center gap-2 text-xs font-semibold text-app-text-secondary">
                   <RefreshCcw size={12} className="animate-spin" aria-hidden="true" />
@@ -518,7 +408,7 @@ export const DashboardPage = () => {
                 </div>
               ) : null}
               <div
-                className="overflow-hidden"
+                className="overflow-visible"
                 onTouchStart={onActivityTouchStart}
                 onTouchEnd={onActivityTouchEnd}
               >
@@ -536,26 +426,26 @@ export const DashboardPage = () => {
                   >
                     {activityPageTransition.direction === 1 ? (
                       <>
-                        <ul className="grid w-full shrink-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+                        <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
                           {renderActivityRows(getActivityRowsForPage(activityPageTransition.from))}
                         </ul>
-                        <ul className="grid w-full shrink-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+                        <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
                           {renderActivityRows(getActivityRowsForPage(activityPageTransition.to))}
                         </ul>
                       </>
                     ) : (
                       <>
-                        <ul className="grid w-full shrink-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+                        <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
                           {renderActivityRows(getActivityRowsForPage(activityPageTransition.to))}
                         </ul>
-                        <ul className="grid w-full shrink-0 grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+                        <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
                           {renderActivityRows(getActivityRowsForPage(activityPageTransition.from))}
                         </ul>
                       </>
                     )}
                   </motion.div>
                 ) : (
-                  <ul className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-3">
+                  <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
                     {renderActivityRows(currentActivityRows)}
                   </ul>
                 )}

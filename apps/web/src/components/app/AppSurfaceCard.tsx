@@ -10,10 +10,9 @@ export const AppSurfaceCard = ({ children, className, as = 'article' }: AppSurfa
   createElement(
     as,
     {
-      className:
-        `rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card ${
-          className ?? ''
-        }`.trim(),
+      className: `rounded-2xl border border-app-border bg-app-elevated p-5 dark:bg-app-card ${
+        className ?? ''
+      }`.trim(),
     },
     children,
   );

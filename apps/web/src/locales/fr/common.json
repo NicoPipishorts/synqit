@@ -284,6 +284,7 @@
     "serviceConnected": "Connecté",
     "serviceNotConnected": "Déconnecté",
     "serviceEventsLinked": "{{count}} playlist(s) lié(s)",
+    "activePlaylistsTitle": "Playlists d'événements actifs",
     "currentEventsTitle": "Playlists en cours",
     "currentEventsCount": "{{count}} ouverts",
     "currentEventsEmpty": "Aucune playlist ouvert pour le moment. Créez-en un pour commencer à collecter des titres.",

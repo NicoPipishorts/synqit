@@ -41,7 +41,7 @@ export const AppPageHeader = ({
                 </p>
               ) : null}
             </div>
-            {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
+            {actions ? <div className="hidden items-center gap-2 sm:flex">{actions}</div> : null}
           </div>
           {children}
         </div>

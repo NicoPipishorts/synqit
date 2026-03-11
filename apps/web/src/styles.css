@@ -100,8 +100,8 @@
 
   .shadow-soft-lift {
     box-shadow:
-      0 10px 24px -16px rgba(34, 34, 34, 0.35),
-      0 3px 8px -6px rgba(34, 34, 34, 0.28);
+      0 6px 16px -12px rgba(34, 34, 34, 0.2),
+      0 2px 5px -4px rgba(34, 34, 34, 0.15);
   }
 
   .focus-ring-brand:focus-visible {
