@@ -1,13 +1,15 @@
 name: API Regression Tests
 
 on:
-  push:
+  pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   api-regression:
     runs-on: ubuntu-latest
+
     services:
       postgres:
         image: postgres:16-alpine
