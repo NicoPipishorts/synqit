@@ -559,6 +559,9 @@
       "login": "I'm already a host"
     }
   },
+  "modal": {
+    "close": "Close"
+  },
   "footer": {
     "description": "Collaborative playlists with one magic link and live host moderation.",
     "product": "Product",

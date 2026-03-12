@@ -559,6 +559,9 @@
       "login": "Je suis déjà hôte"
     }
   },
+  "modal": {
+    "close": "Fermer"
+  },
   "footer": {
     "description": "Playlists collaboratives avec un lien magique et modération hôte en direct.",
     "product": "Produit",

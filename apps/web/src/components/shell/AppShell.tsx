@@ -1,4 +1,4 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
+import { Link, Outlet, useMatchRoute, useRouterState } from '@tanstack/react-router';
 import { lazy, Suspense, useEffect, useState } from 'react';
 
 import { BackgroundBlurSpots } from './BackgroundBlurSpots';
@@ -25,6 +25,7 @@ export const AppShell = () => {
   const [isNavBlurActive, setIsNavBlurActive] = useState(false);
   const { auth } = useAuthSession();
   const { t } = useI18n();
+  const matchRoute = useMatchRoute();
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
@@ -39,16 +40,7 @@ export const AppShell = () => {
     { to: '/profile', label: t('accountMenu.profile') },
   ] as const;
   const isNavItemActive = (to: string): boolean => {
-    if (to === '/playlists') {
-      return pathname.startsWith('/playlists');
-    }
-    if (to === '/synced-lists') {
-      return pathname.startsWith('/synced-lists');
-    }
-    if (to === '/profile') {
-      return pathname.startsWith('/profile');
-    }
-    return pathname === to || pathname.startsWith(`${to}/`);
+    return Boolean(matchRoute({ to, fuzzy: true }));
   };
   useEffect(() => {
     const syncTheme = () => {
