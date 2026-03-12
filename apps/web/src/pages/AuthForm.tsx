@@ -134,15 +134,17 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
           </p>
         ) : null}
 
-        <p className="text-sm text-app-text-secondary">
-          {isLogin ? t('auth.noAccount') : t('auth.alreadyAccount')}{' '}
+        <div className="flex flex-col items-center gap-2 border-t border-app-border pt-5 text-center">
+          <p className="text-base font-semibold text-app-text">
+            {isLogin ? t('auth.noAccount') : t('auth.alreadyAccount')}
+          </p>
           <Link
             to={isLogin ? '/auth/register' : '/auth/login'}
-            className="font-semibold text-brand-pink hover:text-[#d12074]"
+            className="text-base font-bold text-brand-pink hover:text-[#d12074]"
           >
             {isLogin ? t('auth.createOne') : t('auth.loginTitle')}
           </Link>
-        </p>
+        </div>
       </form>
     </AuthPageLayout>
   );

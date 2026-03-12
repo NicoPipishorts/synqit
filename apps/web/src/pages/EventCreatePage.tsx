@@ -7,7 +7,7 @@ import {
 } from '@synqit/shared';
 import type { Variants } from 'framer-motion';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
-import { Check, ChevronLeft, ChevronRight, Copy, Eye } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Copy, Eye, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
@@ -572,7 +572,18 @@ export const EventCreatePage = () => {
         setProvider(result.draft.provider);
         setName(result.draft.name);
         setDescription(result.draft.description);
-        setStep(result.draft.step as CreateStep);
+
+        // Advance to the next incomplete step rather than the saved step,
+        // so the user resumes where they need to act next.
+        const savedStep = result.draft.step as CreateStep;
+        const integrations = await loadIntegrations();
+        const providerIsConnected =
+          result.draft.provider !== null && integrations?.[result.draft.provider] === 'connected';
+        let resumeStep: CreateStep = savedStep;
+        if (savedStep === 1 && result.draft.provider !== null && providerIsConnected) {
+          resumeStep = 2;
+        }
+        setStep(resumeStep);
         setStepDirection(1);
         window.setTimeout(() => {
           isApplyingDraftRef.current = false;
@@ -594,7 +605,7 @@ export const EventCreatePage = () => {
     return () => {
       cancelled = true;
     };
-  }, [requireAccessToken, showToast, syncDraftIdInQuery, t]);
+  }, [loadIntegrations, requireAccessToken, showToast, syncDraftIdInQuery, t]);
 
   useEffect(() => {
     if (!draftHydrationDoneRef.current || isApplyingDraftRef.current || createdEvent) {
@@ -774,7 +785,7 @@ export const EventCreatePage = () => {
         description={t('eventsPage.createFlow.description')}
       />
       <LayoutGroup id="create-event-breadcrumbs">
-        <div className="my-5 flex w-full flex-wrap items-center justify-center gap-2 sm:gap-3">
+        <div className="mt-2 mb-5 flex w-full flex-wrap items-center justify-center gap-2 sm:gap-3">
           {stepItems.map((item) => {
             const isActive = step === item.value;
             const isClickable = canOpenStep(item.value);
@@ -842,53 +853,96 @@ export const EventCreatePage = () => {
               <p className="mx-auto max-w-[70%] text-center text-sm text-app-text-secondary sm:max-w-[50%]">
                 {t('eventsPage.createFlow.stepProviderBody')}
               </p>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-6 sm:gap-8">
-                {providerSchema.options.map((value) => {
-                  const isSelected = provider === value;
-                  const isConnected = providerStatusByType[value] === 'connected';
-                  const label =
-                    value === 'apple'
-                      ? t('eventsPage.createFlow.providerApple')
-                      : t('eventsPage.createFlow.providerSpotify');
+              <div className="mt-5 flex items-center justify-center gap-6 sm:gap-8">
+                <AnimatePresence initial={false}>
+                  {providerSchema.options.map((value) => {
+                    const isSelected = provider === value;
+                    const isConnected = providerStatusByType[value] === 'connected';
+                    const isHidden = provider !== null && !isSelected;
+                    const label =
+                      value === 'apple'
+                        ? t('eventsPage.createFlow.providerApple')
+                        : t('eventsPage.createFlow.providerSpotify');
 
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => {
-                        setProvider(value);
-                        if (providerStatusByType[value] !== 'connected') {
-                          void connectSelectedProvider(value);
-                        }
-                      }}
-                      disabled={isConnectingProvider}
-                      aria-label={label}
-                      className={`relative inline-flex items-center justify-center rounded-full p-2 sm:p-3 transition ${
-                        isSelected ? 'scale-[1.03]' : ''
-                      } ${
-                        isConnectingProvider ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-                      }`}
-                    >
-                      <span className="relative inline-flex">
-                        <EventProviderIcon
-                          provider={value}
-                          sizeClassName="h-20 w-20 sm:h-24 sm:w-24"
-                          imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}
-                          className={
-                            isSelected
-                              ? 'ring-2 ring-brand-lime/70 ring-offset-1 ring-offset-app-bg'
-                              : ''
-                          }
-                        />
-                        {isSelected ? (
-                          <span className="absolute bottom-0.75 right-0 inline-flex h-6 w-6 items-center justify-center rounded-full border border-app-border bg-brand-lime text-brand-white shadow-soft-lift">
-                            <Check size={15} strokeWidth={4} aria-hidden="true" />
-                          </span>
-                        ) : null}
-                      </span>
-                    </button>
-                  );
-                })}
+                    if (isHidden) return null;
+
+                    return (
+                      <motion.div
+                        key={value}
+                        layout
+                        initial={{ opacity: 0, scale: 0.88 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.88 }}
+                        transition={{ duration: 0.22, ease: STEP_SLIDE_EASE }}
+                        className="relative inline-flex flex-col items-center"
+                      >
+                        <span className="relative inline-flex p-2 sm:p-3">
+                          {!isSelected ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProvider(value);
+                                if (providerStatusByType[value] !== 'connected') {
+                                  void connectSelectedProvider(value);
+                                }
+                              }}
+                              disabled={isConnectingProvider}
+                              aria-label={label}
+                              className={`relative inline-flex items-center justify-center rounded-full transition ${
+                                isConnectingProvider
+                                  ? 'cursor-not-allowed opacity-50'
+                                  : 'cursor-pointer'
+                              }`}
+                            >
+                              <EventProviderIcon
+                                provider={value}
+                                sizeClassName="h-24 w-24 sm:h-24 sm:w-24"
+                                imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}
+                              />
+                            </button>
+                          ) : (
+                            <span className="relative inline-flex">
+                              <EventProviderIcon
+                                provider={value}
+                                sizeClassName="h-24 w-24 sm:h-24 sm:w-24"
+                                imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}
+                                className="ring-2 ring-brand-lime/70 ring-offset-1 ring-offset-app-bg"
+                              />
+                            </span>
+                          )}
+                          <AnimatePresence initial={false} mode="wait">
+                            {isSelected && isConnected ? (
+                              <motion.span
+                                key="check"
+                                initial={{ opacity: 0, scale: 0.7 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.7 }}
+                                transition={{ duration: 0.18, ease: STEP_SLIDE_EASE }}
+                                className="absolute top-3.75 right-3.75 inline-flex h-6 w-6 items-center justify-center rounded-full border border-app-border bg-brand-lime text-brand-white shadow-soft-lift"
+                              >
+                                <Check size={15} strokeWidth={4} aria-hidden="true" />
+                              </motion.span>
+                            ) : isSelected && !isConnected ? (
+                              <motion.button
+                                key="close"
+                                type="button"
+                                initial={{ opacity: 0, scale: 0.7 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.7 }}
+                                transition={{ duration: 0.18, ease: STEP_SLIDE_EASE }}
+                                onClick={() => setProvider(null)}
+                                aria-label="Unselect provider"
+                                className="absolute top-3.75 right-3.75 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-brand-pink text-white shadow-soft-lift transition hover:opacity-80"
+                              >
+                                <X size={13} strokeWidth={3} aria-hidden="true" />
+                              </motion.button>
+                            ) : null}
+                          </AnimatePresence>
+                        </span>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
               </div>
             </motion.article>
           ) : null}
@@ -1055,7 +1109,7 @@ export const EventCreatePage = () => {
           <motion.div
             layout
             transition={STEP_ACTIONS_LAYOUT_TRANSITION}
-            className="mt-10 flex min-h-10 items-center justify-center gap-2"
+            className="mt-6 flex min-h-10 items-center justify-center gap-2"
           >
             <AnimatePresence initial={false} mode="popLayout">
               {step > 1 ? (
@@ -1096,10 +1150,8 @@ export const EventCreatePage = () => {
                     }
                     variant="primary"
                   >
-                    <CTAMobileIconLabel
-                      icon={<ChevronRight size={14} aria-hidden="true" />}
-                      label={t('eventsPage.createFlow.next')}
-                    />
+                    {t('eventsPage.createFlow.next')}
+                    <ChevronRight size={14} aria-hidden="true" />
                   </CTAButton>
                 </motion.div>
               ) : null}

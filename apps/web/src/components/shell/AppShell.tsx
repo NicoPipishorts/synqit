@@ -89,7 +89,7 @@ export const AppShell = () => {
   }, [pathname]);
 
   return (
-    <div className="relative min-h-screen overflow-x-clip bg-app-bg text-app-text transition-colors">
+    <div className="relative min-h-screen overflow-x-clip text-app-text transition-colors">
       <header className="fixed inset-x-0 top-0 z-50">
         {isNavBlurActive && (
           <div
@@ -98,9 +98,19 @@ export const AppShell = () => {
           />
         )}
         <div className="relative z-10 flex w-full items-center justify-between px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
-          <Link to="/" aria-label="Synqit home" className="inline-flex">
-            <BrandLogo className="h-12 w-auto sm:h-24" />
-          </Link>
+          {isPrivateRoute ? (
+            <Link to="/" aria-label="Synqit home" className="inline-flex">
+              <BrandLogo className="h-12 w-auto sm:h-24" />
+            </Link>
+          ) : (
+            <a
+              href={import.meta.env.VITE_SITE_URL ?? '/'}
+              aria-label="Synqit home"
+              className="inline-flex"
+            >
+              <BrandLogo className="h-12 w-auto sm:h-24" />
+            </a>
+          )}
           {auth && isPrivateRoute ? (
             <Suspense fallback={null}>
               <PrivateDesktopNavigation
@@ -125,9 +135,7 @@ export const AppShell = () => {
           />
         </Suspense>
       ) : null}
-      <main
-        className={`relative z-10 min-h-screen ${auth && isPrivateRoute ? 'pb-24 sm:pb-0' : ''}`}
-      >
+      <main className={`relative min-h-screen ${auth && isPrivateRoute ? 'pb-24 sm:pb-0' : ''}`}>
         <Outlet />
       </main>
     </div>
