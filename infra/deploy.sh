@@ -2,6 +2,10 @@
 set -euo pipefail
 source /srv/synqit/.deploy.env
 
+cd /srv/synqit/repo
+git fetch origin main
+git reset --hard origin/main
+
 cd /srv/synqit/repo/infra
 
 IMAGE_TAG="${1:-latest}"
