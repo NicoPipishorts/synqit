@@ -1,5 +1,4 @@
 import { eventTracksResponseSchema } from '@synqit/shared';
-import type { EventDraft } from '@synqit/shared';
 import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Music2, RefreshCcw, Rss, Users } from 'lucide-react';
@@ -66,7 +65,7 @@ export const DashboardPage = () => {
   });
 
   const events = eventsQuery.data ?? [];
-  const activeDraft: EventDraft | null = draftsQuery.data?.[0] ?? null;
+  const activeDraft = draftsQuery.data?.[0] ?? null;
 
   // Fan-out per-event track queries, keyed on the event id list so it
   // re-runs when events change. Each individual event's tracks are also
