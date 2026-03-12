@@ -2,6 +2,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { useI18n } from '../../hooks/useI18n';
+
 type ModalProps = {
   open: boolean;
   title: string;
@@ -10,6 +12,7 @@ type ModalProps = {
 };
 
 export const Modal = ({ open, title, onClose, children }: ModalProps) => {
+  const { t } = useI18n();
   const [isDesktop, setIsDesktop] = useState(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -94,7 +97,7 @@ export const Modal = ({ open, title, onClose, children }: ModalProps) => {
                 onClick={onClose}
                 className="rounded-lg border border-app-border px-2 py-1 text-xs font-semibold transition hover:border-brand-pink focus-ring-brand"
               >
-                Close
+                {t('modal.close')}
               </button>
             </div>
             {children}

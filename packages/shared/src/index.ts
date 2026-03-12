@@ -406,6 +406,29 @@ export const updatePersonalInfoRequestSchema = z.object({
 
 export type UpdatePersonalInfoRequest = z.infer<typeof updatePersonalInfoRequestSchema>;
 
+export const userPreferencesThemeSchema = z.enum(['light', 'dark', 'auto']);
+export type UserPreferencesTheme = z.infer<typeof userPreferencesThemeSchema>;
+
+export const userPreferencesLocaleSchema = z.enum(['en', 'fr']);
+export type UserPreferencesLocale = z.infer<typeof userPreferencesLocaleSchema>;
+
+export const userPreferencesSchema = z.object({
+  theme: userPreferencesThemeSchema.nullable(),
+  locale: userPreferencesLocaleSchema.nullable(),
+});
+export type UserPreferences = z.infer<typeof userPreferencesSchema>;
+
+export const userPreferencesResponseSchema = z.object({
+  preferences: userPreferencesSchema,
+});
+export type UserPreferencesResponse = z.infer<typeof userPreferencesResponseSchema>;
+
+export const updateUserPreferencesRequestSchema = z.object({
+  theme: userPreferencesThemeSchema.nullable().optional(),
+  locale: userPreferencesLocaleSchema.nullable().optional(),
+});
+export type UpdateUserPreferencesRequest = z.infer<typeof updateUserPreferencesRequestSchema>;
+
 export const providerConnectionStatusSchema = z.enum(['connected', 'not_connected']);
 export type ProviderConnectionStatus = z.infer<typeof providerConnectionStatusSchema>;
 

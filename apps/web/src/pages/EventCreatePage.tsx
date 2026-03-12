@@ -1,10 +1,5 @@
-import {
-  eventDraftResponseSchema,
-  eventResponseSchema,
-  integrationListResponseSchema,
-  oauthCallbackResponseSchema,
-  providerSchema,
-} from '@synqit/shared';
+import { providerSchema } from '@synqit/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Variants } from 'framer-motion';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { Check, ChevronLeft, ChevronRight, Copy, Eye, X } from 'lucide-react';
@@ -17,14 +12,17 @@ import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
-import { callApi, toApiError } from '../lib/api';
-import { getAccessToken } from '../lib/auth';
-import {
-  AppleDeveloperTokenResponse,
-  ensureMusicKitInstance,
-  loadMusicKitScript,
-} from '../lib/musickit';
+import { toApiError } from '../lib/api';
+import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
+import {
+  createDraft,
+  createEvent as createEventFn,
+  fetchDraft,
+  fetchIntegrations,
+  queryKeys,
+  updateDraft,
+} from '../lib/queries';
 import { Provider } from '../lib/types';
 
 type ProviderIntegrationStatus = 'connected' | 'not_connected';
@@ -33,11 +31,6 @@ type CreateStep = 1 | 2 | 3 | 4;
 type CreatedEventState = {
   eventId: string;
   magicLinkUrl: string;
-};
-
-const INITIAL_PROVIDER_STATUS: Record<Provider, ProviderIntegrationStatus> = {
-  spotify: 'not_connected',
-  apple: 'not_connected',
 };
 
 const STEP_SLIDE_EASE = [0.16, 1, 0.3, 1] as const;
@@ -79,44 +72,100 @@ const STEP_SLIDE_VARIANTS: Variants = {
 export const EventCreatePage = () => {
   const { t } = useI18n();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const [step, setStep] = useState<CreateStep>(1);
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
   const [draftId, setDraftId] = useState<string | null>(null);
   const [provider, setProvider] = useState<Provider | null>(null);
-  const [providerStatusByType, setProviderStatusByType] =
-    useState<Record<Provider, ProviderIntegrationStatus>>(INITIAL_PROVIDER_STATUS);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [createdEvent, setCreatedEvent] = useState<CreatedEventState | null>(null);
-  const [isLoadingIntegrations, setIsLoadingIntegrations] = useState(false);
   const [isConnectingProvider, setIsConnectingProvider] = useState(false);
-  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const isApplyingDraftRef = useRef(false);
   const draftHydrationDoneRef = useRef(false);
+
+  // ---------------------------------------------------------------------------
+  // Integrations query
+  // ---------------------------------------------------------------------------
+
+  const integrationsQuery = useQuery({
+    queryKey: queryKeys.integrations.list(),
+    queryFn: fetchIntegrations,
+    staleTime: 60_000,
+  });
+
+  const providerStatusByType: Record<Provider, ProviderIntegrationStatus> =
+    integrationsQuery.data ?? { spotify: 'not_connected', apple: 'not_connected' };
 
   const selectedProviderConnected = provider
     ? providerStatusByType[provider] === 'connected'
     : false;
   const trimmedName = name.trim();
 
+  // ---------------------------------------------------------------------------
+  // Draft mutations
+  // ---------------------------------------------------------------------------
+
+  const createDraftMutation = useMutation({
+    mutationFn: createDraft,
+    onSuccess: (draft) => {
+      setDraftId(draft.id);
+      syncDraftIdInQuery(draft.id);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.drafts.all() });
+    },
+    onError: (error) => {
+      const apiError = toApiError(error);
+      showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
+    },
+  });
+
+  const updateDraftMutation = useMutation({
+    mutationFn: updateDraft,
+    onError: (error) => {
+      const apiError = toApiError(error);
+      showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // Create event mutation
+  // ---------------------------------------------------------------------------
+
+  const createEventMutation = useMutation({
+    mutationFn: createEventFn,
+    onSuccess: (result) => {
+      setCreatedEvent({ eventId: result.eventId, magicLinkUrl: result.magicLinkUrl });
+      trackAnalyticsEvent({
+        eventName: 'event_create_succeeded',
+        target: 'events',
+        properties: { provider: provider!, eventId: result.eventId },
+      });
+      setDraftId(null);
+      syncDraftIdInQuery(null);
+      void queryClient.invalidateQueries({ queryKey: queryKeys.events.all() });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.drafts.all() });
+    },
+    onError: (error) => {
+      const apiError = toApiError(error);
+      trackAnalyticsEvent({
+        eventName: 'event_create_failed',
+        target: 'events',
+        properties: { provider: provider!, code: apiError.code },
+      });
+      showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
   const stepItems = useMemo(
     () => [
-      {
-        value: 1 as const,
-        label: t('eventsPage.createFlow.stepProvider'),
-      },
-      {
-        value: 2 as const,
-        label: t('eventsPage.createFlow.stepName'),
-      },
-      {
-        value: 3 as const,
-        label: t('eventsPage.createFlow.stepDescription'),
-      },
-      {
-        value: 4 as const,
-        label: t('eventsPage.createFlow.stepReview'),
-      },
+      { value: 1 as const, label: t('eventsPage.createFlow.stepProvider') },
+      { value: 2 as const, label: t('eventsPage.createFlow.stepName') },
+      { value: 3 as const, label: t('eventsPage.createFlow.stepDescription') },
+      { value: 4 as const, label: t('eventsPage.createFlow.stepReview') },
     ],
     [t],
   );
@@ -153,201 +202,25 @@ export const EventCreatePage = () => {
     [],
   );
 
-  const requireAccessToken = useCallback(
-    (message: string): string | null => {
-      const accessToken = getAccessToken();
-      if (!accessToken) {
-        showToast(message, { variant: 'error' });
-        return null;
-      }
-      return accessToken;
-    },
-    [showToast],
-  );
-
-  const createDraft = useCallback(
-    async (params: {
-      step: CreateStep;
-      provider: Provider | null;
-      name: string;
-      description: string;
-    }) => {
-      const accessToken = requireAccessToken(t('eventsPage.loginRequiredUpdate'));
-      if (!accessToken) {
-        return null;
-      }
-
-      const result = await callApi(
-        '/v1/playlists/drafts',
-        {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            step: params.step,
-            provider: params.provider,
-            name: params.name,
-            description: params.description,
-          }),
-        },
-        (payload) => eventDraftResponseSchema.parse(payload),
-      );
-
-      return result.draft;
-    },
-    [requireAccessToken, t],
-  );
-
-  const updateDraft = useCallback(
-    async (params: {
-      draftId: string;
-      step: CreateStep;
-      provider: Provider | null;
-      name: string;
-      description: string;
-    }) => {
-      const accessToken = requireAccessToken(t('eventsPage.loginRequiredUpdate'));
-      if (!accessToken) {
-        return null;
-      }
-
-      const result = await callApi(
-        `/v1/playlists/drafts/${params.draftId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            step: params.step,
-            provider: params.provider,
-            name: params.name,
-            description: params.description,
-          }),
-        },
-        (payload) => eventDraftResponseSchema.parse(payload),
-      );
-
-      return result.draft;
-    },
-    [requireAccessToken, t],
-  );
-
-  const loadIntegrations = useCallback(async (): Promise<Record<
-    Provider,
-    ProviderIntegrationStatus
-  > | null> => {
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredLoad'));
-    if (!accessToken) {
-      return null;
-    }
-
-    setIsLoadingIntegrations(true);
-    try {
-      const result = await callApi(
-        '/v1/integrations',
-        {
-          method: 'GET',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        },
-        (payload) => integrationListResponseSchema.parse(payload),
-      );
-
-      const nextMap: Record<Provider, ProviderIntegrationStatus> = {
-        spotify: 'not_connected',
-        apple: 'not_connected',
-      };
-      for (const integration of result.integrations) {
-        nextMap[integration.provider] = integration.status;
-      }
-      setProviderStatusByType(nextMap);
-      return nextMap;
-    } catch (error) {
-      const apiError = toApiError(error);
-      showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
-      return null;
-    } finally {
-      setIsLoadingIntegrations(false);
-    }
-  }, [requireAccessToken, showToast, t]);
-
-  const connectAppleMusic = useCallback(async () => {
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredUpdate'));
-    if (!accessToken) {
-      return;
-    }
-
-    const tokenResponse = await callApi(
-      '/v1/auth/apple/developer-token',
-      {
-        method: 'GET',
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
-      },
-      (payload) => {
-        const value = payload as Partial<AppleDeveloperTokenResponse>;
-        if (
-          value &&
-          value.provider === 'apple' &&
-          typeof value.developerToken === 'string' &&
-          typeof value.musicKitIdentifier === 'string'
-        ) {
-          return value as AppleDeveloperTokenResponse;
-        }
-
-        throw new Error('invalid_apple_developer_token_response');
-      },
-    );
-
-    await loadMusicKitScript();
-    const musicKit = await ensureMusicKitInstance({
-      developerToken: tokenResponse.developerToken,
-      appName: tokenResponse.musicKitIdentifier || 'synqit',
-    });
-    const musicUserToken = await musicKit.authorize();
-    if (!musicUserToken) {
-      throw new Error('apple_music_user_token_missing');
-    }
-
-    await callApi(
-      '/v1/auth/apple/connect',
-      {
-        method: 'POST',
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          musicUserToken,
-        }),
-      },
-      (payload) => oauthCallbackResponseSchema.parse(payload),
-    );
-  }, [requireAccessToken, t]);
+  // ---------------------------------------------------------------------------
+  // Connect provider
+  // ---------------------------------------------------------------------------
 
   const connectSelectedProvider = useCallback(
     async (selectedProvider: Provider) => {
-      const accessToken = requireAccessToken(t('eventsPage.loginRequiredUpdate'));
-      if (!accessToken) {
-        return;
-      }
-
       setIsConnectingProvider(true);
       trackAnalyticsEvent({
         eventName: 'provider_connect_started',
         target: 'providers',
-        properties: {
-          provider: selectedProvider,
-          context: 'event_create',
-        },
+        properties: { provider: selectedProvider, context: 'event_create' },
       });
       try {
         if (selectedProvider === 'apple') {
           await connectAppleMusic();
-          const snapshot = await loadIntegrations();
+          await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
+          const snapshot = queryClient.getQueryData<Record<Provider, ProviderIntegrationStatus>>(
+            queryKeys.integrations.list(),
+          );
           if (snapshot?.apple === 'connected') {
             showToast(
               t('profile.connectionConnected', {
@@ -358,21 +231,23 @@ export const EventCreatePage = () => {
             trackAnalyticsEvent({
               eventName: 'provider_connect_succeeded',
               target: 'providers',
-              properties: {
-                provider: selectedProvider,
-                context: 'event_create',
-              },
+              properties: { provider: selectedProvider, context: 'event_create' },
             });
           }
           return;
         }
 
+        const token = (await import('../lib/auth')).getAccessToken();
+        if (!token) throw new Error('missing_access_token');
         const popupResult = await openProviderOauthPopup({
           provider: 'spotify',
-          accessToken,
+          accessToken: token,
           nextPath: '/auth/provider-connected',
         });
-        const snapshot = await loadIntegrations();
+        await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
+        const snapshot = queryClient.getQueryData<Record<Provider, ProviderIntegrationStatus>>(
+          queryKeys.integrations.list(),
+        );
         if (snapshot?.spotify === 'connected' || popupResult === 'connected') {
           showToast(
             t('profile.connectionConnected', {
@@ -383,157 +258,74 @@ export const EventCreatePage = () => {
           trackAnalyticsEvent({
             eventName: 'provider_connect_succeeded',
             target: 'providers',
-            properties: {
-              provider: selectedProvider,
-              context: 'event_create',
-            },
+            properties: { provider: selectedProvider, context: 'event_create' },
           });
           return;
         }
 
         if (popupResult === 'blocked' || popupResult === 'error' || popupResult === 'timeout') {
           showToast(
-            t('profile.connectionFailed', { provider: t('eventsPage.createFlow.providerSpotify') }),
-            {
-              variant: 'error',
-            },
+            t('profile.connectionFailed', {
+              provider: t('eventsPage.createFlow.providerSpotify'),
+            }),
+            { variant: 'error' },
           );
+          trackAnalyticsEvent({
+            eventName: 'provider_connect_failed',
+            target: 'providers',
+            properties: { provider: selectedProvider, context: 'event_create', popupResult },
+          });
+        }
+      } catch (error) {
+        const normalized = error as { message?: string };
+        if (normalized.message === 'missing_access_token') {
+          showToast(t('profile.notLoggedIn'), { variant: 'error' });
+        } else {
+          const apiError = toApiError(error);
+          showToast(t('eventsPage.createFlow.connectionError', { message: apiError.message }), {
+            variant: 'error',
+          });
           trackAnalyticsEvent({
             eventName: 'provider_connect_failed',
             target: 'providers',
             properties: {
               provider: selectedProvider,
               context: 'event_create',
-              popupResult,
+              code: apiError.code,
             },
           });
         }
-      } catch (error) {
-        const apiError = toApiError(error);
-        showToast(
-          t('eventsPage.createFlow.connectionError', {
-            message: apiError.message,
-          }),
-          { variant: 'error' },
-        );
-        trackAnalyticsEvent({
-          eventName: 'provider_connect_failed',
-          target: 'providers',
-          properties: {
-            provider: selectedProvider,
-            context: 'event_create',
-            code: apiError.code,
-          },
-        });
       } finally {
         setIsConnectingProvider(false);
       }
     },
-    [connectAppleMusic, loadIntegrations, requireAccessToken, showToast, t],
+    [queryClient, showToast, t],
   );
 
-  const createEvent = useCallback(async () => {
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredUpdate'));
-    if (!accessToken || !provider) {
-      return;
-    }
-
-    setIsCreatingEvent(true);
-    trackAnalyticsEvent({
-      eventName: 'event_create_submitted',
-      target: 'events',
-      properties: {
-        provider,
-        hasDescription: description.trim().length > 0,
-      },
-    });
-    try {
-      const result = await callApi(
-        '/v1/playlists',
-        {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            provider,
-            name: trimmedName,
-            description: description.trim(),
-            draftId: draftId ?? undefined,
-          }),
-        },
-        (payload) => eventResponseSchema.parse(payload),
-      );
-
-      setCreatedEvent({
-        eventId: result.event.id,
-        magicLinkUrl: result.magicLinkUrl,
-      });
-      trackAnalyticsEvent({
-        eventName: 'event_create_succeeded',
-        target: 'events',
-        properties: {
-          provider,
-          eventId: result.event.id,
-        },
-      });
-      setDraftId(null);
-      syncDraftIdInQuery(null);
-      showToast(t('eventsPage.createFlow.created', { name: result.event.name }), {
-        variant: 'success',
-      });
-    } catch (error) {
-      const apiError = toApiError(error);
-      trackAnalyticsEvent({
-        eventName: 'event_create_failed',
-        target: 'events',
-        properties: {
-          provider,
-          code: apiError.code,
-        },
-      });
-      showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
-    } finally {
-      setIsCreatingEvent(false);
-    }
-  }, [
-    description,
-    draftId,
-    provider,
-    requireAccessToken,
-    showToast,
-    syncDraftIdInQuery,
-    t,
-    trimmedName,
-  ]);
-
-  useEffect(() => {
-    void loadIntegrations();
-  }, [loadIntegrations]);
+  // ---------------------------------------------------------------------------
+  // Analytics effects
+  // ---------------------------------------------------------------------------
 
   useEffect(() => {
     trackAnalyticsEvent({
       eventName: 'event_create_step_changed',
       target: 'events',
-      properties: {
-        step,
-      },
+      properties: { step },
     });
   }, [step]);
 
   useEffect(() => {
-    if (!provider) {
-      return;
-    }
-
+    if (!provider) return;
     trackAnalyticsEvent({
       eventName: 'event_create_provider_selected',
       target: 'events',
-      properties: {
-        provider,
-      },
+      properties: { provider },
     });
   }, [provider]);
+
+  // ---------------------------------------------------------------------------
+  // Draft hydration from URL param
+  // ---------------------------------------------------------------------------
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -546,41 +338,26 @@ export const EventCreatePage = () => {
 
     let cancelled = false;
     const loadDraft = async () => {
-      const accessToken = requireAccessToken(t('eventsPage.loginRequiredLoad'));
-      if (!accessToken) {
-        draftHydrationDoneRef.current = true;
-        return;
-      }
-
       try {
-        const result = await callApi(
-          `/v1/playlists/drafts/${draftIdParam}`,
-          {
-            method: 'GET',
-            headers: {
-              authorization: `Bearer ${accessToken}`,
-            },
-          },
-          (payload) => eventDraftResponseSchema.parse(payload),
-        );
-        if (cancelled) {
-          return;
-        }
+        const integrations = await queryClient.fetchQuery({
+          queryKey: queryKeys.integrations.list(),
+          queryFn: fetchIntegrations,
+          staleTime: 60_000,
+        });
+        const draft = await fetchDraft(draftIdParam);
+        if (cancelled) return;
 
         isApplyingDraftRef.current = true;
-        setDraftId(result.draft.id);
-        setProvider(result.draft.provider);
-        setName(result.draft.name);
-        setDescription(result.draft.description);
+        setDraftId(draft.id);
+        setProvider(draft.provider);
+        setName(draft.name);
+        setDescription(draft.description);
 
-        // Advance to the next incomplete step rather than the saved step,
-        // so the user resumes where they need to act next.
-        const savedStep = result.draft.step as CreateStep;
-        const integrations = await loadIntegrations();
+        const savedStep = draft.step as CreateStep;
         const providerIsConnected =
-          result.draft.provider !== null && integrations?.[result.draft.provider] === 'connected';
+          draft.provider !== null && integrations[draft.provider] === 'connected';
         let resumeStep: CreateStep = savedStep;
-        if (savedStep === 1 && result.draft.provider !== null && providerIsConnected) {
+        if (savedStep === 1 && draft.provider !== null && providerIsConnected) {
           resumeStep = 2;
         }
         setStep(resumeStep);
@@ -601,75 +378,63 @@ export const EventCreatePage = () => {
     };
 
     void loadDraft();
-
     return () => {
       cancelled = true;
     };
-  }, [loadIntegrations, requireAccessToken, showToast, syncDraftIdInQuery, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Auto-save draft
+  // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    if (!draftHydrationDoneRef.current || isApplyingDraftRef.current || createdEvent) {
-      return;
-    }
+    if (!draftHydrationDoneRef.current || isApplyingDraftRef.current || createdEvent) return;
 
     const nextStep = step;
     const nextProvider = provider;
     const nextName = name;
     const nextDescription = description;
     const shouldPersistDraft = hasDraftContent(nextStep, nextProvider, nextName, nextDescription);
-    if (!shouldPersistDraft && !draftId) {
-      return;
-    }
+    if (!shouldPersistDraft && !draftId) return;
 
     const timeoutId = window.setTimeout(() => {
-      void (async () => {
-        try {
-          if (!draftId) {
-            const createdDraft = await createDraft({
-              step: nextStep,
-              provider: nextProvider,
-              name: nextName,
-              description: nextDescription,
-            });
-            if (!createdDraft) {
-              return;
-            }
-            setDraftId(createdDraft.id);
-            syncDraftIdInQuery(createdDraft.id);
-            return;
-          }
-
-          await updateDraft({
-            draftId,
-            step: nextStep,
-            provider: nextProvider,
-            name: nextName,
-            description: nextDescription,
-          });
-        } catch (error) {
-          const apiError = toApiError(error);
-          showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
-        }
-      })();
+      if (!draftId) {
+        createDraftMutation.mutate({
+          step: nextStep,
+          provider: nextProvider,
+          name: nextName,
+          description: nextDescription,
+        });
+      } else {
+        updateDraftMutation.mutate({
+          draftId,
+          step: nextStep,
+          provider: nextProvider,
+          name: nextName,
+          description: nextDescription,
+        });
+      }
     }, 500);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
   }, [
-    createDraft,
     createdEvent,
     description,
     draftId,
     hasDraftContent,
     name,
     provider,
-    showToast,
     step,
-    syncDraftIdInQuery,
-    t,
-    updateDraft,
+    createDraftMutation,
+    updateDraftMutation,
   ]);
+
+  // ---------------------------------------------------------------------------
+  // Handle OAuth callback redirect params
+  // ---------------------------------------------------------------------------
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -680,9 +445,7 @@ export const EventCreatePage = () => {
     if (providerParam && providerSchema.options.includes(providerParam as Provider)) {
       setProvider(providerParam as Provider);
     }
-    if (redirectStep === '1') {
-      setStep(1);
-    }
+    if (redirectStep === '1') setStep(1);
 
     if (providerParam && providerSchema.options.includes(providerParam as Provider) && status) {
       const providerLabel =
@@ -698,7 +461,7 @@ export const EventCreatePage = () => {
           variant: 'error',
         });
       }
-      void loadIntegrations();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
     }
 
     params.delete('provider');
@@ -710,14 +473,18 @@ export const EventCreatePage = () => {
       '',
       `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`,
     );
-  }, [loadIntegrations, showToast, t]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---------------------------------------------------------------------------
+  // Navigation helpers
+  // ---------------------------------------------------------------------------
 
   const copyMagicLink = async () => {
     if (!createdEvent || typeof navigator === 'undefined' || !navigator.clipboard) {
       showToast(t('eventsPage.copyFailed'), { variant: 'error' });
       return;
     }
-
     try {
       await navigator.clipboard.writeText(createdEvent.magicLinkUrl);
       showToast(t('eventsPage.copySuccess'), { variant: 'success' });
@@ -727,22 +494,15 @@ export const EventCreatePage = () => {
   };
 
   const canOpenStep = (nextStep: CreateStep): boolean => {
-    if (nextStep <= step) {
-      return true;
-    }
-    if (nextStep === 2) {
-      return selectedProviderConnected;
-    }
-    if (nextStep === 3 || nextStep === 4) {
+    if (nextStep <= step) return true;
+    if (nextStep === 2) return selectedProviderConnected;
+    if (nextStep === 3 || nextStep === 4)
       return selectedProviderConnected && trimmedName.length > 0;
-    }
     return false;
   };
 
   const navigateToStep = (nextStep: CreateStep) => {
-    if (nextStep === step) {
-      return;
-    }
+    if (nextStep === step) return;
     setStepDirection(nextStep > step ? 1 : -1);
     setStep(nextStep);
   };
@@ -762,7 +522,6 @@ export const EventCreatePage = () => {
       showToast(t('eventsPage.createFlow.nameRequired'), { variant: 'info' });
       return;
     }
-
     navigateToStep(Math.min(4, step + 1) as CreateStep);
   };
 
@@ -770,11 +529,29 @@ export const EventCreatePage = () => {
     navigateToStep(Math.max(1, step - 1) as CreateStep);
   };
 
+  const handleCreateEvent = () => {
+    if (!provider) return;
+    trackAnalyticsEvent({
+      eventName: 'event_create_submitted',
+      target: 'events',
+      properties: { provider, hasDescription: description.trim().length > 0 },
+    });
+    createEventMutation.mutate({
+      provider,
+      name: trimmedName,
+      description: description.trim(),
+      draftId,
+    });
+  };
+
   const providerLabel = provider
     ? provider === 'apple'
       ? t('eventsPage.createFlow.providerApple')
       : t('eventsPage.createFlow.providerSpotify')
     : t('eventsPage.createFlow.providerNotSelected');
+
+  const isLoadingIntegrations = integrationsQuery.isLoading;
+  const isCreatingEvent = createEventMutation.isPending;
 
   return (
     <AppPageLayout bodyClassName="gap-5">
@@ -1091,7 +868,7 @@ export const EventCreatePage = () => {
                 <div className="mt-4 flex justify-center">
                   <CTAButton
                     type="button"
-                    onClick={() => void createEvent()}
+                    onClick={handleCreateEvent}
                     disabled={isCreatingEvent || !provider}
                     variant="primary"
                   >

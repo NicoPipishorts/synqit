@@ -13,6 +13,8 @@ import {
   resetPasswordRequestSchema,
   resetPasswordResponseSchema,
   updatePersonalInfoRequestSchema,
+  updateUserPreferencesRequestSchema,
+  userPreferencesResponseSchema,
 } from '@synqit/shared';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
@@ -821,6 +823,66 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       }
 
       return formatPublicUser(user);
+    },
+  );
+
+  app.get(
+    '/auth/preferences',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      const user = await loadAuthenticatedUser(request, reply);
+      if (!user) {
+        return;
+      }
+
+      const prefs = await authStore.findUserPreferencesByUserId(user.id);
+      return userPreferencesResponseSchema.parse({
+        preferences: {
+          theme: prefs?.theme ?? null,
+          locale: prefs?.locale ?? null,
+        },
+      });
+    },
+  );
+
+  app.put(
+    '/auth/preferences',
+    {
+      preHandler: requireAuth,
+    },
+    async (request, reply) => {
+      const parsed = updateUserPreferencesRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return sendValidationError(reply, parsed.error.flatten());
+      }
+
+      const user = await loadAuthenticatedUser(request, reply);
+      if (!user) {
+        return;
+      }
+
+      const existing = await authStore.findUserPreferencesByUserId(user.id);
+      const next = {
+        theme: parsed.data.theme !== undefined ? parsed.data.theme : (existing?.theme ?? null),
+        locale: parsed.data.locale !== undefined ? parsed.data.locale : (existing?.locale ?? null),
+      };
+
+      const upserted = await authStore.upsertUserPreferencesByUserId(user.id, next);
+      if (!upserted) {
+        return reply.status(500).send({
+          code: 'preferences_update_failed',
+          message: 'Unable to update preferences at this time.',
+        });
+      }
+
+      return userPreferencesResponseSchema.parse({
+        preferences: {
+          theme: upserted.theme,
+          locale: upserted.locale,
+        },
+      });
     },
   );
 };

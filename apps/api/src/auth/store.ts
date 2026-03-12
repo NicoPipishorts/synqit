@@ -91,6 +91,22 @@ type UserProfileRow = {
   updated_at: Date;
 };
 
+type UserPreferencesRecord = {
+  userId: string;
+  theme: string | null;
+  locale: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type UserPreferencesRow = {
+  user_id: string;
+  theme: string | null;
+  locale: string | null;
+  created_at: Date;
+  updated_at: Date;
+};
+
 type RefreshTokenRow = {
   id: string;
   user_id: string;
@@ -161,6 +177,14 @@ const toUserPersonalInfoRecord = (row: UserProfileRow): UserPersonalInfoRecord =
   lastName: row.last_name,
   birthDate: toDateOnlyString(row.birth_date),
   country: row.country,
+  createdAt: new Date(row.created_at),
+  updatedAt: new Date(row.updated_at),
+});
+
+const toUserPreferencesRecord = (row: UserPreferencesRow): UserPreferencesRecord => ({
+  userId: row.user_id,
+  theme: row.theme,
+  locale: row.locale,
   createdAt: new Date(row.created_at),
   updatedAt: new Date(row.updated_at),
 });
@@ -689,6 +713,36 @@ export const authStore = {
     return Number(deletedCount) > 0;
   },
 
+  async findUserPreferencesByUserId(userId: string): Promise<UserPreferencesRecord | null> {
+    const rows = await prisma.$queryRaw<UserPreferencesRow[]>`
+      SELECT user_id, theme, locale, created_at, updated_at
+      FROM "user_preferences"
+      WHERE user_id = ${userId}
+      LIMIT 1
+    `;
+
+    return rows.length > 0 ? toUserPreferencesRecord(rows[0]) : null;
+  },
+
+  async upsertUserPreferencesByUserId(
+    userId: string,
+    values: { theme: string | null; locale: string | null },
+  ): Promise<UserPreferencesRecord | null> {
+    const now = new Date();
+    const rows = await prisma.$queryRaw<UserPreferencesRow[]>`
+      INSERT INTO "user_preferences" (user_id, theme, locale, created_at, updated_at)
+      VALUES (${userId}, ${values.theme}, ${values.locale}, ${now}, ${now})
+      ON CONFLICT (user_id)
+      DO UPDATE SET
+        theme = EXCLUDED.theme,
+        locale = EXCLUDED.locale,
+        updated_at = EXCLUDED.updated_at
+      RETURNING user_id, theme, locale, created_at, updated_at
+    `;
+
+    return rows.length > 0 ? toUserPreferencesRecord(rows[0]) : null;
+  },
+
   async createRefreshToken(params: {
     userId: string;
     tokenHash: string;
@@ -881,5 +935,6 @@ export type {
   PasswordResetTokenRecord,
   RefreshTokenRecord,
   UserPersonalInfoRecord,
+  UserPreferencesRecord,
   UserRecord,
 };

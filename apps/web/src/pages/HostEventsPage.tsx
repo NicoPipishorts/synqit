@@ -1,10 +1,6 @@
-import {
-  deleteEventDraftResponseSchema,
-  eventDraftListResponseSchema,
-  eventListResponseSchema,
-} from '@synqit/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
@@ -15,17 +11,58 @@ import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
-import { callApi, toApiError } from '../lib/api';
-import { getAccessToken } from '../lib/auth';
-import { getPublicEventUrl, HostEvent, HostEventDraft } from '../lib/events';
+import { toApiError } from '../lib/api';
+import { getPublicEventUrl, HostEventDraft } from '../lib/events';
+import { deleteDraft, fetchDrafts, fetchEvents, queryKeys } from '../lib/queries';
 
 export const HostEventsPage = () => {
   const { t } = useI18n();
   const { showToast } = useToast();
-  const [events, setEvents] = useState<HostEvent[]>([]);
-  const [drafts, setDrafts] = useState<HostEventDraft[]>([]);
-  const [activeDraftDeleteId, setActiveDraftDeleteId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [draftToDelete, setDraftToDelete] = useState<HostEventDraft | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Queries
+  // ---------------------------------------------------------------------------
+
+  const eventsQuery = useQuery({
+    queryKey: queryKeys.events.list(),
+    queryFn: fetchEvents,
+  });
+
+  const draftsQuery = useQuery({
+    queryKey: queryKeys.drafts.list(),
+    queryFn: fetchDrafts,
+  });
+
+  const events = eventsQuery.data ?? [];
+  const drafts = draftsQuery.data ?? [];
+
+  // ---------------------------------------------------------------------------
+  // Mutations
+  // ---------------------------------------------------------------------------
+
+  const deleteDraftMutation = useMutation({
+    mutationFn: (draft: HostEventDraft) => deleteDraft(draft.id),
+    onSuccess: (_data, draft) => {
+      queryClient.setQueryData<HostEventDraft[]>(queryKeys.drafts.list(), (current) =>
+        (current ?? []).filter((d) => d.id !== draft.id),
+      );
+      void queryClient.invalidateQueries({ queryKey: queryKeys.drafts.all() });
+
+      const draftName = draft.name.trim().length > 0 ? draft.name : t('eventsPage.draftUntitled');
+      showToast(t('eventsPage.draftDeleted', { name: draftName }), { variant: 'success' });
+      setDraftToDelete(null);
+    },
+    onError: (error) => {
+      const apiError = toApiError(error);
+      showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
+    },
+  });
+
+  // ---------------------------------------------------------------------------
+  // Derived
+  // ---------------------------------------------------------------------------
 
   const listItems = useMemo(() => {
     const eventItems = events.map((event) => ({
@@ -40,147 +77,34 @@ export const HostEventsPage = () => {
       updatedAt: draft.updatedAt,
       draft,
     }));
-
-    return [...eventItems, ...draftItems].sort((left, right) => {
-      return Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
-    });
+    return [...eventItems, ...draftItems].sort(
+      (a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt),
+    );
   }, [drafts, events]);
 
-  const setStatusAndToast = useCallback(
-    (message: string, variant: 'success' | 'error' | 'info' = 'info') => {
-      showToast(message, { variant });
-    },
-    [showToast],
-  );
-
-  const requireAccessToken = useCallback(
-    (message: string): string | null => {
-      const accessToken = getAccessToken();
-      if (!accessToken) {
-        setStatusAndToast(message, 'error');
-        return null;
-      }
-      return accessToken;
-    },
-    [setStatusAndToast],
-  );
-
-  const loadEvents = useCallback(async () => {
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredLoad'));
-    if (!accessToken) {
-      return;
-    }
-
-    try {
-      const [eventResult, draftResult] = await Promise.all([
-        callApi(
-          '/v1/playlists',
-          {
-            method: 'GET',
-            headers: {
-              authorization: `Bearer ${accessToken}`,
-            },
-          },
-          (payload) => eventListResponseSchema.parse(payload),
-        ),
-        callApi(
-          '/v1/playlists/drafts',
-          {
-            method: 'GET',
-            headers: {
-              authorization: `Bearer ${accessToken}`,
-            },
-          },
-          (payload) => eventDraftListResponseSchema.parse(payload),
-        ),
-      ]);
-
-      setEvents(
-        eventResult.events.map((event) => ({
-          id: event.id,
-          name: event.name,
-          description: event.description,
-          provider: event.provider,
-          providerConnectionStatus: event.providerConnectionStatus,
-          status: event.status,
-          magicLinkToken: event.magicLinkToken,
-          magicLinkRevokedAt: event.magicLinkRevokedAt,
-          updatedAt: event.updatedAt,
-        })),
-      );
-      setDrafts(
-        draftResult.drafts.map((draft) => ({
-          id: draft.id,
-          provider: draft.provider,
-          name: draft.name,
-          description: draft.description,
-          step: draft.step as 1 | 2 | 3 | 4,
-          updatedAt: draft.updatedAt,
-        })),
-      );
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
-    }
-  }, [requireAccessToken, setStatusAndToast, t]);
-
-  useEffect(() => {
-    void loadEvents();
-  }, [loadEvents]);
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
 
   const copyMagicLink = async (magicLinkToken: string) => {
     const eventUrl = getPublicEventUrl(magicLinkToken);
-
     if (typeof navigator === 'undefined' || !navigator.clipboard) {
-      setStatusAndToast(t('eventsPage.copyFailed'), 'error');
+      showToast(t('eventsPage.copyFailed'), { variant: 'error' });
       return;
     }
-
     try {
       await navigator.clipboard.writeText(eventUrl);
-      setStatusAndToast(t('eventsPage.copySuccess'), 'success');
+      showToast(t('eventsPage.copySuccess'), { variant: 'success' });
     } catch {
-      setStatusAndToast(t('eventsPage.copyFailed'), 'error');
+      showToast(t('eventsPage.copyFailed'), { variant: 'error' });
     }
   };
 
-  const deleteDraft = useCallback(
-    async (draft: HostEventDraft): Promise<boolean> => {
-      const accessToken = requireAccessToken(t('eventsPage.loginRequiredUpdate'));
-      if (!accessToken) {
-        return false;
-      }
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
-      const draftName = draft.name.trim().length > 0 ? draft.name : t('eventsPage.draftUntitled');
-
-      setActiveDraftDeleteId(draft.id);
-      try {
-        await callApi(
-          `/v1/playlists/drafts/${encodeURIComponent(draft.id)}`,
-          {
-            method: 'DELETE',
-            headers: {
-              authorization: `Bearer ${accessToken}`,
-            },
-          },
-          (payload) => deleteEventDraftResponseSchema.parse(payload),
-        );
-
-        setDrafts((currentDrafts) =>
-          currentDrafts.filter((currentDraft) => currentDraft.id !== draft.id),
-        );
-        setStatusAndToast(t('eventsPage.draftDeleted', { name: draftName }), 'success');
-        return true;
-      } catch (error) {
-        const apiError = toApiError(error);
-        setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
-        return false;
-      } finally {
-        setActiveDraftDeleteId(null);
-      }
-    },
-    [requireAccessToken, setStatusAndToast, t],
-  );
+  const isDeleting = deleteDraftMutation.isPending;
 
   return (
     <AppPageLayout>
@@ -222,7 +146,7 @@ export const HostEventsPage = () => {
                 key={item.id}
                 draft={item.draft}
                 onDelete={(draft) => setDraftToDelete(draft)}
-                isDeleting={activeDraftDeleteId === item.draft.id}
+                isDeleting={deleteDraftMutation.isPending && draftToDelete?.id === item.draft.id}
               />
             ),
           )}
@@ -247,7 +171,7 @@ export const HostEventsPage = () => {
             <CTAButton
               type="button"
               variant="secondary"
-              disabled={activeDraftDeleteId !== null}
+              disabled={isDeleting}
               onClick={() => setDraftToDelete(null)}
             >
               {t('eventsPage.cancel')}
@@ -255,21 +179,14 @@ export const HostEventsPage = () => {
             <CTAButton
               type="button"
               variant="danger"
-              disabled={!draftToDelete || activeDraftDeleteId !== null}
+              disabled={!draftToDelete || isDeleting}
               aria-label={t('eventsPage.deleteDraft')}
               onClick={() => {
-                if (!draftToDelete) {
-                  return;
-                }
-                void (async () => {
-                  const didDelete = await deleteDraft(draftToDelete);
-                  if (didDelete) {
-                    setDraftToDelete(null);
-                  }
-                })();
+                if (!draftToDelete) return;
+                deleteDraftMutation.mutate(draftToDelete);
               }}
             >
-              {activeDraftDeleteId !== null ? (
+              {isDeleting ? (
                 t('eventsPage.working')
               ) : (
                 <CTAMobileIconLabel

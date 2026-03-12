@@ -1,9 +1,6 @@
-import {
-  eventDraftListResponseSchema,
-  eventListResponseSchema,
-  eventTracksResponseSchema,
-} from '@synqit/shared';
+import { eventTracksResponseSchema } from '@synqit/shared';
 import type { EventDraft } from '@synqit/shared';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Music2, RefreshCcw, Rss, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -17,9 +14,9 @@ import { EventStatusIndicator } from '../components/events/EventStatusIndicator'
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
-import { callApi, toApiError } from '../lib/api';
+import { callApi } from '../lib/api';
 import { getAccessToken } from '../lib/auth';
-import { HostEvent } from '../lib/events';
+import { fetchDrafts, fetchEvents, queryKeys } from '../lib/queries';
 
 type RecentTrackActivity = {
   eventId: string;
@@ -34,17 +31,9 @@ type ActivityPageTransition = {
   to: number;
   direction: 1 | -1;
 };
-type DashboardSnapshotCache = {
-  events: HostEvent[];
-  recentTrackActivity: RecentTrackActivity[];
-  activeDraft: EventDraft | null;
-  cachedAt: number;
-};
 
 const ACTIVITY_PAGE_SIZE = 15;
 const ACTIVITY_MAX_ITEMS = 50;
-const DASHBOARD_CACHE_TTL_MS = 120_000;
-let dashboardSnapshotCache: DashboardSnapshotCache | null = null;
 
 const toTimestamp = (value: string): number => {
   const timestamp = Date.parse(value);
@@ -55,14 +44,98 @@ export const DashboardPage = () => {
   const { t, locale } = useI18n();
   const { showToast } = useToast();
 
-  const [events, setEvents] = useState<HostEvent[]>([]);
-  const [activeDraft, setActiveDraft] = useState<EventDraft | null>(null);
-  const [recentTrackActivity, setRecentTrackActivity] = useState<RecentTrackActivity[]>([]);
-  const [isLoadingRecentTracks, setIsLoadingRecentTracks] = useState(false);
   const [activityPageIndex, setActivityPageIndex] = useState(0);
   const [activityPageTransition, setActivityPageTransition] =
     useState<ActivityPageTransition | null>(null);
   const activityTouchStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Queries
+  // ---------------------------------------------------------------------------
+
+  const eventsQuery = useQuery({
+    queryKey: queryKeys.events.list(),
+    queryFn: fetchEvents,
+    staleTime: 120_000,
+  });
+
+  const draftsQuery = useQuery({
+    queryKey: queryKeys.drafts.list(),
+    queryFn: fetchDrafts,
+    staleTime: 120_000,
+  });
+
+  const events = eventsQuery.data ?? [];
+  const activeDraft: EventDraft | null = draftsQuery.data?.[0] ?? null;
+
+  // Fan-out per-event track queries, keyed on the event id list so it
+  // re-runs when events change. Each individual event's tracks are also
+  // cached under queryKeys.events.tracks for cross-page sharing.
+  const trackQueries = useQuery({
+    queryKey: ['dashboard', 'activity-tracks', events.map((e) => e.id)],
+    queryFn: async () => {
+      const token = getAccessToken();
+      if (!token || events.length === 0) return [];
+
+      const responses = await Promise.allSettled(
+        events.map((event) =>
+          callApi(
+            `/v1/playlists/${encodeURIComponent(event.id)}/tracks`,
+            { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+            (payload) => eventTracksResponseSchema.parse(payload),
+          ).then((response) => ({
+            eventId: event.id,
+            eventName: event.name,
+            tracks: response.tracks,
+          })),
+        ),
+      );
+
+      const activity: RecentTrackActivity[] = [];
+      for (const result of responses) {
+        if (result.status !== 'fulfilled') continue;
+        for (const track of result.value.tracks) {
+          activity.push({
+            eventId: result.value.eventId,
+            eventName: result.value.eventName,
+            trackName: track.name,
+            artist: track.artist,
+            addedBy: track.addedBy,
+            addedAt: track.addedAt,
+          });
+        }
+      }
+      return activity
+        .sort((a, b) => toTimestamp(b.addedAt) - toTimestamp(a.addedAt))
+        .slice(0, ACTIVITY_MAX_ITEMS);
+    },
+    enabled: eventsQuery.isSuccess && events.length > 0,
+    staleTime: 120_000,
+  });
+
+  const recentTrackActivity = trackQueries.data ?? [];
+  const isLoadingRecentTracks = eventsQuery.isFetching || trackQueries.isFetching;
+
+  // Surface fetch errors as toasts
+  useEffect(() => {
+    if (eventsQuery.isError) {
+      showToast(t('dashboard.error', { message: (eventsQuery.error as Error).message }), {
+        variant: 'error',
+      });
+    }
+  }, [eventsQuery.isError, eventsQuery.error, showToast, t]);
+
+  useEffect(() => {
+    if (trackQueries.isError) {
+      showToast(t('dashboard.error', { message: (trackQueries.error as Error).message }), {
+        variant: 'error',
+      });
+    }
+  }, [trackQueries.isError, trackQueries.error, showToast, t]);
+
+  // ---------------------------------------------------------------------------
+  // Derived data
+  // ---------------------------------------------------------------------------
 
   const formatDateTime = useCallback(
     (value: string) => {
@@ -78,130 +151,19 @@ export const DashboardPage = () => {
     [locale],
   );
 
-  const loadSnapshot = useCallback(
-    async (options?: { force?: boolean }) => {
-      const shouldForce = options?.force ?? false;
-      const accessToken = getAccessToken();
-      if (!accessToken) {
-        return;
-      }
-
-      if (!shouldForce && dashboardSnapshotCache) {
-        setEvents(dashboardSnapshotCache.events);
-        setRecentTrackActivity(dashboardSnapshotCache.recentTrackActivity);
-        setActiveDraft(dashboardSnapshotCache.activeDraft);
-
-        if (Date.now() - dashboardSnapshotCache.cachedAt < DASHBOARD_CACHE_TTL_MS) {
-          return;
-        }
-      }
-
-      setIsLoadingRecentTracks(true);
-      try {
-        const draftResult = await callApi(
-          '/v1/playlists/drafts',
-          {
-            method: 'GET',
-            headers: { authorization: `Bearer ${accessToken}` },
-          },
-          (payload) => eventDraftListResponseSchema.parse(payload),
-        ).catch(() => null);
-        const latestDraft = draftResult?.drafts?.[0] ?? null;
-        setActiveDraft(latestDraft);
-
-        const eventResult = await callApi(
-          '/v1/playlists',
-          {
-            method: 'GET',
-            headers: {
-              authorization: `Bearer ${accessToken}`,
-            },
-          },
-          (payload) => eventListResponseSchema.parse(payload),
-        );
-
-        const nextEvents = eventResult.events.map((event) => ({
-          id: event.id,
-          name: event.name,
-          description: event.description,
-          provider: event.provider,
-          providerConnectionStatus: event.providerConnectionStatus,
-          status: event.status,
-          magicLinkToken: event.magicLinkToken,
-          magicLinkRevokedAt: event.magicLinkRevokedAt,
-          updatedAt: event.updatedAt,
-        }));
-        setEvents(nextEvents);
-
-        const trackResponses = await Promise.allSettled(
-          nextEvents.map((event) =>
-            callApi(
-              `/v1/playlists/${encodeURIComponent(event.id)}/tracks`,
-              {
-                method: 'GET',
-                headers: {
-                  authorization: `Bearer ${accessToken}`,
-                },
-              },
-              (payload) => eventTracksResponseSchema.parse(payload),
-            ).then((response) => ({
-              eventId: event.id,
-              eventName: event.name,
-              tracks: response.tracks,
-            })),
-          ),
-        );
-
-        const nextRecentTrackActivity: RecentTrackActivity[] = [];
-        for (const response of trackResponses) {
-          if (response.status !== 'fulfilled') {
-            continue;
-          }
-
-          for (const track of response.value.tracks) {
-            nextRecentTrackActivity.push({
-              eventId: response.value.eventId,
-              eventName: response.value.eventName,
-              trackName: track.name,
-              artist: track.artist,
-              addedBy: track.addedBy,
-              addedAt: track.addedAt,
-            });
-          }
-        }
-
-        const sortedRecentTrackActivity = nextRecentTrackActivity
-          .sort((left, right) => toTimestamp(right.addedAt) - toTimestamp(left.addedAt))
-          .slice(0, ACTIVITY_MAX_ITEMS);
-        setRecentTrackActivity(sortedRecentTrackActivity);
-        dashboardSnapshotCache = {
-          events: nextEvents,
-          recentTrackActivity: sortedRecentTrackActivity,
-          activeDraft: latestDraft,
-          cachedAt: Date.now(),
-        };
-      } catch (error) {
-        const apiError = toApiError(error);
-        showToast(t('dashboard.error', { message: apiError.message }), { variant: 'error' });
-      } finally {
-        setIsLoadingRecentTracks(false);
-      }
-    },
-    [showToast, t],
+  const currentEvents = useMemo(
+    () =>
+      events
+        .filter((event) => event.status === 'open')
+        .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt)),
+    [events],
   );
 
-  useEffect(() => {
-    void loadSnapshot();
-  }, [loadSnapshot]);
+  const activityPageCount = useMemo(
+    () => Math.max(1, Math.ceil(recentTrackActivity.length / ACTIVITY_PAGE_SIZE)),
+    [recentTrackActivity.length],
+  );
 
-  const currentEvents = useMemo(() => {
-    return events
-      .filter((event) => event.status === 'open')
-      .sort((left, right) => toTimestamp(right.updatedAt) - toTimestamp(left.updatedAt));
-  }, [events]);
-  const activityPageCount = useMemo(() => {
-    return Math.max(1, Math.ceil(recentTrackActivity.length / ACTIVITY_PAGE_SIZE));
-  }, [recentTrackActivity.length]);
   const getActivityRowsForPage = useCallback(
     (pageIndex: number) => {
       const start = pageIndex * ACTIVITY_PAGE_SIZE;
@@ -209,22 +171,21 @@ export const DashboardPage = () => {
     },
     [recentTrackActivity],
   );
-  const currentActivityRows = useMemo(() => {
-    return getActivityRowsForPage(activityPageIndex);
-  }, [activityPageIndex, getActivityRowsForPage]);
+
+  const currentActivityRows = useMemo(
+    () => getActivityRowsForPage(activityPageIndex),
+    [activityPageIndex, getActivityRowsForPage],
+  );
 
   useEffect(() => {
-    setActivityPageIndex((currentPageIndex) => {
-      if (currentPageIndex < activityPageCount) {
-        return currentPageIndex;
-      }
+    setActivityPageIndex((current) => {
+      if (current < activityPageCount) return current;
       return Math.max(0, activityPageCount - 1);
     });
   }, [activityPageCount]);
+
   useEffect(() => {
-    if (!activityPageTransition) {
-      return;
-    }
+    if (!activityPageTransition) return;
     if (
       activityPageTransition.from >= activityPageCount ||
       activityPageTransition.to >= activityPageCount
@@ -233,53 +194,41 @@ export const DashboardPage = () => {
     }
   }, [activityPageCount, activityPageTransition]);
 
+  // ---------------------------------------------------------------------------
+  // Pagination
+  // ---------------------------------------------------------------------------
+
   const slideToActivityPage = (direction: 1 | -1) => {
-    if (activityPageTransition) {
-      return;
-    }
+    if (activityPageTransition) return;
     const nextPage = activityPageIndex + direction;
-    if (nextPage < 0 || nextPage >= activityPageCount) {
-      return;
-    }
-    setActivityPageTransition({
-      from: activityPageIndex,
-      to: nextPage,
-      direction,
-    });
+    if (nextPage < 0 || nextPage >= activityPageCount) return;
+    setActivityPageTransition({ from: activityPageIndex, to: nextPage, direction });
   };
+
   const onActivityTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (event.touches.length !== 1) {
       activityTouchStartRef.current = null;
       return;
     }
     const touch = event.touches[0];
-    activityTouchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-    };
+    activityTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
   };
+
   const onActivityTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
     const start = activityTouchStartRef.current;
     activityTouchStartRef.current = null;
-    if (!start || activityPageTransition) {
-      return;
-    }
+    if (!start || activityPageTransition) return;
     const touch = event.changedTouches[0];
     const deltaX = touch.clientX - start.x;
     const deltaY = touch.clientY - start.y;
     const isHorizontalSwipe = Math.abs(deltaX) >= 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2;
-    if (!isHorizontalSwipe) {
-      return;
-    }
+    if (!isHorizontalSwipe) return;
     event.preventDefault();
-    if (deltaX < 0) {
-      slideToActivityPage(1);
-      return;
-    }
-    slideToActivityPage(-1);
+    slideToActivityPage(deltaX < 0 ? 1 : -1);
   };
-  const renderActivityRows = (rows: RecentTrackActivity[]) => {
-    return rows.map((activity) => {
+
+  const renderActivityRows = (rows: RecentTrackActivity[]) =>
+    rows.map((activity) => {
       const isGuest = activity.addedBy === 'guest';
       const SourceIcon = isGuest ? Users : Rss;
       const sourceLabel = isGuest
@@ -320,10 +269,13 @@ export const DashboardPage = () => {
         </li>
       );
     });
-  };
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   const hasPlaylists = events.length > 0;
-  const isInitialLoad = isLoadingRecentTracks && events.length === 0;
+  const isInitialLoad = eventsQuery.isLoading;
 
   return (
     <AppPageLayout>
@@ -332,7 +284,6 @@ export const DashboardPage = () => {
       {!hasPlaylists && !isInitialLoad ? (
         <div className="flex min-h-[60vh] flex-col items-center justify-center">
           <div className="relative p-6 sm:p-10">
-            {/* Corner brackets */}
             <span
               aria-hidden="true"
               className="pointer-events-none absolute left-0 top-0 h-7 w-7 rounded-tl-lg border-l border-t border-brand-dark dark:border-brand-white"
@@ -544,9 +495,7 @@ export const DashboardPage = () => {
                         type="button"
                         variant="secondary"
                         disabled={activityPageIndex === 0 || activityPageTransition !== null}
-                        onClick={() => {
-                          slideToActivityPage(-1);
-                        }}
+                        onClick={() => slideToActivityPage(-1)}
                       >
                         <CTAMobileIconLabel
                           icon={<ChevronLeft size={14} />}
@@ -566,9 +515,7 @@ export const DashboardPage = () => {
                           activityPageIndex >= activityPageCount - 1 ||
                           activityPageTransition !== null
                         }
-                        onClick={() => {
-                          slideToActivityPage(1);
-                        }}
+                        onClick={() => slideToActivityPage(1)}
                       >
                         <CTAMobileIconLabel
                           icon={<ChevronRight size={14} />}

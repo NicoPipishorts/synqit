@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   createRootRoute,
   createRoute,
@@ -12,6 +13,15 @@ import { buildAdminAppUrl } from './lib/admin-url';
 import { isAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
 import { createLazyRouteComponent } from './lib/lazy-route';
+
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 60_000,
+      retry: 1,
+    },
+  },
+});
 
 const AppShell = createLazyRouteComponent(() =>
   import('./components/shell/AppShell').then((module) => ({
@@ -359,10 +369,12 @@ declare module '@tanstack/react-router' {
 
 export default function App() {
   return (
-    <I18nProvider>
-      <ToastProvider>
-        <RouterProvider router={router} />
-      </ToastProvider>
-    </I18nProvider>
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </I18nProvider>
+    </QueryClientProvider>
   );
 }

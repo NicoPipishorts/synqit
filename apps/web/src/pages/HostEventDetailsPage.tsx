@@ -1,11 +1,8 @@
-import {
-  eventResponseSchema,
-  eventTracksResponseSchema,
-  updateEventRequestSchema,
-} from '@synqit/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { AppPageLayout } from '../components/app/AppPageLayout';
 import { EventEditFormCard } from '../components/events/EventEditFormCard';
 import { EventMagicLinkCard } from '../components/events/EventMagicLinkCard';
 import { EventTracksCard } from '../components/events/EventTracksCard';
@@ -15,31 +12,32 @@ import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
-import { callApi, toApiError } from '../lib/api';
-import { getAccessToken } from '../lib/auth';
-import { EventTrackItem, getPublicEventUrl, HostEvent } from '../lib/events';
+import { toApiError } from '../lib/api';
+import { getPublicEventUrl, HostEvent } from '../lib/events';
+import {
+  closeEvent,
+  fetchEvent,
+  fetchEventTracks,
+  queryKeys,
+  regenerateMagicLink,
+  revokeMagicLink,
+  updateEvent,
+} from '../lib/queries';
 
 export const HostEventDetailsPage = () => {
   const { t, locale } = useI18n();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const params = useParams({ from: '/playlists/$eventId' });
   const { eventId } = params;
 
-  const [event, setEvent] = useState<HostEvent | null>(null);
-  const [tracks, setTracks] = useState<EventTrackItem[]>([]);
-  const [isLoadingTracks, setIsLoadingTracks] = useState(false);
-  const [isWorking, setIsWorking] = useState(false);
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const trackedDisconnectedWarningEventIdsRef = useRef<Set<string>>(new Set());
 
   const dateFormatter = useMemo(
-    () =>
-      new Intl.DateTimeFormat(locale, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-      }),
+    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }),
     [locale],
   );
 
@@ -54,318 +52,170 @@ export const HostEventDetailsPage = () => {
     [dateFormatter],
   );
 
-  const setStatusAndToast = useCallback(
-    (message: string, variant: 'success' | 'error' | 'info' = 'info') => {
-      showToast(message, { variant });
-    },
-    [showToast],
-  );
+  // ---------------------------------------------------------------------------
+  // Queries
+  // ---------------------------------------------------------------------------
 
-  const requireAccessToken = useCallback(
-    (message: string): string | null => {
-      const accessToken = getAccessToken();
-      if (!accessToken) {
-        setStatusAndToast(message, 'error');
-        return null;
-      }
-      return accessToken;
-    },
-    [setStatusAndToast],
-  );
+  const eventQuery = useQuery({
+    queryKey: queryKeys.events.detail(eventId),
+    queryFn: () => fetchEvent(eventId),
+  });
 
-  const loadEvent = useCallback(async () => {
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredLoad'));
-    if (!accessToken) {
-      return;
+  const tracksQuery = useQuery({
+    queryKey: queryKeys.events.tracks(eventId),
+    queryFn: () => fetchEventTracks(eventId),
+    enabled: eventQuery.isSuccess,
+  });
+
+  const event = eventQuery.data ?? null;
+  const tracks = tracksQuery.data ?? [];
+
+  // Initialise edit fields when event first loads
+  useEffect(() => {
+    if (event && editName === '' && editDescription === '') {
+      setEditName(event.name);
+      setEditDescription(event.description);
     }
+  }, [event, editName, editDescription]);
 
-    try {
-      const result = await callApi(
-        `/v1/playlists/${encodeURIComponent(eventId)}`,
-        {
-          method: 'GET',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        },
-        (payload) => eventResponseSchema.parse(payload),
-      );
-
-      setEvent({
-        id: result.event.id,
-        name: result.event.name,
-        description: result.event.description,
-        provider: result.event.provider,
-        providerConnectionStatus: result.event.providerConnectionStatus,
-        status: result.event.status,
-        magicLinkToken: result.event.magicLinkToken,
-        magicLinkRevokedAt: result.event.magicLinkRevokedAt,
-        updatedAt: result.event.updatedAt,
-      });
-      setEditName(result.event.name);
-      setEditDescription(result.event.description);
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
-      trackAnalyticsEvent({
-        eventName: 'event_host_load_failed',
-        target: 'events',
-        properties: {
-          code: apiError.code,
-          eventId,
-        },
-      });
-    }
-  }, [eventId, requireAccessToken, setStatusAndToast, t]);
-
-  const loadTracks = useCallback(async () => {
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredTracks'));
-    if (!accessToken) {
-      return;
-    }
-
-    setIsLoadingTracks(true);
-    try {
-      const result = await callApi(
-        `/v1/playlists/${encodeURIComponent(eventId)}/tracks`,
-        {
-          method: 'GET',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        },
-        (payload) => eventTracksResponseSchema.parse(payload),
-      );
-      setTracks(result.tracks);
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
-      trackAnalyticsEvent({
-        eventName: 'event_tracks_load_failed',
-        target: 'events',
-        properties: {
-          scope: 'host',
-          code: apiError.code,
-          eventId,
-        },
-      });
-    } finally {
-      setIsLoadingTracks(false);
-    }
-  }, [eventId, requireAccessToken, setStatusAndToast, t]);
+  // Surface errors as toasts
+  useEffect(() => {
+    if (!eventQuery.isError) return;
+    const apiError = toApiError(eventQuery.error);
+    showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
+    trackAnalyticsEvent({
+      eventName: 'event_host_load_failed',
+      target: 'events',
+      properties: { code: apiError.code, eventId },
+    });
+  }, [eventQuery.isError, eventQuery.error, showToast, t, eventId]);
 
   useEffect(() => {
-    void loadEvent();
-    void loadTracks();
-  }, [loadEvent, loadTracks]);
+    if (!tracksQuery.isError) return;
+    const apiError = toApiError(tracksQuery.error);
+    showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
+    trackAnalyticsEvent({
+      eventName: 'event_tracks_load_failed',
+      target: 'events',
+      properties: { scope: 'host', code: apiError.code, eventId },
+    });
+  }, [tracksQuery.isError, tracksQuery.error, showToast, t, eventId]);
 
+  // Analytics: disconnected warning (fire once per event id)
   useEffect(() => {
-    if (!event || event.providerConnectionStatus !== 'not_connected') {
-      return;
-    }
-    if (trackedDisconnectedWarningEventIdsRef.current.has(event.id)) {
-      return;
-    }
+    if (!event || event.providerConnectionStatus !== 'not_connected') return;
+    if (trackedDisconnectedWarningEventIdsRef.current.has(event.id)) return;
     trackedDisconnectedWarningEventIdsRef.current.add(event.id);
-
     trackAnalyticsEvent({
       eventName: 'event_provider_disconnected_warning',
       target: 'events',
-      properties: {
-        scope: 'host',
-        eventId: event.id,
-        provider: event.provider,
-      },
+      properties: { scope: 'host', eventId: event.id, provider: event.provider },
     });
   }, [event]);
 
-  const saveEvent = async (submitEvent: FormEvent<HTMLFormElement>) => {
-    submitEvent.preventDefault();
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
 
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredUpdate'));
-    if (!accessToken || !event) {
-      return;
-    }
+  const applyEventUpdate = (updated: HostEvent) => {
+    queryClient.setQueryData<HostEvent>(queryKeys.events.detail(eventId), updated);
+    void queryClient.invalidateQueries({ queryKey: queryKeys.events.list() });
+  };
 
-    setIsWorking(true);
-    try {
-      const payload = updateEventRequestSchema.parse({
-        name: editName,
-        description: editDescription,
+  // ---------------------------------------------------------------------------
+  // Mutations
+  // ---------------------------------------------------------------------------
+
+  const saveEventMutation = useMutation({
+    mutationFn: () => updateEvent({ eventId, name: editName, description: editDescription }),
+    onSuccess: (updated) => {
+      applyEventUpdate(updated);
+      showToast(t('eventsPage.updated', { name: updated.name }), { variant: 'success' });
+    },
+    onError: (error) => {
+      showToast(t('eventsPage.error', { message: toApiError(error).message }), {
+        variant: 'error',
       });
+    },
+  });
 
-      const result = await callApi(
-        `/v1/playlists/${encodeURIComponent(event.id)}`,
-        {
-          method: 'PATCH',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify(payload),
-        },
-        (responsePayload) => eventResponseSchema.parse(responsePayload),
-      );
+  const closeEventMutation = useMutation({
+    mutationFn: () => closeEvent(eventId),
+    onSuccess: (updated) => {
+      applyEventUpdate(updated);
+      showToast(t('eventsPage.closed', { name: updated.name }), { variant: 'success' });
+      setIsCloseConfirmOpen(false);
+    },
+    onError: (error) => {
+      showToast(t('eventsPage.error', { message: toApiError(error).message }), {
+        variant: 'error',
+      });
+    },
+  });
 
-      setEvent((previousEvent) =>
-        previousEvent
-          ? {
-              ...previousEvent,
-              name: result.event.name,
-              description: result.event.description,
-              providerConnectionStatus: result.event.providerConnectionStatus,
-              status: result.event.status,
-              updatedAt: result.event.updatedAt,
-            }
-          : previousEvent,
-      );
-      setStatusAndToast(t('eventsPage.updated', { name: result.event.name }), 'success');
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
-    } finally {
-      setIsWorking(false);
-    }
-  };
+  const revokeMagicLinkMutation = useMutation({
+    mutationFn: () => revokeMagicLink(eventId),
+    onSuccess: (updated) => {
+      applyEventUpdate(updated);
+      showToast(t('eventsPage.revoked', { name: updated.name }), { variant: 'success' });
+    },
+    onError: (error) => {
+      showToast(t('eventsPage.error', { message: toApiError(error).message }), {
+        variant: 'error',
+      });
+    },
+  });
 
-  const closeEvent = async (): Promise<boolean> => {
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredClose'));
-    if (!accessToken || !event) {
-      return false;
-    }
+  const regenerateMagicLinkMutation = useMutation({
+    mutationFn: () => regenerateMagicLink(eventId),
+    onSuccess: (updated) => {
+      applyEventUpdate(updated);
+      showToast(t('eventsPage.regenerated', { name: updated.name }), { variant: 'success' });
+    },
+    onError: (error) => {
+      showToast(t('eventsPage.error', { message: toApiError(error).message }), {
+        variant: 'error',
+      });
+    },
+  });
 
-    setIsWorking(true);
-    try {
-      const result = await callApi(
-        `/v1/playlists/${encodeURIComponent(event.id)}/close`,
-        {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        },
-        (payload) => eventResponseSchema.parse(payload),
-      );
+  const isWorking =
+    saveEventMutation.isPending ||
+    closeEventMutation.isPending ||
+    revokeMagicLinkMutation.isPending ||
+    regenerateMagicLinkMutation.isPending;
 
-      setEvent((previousEvent) =>
-        previousEvent
-          ? {
-              ...previousEvent,
-              providerConnectionStatus: result.event.providerConnectionStatus,
-              status: result.event.status,
-              updatedAt: result.event.updatedAt,
-            }
-          : previousEvent,
-      );
-      setStatusAndToast(t('eventsPage.closed', { name: result.event.name }), 'success');
-      return true;
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
-      return false;
-    } finally {
-      setIsWorking(false);
-    }
-  };
+  // ---------------------------------------------------------------------------
+  // Handlers
+  // ---------------------------------------------------------------------------
 
-  const revokeMagicLink = async () => {
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredRevoke'));
-    if (!accessToken || !event) {
-      return;
-    }
-
-    setIsWorking(true);
-    try {
-      const result = await callApi(
-        `/v1/playlists/${encodeURIComponent(event.id)}/magic-link/revoke`,
-        {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        },
-        (payload) => eventResponseSchema.parse(payload),
-      );
-
-      setEvent((previousEvent) =>
-        previousEvent
-          ? {
-              ...previousEvent,
-              providerConnectionStatus: result.event.providerConnectionStatus,
-              magicLinkToken: result.event.magicLinkToken,
-              magicLinkRevokedAt: result.event.magicLinkRevokedAt,
-              updatedAt: result.event.updatedAt,
-            }
-          : previousEvent,
-      );
-      setStatusAndToast(t('eventsPage.revoked', { name: result.event.name }), 'success');
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
-    } finally {
-      setIsWorking(false);
-    }
-  };
-
-  const regenerateMagicLink = async () => {
-    const accessToken = requireAccessToken(t('eventsPage.loginRequiredRegenerate'));
-    if (!accessToken || !event) {
-      return;
-    }
-
-    setIsWorking(true);
-    try {
-      const result = await callApi(
-        `/v1/playlists/${encodeURIComponent(event.id)}/magic-link/regenerate`,
-        {
-          method: 'POST',
-          headers: {
-            authorization: `Bearer ${accessToken}`,
-          },
-        },
-        (payload) => eventResponseSchema.parse(payload),
-      );
-
-      setEvent((previousEvent) =>
-        previousEvent
-          ? {
-              ...previousEvent,
-              providerConnectionStatus: result.event.providerConnectionStatus,
-              magicLinkToken: result.event.magicLinkToken,
-              magicLinkRevokedAt: result.event.magicLinkRevokedAt,
-              updatedAt: result.event.updatedAt,
-            }
-          : previousEvent,
-      );
-      setStatusAndToast(t('eventsPage.regenerated', { name: result.event.name }), 'success');
-    } catch (error) {
-      const apiError = toApiError(error);
-      setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
-    } finally {
-      setIsWorking(false);
-    }
+  const handleSave = (submitEvent: FormEvent<HTMLFormElement>) => {
+    submitEvent.preventDefault();
+    if (!event) return;
+    saveEventMutation.mutate();
   };
 
   const copyMagicLink = async () => {
-    if (!event) {
-      return;
-    }
+    if (!event) return;
     const eventUrl = getPublicEventUrl(event.magicLinkToken);
-
     if (typeof navigator === 'undefined' || !navigator.clipboard) {
-      setStatusAndToast(t('eventsPage.copyFailed'), 'error');
+      showToast(t('eventsPage.copyFailed'), { variant: 'error' });
       return;
     }
-
     try {
       await navigator.clipboard.writeText(eventUrl);
-      setStatusAndToast(t('eventsPage.copySuccess'), 'success');
+      showToast(t('eventsPage.copySuccess'), { variant: 'success' });
     } catch {
-      setStatusAndToast(t('eventsPage.copyFailed'), 'error');
+      showToast(t('eventsPage.copyFailed'), { variant: 'error' });
     }
   };
 
+  // ---------------------------------------------------------------------------
+  // Render — AppPageLayout for consistency with all other authenticated pages
+  // ---------------------------------------------------------------------------
+
   return (
-    <section className="relative mx-auto w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
+    <AppPageLayout>
       <div className="relative grid gap-6">
         <HostEventDetailsHeader
           event={event}
@@ -397,7 +247,7 @@ export const HostEventDetailsPage = () => {
               editName={editName}
               editDescription={editDescription}
               isWorking={isWorking}
-              onSubmit={(submitEvent) => void saveEvent(submitEvent)}
+              onSubmit={handleSave}
               onNameChange={setEditName}
               onDescriptionChange={setEditDescription}
               onCancel={() => {
@@ -405,6 +255,7 @@ export const HostEventDetailsPage = () => {
                 setEditDescription(event.description);
               }}
             />
+
             <Modal
               open={isCloseConfirmOpen}
               title={t('eventsPage.closeEventConfirmTitle')}
@@ -427,14 +278,7 @@ export const HostEventDetailsPage = () => {
                     type="button"
                     variant="danger"
                     disabled={isWorking || event.status !== 'open'}
-                    onClick={() => {
-                      void (async () => {
-                        const didClose = await closeEvent();
-                        if (didClose) {
-                          setIsCloseConfirmOpen(false);
-                        }
-                      })();
-                    }}
+                    onClick={() => closeEventMutation.mutate()}
                   >
                     {isWorking ? t('eventsPage.working') : t('eventsPage.closeEventConfirmCta')}
                   </CTAButton>
@@ -447,18 +291,18 @@ export const HostEventDetailsPage = () => {
               isWorking={isWorking}
               formatDateTime={formatDateTime}
               onCopy={() => void copyMagicLink()}
-              onRevoke={() => void revokeMagicLink()}
-              onRegenerate={() => void regenerateMagicLink()}
+              onRevoke={() => revokeMagicLinkMutation.mutate()}
+              onRegenerate={() => regenerateMagicLinkMutation.mutate()}
             />
 
             <EventTracksCard
               tracks={tracks}
-              isLoadingTracks={isLoadingTracks}
-              onRefreshTracks={() => void loadTracks()}
+              isLoadingTracks={tracksQuery.isFetching}
+              onRefreshTracks={() => void tracksQuery.refetch()}
             />
           </>
         ) : null}
       </div>
-    </section>
+    </AppPageLayout>
   );
 };

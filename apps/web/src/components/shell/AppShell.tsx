@@ -1,11 +1,13 @@
-import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { Link, Outlet, useMatchRoute, useRouterState } from '@tanstack/react-router';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { BackgroundBlurSpots } from './BackgroundBlurSpots';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
 import { trackPageView } from '../../lib/analytics';
 import { THEME_CHANGED_EVENT } from '../../lib/constants';
+import { saveAnonymousPreferences } from '../../lib/preferences';
+import { fetchUserPreferences } from '../../lib/queries';
 import { applyTheme, loadTheme } from '../../lib/theme';
 import { AccountMenu } from '../ui/AccountMenu';
 import { BrandLogo } from '../ui/BrandLogo';
@@ -24,7 +26,9 @@ const PrivateMobileNavigation = lazy(() =>
 export const AppShell = () => {
   const [isNavBlurActive, setIsNavBlurActive] = useState(false);
   const { auth } = useAuthSession();
-  const { t } = useI18n();
+  const { t, setLocale } = useI18n();
+  const matchRoute = useMatchRoute();
+  const lastSyncedUserIdRef = useRef<string | null>(null);
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
@@ -39,16 +43,7 @@ export const AppShell = () => {
     { to: '/profile', label: t('accountMenu.profile') },
   ] as const;
   const isNavItemActive = (to: string): boolean => {
-    if (to === '/playlists') {
-      return pathname.startsWith('/playlists');
-    }
-    if (to === '/synced-lists') {
-      return pathname.startsWith('/synced-lists');
-    }
-    if (to === '/profile') {
-      return pathname.startsWith('/profile');
-    }
-    return pathname === to || pathname.startsWith(`${to}/`);
+    return Boolean(matchRoute({ to, fuzzy: true }));
   };
   useEffect(() => {
     const syncTheme = () => {
@@ -84,6 +79,27 @@ export const AppShell = () => {
     return () => window.removeEventListener('scroll', updateScrollState);
   }, []);
 
+  // Apply DB-stored preferences when auth session starts (login or page reload while logged in).
+  // Only runs once per user session to avoid overriding manual changes mid-session.
+  useEffect(() => {
+    if (!auth || lastSyncedUserIdRef.current === auth.userId) {
+      return;
+    }
+    lastSyncedUserIdRef.current = auth.userId;
+
+    void fetchUserPreferences()
+      .then((prefs) => {
+        if (prefs.theme) {
+          saveAnonymousPreferences({ theme: prefs.theme });
+          applyTheme(prefs.theme);
+        }
+        if (prefs.locale) {
+          setLocale(prefs.locale);
+        }
+      })
+      .catch(() => undefined);
+  }, [auth, setLocale]);
+
   useEffect(() => {
     trackPageView(pathname);
   }, [pathname]);
@@ -97,30 +113,34 @@ export const AppShell = () => {
             className="pointer-events-none absolute inset-0 bg-app-bg/30 shadow-[0_4px_12px_-10px_rgba(0,0,0,0.22)] backdrop-blur-md"
           />
         )}
-        <div className="relative z-10 flex w-full items-center justify-between px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
-          {isPrivateRoute ? (
-            <Link to="/" aria-label="Synqit home" className="inline-flex">
-              <BrandLogo className="h-12 w-auto sm:h-24" />
-            </Link>
-          ) : (
-            <a
-              href={import.meta.env.VITE_SITE_URL ?? '/'}
-              aria-label="Synqit home"
-              className="inline-flex"
-            >
-              <BrandLogo className="h-12 w-auto sm:h-24" />
-            </a>
-          )}
-          {auth && isPrivateRoute ? (
-            <Suspense fallback={null}>
-              <PrivateDesktopNavigation
-                navItems={navItems}
-                isNavItemActive={isNavItemActive}
-                ariaLabel={t('accountMenu.privateNav')}
-              />
-            </Suspense>
-          ) : null}
-          <div className="flex items-center gap-2">
+        <div className="relative z-10 grid w-full grid-cols-[1fr_auto_1fr] items-center px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
+          <div className="flex items-center">
+            {isPrivateRoute ? (
+              <Link to="/" aria-label="Synqit home" className="inline-flex">
+                <BrandLogo className="h-12 w-auto sm:h-24" />
+              </Link>
+            ) : (
+              <a
+                href={import.meta.env.VITE_SITE_URL ?? '/'}
+                aria-label="Synqit home"
+                className="inline-flex"
+              >
+                <BrandLogo className="h-12 w-auto sm:h-24" />
+              </a>
+            )}
+          </div>
+          <div className="flex justify-center">
+            {auth && isPrivateRoute ? (
+              <Suspense fallback={null}>
+                <PrivateDesktopNavigation
+                  navItems={navItems}
+                  isNavItemActive={isNavItemActive}
+                  ariaLabel={t('accountMenu.privateNav')}
+                />
+              </Suspense>
+            ) : null}
+          </div>
+          <div className="flex items-center justify-end gap-2">
             <AccountMenu />
           </div>
         </div>
