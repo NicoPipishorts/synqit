@@ -122,16 +122,16 @@ jobs:
           tags: ${{ steps.meta_admin.outputs.tags }}
           labels: ${{ steps.meta_admin.outputs.labels }}
 
-    deploy:
-      needs: build-and-push
-      runs-on: ubuntu-latest
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
 
-      steps:
-        - name: Deploy on VPS over SSH
-          uses: appleboy/ssh-action@v1.2.0
-          with:
-            host: ${{ secrets.VPS_HOST }}
-            username: ${{ secrets.VPS_USER }}
-            key: ${{ secrets.VPS_SSH_KEY }}
-            script: |
-              /srv/synqit/deploy.sh latest
+    steps:
+      - name: Deploy on VPS over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            /srv/synqit/deploy.sh latest
