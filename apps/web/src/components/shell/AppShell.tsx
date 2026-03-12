@@ -113,30 +113,34 @@ export const AppShell = () => {
             className="pointer-events-none absolute inset-0 bg-app-bg/30 shadow-[0_4px_12px_-10px_rgba(0,0,0,0.22)] backdrop-blur-md"
           />
         )}
-        <div className="relative z-10 flex w-full items-center justify-between px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
-          {isPrivateRoute ? (
-            <Link to="/" aria-label="Synqit home" className="inline-flex">
-              <BrandLogo className="h-12 w-auto sm:h-24" />
-            </Link>
-          ) : (
-            <a
-              href={import.meta.env.VITE_SITE_URL ?? '/'}
-              aria-label="Synqit home"
-              className="inline-flex"
-            >
-              <BrandLogo className="h-12 w-auto sm:h-24" />
-            </a>
-          )}
-          {auth && isPrivateRoute ? (
-            <Suspense fallback={null}>
-              <PrivateDesktopNavigation
-                navItems={navItems}
-                isNavItemActive={isNavItemActive}
-                ariaLabel={t('accountMenu.privateNav')}
-              />
-            </Suspense>
-          ) : null}
-          <div className="flex items-center gap-2">
+        <div className="relative z-10 grid w-full grid-cols-[1fr_auto_1fr] items-center px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
+          <div className="flex items-center">
+            {isPrivateRoute ? (
+              <Link to="/" aria-label="Synqit home" className="inline-flex">
+                <BrandLogo className="h-12 w-auto sm:h-24" />
+              </Link>
+            ) : (
+              <a
+                href={import.meta.env.VITE_SITE_URL ?? '/'}
+                aria-label="Synqit home"
+                className="inline-flex"
+              >
+                <BrandLogo className="h-12 w-auto sm:h-24" />
+              </a>
+            )}
+          </div>
+          <div className="flex justify-center">
+            {auth && isPrivateRoute ? (
+              <Suspense fallback={null}>
+                <PrivateDesktopNavigation
+                  navItems={navItems}
+                  isNavItemActive={isNavItemActive}
+                  ariaLabel={t('accountMenu.privateNav')}
+                />
+              </Suspense>
+            ) : null}
+          </div>
+          <div className="flex items-center justify-end gap-2">
             <AccountMenu />
           </div>
         </div>
