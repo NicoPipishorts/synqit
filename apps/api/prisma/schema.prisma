@@ -123,6 +123,15 @@ model user_profiles {
   users        users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
+model user_preferences {
+  user_id    String   @id
+  theme      String?
+  locale     String?
+  created_at DateTime @db.Timestamptz(6)
+  updated_at DateTime @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
 model user_auth_identities {
   id               String   @id
   user_id          String
@@ -157,6 +166,7 @@ model users {
   password_reset_tokens password_reset_tokens[]
   refresh_tokens refresh_tokens[]
   user_profile   user_profiles?
+  user_preferences user_preferences?
 }
 
 model user_admin_permissions {

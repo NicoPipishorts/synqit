@@ -19,6 +19,8 @@ import {
   integrationListResponseSchema,
   oauthCallbackResponseSchema,
   updateEventRequestSchema,
+  userPreferencesResponseSchema,
+  type UserPreferences,
 } from '@synqit/shared';
 import type { EventDraft } from '@synqit/shared';
 
@@ -45,6 +47,10 @@ export const queryKeys = {
   integrations: {
     all: () => ['integrations'] as const,
     list: () => ['integrations', 'list'] as const,
+  },
+  preferences: {
+    all: () => ['preferences'] as const,
+    detail: () => ['preferences', 'detail'] as const,
   },
 } as const;
 
@@ -379,3 +385,35 @@ export const connectAppleToBackend = async (musicUserToken: string): Promise<voi
     (payload) => oauthCallbackResponseSchema.parse(payload),
   );
 };
+
+// ---------------------------------------------------------------------------
+// Preferences
+// ---------------------------------------------------------------------------
+
+export const fetchUserPreferences = async (): Promise<UserPreferences> => {
+  const token = requireToken();
+  const result = await callApi(
+    '/v1/auth/preferences',
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => userPreferencesResponseSchema.parse(payload),
+  );
+  return result.preferences;
+};
+
+export const updateUserPreferences = async (
+  patch: Partial<UserPreferences>,
+): Promise<UserPreferences> => {
+  const token = requireToken();
+  const result = await callApi(
+    '/v1/auth/preferences',
+    {
+      method: 'PUT',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify(patch),
+    },
+    (payload) => userPreferencesResponseSchema.parse(payload),
+  );
+  return result.preferences;
+};
+
+export type { UserPreferences };

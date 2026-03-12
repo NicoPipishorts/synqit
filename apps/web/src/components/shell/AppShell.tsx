@@ -1,11 +1,13 @@
 import { Link, Outlet, useMatchRoute, useRouterState } from '@tanstack/react-router';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { BackgroundBlurSpots } from './BackgroundBlurSpots';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
 import { trackPageView } from '../../lib/analytics';
 import { THEME_CHANGED_EVENT } from '../../lib/constants';
+import { saveAnonymousPreferences } from '../../lib/preferences';
+import { fetchUserPreferences } from '../../lib/queries';
 import { applyTheme, loadTheme } from '../../lib/theme';
 import { AccountMenu } from '../ui/AccountMenu';
 import { BrandLogo } from '../ui/BrandLogo';
@@ -24,8 +26,9 @@ const PrivateMobileNavigation = lazy(() =>
 export const AppShell = () => {
   const [isNavBlurActive, setIsNavBlurActive] = useState(false);
   const { auth } = useAuthSession();
-  const { t } = useI18n();
+  const { t, setLocale } = useI18n();
   const matchRoute = useMatchRoute();
+  const lastSyncedUserIdRef = useRef<string | null>(null);
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
@@ -75,6 +78,27 @@ export const AppShell = () => {
     window.addEventListener('scroll', updateScrollState, { passive: true });
     return () => window.removeEventListener('scroll', updateScrollState);
   }, []);
+
+  // Apply DB-stored preferences when auth session starts (login or page reload while logged in).
+  // Only runs once per user session to avoid overriding manual changes mid-session.
+  useEffect(() => {
+    if (!auth || lastSyncedUserIdRef.current === auth.userId) {
+      return;
+    }
+    lastSyncedUserIdRef.current = auth.userId;
+
+    void fetchUserPreferences()
+      .then((prefs) => {
+        if (prefs.theme) {
+          saveAnonymousPreferences({ theme: prefs.theme });
+          applyTheme(prefs.theme);
+        }
+        if (prefs.locale) {
+          setLocale(prefs.locale);
+        }
+      })
+      .catch(() => undefined);
+  }, [auth, setLocale]);
 
   useEffect(() => {
     trackPageView(pathname);

@@ -1,6 +1,8 @@
+import { getAccessToken } from './auth';
 import { THEME_CHANGED_EVENT } from './constants';
 import { loadAnonymousPreferences, saveAnonymousPreferences } from './preferences';
 import { applyThemeAccent, loadProfileSettings } from './profile-settings';
+import { updateUserPreferences } from './queries';
 import { Theme } from './types';
 
 const prefersDarkMode = (): boolean => {
@@ -34,5 +36,9 @@ export const persistTheme = (theme: Theme): void => {
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(THEME_CHANGED_EVENT));
+  }
+
+  if (getAccessToken()) {
+    void updateUserPreferences({ theme }).catch(() => undefined);
   }
 };
