@@ -61,15 +61,17 @@ const AppShell = () => {
           />
         )}
         <div className="relative z-10 flex w-full items-center justify-between px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
-          <a href="/" aria-label="Synqit home" className="inline-flex">
+          <a href="/" aria-label="Synqit home" className="inline-flex mt-3 sm:mt-0">
             <BrandLogo className="h-12 w-auto sm:h-24" />
           </a>
-          <AppAuthActions
-            primaryLabel={t('footer.getStarted')}
-            secondaryLabel={t('accountMenu.login')}
-            size="sm"
-            className="gap-2"
-          />
+          <div className="hidden sm:flex">
+            <AppAuthActions
+              primaryLabel={t('footer.getStarted')}
+              secondaryLabel={t('accountMenu.login')}
+              size="sm"
+              className="gap-2"
+            />
+          </div>
         </div>
       </header>
       <main className="relative z-10 min-h-screen">
