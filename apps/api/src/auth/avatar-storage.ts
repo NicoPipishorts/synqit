@@ -5,7 +5,7 @@ import { basename, extname, resolve, sep } from 'node:path';
 
 const DEFAULT_API_BASE_URL = 'http://localhost:3001';
 const DEFAULT_AVATAR_STORAGE_DIR = resolve(process.cwd(), 'data', 'uploads', 'avatars');
-const DEFAULT_AVATAR_MAX_BYTES = 1_500_000;
+const DEFAULT_AVATAR_MAX_BYTES = 8_000_000;
 
 const AVATAR_PUBLIC_ROUTE_PREFIX = '/v1/public/avatars';
 
