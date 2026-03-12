@@ -193,7 +193,7 @@ const installApiMocks = async (page: Page, options?: { trackDelayMs?: number }) 
 test.describe('web smoke regressions', () => {
   test('dashboard shows songs loader and paginated activity', async ({ page }) => {
     await setAuthenticatedSession(page);
-    await installApiMocks(page, { trackDelayMs: 300 });
+    await installApiMocks(page, { trackDelayMs: 1200 });
 
     await page.goto('/dashboard');
 
@@ -213,7 +213,7 @@ test.describe('web smoke regressions', () => {
 
     await page.goto('/dashboard');
     await expect(page.getByText('Track 01')).toBeVisible();
-    await expect.poll(() => counters.integrations).toBeGreaterThanOrEqual(1);
+    await expect.poll(() => counters.drafts).toBeGreaterThanOrEqual(1);
     await expect.poll(() => counters.events).toBeGreaterThanOrEqual(1);
     await expect.poll(() => counters.tracks).toBeGreaterThanOrEqual(2);
     await page.waitForTimeout(120);
@@ -248,7 +248,7 @@ test.describe('web smoke regressions', () => {
     expect(Math.abs((themeLabelBox?.y ?? 0) - (languageLabelBox?.y ?? 0))).toBeLessThan(8);
 
     await page.goto('/playlists');
-    await expect(page.getByRole('heading', { name: 'My playlists' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'My events playlists' })).toBeVisible();
     await expect(page.getByText('Launch Party')).toBeVisible();
     await expect(page.getByText('Draft', { exact: true })).toBeVisible();
   });
