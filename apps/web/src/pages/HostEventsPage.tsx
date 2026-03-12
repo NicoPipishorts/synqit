@@ -3,7 +3,7 @@ import {
   eventDraftListResponseSchema,
   eventListResponseSchema,
 } from '@synqit/shared';
-import { RefreshCcw, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
@@ -24,7 +24,6 @@ export const HostEventsPage = () => {
   const { showToast } = useToast();
   const [events, setEvents] = useState<HostEvent[]>([]);
   const [drafts, setDrafts] = useState<HostEventDraft[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [activeDraftDeleteId, setActiveDraftDeleteId] = useState<string | null>(null);
   const [draftToDelete, setDraftToDelete] = useState<HostEventDraft | null>(null);
 
@@ -72,7 +71,6 @@ export const HostEventsPage = () => {
       return;
     }
 
-    setIsLoading(true);
     try {
       const [eventResult, draftResult] = await Promise.all([
         callApi(
@@ -123,8 +121,6 @@ export const HostEventsPage = () => {
     } catch (error) {
       const apiError = toApiError(error);
       setStatusAndToast(t('eventsPage.error', { message: apiError.message }), 'error');
-    } finally {
-      setIsLoading(false);
     }
   }, [requireAccessToken, setStatusAndToast, t]);
 
@@ -188,30 +184,7 @@ export const HostEventsPage = () => {
 
   return (
     <AppPageLayout>
-      <AppPageHeader
-        title={t('eventsPage.title')}
-        description={t('eventsPage.description')}
-        actions={
-          <CTAButton
-            aria-label={t('eventsPage.refresh')}
-            disabled={isLoading}
-            onClick={() => void loadEvents()}
-            variant="secondary"
-            className="h-10 w-10 px-0 sm:h-auto sm:w-auto sm:px-3"
-          >
-            <CTAMobileIconLabel
-              icon={
-                <RefreshCcw
-                  size={14}
-                  aria-hidden="true"
-                  className={isLoading ? 'animate-spin' : ''}
-                />
-              }
-              label={isLoading ? t('eventsPage.loading') : t('eventsPage.refresh')}
-            />
-          </CTAButton>
-        }
-      >
+      <AppPageHeader title={t('eventsPage.title')} description={t('eventsPage.description')}>
         <div className="flex justify-center py-4">
           <CTALink
             to="/playlists/new"

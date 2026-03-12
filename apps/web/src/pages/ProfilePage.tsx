@@ -228,6 +228,18 @@ export const ProfilePage = () => {
       <div className="grid gap-5 lg:grid-cols-3">
         <AppSurfaceCard className="flex flex-col">
           <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+            {t('profile.personalInfoCardTitle')}
+          </h2>
+          <p className="mt-2 text-sm text-app-text-secondary">
+            {t('profile.personalInfoCardBody')}
+          </p>
+          <CTALink to="/profile/personal-info" variant="secondary" className="mt-auto self-end">
+            {t('profile.personalInfoCardCta')}
+          </CTALink>
+        </AppSurfaceCard>
+
+        <AppSurfaceCard className="flex flex-col">
+          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
             {t('profile.platformsCardTitle')}
           </h2>
           <p className="mt-2 text-sm text-app-text-secondary">{t('profile.platformsCardBody')}</p>
@@ -237,18 +249,6 @@ export const ProfilePage = () => {
           </div>
           <CTALink to="/profile/platforms" variant="secondary" className="mt-auto self-end">
             {t('profile.platformsCardCta')}
-          </CTALink>
-        </AppSurfaceCard>
-
-        <AppSurfaceCard className="flex flex-col">
-          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-            {t('profile.personalInfoCardTitle')}
-          </h2>
-          <p className="mt-2 text-sm text-app-text-secondary">
-            {t('profile.personalInfoCardBody')}
-          </p>
-          <CTALink to="/profile/personal-info" variant="secondary" className="mt-auto self-end">
-            {t('profile.personalInfoCardCta')}
           </CTALink>
         </AppSurfaceCard>
 

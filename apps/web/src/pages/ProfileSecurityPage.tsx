@@ -6,6 +6,7 @@ import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { CTAButton, CTAMobileIconLabel } from '../components/ui/cta';
+import { Modal } from '../components/ui/Modal';
 import { PasswordField } from '../components/ui/PasswordField';
 import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
 import { useAuthSession } from '../hooks/useAuthSession';
@@ -18,9 +19,14 @@ export const ProfileSecurityPage = () => {
   const { auth } = useAuthSession();
   const { showToast } = useToast();
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const deleteConfirmationWord = t('profile.deleteAccountConfirmationWord').trim().toUpperCase();
+  const isDeleteConfirmationValid =
+    deleteConfirmation.trim().toUpperCase() === deleteConfirmationWord;
 
   const changePassword = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -67,6 +73,28 @@ export const ProfileSecurityPage = () => {
     } finally {
       setIsChangingPassword(false);
     }
+  };
+
+  const openDeleteModal = () => {
+    setDeleteConfirmation('');
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteConfirmation('');
+    setIsDeleteModalOpen(false);
+  };
+
+  const confirmDeleteFlow = () => {
+    if (!isDeleteConfirmationValid) {
+      showToast(t('profile.deleteAccountTypePrompt', { value: deleteConfirmationWord }), {
+        variant: 'error',
+      });
+      return;
+    }
+
+    showToast(t('profile.deleteAccountSoon'), { variant: 'error' });
+    closeDeleteModal();
   };
 
   return (
@@ -140,7 +168,7 @@ export const ProfileSecurityPage = () => {
         <p className="mt-2 text-sm text-app-text-secondary">{t('profile.deleteZoneBody')}</p>
         <CTAButton
           type="button"
-          onClick={() => showToast(t('profile.deleteAccountSoon'), { variant: 'error' })}
+          onClick={openDeleteModal}
           variant="danger"
           className="mt-auto self-end"
           aria-label={t('profile.deleteAccount')}
@@ -148,6 +176,46 @@ export const ProfileSecurityPage = () => {
           <CTAMobileIconLabel icon={<Trash2 size={14} />} label={t('profile.deleteAccount')} />
         </CTAButton>
       </article>
+
+      <Modal
+        open={isDeleteModalOpen}
+        title={t('profile.deleteAccountModalTitle')}
+        onClose={closeDeleteModal}
+      >
+        <div className="grid gap-4">
+          <p className="text-base font-semibold leading-6 text-app-text-secondary">
+            {t('profile.deleteAccountModalBody')}
+          </p>
+
+          <label className="grid gap-2 text-sm font-medium">
+            <span>{t('profile.deleteAccountTypeLabel', { value: deleteConfirmationWord })}</span>
+            <input
+              type="text"
+              value={deleteConfirmation}
+              onChange={(event) => setDeleteConfirmation(event.target.value)}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              placeholder={deleteConfirmationWord}
+              className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+            />
+          </label>
+
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <CTAButton type="button" onClick={closeDeleteModal} variant="secondary">
+              {t('profile.cancel')}
+            </CTAButton>
+            <CTAButton
+              type="button"
+              onClick={confirmDeleteFlow}
+              disabled={!isDeleteConfirmationValid}
+              variant="danger"
+            >
+              {t('profile.deleteAccountConfirm')}
+            </CTAButton>
+          </div>
+        </div>
+      </Modal>
     </AppPageLayout>
   );
 };

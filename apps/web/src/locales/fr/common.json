@@ -12,14 +12,14 @@
     "admin": "Admin",
     "connections": "Connexions",
     "syncedLists": "Listes synchronisées",
-    "myEvents": "Mes playlists",
+    "myEvents": "Mes événements",
     "createEvent": "Créer une playlist",
     "privateNav": "Navigation privée",
     "logout": "Se déconnecter",
     "loggingOut": "Déconnexion...",
     "accountAccess": "Accès au compte",
     "login": "Connexion",
-    "createAccount": "Créer un compte"
+    "createAccount": "Partage ta première playlist"
   },
   "languageSwitcher": {
     "ariaOpen": "Ouvrir le menu de langue",
@@ -48,9 +48,9 @@
     "passwordStrengthStrong": "Fort",
     "submitting": "Envoi...",
     "authenticated": "Connecté en tant que {{email}}. Redirection...",
-    "noAccount": "Pas encore de compte ?",
-    "alreadyAccount": "Vous avez déjà un compte ?",
-    "createOne": "En créer un",
+    "noAccount": "Pas encore partagé de playlist ?",
+    "alreadyAccount": "Tu partages déjà une playlist ?",
+    "createOne": "Partage-en une maintenant",
     "forgotPassword": "Mot de passe oublié ?",
     "forgotPasswordTitle": "Réinitialiser le mot de passe",
     "forgotPasswordDescription": "Saisissez votre e-mail et nous vous enverrons un lien de réinitialisation.",
@@ -265,9 +265,16 @@
     "otpCta": "Configurer OTP",
     "otpSoon": "La configuration OTP n'est pas encore disponible.",
     "deleteZoneTitle": "Zone sensible",
-    "deleteZoneBody": "La suppression de compte sera ajoutée dans un flux sécurisé.",
+    "deleteZoneBody": "La suppression du compte est irréversible. Votre compte sera d'abord supprimé logiquement, puis définitivement purgé sous 1 semaine.",
     "deleteAccount": "Supprimer le compte",
-    "deleteAccountSoon": "La suppression de compte n'est pas encore disponible.",
+    "deleteAccountSoon": "Le backend de suppression de compte n'est pas encore disponible.",
+    "deleteAccountModalTitle": "Supprimer le compte",
+    "deleteAccountModalBody": "Cette action est irréversible. Une fois confirmée, l'accès au compte sera retiré immédiatement et toutes les données liées seront effacés.",
+    "deleteAccountConfirmationWord": "SUPPRIMER",
+    "deleteAccountTypeLabel": "Tapez {{value}} pour confirmer",
+    "deleteAccountTypePrompt": "Tapez {{value}} pour confirmer la suppression du compte.",
+    "deleteAccountConfirm": "Confirmer la suppression",
+    "cancel": "Annuler",
     "error": "Erreur : {{message}}"
   },
   "dashboard": {
@@ -278,6 +285,10 @@
     "ctaEvents": "Ouvrir les playlists",
     "ctaProviders": "Connexions plateformes",
     "ctaCreateEvent": "Créer une playlist",
+    "ctaResumeDraft": "Reprendre la création",
+    "ctaCreateFirst": "Crée ta première playlist",
+    "ctaCreateEventPlaylist": "Créer une playlist événement",
+    "ctaCreateSyncedPlaylist": "Créer une playlist synchronisée",
     "loading": "Chargement...",
     "servicesTitle": "Services connectés",
     "servicesSummary": "{{connected}}/{{total}} connectés",
@@ -337,7 +348,7 @@
     "comingSoonBody": "Bientôt, vous pourrez créer des playlists synchronisées réutilisables et les appliquer à vos playlists en un clic."
   },
   "eventsPage": {
-    "title": "Mes playlists",
+    "title": "Mes playlists événements",
     "description": "Gérez les détails des playlists, les liens invités et les titres soumis.",
     "detailsTitle": "Détails de la playlist",
     "backToEvents": "Retour aux playlists",
@@ -356,7 +367,7 @@
       "stepDescription": "Description",
       "stepReview": "Validation",
       "stepProviderTitle": "Étape 1. Choisir un service de streaming",
-      "stepProviderBody": "Sélectionnez le service de streaming pour cette playlist. S'il n'est pas encore connecté, connectez-le pour continuer.",
+      "stepProviderBody": "Sélectionnez votre service de musique en streaming.",
       "providerSpotify": "Spotify",
       "providerApple": "Apple Music",
       "providerNotConnected": "Ce service de streaming n'est pas encore connecté.",
@@ -496,8 +507,8 @@
       "pillMagicLink": "Flux invité via lien magique",
       "title": "Des playlists collaboratives, sans imposer une inscription aux invités.",
       "description": "Synqit permet aux hôtes de partager un lien. Les invités ouvrent le lien, recherchent des titres et contribuent en quelques secondes, directement dans la playlist de l’hôte.",
-      "ctaStart": "Commencer comme hôte",
-      "ctaLogin": "Connexion",
+      "ctaStart": "Partage une playlist",
+      "ctaLogin": "Se connecter",
       "helper": "Pensé mobile-first pour une contribution rapide sur mobile, tablette et desktop."
     },
     "metrics": {
@@ -541,11 +552,11 @@
       "providerBody": "Les titres sont recherchés et ajoutés directement sur le compte hôte."
     },
     "finalCta": {
-      "pill": "Prêt à tester votre premier événement ?",
-      "title": "Lancez un événement hôte et collectez des titres dès aujourd’hui.",
-      "description": "Créez votre compte, connectez une plateforme et partagez un seul lien.",
-      "create": "Créer un compte hôte",
-      "login": "J’ai déjà un compte"
+      "pill": "Prêt à partager ta première playlist ?",
+      "title": "Lancez une playlist collaborative et collectez des titres dès aujourd’hui.",
+      "description": "Connecte ton service de streaming, crée une playlist et partage un lien magique avec tes invités.",
+      "create": "Partage une playlist maintenant",
+      "login": "Je suis déjà hôte"
     }
   },
   "footer": {
@@ -553,7 +564,7 @@
     "product": "Produit",
     "platform": "Plateforme",
     "home": "Accueil",
-    "start": "Commencer comme hôte",
+    "start": "Partage une playlist",
     "login": "Connexion",
     "events": "Playlists",
     "connections": "Connexions",
@@ -561,7 +572,7 @@
     "onePlan": "Une offre",
     "freeMvp": "MVP gratuit",
     "planDesc": "Lancez des événements hôte et collectez des titres instantanément.",
-    "getStarted": "Commencer",
+    "getStarted": "Partage une playlist",
     "dashboard": "Tableau de bord",
     "copyright": "© {{year}} Synqit"
   }

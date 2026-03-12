@@ -6,7 +6,6 @@ import { PlatformPreview } from './components/marketing/PlatformPreview';
 import { RevealSection } from './components/marketing/RevealSection';
 import { SectionHeading } from './components/marketing/SectionHeading';
 import { SurfaceCard } from './components/marketing/SurfaceCard';
-import { BlurSpotLayer } from './components/ui/BlurSpotLayer';
 import { HeroPill } from './components/ui/HeroPill';
 import { useI18n } from './lib/i18n';
 
@@ -40,20 +39,11 @@ export const HomePage = () => {
       <HomeFooterReveal />
 
       <div className="relative z-10 overflow-hidden rounded-b-[2.75rem] bg-app-bg shadow-[0_28px_64px_-20px_rgba(0,0,0,0.55)] dark:shadow-[0_30px_70px_-20px_rgba(0,0,0,0.72)] sm:rounded-b-[3.5rem] lg:rounded-b-[4.5rem]">
-        <div className="mx-auto grid w-full max-w-6xl gap-36 px-4 pb-24 pt-24 sm:gap-44 sm:px-6 sm:pb-24 sm:pt-10 lg:gap-56 lg:px-8 lg:pb-28 lg:pt-30">
+        <div className="mx-auto grid w-full max-w-6xl gap-36 px-4 pb-24 pt-32 sm:gap-44 sm:px-6 sm:pb-24 sm:pt-36 lg:gap-56 lg:px-8 lg:pb-28 lg:pt-40">
           <RevealSection
             revealOnScroll={false}
             className="relative flex min-h-[calc(100svh-7rem)] items-center overflow-hidden rounded-4xl border border-app-border bg-app-elevated px-5 py-14 shadow-soft-lift dark:bg-app-card sm:min-h-[calc(100svh-8rem)] sm:px-8 sm:py-16 lg:px-12 lg:py-20"
           >
-            <BlurSpotLayer
-              filterId="hero-blur-filter"
-              spots={[
-                { id: 'hero-spot-0', size: 180, top: 15, left: -5, color: 'rgba(255,46,139,0.22)' },
-                { id: 'hero-spot-1', size: 220, top: -5, left: 105, color: 'rgba(198,255,0,0.25)' },
-              ]}
-              className="pointer-events-none absolute inset-0"
-            />
-
             <div className="relative grid w-full items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-14">
               <div className="grid gap-7">
                 <div className="flex flex-wrap items-center gap-2">

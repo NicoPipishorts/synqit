@@ -1,4 +1,9 @@
-import { eventListResponseSchema, eventTracksResponseSchema } from '@synqit/shared';
+import {
+  eventDraftListResponseSchema,
+  eventListResponseSchema,
+  eventTracksResponseSchema,
+} from '@synqit/shared';
+import type { EventDraft } from '@synqit/shared';
 import { motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Music2, RefreshCcw, Rss, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -32,6 +37,7 @@ type ActivityPageTransition = {
 type DashboardSnapshotCache = {
   events: HostEvent[];
   recentTrackActivity: RecentTrackActivity[];
+  activeDraft: EventDraft | null;
   cachedAt: number;
 };
 
@@ -50,6 +56,7 @@ export const DashboardPage = () => {
   const { showToast } = useToast();
 
   const [events, setEvents] = useState<HostEvent[]>([]);
+  const [activeDraft, setActiveDraft] = useState<EventDraft | null>(null);
   const [recentTrackActivity, setRecentTrackActivity] = useState<RecentTrackActivity[]>([]);
   const [isLoadingRecentTracks, setIsLoadingRecentTracks] = useState(false);
   const [activityPageIndex, setActivityPageIndex] = useState(0);
@@ -82,6 +89,7 @@ export const DashboardPage = () => {
       if (!shouldForce && dashboardSnapshotCache) {
         setEvents(dashboardSnapshotCache.events);
         setRecentTrackActivity(dashboardSnapshotCache.recentTrackActivity);
+        setActiveDraft(dashboardSnapshotCache.activeDraft);
 
         if (Date.now() - dashboardSnapshotCache.cachedAt < DASHBOARD_CACHE_TTL_MS) {
           return;
@@ -90,6 +98,17 @@ export const DashboardPage = () => {
 
       setIsLoadingRecentTracks(true);
       try {
+        const draftResult = await callApi(
+          '/v1/playlists/drafts',
+          {
+            method: 'GET',
+            headers: { authorization: `Bearer ${accessToken}` },
+          },
+          (payload) => eventDraftListResponseSchema.parse(payload),
+        ).catch(() => null);
+        const latestDraft = draftResult?.drafts?.[0] ?? null;
+        setActiveDraft(latestDraft);
+
         const eventResult = await callApi(
           '/v1/playlists',
           {
@@ -158,6 +177,7 @@ export const DashboardPage = () => {
         dashboardSnapshotCache = {
           events: nextEvents,
           recentTrackActivity: sortedRecentTrackActivity,
+          activeDraft: latestDraft,
           cachedAt: Date.now(),
         };
       } catch (error) {
@@ -302,197 +322,267 @@ export const DashboardPage = () => {
     });
   };
 
+  const hasPlaylists = events.length > 0;
+  const isInitialLoad = isLoadingRecentTracks && events.length === 0;
+
   return (
     <AppPageLayout>
-      <div className="pointer-events-none absolute -left-10 top-20 h-44 w-44 rounded-full bg-brand-lime/15 blur-3xl" />
-      <div className="pointer-events-none absolute right-0 top-16 h-52 w-52 rounded-full bg-brand-pink/15 blur-3xl" />
-
       <PwaInstallPrompt />
 
-      <AppPageHeader
-        title={t('dashboard.title')}
-        description={t('dashboard.description')}
-        descriptionClassName="max-w-3xl text-sm text-app-text-secondary sm:text-base"
-      >
-        <div className="flex pb-1">
-          <CTALink
-            to="/playlists/new"
-            variant="primary"
-            size="lg"
-            className="w-full justify-center"
-          >
-            {t('dashboard.ctaCreateEvent')}
-          </CTALink>
-        </div>
-      </AppPageHeader>
-
-      <div>
-        <AppSurfaceCard className="shadow-none">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-              {t('dashboard.activePlaylistsTitle')}
-            </h2>
-            <span className="text-xs font-semibold text-app-text-secondary">
-              {t('dashboard.currentEventsCount', { count: currentEvents.length })}
-            </span>
-          </div>
-
-          {currentEvents.length === 0 ? (
-            <p className="rounded-xl border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text-secondary dark:bg-app-elevated">
-              {t('dashboard.currentEventsEmpty')}
-            </p>
-          ) : (
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {currentEvents.map((event) => {
-                const hasIssue = event.providerConnectionStatus === 'not_connected';
-                return (
-                  <li key={event.id}>
-                    <CTALink
-                      to={`/playlists/${event.id}`}
-                      variant="secondary"
-                      className={`flex min-w-0 w-full items-center gap-2 rounded-xl border px-3 py-2 shadow-none transition-transform duration-150 hover:-translate-y-0.5 ${
-                        hasIssue
-                          ? 'border-[#DC5C48]/50 bg-[#DC5C48]/10 dark:bg-[#DC5C48]/15'
-                          : 'border-app-border bg-white dark:bg-app-elevated'
-                      }`}
-                    >
-                      <EventProviderIcon provider={event.provider} sizeClassName="h-8 w-8" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
-                          {event.name}
-                        </p>
-                        <p className="truncate text-xs text-app-text-secondary">
-                          {formatDateTime(event.updatedAt)}
-                        </p>
-                      </div>
-                      <EventStatusIndicator
-                        status={event.status}
-                        connectionStatus={event.providerConnectionStatus}
-                        mode="pill"
-                      />
-                    </CTALink>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </AppSurfaceCard>
-      </div>
-
-      <div>
-        <AppSurfaceCard className="shadow-none">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-              {t('dashboard.latestActivityTitle')}
-            </h2>
-            <span className="text-xs font-semibold text-app-text-secondary">
-              {t('dashboard.latestActivityCount', { count: recentTrackActivity.length })}
-            </span>
-          </div>
-
-          {isLoadingRecentTracks && recentTrackActivity.length === 0 ? (
-            <div className="flex items-center gap-2 rounded-xl border border-app-border bg-app-bg px-3 py-3 text-sm font-semibold text-app-text-secondary dark:bg-app-elevated">
-              <RefreshCcw size={14} className="animate-spin" aria-hidden="true" />
-              <span>{t('dashboard.latestActivityLoading')}</span>
-            </div>
-          ) : recentTrackActivity.length === 0 ? (
-            <p className="rounded-xl border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text-secondary dark:bg-app-elevated">
-              {t('dashboard.latestActivityEmpty')}
-            </p>
-          ) : (
-            <div className="grid gap-3">
-              {isLoadingRecentTracks ? (
-                <div className="flex items-center gap-2 text-xs font-semibold text-app-text-secondary">
-                  <RefreshCcw size={12} className="animate-spin" aria-hidden="true" />
-                  <span>{t('dashboard.latestActivityLoading')}</span>
-                </div>
-              ) : null}
-              <div
-                className="overflow-visible"
-                onTouchStart={onActivityTouchStart}
-                onTouchEnd={onActivityTouchEnd}
-              >
-                {activityPageTransition ? (
-                  <motion.div
-                    key={`${activityPageTransition.from}-${activityPageTransition.to}`}
-                    initial={{ x: activityPageTransition.direction === 1 ? '0%' : '-100%' }}
-                    animate={{ x: activityPageTransition.direction === 1 ? '-100%' : '0%' }}
-                    transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
-                    onAnimationComplete={() => {
-                      setActivityPageIndex(activityPageTransition.to);
-                      setActivityPageTransition(null);
-                    }}
-                    className="flex w-full"
+      {!hasPlaylists && !isInitialLoad ? (
+        <div className="flex min-h-[60vh] flex-col items-center justify-center">
+          <div className="relative p-6 sm:p-10">
+            {/* Corner brackets */}
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-0 h-7 w-7 rounded-tl-lg border-l border-t border-brand-dark dark:border-brand-white"
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute right-0 top-0 h-7 w-7 rounded-tr-lg border-r border-t border-brand-dark dark:border-brand-white"
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-0 left-0 h-7 w-7 rounded-bl-lg border-b border-l border-brand-dark dark:border-brand-white"
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-0 right-0 h-7 w-7 rounded-br-lg border-b border-r border-brand-dark dark:border-brand-white"
+            />
+            <div className="flex flex-col items-center gap-6 text-center">
+              <h2 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl">
+                {t('dashboard.ctaCreateFirst')}
+              </h2>
+              <div className="flex w-72 flex-col items-stretch gap-4">
+                {activeDraft ? (
+                  <CTALink
+                    to={`/playlists/new?draftId=${activeDraft.id}`}
+                    variant="primary"
+                    size="lg"
+                    className="w-full justify-center"
                   >
-                    {activityPageTransition.direction === 1 ? (
-                      <>
-                        <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
-                          {renderActivityRows(getActivityRowsForPage(activityPageTransition.from))}
-                        </ul>
-                        <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
-                          {renderActivityRows(getActivityRowsForPage(activityPageTransition.to))}
-                        </ul>
-                      </>
-                    ) : (
-                      <>
-                        <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
-                          {renderActivityRows(getActivityRowsForPage(activityPageTransition.to))}
-                        </ul>
-                        <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
-                          {renderActivityRows(getActivityRowsForPage(activityPageTransition.from))}
-                        </ul>
-                      </>
-                    )}
-                  </motion.div>
+                    {t('dashboard.ctaResumeDraft')}
+                  </CTALink>
                 ) : (
-                  <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    {renderActivityRows(currentActivityRows)}
-                  </ul>
+                  <CTALink
+                    to="/playlists/new"
+                    variant="primary"
+                    size="lg"
+                    className="w-full justify-center"
+                  >
+                    {t('dashboard.ctaCreateEventPlaylist')}
+                  </CTALink>
                 )}
+                <CTALink
+                  to="/synced-lists"
+                  variant="secondary"
+                  size="lg"
+                  disabled
+                  className="w-full justify-center"
+                >
+                  {t('dashboard.ctaCreateSyncedPlaylist')}
+                </CTALink>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <>
+          <AppPageHeader
+            title={t('dashboard.title')}
+            description={t('dashboard.description')}
+            descriptionClassName="max-w-3xl text-sm text-app-text-secondary sm:text-base"
+          >
+            <div className="flex pb-1">
+              <CTALink
+                to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
+                variant="primary"
+                size="lg"
+                className="w-full justify-center"
+              >
+                {activeDraft ? t('dashboard.ctaResumeDraft') : t('dashboard.ctaCreateEvent')}
+              </CTALink>
+            </div>
+          </AppPageHeader>
+
+          <div>
+            <AppSurfaceCard className="shadow-none">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+                  {t('dashboard.activePlaylistsTitle')}
+                </h2>
+                <span className="text-xs font-semibold text-app-text-secondary">
+                  {t('dashboard.currentEventsCount', { count: currentEvents.length })}
+                </span>
               </div>
 
-              {activityPageCount > 1 ? (
-                <div className="flex items-center justify-between gap-2">
-                  <CTAButton
-                    type="button"
-                    variant="secondary"
-                    disabled={activityPageIndex === 0 || activityPageTransition !== null}
-                    onClick={() => {
-                      slideToActivityPage(-1);
-                    }}
-                  >
-                    <CTAMobileIconLabel
-                      icon={<ChevronLeft size={14} />}
-                      label={t('dashboard.latestActivityPrev')}
-                    />
-                  </CTAButton>
-                  <p className="text-xs font-semibold text-app-text-secondary">
-                    {t('dashboard.latestActivityPageLabel', {
-                      current: activityPageIndex + 1,
-                      total: activityPageCount,
-                    })}
-                  </p>
-                  <CTAButton
-                    type="button"
-                    variant="secondary"
-                    disabled={
-                      activityPageIndex >= activityPageCount - 1 || activityPageTransition !== null
-                    }
-                    onClick={() => {
-                      slideToActivityPage(1);
-                    }}
-                  >
-                    <CTAMobileIconLabel
-                      icon={<ChevronRight size={14} />}
-                      label={t('dashboard.latestActivityNext')}
-                    />
-                  </CTAButton>
+              {currentEvents.length === 0 ? (
+                <p className="rounded-xl border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text-secondary dark:bg-app-elevated">
+                  {t('dashboard.currentEventsEmpty')}
+                </p>
+              ) : (
+                <ul className="grid gap-3 sm:grid-cols-2">
+                  {currentEvents.map((event) => {
+                    const hasIssue = event.providerConnectionStatus === 'not_connected';
+                    return (
+                      <li key={event.id}>
+                        <CTALink
+                          to={`/playlists/${event.id}`}
+                          variant="secondary"
+                          className={`flex min-w-0 w-full items-center gap-2 rounded-xl border px-3 py-2 shadow-none transition-transform duration-150 hover:-translate-y-0.5 ${
+                            hasIssue
+                              ? 'border-[#DC5C48]/50 bg-[#DC5C48]/10 dark:bg-[#DC5C48]/15'
+                              : 'border-app-border bg-white dark:bg-app-elevated'
+                          }`}
+                        >
+                          <EventProviderIcon provider={event.provider} sizeClassName="h-8 w-8" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
+                              {event.name}
+                            </p>
+                            <p className="truncate text-xs text-app-text-secondary">
+                              {formatDateTime(event.updatedAt)}
+                            </p>
+                          </div>
+                          <EventStatusIndicator
+                            status={event.status}
+                            connectionStatus={event.providerConnectionStatus}
+                            mode="pill"
+                          />
+                        </CTALink>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </AppSurfaceCard>
+          </div>
+
+          <div>
+            <AppSurfaceCard className="shadow-none">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+                  {t('dashboard.latestActivityTitle')}
+                </h2>
+                <span className="text-xs font-semibold text-app-text-secondary">
+                  {t('dashboard.latestActivityCount', { count: recentTrackActivity.length })}
+                </span>
+              </div>
+
+              {isLoadingRecentTracks && recentTrackActivity.length === 0 ? (
+                <div className="flex items-center gap-2 rounded-xl border border-app-border bg-app-bg px-3 py-3 text-sm font-semibold text-app-text-secondary dark:bg-app-elevated">
+                  <RefreshCcw size={14} className="animate-spin" aria-hidden="true" />
+                  <span>{t('dashboard.latestActivityLoading')}</span>
                 </div>
-              ) : null}
-            </div>
-          )}
-        </AppSurfaceCard>
-      </div>
+              ) : recentTrackActivity.length === 0 ? (
+                <p className="rounded-xl border border-app-border bg-app-bg px-3 py-3 text-sm text-app-text-secondary dark:bg-app-elevated">
+                  {t('dashboard.latestActivityEmpty')}
+                </p>
+              ) : (
+                <div className="grid gap-3">
+                  {isLoadingRecentTracks ? (
+                    <div className="flex items-center gap-2 text-xs font-semibold text-app-text-secondary">
+                      <RefreshCcw size={12} className="animate-spin" aria-hidden="true" />
+                      <span>{t('dashboard.latestActivityLoading')}</span>
+                    </div>
+                  ) : null}
+                  <div
+                    className="overflow-visible"
+                    onTouchStart={onActivityTouchStart}
+                    onTouchEnd={onActivityTouchEnd}
+                  >
+                    {activityPageTransition ? (
+                      <motion.div
+                        key={`${activityPageTransition.from}-${activityPageTransition.to}`}
+                        initial={{ x: activityPageTransition.direction === 1 ? '0%' : '-100%' }}
+                        animate={{ x: activityPageTransition.direction === 1 ? '-100%' : '0%' }}
+                        transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
+                        onAnimationComplete={() => {
+                          setActivityPageIndex(activityPageTransition.to);
+                          setActivityPageTransition(null);
+                        }}
+                        className="flex w-full"
+                      >
+                        {activityPageTransition.direction === 1 ? (
+                          <>
+                            <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
+                              {renderActivityRows(
+                                getActivityRowsForPage(activityPageTransition.from),
+                              )}
+                            </ul>
+                            <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
+                              {renderActivityRows(
+                                getActivityRowsForPage(activityPageTransition.to),
+                              )}
+                            </ul>
+                          </>
+                        ) : (
+                          <>
+                            <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
+                              {renderActivityRows(
+                                getActivityRowsForPage(activityPageTransition.to),
+                              )}
+                            </ul>
+                            <ul className="grid w-full shrink-0 grid-cols-1 gap-3 md:grid-cols-2">
+                              {renderActivityRows(
+                                getActivityRowsForPage(activityPageTransition.from),
+                              )}
+                            </ul>
+                          </>
+                        )}
+                      </motion.div>
+                    ) : (
+                      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        {renderActivityRows(currentActivityRows)}
+                      </ul>
+                    )}
+                  </div>
+
+                  {activityPageCount > 1 ? (
+                    <div className="flex items-center justify-between gap-2">
+                      <CTAButton
+                        type="button"
+                        variant="secondary"
+                        disabled={activityPageIndex === 0 || activityPageTransition !== null}
+                        onClick={() => {
+                          slideToActivityPage(-1);
+                        }}
+                      >
+                        <CTAMobileIconLabel
+                          icon={<ChevronLeft size={14} />}
+                          label={t('dashboard.latestActivityPrev')}
+                        />
+                      </CTAButton>
+                      <p className="text-xs font-semibold text-app-text-secondary">
+                        {t('dashboard.latestActivityPageLabel', {
+                          current: activityPageIndex + 1,
+                          total: activityPageCount,
+                        })}
+                      </p>
+                      <CTAButton
+                        type="button"
+                        variant="secondary"
+                        disabled={
+                          activityPageIndex >= activityPageCount - 1 ||
+                          activityPageTransition !== null
+                        }
+                        onClick={() => {
+                          slideToActivityPage(1);
+                        }}
+                      >
+                        <CTAMobileIconLabel
+                          icon={<ChevronRight size={14} />}
+                          label={t('dashboard.latestActivityNext')}
+                        />
+                      </CTAButton>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </AppSurfaceCard>
+          </div>
+        </>
+      )}
     </AppPageLayout>
   );
 };

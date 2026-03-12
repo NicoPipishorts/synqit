@@ -15,14 +15,14 @@ const DEFAULT_ERROR_DURATION_MS = 5500;
 
 const getToastClasses = (variant: 'success' | 'error' | 'info'): string => {
   if (variant === 'success') {
-    return 'border-brand-lime/40 bg-brand-lime/10 text-[#587700] dark:text-[#d5ff63]';
+    return 'border-brand-lime/60 bg-brand-lime/20 text-[#587700] dark:border-brand-lime/40 dark:bg-[#1a2e00]/90 dark:text-[#d5ff63]';
   }
 
   if (variant === 'error') {
-    return 'border-brand-pink/40 bg-brand-pink/10 text-[#a91159] dark:text-[#ffb4d9]';
+    return 'border-brand-pink/60 bg-brand-pink/20 text-[#a91159] dark:border-brand-pink/40 dark:bg-[#2e0018]/90 dark:text-[#ffb4d9]';
   }
 
-  return 'border-app-border bg-app-elevated text-app-text dark:bg-app-card';
+  return 'border-app-border bg-white/95 text-app-text dark:bg-app-card/95';
 };
 
 const ToastIcon = ({ variant }: { variant: 'success' | 'error' | 'info' }) => {
@@ -109,7 +109,7 @@ export const ToastProvider = ({ children }: PropsWithChildren) => {
               {toasts.map((toast) => (
                 <div
                   key={toast.id}
-                  className={`pointer-events-auto flex items-center gap-3 rounded-xl border px-3.5 py-3 shadow-xl backdrop-blur ${getToastClasses(toast.variant)}`}
+                  className={`pointer-events-auto flex items-center gap-3 rounded-xl border px-3.5 py-3 shadow-xl ${getToastClasses(toast.variant)}`}
                   role="status"
                   aria-live={toast.variant === 'error' ? 'assertive' : 'polite'}
                 >
