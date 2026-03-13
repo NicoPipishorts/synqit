@@ -1,17 +1,21 @@
-name: Build and Deploy
+name: CI and Deploy
 
 on:
+  pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
+  workflow_dispatch:
 
 permissions:
   contents: read
   packages: write
 
 concurrency:
-  group: production-deploy
-  cancel-in-progress: false
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
@@ -19,7 +23,100 @@ env:
   IMAGE_PREFIX: ghcr.io/nicopipishorts
 
 jobs:
+  api-regression:
+    name: api-regression
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: synqit
+          POSTGRES_PASSWORD: synqit
+          POSTGRES_DB: synqit
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U synqit -d synqit"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://synqit:synqit@localhost:5432/synqit
+      JWT_ACCESS_SECRET: test-access-secret
+      JWT_REFRESH_SECRET: test-refresh-secret
+      TOKEN_ENC_KEY: test-token-enc-key
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Setup Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Generate Prisma client
+        run: yarn workspace @synqit/api prisma:generate
+
+      - name: Apply Prisma migrations
+        run: yarn workspace @synqit/api prisma:migrate:deploy
+
+      - name: Run API regression tests
+        run: yarn workspace @synqit/api test
+
+  web-e2e:
+    name: web-e2e
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Setup Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Build shared package
+        run: yarn build:shared
+
+      - name: Install Playwright browser
+        run: |
+          cd apps/web
+          npx playwright install --with-deps chromium
+
+      - name: Run web e2e smoke tests
+        run: yarn workspace @synqit/web test:e2e
+
   build-and-push:
+    name: build-and-push
+    needs:
+      - api-regression
+      - web-e2e
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
@@ -124,7 +221,10 @@ jobs:
           labels: ${{ steps.meta_admin.outputs.labels }}
 
   deploy:
-    needs: build-and-push
+    name: deploy
+    needs:
+      - build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:

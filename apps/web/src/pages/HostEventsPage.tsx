@@ -107,7 +107,7 @@ export const HostEventsPage = () => {
   const isDeleting = deleteDraftMutation.isPending;
 
   return (
-    <AppPageLayout bodyClassName={listItems.length === 0 ? 'flex flex-col' : 'gap-6'}>
+    <AppPageLayout>
       <AppPageHeader title={t('eventsPage.title')} description={t('eventsPage.description')}>
         <div className="flex justify-center py-4">
           <CTALink
@@ -121,7 +121,7 @@ export const HostEventsPage = () => {
       </AppPageHeader>
 
       {listItems.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center py-8">
+        <div className="flex min-h-[calc(100svh-24rem)] items-center justify-center">
           <AppSurfaceCard className="w-full p-6 text-center">
             <p className="text-base font-semibold text-brand-dark dark:text-brand-white">
               {t('eventsPage.emptyTitle')}

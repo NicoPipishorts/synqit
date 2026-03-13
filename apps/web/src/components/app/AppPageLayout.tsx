@@ -16,8 +16,6 @@ export const AppPageLayout = ({
       className ?? ''
     }`.trim()}
   >
-    <div className={`relative flex flex-1 items-center justify-center ${bodyClassName}`.trim()}>
-      {children}
-    </div>
+    <div className={`relative grid flex-1 ${bodyClassName}`.trim()}>{children}</div>
   </section>
 );
