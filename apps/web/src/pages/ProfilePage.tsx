@@ -16,7 +16,7 @@ import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { updateStoredAuthUser } from '../lib/auth';
 
-const MAX_AVATAR_BYTES = 1_500_000;
+const MAX_AVATAR_BYTES = 8_000_000;
 
 export const ProfilePage = () => {
   const { t } = useI18n();

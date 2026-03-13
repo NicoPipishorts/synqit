@@ -147,9 +147,17 @@ export type AuthResponse = z.infer<typeof authResponseSchema>;
 
 export const refreshResponseSchema = z.object({
   tokens: authTokenSchema,
+  snapshot: z
+    .object({
+      avatarUrl: z.string().url().nullable().default(null),
+      theme: z.enum(['light', 'dark', 'auto']).nullable().optional(),
+      locale: z.enum(['en', 'fr']).nullable().optional(),
+    })
+    .optional(),
 });
 
 export type RefreshResponse = z.infer<typeof refreshResponseSchema>;
+export type RefreshSnapshot = NonNullable<RefreshResponse['snapshot']>;
 
 export const adminLoginRequestSchema = authCredentialsSchema;
 export type AdminLoginRequest = z.infer<typeof adminLoginRequestSchema>;

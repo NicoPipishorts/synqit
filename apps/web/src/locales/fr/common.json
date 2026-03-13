@@ -179,7 +179,7 @@
     "removeAvatar": "Supprimer l'avatar",
     "avatarSaved": "Avatar mis à jour.",
     "avatarRemoved": "Avatar supprimé.",
-    "avatarTooLarge": "L'image est trop volumineuse. Utilisez un fichier inférieur à 1,5 Mo.",
+    "avatarTooLarge": "L'image est trop volumineuse. Utilisez un fichier inférieur à 8 Mo.",
     "avatarReadError": "Impossible de lire le fichier image.",
     "platformsCardTitle": "Plateformes",
     "platformsCardBody": "Connectez Spotify ou Apple Music et choisissez votre plateforme par défaut.",

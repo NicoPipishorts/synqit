@@ -46,7 +46,7 @@ import {
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
 const DEFAULT_PASSWORD_RESET_TOKEN_TTL_MINUTES = 30;
-const AVATAR_UPLOAD_ROUTE_BODY_LIMIT_BYTES = 3_000_000;
+const AVATAR_UPLOAD_ROUTE_BODY_LIMIT_BYTES = 12_000_000;
 
 const parsePositiveNumber = (raw: string | undefined, fallback: number): number => {
   if (!raw) {
@@ -553,12 +553,19 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       },
     );
 
+    const userPreferences = await authStore.findUserPreferencesByUserId(user.id);
+
     return refreshResponseSchema.parse({
       tokens: {
         accessToken,
         refreshToken: nextRefreshToken,
         tokenType: 'Bearer',
         expiresInSeconds: accessTokenTtlSeconds,
+      },
+      snapshot: {
+        avatarUrl: buildAvatarUrl(user.avatarPath),
+        theme: userPreferences?.theme ?? null,
+        locale: userPreferences?.locale ?? null,
       },
     });
   });

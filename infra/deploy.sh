@@ -2,9 +2,11 @@
 set -euo pipefail
 source /srv/synqit/.deploy.env
 
+echo "==> Syncing VPS repo to origin/main"
 cd /srv/synqit/repo
-git fetch origin main
+git fetch --prune origin main
 git reset --hard origin/main
+git clean -fd
 
 cd /srv/synqit/repo/infra
 
@@ -21,7 +23,7 @@ echo "==> Running database migrations"
 docker compose -f docker-compose.ci.yml --profile tools run --rm migrate
 
 echo "==> Recreating app services"
-docker compose -f docker-compose.ci.yml up -d --force-recreate api worker site web admin
+docker compose -f docker-compose.ci.yml up -d --force-recreate --remove-orphans api worker site web admin
 
 echo "==> Current status"
 docker compose -f docker-compose.ci.yml ps

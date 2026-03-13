@@ -107,7 +107,7 @@ export const HostEventsPage = () => {
   const isDeleting = deleteDraftMutation.isPending;
 
   return (
-    <AppPageLayout>
+    <AppPageLayout bodyClassName={listItems.length === 0 ? 'flex flex-col' : 'gap-6'}>
       <AppPageHeader title={t('eventsPage.title')} description={t('eventsPage.description')}>
         <div className="flex justify-center py-4">
           <CTALink
@@ -121,17 +121,19 @@ export const HostEventsPage = () => {
       </AppPageHeader>
 
       {listItems.length === 0 ? (
-        <AppSurfaceCard className="p-6 text-center">
-          <p className="text-base font-semibold text-brand-dark dark:text-brand-white">
-            {t('eventsPage.emptyTitle')}
-          </p>
-          <p className="mt-2 text-sm text-app-text-secondary">{t('eventsPage.emptyBody')}</p>
-          <div className="mt-4 flex justify-center">
-            <CTALink to="/playlists/new" variant="primary">
-              {t('eventsPage.create')}
-            </CTALink>
-          </div>
-        </AppSurfaceCard>
+        <div className="flex flex-1 items-center justify-center py-8">
+          <AppSurfaceCard className="w-full p-6 text-center">
+            <p className="text-base font-semibold text-brand-dark dark:text-brand-white">
+              {t('eventsPage.emptyTitle')}
+            </p>
+            <p className="mt-2 text-sm text-app-text-secondary">{t('eventsPage.emptyBody')}</p>
+            <div className="mt-4 flex justify-center">
+              <CTALink to="/playlists/new" variant="primary">
+                {t('eventsPage.create')}
+              </CTALink>
+            </div>
+          </AppSurfaceCard>
+        </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
           {listItems.map((item) =>
