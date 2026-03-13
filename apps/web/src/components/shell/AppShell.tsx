@@ -23,12 +23,15 @@ const PrivateMobileNavigation = lazy(() =>
   })),
 );
 
+const FOREGROUND_REFETCH_COOLDOWN_MS = 60_000;
+
 export const AppShell = () => {
   const [isNavBlurActive, setIsNavBlurActive] = useState(false);
   const { auth } = useAuthSession();
   const { t, setLocale } = useI18n();
   const matchRoute = useMatchRoute();
   const lastSyncedUserIdRef = useRef<string | null>(null);
+  const lastHiddenAtRef = useRef<number | null>(null);
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
   });
@@ -79,14 +82,9 @@ export const AppShell = () => {
     return () => window.removeEventListener('scroll', updateScrollState);
   }, []);
 
-  // Apply DB-stored preferences when auth session starts (login or page reload while logged in).
-  // Only runs once per user session to avoid overriding manual changes mid-session.
-  useEffect(() => {
-    if (!auth || lastSyncedUserIdRef.current === auth.userId) {
-      return;
-    }
-    lastSyncedUserIdRef.current = auth.userId;
-
+  const syncPreferencesRef = useRef<() => void>(() => undefined);
+  syncPreferencesRef.current = () => {
+    if (!auth) return;
     void fetchUserPreferences()
       .then((prefs) => {
         if (prefs.theme) {
@@ -98,7 +96,37 @@ export const AppShell = () => {
         }
       })
       .catch(() => undefined);
-  }, [auth, setLocale]);
+  };
+
+  // Apply DB-stored preferences when auth session starts (login or page reload while logged in).
+  // Only runs once per user session to avoid overriding manual changes mid-session.
+  useEffect(() => {
+    if (!auth || lastSyncedUserIdRef.current === auth.userId) {
+      return;
+    }
+    lastSyncedUserIdRef.current = auth.userId;
+    syncPreferencesRef.current();
+  }, [auth]);
+
+  // Re-sync when the PWA returns to the foreground (iOS has no pull-to-refresh in standalone mode).
+  // Only refetches if the app was hidden for more than 60 seconds to avoid noise on quick switches.
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        lastHiddenAtRef.current = Date.now();
+        return;
+      }
+      const hiddenDurationMs = lastHiddenAtRef.current
+        ? Date.now() - lastHiddenAtRef.current
+        : Infinity;
+      if (hiddenDurationMs >= FOREGROUND_REFETCH_COOLDOWN_MS) {
+        syncPreferencesRef.current();
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
 
   useEffect(() => {
     trackPageView(pathname);

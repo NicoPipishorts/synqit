@@ -1,7 +1,7 @@
-import { clearAuth, loadAuth, updateStoredAuthTokens } from './auth';
+import { clearAuth, loadAuth, updateStoredAuthTokens, updateStoredAuthUser } from './auth';
 import { type ApiError, parseRefreshResponse } from './client-models';
-import { API_URL } from './constants';
-import { loadAnonymousPreferences } from './preferences';
+import { API_URL, THEME_CHANGED_EVENT } from './constants';
+import { loadAnonymousPreferences, saveAnonymousPreferences } from './preferences';
 
 export const toApiError = (value: unknown): ApiError => {
   if (value instanceof Error) {
@@ -110,6 +110,22 @@ export const callApi = async <TResponse>(
           accessToken: parsedRefresh.tokens.accessToken,
           refreshToken: parsedRefresh.tokens.refreshToken,
         });
+
+        if (parsedRefresh.snapshot) {
+          const { avatarUrl, theme, locale } = parsedRefresh.snapshot;
+          updateStoredAuthUser({ avatarUrl });
+          if (theme) {
+            saveAnonymousPreferences({ theme });
+            const useDark =
+              theme === 'dark' ||
+              (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            document.documentElement.classList.toggle('dark', useDark);
+            window.dispatchEvent(new CustomEvent(THEME_CHANGED_EVENT));
+          }
+          if (locale) {
+            saveAnonymousPreferences({ locale });
+          }
+        }
 
         return parsedRefresh.tokens.accessToken;
       } catch {

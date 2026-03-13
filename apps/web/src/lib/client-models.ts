@@ -148,17 +148,40 @@ export const parseAuthResponse = (value: unknown): ParsedAuthResponse => {
   };
 };
 
+type RefreshSnapshot = {
+  avatarUrl: string | null;
+  theme: 'light' | 'dark' | 'auto' | null;
+  locale: 'en' | 'fr' | null;
+};
+
+const parseRefreshSnapshot = (value: unknown): RefreshSnapshot | undefined => {
+  if (!value || typeof value !== 'object') {
+    return undefined;
+  }
+
+  const v = value as Record<string, unknown>;
+  return {
+    avatarUrl: typeof v.avatarUrl === 'string' ? v.avatarUrl : null,
+    theme: v.theme === 'light' || v.theme === 'dark' || v.theme === 'auto' ? v.theme : null,
+    locale: v.locale === 'en' || v.locale === 'fr' ? v.locale : null,
+  };
+};
+
 export const parseRefreshResponse = (
   value: unknown,
 ): {
   tokens: AuthTokens;
+  snapshot?: RefreshSnapshot;
 } => {
   if (!value || typeof value !== 'object' || !('tokens' in value) || !isAuthTokens(value.tokens)) {
     throw new Error('Invalid refresh response.');
   }
 
+  const snapshot = 'snapshot' in value ? parseRefreshSnapshot(value.snapshot) : undefined;
+
   return {
     tokens: value.tokens,
+    snapshot,
   };
 };
 

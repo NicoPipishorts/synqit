@@ -553,12 +553,19 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       },
     );
 
+    const userPreferences = await authStore.findUserPreferencesByUserId(user.id);
+
     return refreshResponseSchema.parse({
       tokens: {
         accessToken,
         refreshToken: nextRefreshToken,
         tokenType: 'Bearer',
         expiresInSeconds: accessTokenTtlSeconds,
+      },
+      snapshot: {
+        avatarUrl: buildAvatarUrl(user.avatarPath),
+        theme: userPreferences?.theme ?? null,
+        locale: userPreferences?.locale ?? null,
       },
     });
   });
