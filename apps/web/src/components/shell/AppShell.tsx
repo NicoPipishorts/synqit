@@ -183,7 +183,7 @@ export const AppShell = () => {
           />
         </Suspense>
       ) : null}
-      <main className={`relative min-h-screen ${auth && isPrivateRoute ? 'pb-24 sm:pb-0' : ''}`}>
+      <main className={`relative min-h-screen }`}>
         <Outlet />
       </main>
     </div>

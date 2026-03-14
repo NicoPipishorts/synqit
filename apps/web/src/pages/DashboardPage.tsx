@@ -282,7 +282,7 @@ export const DashboardPage = () => {
 
       {!hasPlaylists && !isInitialLoad ? (
         <div className="flex min-h-[60vh] flex-col items-center justify-center">
-          <div className="relative p-6 sm:p-10 ">
+          <div className="relative w-85 sm:w-[35vw]  p-6 sm:p-10 ">
             <span
               aria-hidden="true"
               className="pointer-events-none absolute left-0 top-0 h-7 w-7 rounded-tl-lg border-l border-t border-brand-dark dark:border-brand-white"

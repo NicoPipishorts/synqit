@@ -4,7 +4,6 @@ import { useMemo, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
-import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { HostEventCard } from '../components/events/HostEventCard';
 import { HostEventDraftCard } from '../components/events/HostEventDraftCard';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
@@ -109,30 +108,52 @@ export const HostEventsPage = () => {
   return (
     <AppPageLayout>
       <AppPageHeader title={t('eventsPage.title')} description={t('eventsPage.description')}>
-        <div className="flex justify-center py-4">
-          <CTALink
-            to="/playlists/new"
-            variant="primary"
-            className="w-[90%] justify-center px-4 py-3 text-sm font-black sm:text-base"
-          >
-            {t('eventsPage.create')}
-          </CTALink>
-        </div>
+        {listItems.length > 0 && (
+          <div className="flex justify-center py-4">
+            <CTALink
+              to="/playlists/new"
+              variant="primary"
+              className="w-[90%] justify-center px-4 py-3 text-sm font-black sm:text-base"
+            >
+              {t('eventsPage.create')}
+            </CTALink>
+          </div>
+        )}
       </AppPageHeader>
 
       {listItems.length === 0 ? (
-        <div className="flex min-h-[calc(100svh-24rem)] items-center justify-center">
-          <AppSurfaceCard className="w-full p-6 text-center">
-            <p className="text-base font-semibold text-brand-dark dark:text-brand-white">
-              {t('eventsPage.emptyTitle')}
-            </p>
-            <p className="mt-2 text-sm text-app-text-secondary">{t('eventsPage.emptyBody')}</p>
-            <div className="mt-4 flex justify-center">
-              <CTALink to="/playlists/new" variant="primary">
+        <div className="flex min-h-[calc(100svh-24rem)] items-start pt-8 sm:pt-16 justify-center">
+          <div className="relative w-85 sm:w-[35vw]  p-6 sm:p-10">
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute left-0 top-0 h-7 w-7 rounded-tl-lg border-l border-t border-brand-dark dark:border-brand-white"
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute right-0 top-0 h-7 w-7 rounded-tr-lg border-r border-t border-brand-dark dark:border-brand-white"
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-0 left-0 h-7 w-7 rounded-bl-lg border-b border-l border-brand-dark dark:border-brand-white"
+            />
+            <span
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-0 right-0 h-7 w-7 rounded-br-lg border-b border-r border-brand-dark dark:border-brand-white"
+            />
+            <div className="flex flex-col items-center gap-6 text-center">
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl">
+                  {t('eventsPage.emptyTitle')}
+                </p>
+                <p className="text-sm text-app-text-secondary sm:text-base">
+                  {t('eventsPage.emptyBody')}
+                </p>
+              </div>
+              <CTALink to="/playlists/new" variant="primary" size="lg">
                 {t('eventsPage.create')}
               </CTALink>
             </div>
-          </AppSurfaceCard>
+          </div>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
