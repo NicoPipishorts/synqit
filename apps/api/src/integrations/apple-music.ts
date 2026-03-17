@@ -121,6 +121,26 @@ const toAppleApiError = (params: {
   });
 };
 
+const isAppleNoRelatedResourcesPayload = (payload: unknown): boolean => {
+  if (!payload || typeof payload !== 'object' || !('errors' in payload)) {
+    return false;
+  }
+
+  const errors = (payload as { errors?: unknown }).errors;
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return false;
+  }
+
+  const firstError = errors[0];
+  if (!firstError || typeof firstError !== 'object') {
+    return false;
+  }
+
+  const code = 'code' in firstError ? firstError.code : undefined;
+  const title = 'title' in firstError ? firstError.title : undefined;
+  return code === '40403' || title === 'No related resources';
+};
+
 const formatAppleArtworkUrl = (rawUrl: string | undefined): string | null => {
   if (!rawUrl) {
     return null;
@@ -299,6 +319,12 @@ export const listApplePlaylistTracks = async (params: {
 
     const payload = (await response.json().catch(() => ({}))) as unknown;
     if (!response.ok) {
+      // Apple returns 40403 "No related resources" for empty playlists.
+      // Treat that as an empty track list instead of closing the host event.
+      if (response.status === 404 && isAppleNoRelatedResourcesPayload(payload)) {
+        return [];
+      }
+
       throw toAppleApiError({
         action: 'list_playlist_tracks',
         statusCode: response.status,
@@ -359,6 +385,10 @@ const findLibraryTrackForCatalogTrack = async (params: {
 
   const payload = (await response.json().catch(() => ({}))) as unknown;
   if (!response.ok) {
+    if (response.status === 404 && isAppleNoRelatedResourcesPayload(payload)) {
+      return null;
+    }
+
     throw toAppleApiError({
       action: 'list_playlist_tracks',
       statusCode: response.status,
