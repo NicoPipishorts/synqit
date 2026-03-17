@@ -19,6 +19,7 @@ import {
   fetchEvent,
   fetchEventTracks,
   queryKeys,
+  reopenEvent,
   regenerateMagicLink,
   revokeMagicLink,
   updateEvent,
@@ -153,6 +154,19 @@ export const HostEventDetailsPage = () => {
     },
   });
 
+  const reopenEventMutation = useMutation({
+    mutationFn: () => reopenEvent(eventId),
+    onSuccess: (updated) => {
+      applyEventUpdate(updated);
+      showToast(t('eventsPage.reopened', { name: updated.name }), { variant: 'success' });
+    },
+    onError: (error) => {
+      showToast(t('eventsPage.error', { message: toApiError(error).message }), {
+        variant: 'error',
+      });
+    },
+  });
+
   const revokeMagicLinkMutation = useMutation({
     mutationFn: () => revokeMagicLink(eventId),
     onSuccess: (updated) => {
@@ -182,6 +196,7 @@ export const HostEventDetailsPage = () => {
   const isWorking =
     saveEventMutation.isPending ||
     closeEventMutation.isPending ||
+    reopenEventMutation.isPending ||
     revokeMagicLinkMutation.isPending ||
     regenerateMagicLinkMutation.isPending;
 
@@ -221,6 +236,7 @@ export const HostEventDetailsPage = () => {
           event={event}
           isWorking={isWorking}
           onOpenCloseConfirm={() => setIsCloseConfirmOpen(true)}
+          onReopen={() => reopenEventMutation.mutate()}
         />
 
         {event ? (

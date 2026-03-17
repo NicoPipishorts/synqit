@@ -523,6 +523,34 @@ export const eventsStore = {
     return toEventWithTracks(toEventRecord(updated));
   },
 
+  async reopenEvent(params: { eventId: string; hostUserId: string }): Promise<EventRecord | null> {
+    const existingRow = await prisma.events.findFirst({
+      where: {
+        id: params.eventId,
+        host_user_id: params.hostUserId,
+      },
+    });
+
+    if (!existingRow) {
+      return null;
+    }
+
+    if (existingRow.status === 'open') {
+      return toEventWithTracks(toEventRecord(existingRow));
+    }
+
+    const updated = await prisma.events.update({
+      where: { id: existingRow.id },
+      data: {
+        status: 'open',
+        closed_at: null,
+        updated_at: new Date(),
+      },
+    });
+
+    return toEventWithTracks(toEventRecord(updated));
+  },
+
   async updateEvent(params: {
     eventId: string;
     hostUserId: string;

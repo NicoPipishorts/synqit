@@ -1572,6 +1572,38 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
+  app.post('/playlists/:eventId/reopen', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'Authentication required.',
+      });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const event = await eventsStore.reopenEvent({
+      eventId,
+      hostUserId: userId,
+    });
+    if (!event) {
+      return reply.status(404).send({
+        code: 'event_not_found',
+        message: 'Playlist not found.',
+      });
+    }
+
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: event.hostUserId,
+      provider: event.provider,
+    });
+
+    return toEventResponse({
+      event,
+      providerConnectionStatus,
+    });
+  });
+
   app.post('/playlists/:eventId/magic-link/revoke', async (request, reply) => {
     const userId = await verifyAndGetUserId(request);
     if (!userId) {

@@ -15,14 +15,14 @@ const DEFAULT_ERROR_DURATION_MS = 5500;
 
 const getToastClasses = (variant: 'success' | 'error' | 'info'): string => {
   if (variant === 'success') {
-    return 'border-brand-lime/60 bg-brand-lime/20 text-[#587700] dark:border-brand-lime/40 dark:bg-[#1a2e00]/90 dark:text-[#d5ff63]';
+    return 'border-brand-lime/60 bg-[#e8f5b0] text-[#587700] dark:border-brand-lime/40 dark:bg-[#1a2e00] dark:text-[#d5ff63]';
   }
 
   if (variant === 'error') {
-    return 'border-brand-pink/60 bg-brand-pink/20 text-[#a91159] dark:border-brand-pink/40 dark:bg-[#2e0018]/90 dark:text-[#ffb4d9]';
+    return 'border-brand-pink/60 bg-[#fce8f1] text-[#a91159] dark:border-brand-pink/40 dark:bg-[#2e0018] dark:text-[#ffb4d9]';
   }
 
-  return 'border-app-border bg-white/95 text-app-text dark:bg-app-card/95';
+  return 'border-app-border bg-white text-app-text dark:bg-app-card';
 };
 
 const ToastIcon = ({ variant }: { variant: 'success' | 'error' | 'info' }) => {

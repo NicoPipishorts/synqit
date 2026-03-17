@@ -17,6 +17,7 @@ type HostEventDetailsHeaderProps = {
   event: EventHeaderData | null;
   isWorking?: boolean;
   onOpenCloseConfirm?: () => void;
+  onReopen?: () => void;
   showCloseAction?: boolean;
   showBackButton?: boolean;
   backTo?: string;
@@ -28,6 +29,7 @@ export const HostEventDetailsHeader = ({
   event,
   isWorking = false,
   onOpenCloseConfirm,
+  onReopen,
   showCloseAction = true,
   showBackButton = true,
   backTo = '/playlists',
@@ -70,12 +72,18 @@ export const HostEventDetailsHeader = ({
               {event && canShowCloseAction ? (
                 <div className="hidden sm:flex">
                   <CTAButton
-                    disabled={isWorking || event.status !== 'open'}
-                    onClick={() => onOpenCloseConfirm?.()}
+                    disabled={isWorking}
+                    onClick={() =>
+                      event.status === 'open' ? onOpenCloseConfirm?.() : onReopen?.()
+                    }
                     type="button"
                     variant="secondary"
                   >
-                    {isWorking ? t('eventsPage.working') : t('eventsPage.closeEvent')}
+                    {isWorking
+                      ? t('eventsPage.working')
+                      : event.status === 'open'
+                        ? t('eventsPage.closeEvent')
+                        : t('eventsPage.reopenEvent')}
                   </CTAButton>
                 </div>
               ) : null}
@@ -95,12 +103,16 @@ export const HostEventDetailsHeader = ({
       {event && canShowCloseAction ? (
         <div className="mt-3 flex items-center justify-between gap-3 px-4 sm:hidden dark:bg-app-elevated">
           <CTAButton
-            disabled={isWorking || event.status !== 'open'}
-            onClick={() => onOpenCloseConfirm?.()}
+            disabled={isWorking}
+            onClick={() => (event.status === 'open' ? onOpenCloseConfirm?.() : onReopen?.())}
             type="button"
             variant="secondary"
           >
-            {isWorking ? t('eventsPage.working') : t('eventsPage.closeEvent')}
+            {isWorking
+              ? t('eventsPage.working')
+              : event.status === 'open'
+                ? t('eventsPage.closeEvent')
+                : t('eventsPage.reopenEvent')}
           </CTAButton>
           <EventProviderIcon
             provider={event.provider}

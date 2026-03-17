@@ -81,6 +81,7 @@ export const EventCreatePage = () => {
   const [description, setDescription] = useState('');
   const [createdEvent, setCreatedEvent] = useState<CreatedEventState | null>(null);
   const [isConnectingProvider, setIsConnectingProvider] = useState(false);
+  const [isDraftHydrationDone, setIsDraftHydrationDone] = useState(false);
   const isApplyingDraftRef = useRef(false);
   const draftHydrationDoneRef = useRef(false);
 
@@ -100,6 +101,7 @@ export const EventCreatePage = () => {
   const selectedProviderConnected = provider
     ? providerStatusByType[provider] === 'connected'
     : false;
+
   const trimmedName = name.trim();
 
   // ---------------------------------------------------------------------------
@@ -332,6 +334,7 @@ export const EventCreatePage = () => {
     const draftIdParam = params.get('draftId');
     if (!draftIdParam) {
       draftHydrationDoneRef.current = true;
+      setIsDraftHydrationDone(true);
       setDraftId(null);
       return;
     }
@@ -374,6 +377,7 @@ export const EventCreatePage = () => {
         }
       } finally {
         draftHydrationDoneRef.current = true;
+        setIsDraftHydrationDone(true);
       }
     };
 
@@ -383,6 +387,23 @@ export const EventCreatePage = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ---------------------------------------------------------------------------
+  // Auto-select preferred provider and skip step 1 if already connected
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (!isDraftHydrationDone || !integrationsQuery.data) return;
+    if (provider !== null || step !== 1) return;
+    const connectedProviders = providerSchema.options.filter(
+      (p) => integrationsQuery.data[p] === 'connected',
+    );
+    if (connectedProviders.length === 1) {
+      setProvider(connectedProviders[0]);
+      setStepDirection(1);
+      setStep(2);
+    }
+  }, [isDraftHydrationDone, integrationsQuery.data, provider, step]);
 
   // ---------------------------------------------------------------------------
   // Auto-save draft
@@ -428,8 +449,8 @@ export const EventCreatePage = () => {
     name,
     provider,
     step,
-    createDraftMutation,
-    updateDraftMutation,
+    createDraftMutation.mutate,
+    updateDraftMutation.mutate,
   ]);
 
   // ---------------------------------------------------------------------------
@@ -839,7 +860,7 @@ export const EventCreatePage = () => {
                       href={createdEvent.magicLinkUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="truncate text-sm font-bold text-brand-pink hover:text-[#d12074]"
+                      className="min-w-0 flex-1 truncate text-sm font-bold text-brand-pink hover:text-[#d12074]"
                     >
                       {createdEvent.magicLinkUrl}
                     </a>

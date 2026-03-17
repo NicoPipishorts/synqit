@@ -262,6 +262,8 @@ export const ProviderConnections = () => {
     [providerCards],
   );
 
+  const hasConnectedProvider = connectedProviderCards.length > 0;
+
   const isRefreshing = snapshotQuery.isFetching;
 
   // ---------------------------------------------------------------------------
@@ -297,38 +299,42 @@ export const ProviderConnections = () => {
           </CTAButton>
         </div>
         <p className="mt-2 text-sm text-app-text-secondary">
-          {t('profile.connectionsServicesHint')}
+          {hasConnectedProvider
+            ? t('profile.connectionsServicesHintConnected')
+            : t('profile.connectionsServicesHint')}
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
-          {providerCards.map(({ provider, providerMeta, isConnected, isBusy }) => (
-            <button
-              key={provider}
-              type="button"
-              disabled={isConnected || isBusy}
-              onClick={() => {
-                if (!isConnected) {
-                  void runProviderAction(provider, 'connect');
-                }
-              }}
-              className={`grid min-w-38 sm:min-w-40 gap-1 rounded-xl border border-app-border bg-app-elevated px-4 py-3 text-left shadow-soft-lift transition dark:bg-app-card ${
-                isConnected
-                  ? 'cursor-default grayscale'
-                  : 'hover:border-brand-lime hover:shadow-glow-lime cursor-pointer'
-              } ${isBusy ? 'opacity-60' : ''}`}
-            >
-              <img
-                src={providerMeta.iconPath}
-                alt={providerMeta.label}
-                className="h-10 w-10 rounded-full object-cover"
-              />
-              <p className="text-sm font-semibold text-app-text">{providerMeta.label}</p>
-              <p className="text-xs text-app-text-secondary">
-                {isConnected
-                  ? t('profile.connectionConnectedTag')
-                  : t('profile.connectionTapToConnect')}
-              </p>
-            </button>
-          ))}
+          {providerCards
+            .filter(({ isConnected }) => !hasConnectedProvider || isConnected)
+            .map(({ provider, providerMeta, isConnected, isBusy }) => (
+              <button
+                key={provider}
+                type="button"
+                disabled={isConnected || isBusy}
+                onClick={() => {
+                  if (!isConnected) {
+                    void runProviderAction(provider, 'connect');
+                  }
+                }}
+                className={`grid min-w-38 sm:min-w-40 gap-1 rounded-xl border border-app-border bg-app-elevated px-4 py-3 text-left shadow-soft-lift transition dark:bg-app-card ${
+                  isConnected
+                    ? 'cursor-default grayscale'
+                    : 'hover:border-brand-lime hover:shadow-glow-lime cursor-pointer'
+                } ${isBusy ? 'opacity-60' : ''}`}
+              >
+                <img
+                  src={providerMeta.iconPath}
+                  alt={providerMeta.label}
+                  className="h-10 w-10 rounded-full object-cover"
+                />
+                <p className="text-sm font-semibold text-app-text">{providerMeta.label}</p>
+                <p className="text-xs text-app-text-secondary">
+                  {isConnected
+                    ? t('profile.connectionConnectedTag')
+                    : t('profile.connectionTapToConnect')}
+                </p>
+              </button>
+            ))}
         </div>
       </article>
 

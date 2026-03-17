@@ -259,6 +259,16 @@ export const closeEvent = async (eventId: string): Promise<HostEvent> => {
   return mapApiEvent(result.event);
 };
 
+export const reopenEvent = async (eventId: string): Promise<HostEvent> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/playlists/${encodeURIComponent(eventId)}/reopen`,
+    { method: 'POST', headers: { authorization: `Bearer ${token}` } },
+    (payload) => eventResponseSchema.parse(payload),
+  );
+  return mapApiEvent(result.event);
+};
+
 export const revokeMagicLink = async (eventId: string): Promise<HostEvent> => {
   const token = requireToken();
   const result = await callApi(
