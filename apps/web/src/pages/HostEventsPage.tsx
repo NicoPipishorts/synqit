@@ -11,7 +11,7 @@ import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { toApiError } from '../lib/api';
-import { getPublicEventUrl, HostEventDraft } from '../lib/events';
+import { HostEventDraft } from '../lib/events';
 import { deleteDraft, fetchDrafts, fetchEvents, queryKeys } from '../lib/queries';
 
 export const HostEventsPage = () => {
@@ -85,20 +85,6 @@ export const HostEventsPage = () => {
   // Handlers
   // ---------------------------------------------------------------------------
 
-  const copyMagicLink = async (magicLinkToken: string) => {
-    const eventUrl = getPublicEventUrl(magicLinkToken);
-    if (typeof navigator === 'undefined' || !navigator.clipboard) {
-      showToast(t('eventsPage.copyFailed'), { variant: 'error' });
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(eventUrl);
-      showToast(t('eventsPage.copySuccess'), { variant: 'success' });
-    } catch {
-      showToast(t('eventsPage.copyFailed'), { variant: 'error' });
-    }
-  };
-
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
@@ -159,11 +145,7 @@ export const HostEventsPage = () => {
         <div className="grid gap-4 sm:grid-cols-2">
           {listItems.map((item) =>
             item.kind === 'event' ? (
-              <HostEventCard
-                key={item.id}
-                event={item.event}
-                onCopyMagicLink={(magicLinkToken) => void copyMagicLink(magicLinkToken)}
-              />
+              <HostEventCard key={item.id} event={item.event} />
             ) : (
               <HostEventDraftCard
                 key={item.id}

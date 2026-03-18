@@ -10,7 +10,7 @@ export type CtaVariant = 'primary' | 'secondary' | 'danger' | 'dangerSoft' | 'gh
 // - dangerSoft: low-risk destructive/cleanup action.
 // - ghost: subtle inline utility action.
 const CTA_BASE =
-  'inline-flex cursor-pointer appearance-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border-solid px-3 py-2 text-xs font-extrabold leading-none no-underline shadow-soft-lift transition select-none focus-ring-brand disabled:cursor-not-allowed disabled:opacity-60';
+  'inline-flex cursor-pointer appearance-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border-solid px-3 py-2 text-xs font-extrabold leading-none no-underline transition select-none focus-ring-brand disabled:cursor-not-allowed disabled:opacity-60';
 
 const CTA_VARIANTS: Record<CtaVariant, string> = {
   primary:
@@ -24,19 +24,25 @@ const CTA_VARIANTS: Record<CtaVariant, string> = {
     'border border-app-border bg-transparent text-app-text hover:border-brand-pink dark:border-app-border dark:text-app-text',
 };
 
-const ctaClassName = (variant: CtaVariant = 'secondary'): string => {
-  return `${CTA_BASE} ${CTA_VARIANTS[variant]}`;
+const ctaClassName = (variant: CtaVariant = 'secondary', withShadow = true): string => {
+  return `${CTA_BASE} ${withShadow ? 'shadow-soft-lift' : ''} ${CTA_VARIANTS[variant]}`.trim();
 };
 
 type CTAButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: CtaVariant;
+  withShadow?: boolean;
 };
 
-export const CTAButton = ({ variant = 'secondary', className, ...props }: CTAButtonProps) => {
+export const CTAButton = ({
+  variant = 'secondary',
+  withShadow = true,
+  className,
+  ...props
+}: CTAButtonProps) => {
   return (
     <button
       type={props.type ?? 'button'}
-      className={`${ctaClassName(variant)} ${className ?? ''}`.trim()}
+      className={`${ctaClassName(variant, withShadow)} ${className ?? ''}`.trim()}
       {...props}
     />
   );
@@ -46,16 +52,18 @@ type CTALinkProps = Omit<ComponentPropsWithoutRef<typeof Link>, 'className'> & {
   variant?: CtaVariant;
   className?: string;
   disabled?: boolean;
+  withShadow?: boolean;
 };
 
 export const CTALink = ({
   variant = 'secondary',
   className,
   disabled = false,
+  withShadow = true,
   ...props
 }: CTALinkProps) => {
   const classNames =
-    `${ctaClassName(variant)} ${disabled ? 'pointer-events-none opacity-60' : ''} ${className ?? ''}`.trim();
+    `${ctaClassName(variant, withShadow)} ${disabled ? 'pointer-events-none opacity-60' : ''} ${className ?? ''}`.trim();
 
   return (
     <Link

@@ -2,11 +2,12 @@ import { providerSchema } from '@synqit/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Variants } from 'framer-motion';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
-import { Check, ChevronLeft, ChevronRight, Copy, Eye, X } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Eye, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
+import { EventMagicLinkRow } from '../components/events/EventMagicLinkRow';
 import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
@@ -30,6 +31,7 @@ type CreateStep = 1 | 2 | 3 | 4;
 
 type CreatedEventState = {
   eventId: string;
+  magicLinkToken: string;
   magicLinkUrl: string;
 };
 
@@ -136,7 +138,11 @@ export const EventCreatePage = () => {
   const createEventMutation = useMutation({
     mutationFn: createEventFn,
     onSuccess: (result) => {
-      setCreatedEvent({ eventId: result.eventId, magicLinkUrl: result.magicLinkUrl });
+      setCreatedEvent({
+        eventId: result.eventId,
+        magicLinkToken: result.magicLinkToken,
+        magicLinkUrl: result.magicLinkUrl,
+      });
       trackAnalyticsEvent({
         eventName: 'event_create_succeeded',
         target: 'events',
@@ -501,19 +507,6 @@ export const EventCreatePage = () => {
   // Navigation helpers
   // ---------------------------------------------------------------------------
 
-  const copyMagicLink = async () => {
-    if (!createdEvent || typeof navigator === 'undefined' || !navigator.clipboard) {
-      showToast(t('eventsPage.copyFailed'), { variant: 'error' });
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(createdEvent.magicLinkUrl);
-      showToast(t('eventsPage.copySuccess'), { variant: 'success' });
-    } catch {
-      showToast(t('eventsPage.copyFailed'), { variant: 'error' });
-    }
-  };
-
   const canOpenStep = (nextStep: CreateStep): boolean => {
     if (nextStep <= step) return true;
     if (nextStep === 2) return selectedProviderConnected;
@@ -855,23 +848,11 @@ export const EventCreatePage = () => {
                   <p className="text-base font-black text-brand-dark dark:text-brand-white">
                     {t('eventsPage.createFlow.magicLinkReady')}
                   </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <a
-                      href={createdEvent.magicLinkUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="min-w-0 flex-1 truncate text-sm font-bold text-brand-pink hover:text-[#d12074]"
-                    >
-                      {createdEvent.magicLinkUrl}
-                    </a>
-                    <CTAButton
-                      type="button"
-                      onClick={() => void copyMagicLink()}
-                      variant="secondary"
-                    >
-                      <Copy size={14} aria-hidden="true" />
-                      {t('eventsPage.copy')}
-                    </CTAButton>
+                  <div className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text-secondary dark:bg-app-elevated">
+                    <EventMagicLinkRow
+                      magicLinkToken={createdEvent.magicLinkToken}
+                      magicLinkRevokedAt={null}
+                    />
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <CTALink to={`/playlists/${createdEvent.eventId}`} variant="primary">

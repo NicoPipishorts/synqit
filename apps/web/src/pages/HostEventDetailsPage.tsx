@@ -13,7 +13,7 @@ import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
-import { getPublicEventUrl, HostEvent } from '../lib/events';
+import { HostEvent } from '../lib/events';
 import {
   closeEvent,
   fetchEvent,
@@ -210,21 +210,6 @@ export const HostEventDetailsPage = () => {
     saveEventMutation.mutate();
   };
 
-  const copyMagicLink = async () => {
-    if (!event) return;
-    const eventUrl = getPublicEventUrl(event.magicLinkToken);
-    if (typeof navigator === 'undefined' || !navigator.clipboard) {
-      showToast(t('eventsPage.copyFailed'), { variant: 'error' });
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(eventUrl);
-      showToast(t('eventsPage.copySuccess'), { variant: 'success' });
-    } catch {
-      showToast(t('eventsPage.copyFailed'), { variant: 'error' });
-    }
-  };
-
   // ---------------------------------------------------------------------------
   // Render — AppPageLayout for consistency with all other authenticated pages
   // ---------------------------------------------------------------------------
@@ -306,7 +291,6 @@ export const HostEventDetailsPage = () => {
               event={event}
               isWorking={isWorking}
               formatDateTime={formatDateTime}
-              onCopy={() => void copyMagicLink()}
               onRevoke={() => revokeMagicLinkMutation.mutate()}
               onRegenerate={() => regenerateMagicLinkMutation.mutate()}
             />
