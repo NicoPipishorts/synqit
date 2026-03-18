@@ -351,7 +351,7 @@ export const createEvent = async (params: {
   name: string;
   description: string;
   draftId: string | null;
-}): Promise<{ eventId: string; magicLinkUrl: string }> => {
+}): Promise<{ eventId: string; magicLinkToken: string; magicLinkUrl: string }> => {
   const token = requireToken();
   const result = await callApi(
     '/v1/playlists',
@@ -367,7 +367,11 @@ export const createEvent = async (params: {
     },
     (payload) => eventResponseSchema.parse(payload),
   );
-  return { eventId: result.event.id, magicLinkUrl: result.magicLinkUrl };
+  return {
+    eventId: result.event.id,
+    magicLinkToken: result.event.magicLinkToken,
+    magicLinkUrl: result.magicLinkUrl,
+  };
 };
 
 // ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ export type CtaVariant = 'primary' | 'secondary' | 'danger' | 'dangerSoft' | 'gh
 // - dangerSoft: low-risk destructive/cleanup action.
 // - ghost: subtle inline utility action.
 const CTA_BASE =
-  'inline-flex cursor-pointer appearance-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border-solid font-extrabold leading-none no-underline shadow-soft-lift transition select-none focus-ring-brand disabled:cursor-not-allowed disabled:opacity-60';
+  'inline-flex cursor-pointer appearance-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border-solid font-extrabold leading-none no-underline transition select-none focus-ring-brand disabled:cursor-not-allowed disabled:opacity-60';
 
 const CTA_SIZES = {
   md: 'px-3 py-2 text-xs',
@@ -29,25 +29,31 @@ const CTA_VARIANTS: Record<CtaVariant, string> = {
     'border border-app-border bg-transparent text-app-text hover:border-brand-pink dark:border-app-border dark:text-app-text',
 };
 
-const ctaClassName = (variant: CtaVariant = 'secondary', size: 'md' | 'lg' = 'md'): string => {
-  return `${CTA_BASE} ${CTA_SIZES[size]} ${CTA_VARIANTS[variant]}`;
+const ctaClassName = (
+  variant: CtaVariant = 'secondary',
+  size: 'md' | 'lg' = 'md',
+  withShadow = true,
+): string => {
+  return `${CTA_BASE} ${withShadow ? 'shadow-soft-lift' : ''} ${CTA_SIZES[size]} ${CTA_VARIANTS[variant]}`.trim();
 };
 
 type CTAButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: CtaVariant;
   size?: 'md' | 'lg';
+  withShadow?: boolean;
 };
 
 export const CTAButton = ({
   variant = 'secondary',
   size = 'md',
+  withShadow = true,
   className,
   ...props
 }: CTAButtonProps) => {
   return (
     <button
       type={props.type ?? 'button'}
-      className={`${ctaClassName(variant, size)} ${className ?? ''}`.trim()}
+      className={`${ctaClassName(variant, size, withShadow)} ${className ?? ''}`.trim()}
       {...props}
     />
   );
@@ -58,6 +64,7 @@ type CTALinkProps = Omit<ComponentPropsWithoutRef<typeof Link>, 'className'> & {
   size?: 'md' | 'lg';
   className?: string;
   disabled?: boolean;
+  withShadow?: boolean;
 };
 
 export const CTALink = ({
@@ -65,10 +72,11 @@ export const CTALink = ({
   size = 'md',
   className,
   disabled = false,
+  withShadow = true,
   ...props
 }: CTALinkProps) => {
   const classNames =
-    `${ctaClassName(variant, size)} ${disabled ? 'pointer-events-none opacity-60' : ''} ${className ?? ''}`.trim();
+    `${ctaClassName(variant, size, withShadow)} ${disabled ? 'pointer-events-none opacity-60' : ''} ${className ?? ''}`.trim();
 
   return (
     <Link

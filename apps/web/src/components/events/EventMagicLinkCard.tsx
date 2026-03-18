@@ -8,7 +8,6 @@ type EventMagicLinkCardProps = {
   event: HostEvent;
   isWorking: boolean;
   formatDateTime: (value: string) => string;
-  onCopy: () => void;
   onRevoke: () => void;
   onRegenerate: () => void;
 };
@@ -17,7 +16,6 @@ export const EventMagicLinkCard = ({
   event,
   isWorking,
   formatDateTime,
-  onCopy,
   onRevoke,
   onRegenerate,
 }: EventMagicLinkCardProps) => {
@@ -32,7 +30,6 @@ export const EventMagicLinkCard = ({
         <EventMagicLinkRow
           magicLinkToken={event.magicLinkToken}
           magicLinkRevokedAt={event.magicLinkRevokedAt}
-          onCopy={onCopy}
           className="items-center"
         />
       </div>
