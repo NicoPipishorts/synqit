@@ -13,6 +13,7 @@ import { buildAdminAppUrl } from './lib/admin-url';
 import { isAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
 import { createLazyRouteComponent } from './lib/lazy-route';
+import { EventPublicPage } from './pages/EventPublicPage';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,11 +47,6 @@ const HostEventDetailsPage = createLazyRouteComponent(() =>
 const EventCreatePage = createLazyRouteComponent(() =>
   import('./pages/EventCreatePage').then((module) => ({
     default: module.EventCreatePage,
-  })),
-);
-const EventPublicPage = createLazyRouteComponent(() =>
-  import('./pages/EventPublicPage').then((module) => ({
-    default: module.EventPublicPage,
   })),
 );
 const SyncedListsPage = createLazyRouteComponent(() =>

@@ -142,7 +142,7 @@ export const EventMagicLinkRow = ({
         title={t('eventsPage.shareSheetTitle')}
         onClose={() => setIsShareSheetOpen(false)}
       >
-        <div className="grid gap-5 px-1 pb-2 sm:gap-4 sm:px-2 sm:pb-1">
+        <div className="grid gap-5 pb-2 sm:gap-4 sm:pb-1">
           <p className="text-sm text-app-text-secondary">{t('eventsPage.shareSheetBody')}</p>
           <div className="flex gap-3 overflow-x-auto pb-2 pr-2 sm:gap-4 sm:pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <CTAButton

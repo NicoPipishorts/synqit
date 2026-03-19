@@ -5,11 +5,12 @@ import {
   eventTracksResponseSchema,
 } from '@synqit/shared';
 import { useParams } from '@tanstack/react-router';
-import { Check, Eraser, LoaderCircle, Plus, RefreshCcw, Search } from 'lucide-react';
+import { Check, LoaderCircle, Plus, RefreshCcw, Search, X } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 
 import { HostEventDetailsHeader } from '../components/events/HostEventDetailsHeader';
 import { HomeFooterReveal } from '../components/marketing/HomeFooterReveal';
+import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { CTAButton, CTAMobileIconLabel } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
@@ -61,7 +62,7 @@ export const EventPublicPage = () => {
   const [hasMoreSearchResults, setHasMoreSearchResults] = useState(false);
   const [visibleAddedTracksCount, setVisibleAddedTracksCount] = useState(ADDED_TRACKS_PAGE_SIZE);
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
   const [isLoadingMoreSearchResults, setIsLoadingMoreSearchResults] = useState(false);
   const [addingTrackId, setAddingTrackId] = useState<string | null>(null);
@@ -145,6 +146,29 @@ export const EventPublicPage = () => {
 
     void loadEventAndTracks();
   }, [params.magicLinkToken, showToast, t]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const robotsMeta = document.createElement('meta');
+    robotsMeta.name = 'robots';
+    robotsMeta.content = 'noindex, nofollow, noarchive, nosnippet';
+    robotsMeta.dataset.synqitRoute = 'event-public';
+
+    const googlebotMeta = document.createElement('meta');
+    googlebotMeta.name = 'googlebot';
+    googlebotMeta.content = 'noindex, nofollow, noarchive, nosnippet';
+    googlebotMeta.dataset.synqitRoute = 'event-public';
+
+    document.head.append(robotsMeta, googlebotMeta);
+
+    return () => {
+      robotsMeta.remove();
+      googlebotMeta.remove();
+    };
+  }, []);
 
   const fetchSearchBatch = useCallback(
     async (queryText: string, offset: number): Promise<SearchTrackResult[]> => {
@@ -347,12 +371,59 @@ export const EventPublicPage = () => {
       <HomeFooterReveal />
 
       <div className="relative z-10 min-h-full overflow-hidden rounded-b-[2.75rem] bg-app-bg shadow-[0_28px_64px_-20px_rgba(0,0,0,0.55)] dark:shadow-[0_30px_70px_-20px_rgba(0,0,0,0.72)] sm:rounded-b-[3.5rem] lg:rounded-b-[4.5rem]">
+        <BlurSpotLayer
+          filterId="public-page-blur-filter"
+          className="pointer-events-none absolute inset-0 z-0"
+          spots={[
+            { id: 'a', size: 260, top: 5, left: 10, color: 'rgba(198,255,0,0.18)' },
+            { id: 'b', size: 280, top: 10, left: 78, color: 'rgba(255,46,139,0.18)' },
+            { id: 'c', size: 220, top: 50, left: 50, color: 'rgba(125,211,252,0.15)' },
+            { id: 'd', size: 240, top: 78, left: 12, color: 'rgba(198,255,0,0.15)' },
+            { id: 'e', size: 200, top: 72, left: 88, color: 'rgba(255,46,139,0.15)' },
+          ]}
+        />
         <section className="relative mx-auto min-h-[107vh] w-full max-w-6xl px-4 pb-16 pt-28 sm:px-6 sm:pt-32 lg:px-8">
           <div className="relative grid gap-6">
             {isLoading && !eventName ? (
-              <article className="rounded-2xl border border-app-border bg-app-elevated p-6 text-sm text-app-text-secondary shadow-soft-lift dark:bg-app-card">
-                {t('eventPublicPage.loadingEvent')}
-              </article>
+              <div className="grid gap-6">
+                {/* Header skeleton */}
+                <div className="px-5 py-7 sm:px-8 sm:py-9">
+                  <div className="flex items-start gap-4">
+                    <div className="grid flex-1 gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="h-9 w-56 animate-pulse rounded-xl bg-app-border sm:h-12 sm:w-80" />
+                        <div className="h-5 w-16 animate-pulse rounded-full bg-app-border" />
+                      </div>
+                      <div className="h-4 w-48 animate-pulse rounded-lg bg-app-border sm:w-64" />
+                    </div>
+                    <div className="h-14 w-14 animate-pulse rounded-2xl bg-app-border sm:h-16 sm:w-16 lg:h-[4.5rem] lg:w-[4.5rem]" />
+                  </div>
+                </div>
+
+                {/* Tab pills skeleton */}
+                <div className="flex gap-2 px-5 sm:px-8">
+                  <div className="h-7 w-20 animate-pulse rounded-lg bg-app-border" />
+                  <div className="h-7 w-20 animate-pulse rounded-lg bg-app-border" />
+                </div>
+
+                {/* Tracks card skeleton */}
+                <article className="relative overflow-hidden rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+                  <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                    {Array.from({ length: 7 }).map((_, i) => (
+                      <li
+                        key={i}
+                        className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 shadow-soft-lift dark:bg-app-elevated"
+                      >
+                        <div className="h-10 w-10 shrink-0 animate-pulse rounded-md bg-app-border" />
+                        <div className="min-w-0 flex-1 grid gap-1.5">
+                          <div className="h-3.5 w-3/4 animate-pulse rounded bg-app-border" />
+                          <div className="h-3 w-1/2 animate-pulse rounded bg-app-border" />
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              </div>
             ) : null}
 
             {pageError ? (
@@ -361,7 +432,7 @@ export const EventPublicPage = () => {
               </article>
             ) : null}
 
-            {eventName ? (
+            {headerEvent ? (
               <>
                 <HostEventDetailsHeader
                   event={headerEvent}
@@ -408,56 +479,43 @@ export const EventPublicPage = () => {
                           : 'max-h-0 -translate-y-4 opacity-0'
                       }`}
                     >
-                      <form onSubmit={onSearch} className="grid gap-3">
-                        <label className="grid gap-1 text-sm">
-                          <div className="flex items-center gap-2">
-                            <input
-                              placeholder={t('eventPublicPage.searchPlaceholder')}
-                              value={searchQuery}
-                              onChange={(nextEvent) => setSearchQuery(nextEvent.target.value)}
-                              minLength={2}
-                              maxLength={120}
-                              className="min-w-0 flex-1 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
-                            />
-                            <CTAButton
-                              aria-label={t('eventPublicPage.search')}
-                              disabled={isSearching || isLoading || eventState !== 'open'}
-                              type="submit"
-                              variant="primary"
-                              className="h-10 w-10 px-0 sm:h-auto sm:w-auto sm:px-3"
-                            >
-                              {isSearching ? (
-                                <>
-                                  <LoaderCircle
-                                    size={14}
-                                    className="animate-spin sm:hidden"
-                                    aria-hidden="true"
-                                  />
-                                  <span className="hidden sm:inline">
-                                    {t('eventPublicPage.searching')}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  <Search size={14} aria-hidden="true" className="sm:hidden" />
-                                  <span className="hidden sm:inline">
-                                    {t('eventPublicPage.search')}
-                                  </span>
-                                </>
-                              )}
-                            </CTAButton>
-                            <CTAButton
-                              aria-label={t('eventPublicPage.clear')}
-                              disabled={isSearching}
-                              onClick={clearSearch}
-                              type="button"
-                              variant="secondary"
-                              className="h-10 w-10 px-0 sm:h-auto sm:w-auto sm:px-3"
-                            >
-                              <Eraser size={14} aria-hidden="true" className="sm:hidden" />
-                              <span className="hidden sm:inline">{t('eventPublicPage.clear')}</span>
-                            </CTAButton>
-                          </div>
+                      <form onSubmit={onSearch}>
+                        <label className="relative flex items-center text-sm">
+                          <input
+                            placeholder={t('eventPublicPage.searchPlaceholder')}
+                            value={searchQuery}
+                            onChange={(nextEvent) => setSearchQuery(nextEvent.target.value)}
+                            minLength={2}
+                            maxLength={120}
+                            className="w-full rounded-xl border border-app-border bg-app-bg py-2 pl-4 pr-10 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                          />
+                          <span className="absolute right-0 flex h-full items-center pr-3">
+                            {isSearching ? (
+                              <LoaderCircle
+                                size={16}
+                                className="animate-spin text-app-text-secondary"
+                                aria-hidden="true"
+                              />
+                            ) : searchQuery ? (
+                              <button
+                                type="button"
+                                aria-label={t('eventPublicPage.clear')}
+                                onClick={clearSearch}
+                                className="text-app-text-secondary transition hover:text-app-text"
+                              >
+                                <X size={16} aria-hidden="true" />
+                              </button>
+                            ) : (
+                              <button
+                                type="submit"
+                                aria-label={t('eventPublicPage.search')}
+                                disabled={isLoading || eventState !== 'open'}
+                                className="text-app-text-secondary transition hover:text-app-text disabled:opacity-40"
+                              >
+                                <Search size={16} aria-hidden="true" />
+                              </button>
+                            )}
+                          </span>
                         </label>
                       </form>
                       {searchStatus ? (
@@ -471,14 +529,21 @@ export const EventPublicPage = () => {
                   {activeTab === 'results' ? (
                     <div className="mt-3 grid gap-3">
                       {isSearching ? (
-                        <div className="flex items-center justify-center gap-2 py-6 text-sm font-semibold text-app-text-secondary">
-                          <LoaderCircle
-                            size={16}
-                            className="animate-spin sm:hidden"
-                            aria-hidden="true"
-                          />
-                          <span>{t('eventPublicPage.searchingResults')}</span>
-                        </div>
+                        <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                          {Array.from({ length: 7 }).map((_, i) => (
+                            <li
+                              key={i}
+                              className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 shadow-soft-lift dark:bg-app-elevated"
+                            >
+                              <div className="h-12 w-12 shrink-0 animate-pulse rounded-md bg-app-border" />
+                              <div className="min-w-0 flex-1 grid gap-1.5">
+                                <div className="h-3.5 w-3/4 animate-pulse rounded bg-app-border" />
+                                <div className="h-3 w-1/2 animate-pulse rounded bg-app-border" />
+                              </div>
+                              <div className="h-8 w-14 shrink-0 animate-pulse rounded-lg bg-app-border" />
+                            </li>
+                          ))}
+                        </ul>
                       ) : searchResults.length > 0 ? (
                         <>
                           <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -658,7 +723,7 @@ export const EventPublicPage = () => {
                         </>
                       ) : (
                         <p className="text-sm text-app-text-secondary">
-                          {t('eventPublicPage.noTracksYet')}
+                          {t('eventPublicPage.noTracksYet')}BlurSpotLayer
                         </p>
                       )}
                     </div>
