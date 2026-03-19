@@ -402,6 +402,7 @@
       "back": "Back",
       "next": "Next"
     },
+    "openEventPill": "Manage event",
     "detailsCta": "View details",
     "draftBadge": "Draft",
     "draftUntitled": "Untitled draft",
@@ -455,6 +456,7 @@
     "providerDisconnectedCta": "Open connections",
     "noDescription": "No description provided.",
     "magicLinkLabel": "Magic link",
+    "magicLinkOpenHint": "Open shared page",
     "guestLink": "Guest link:",
     "linkRevoked": "Guest link revoked.",
     "shareSheetTitle": "Share magic link",

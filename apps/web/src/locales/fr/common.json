@@ -402,6 +402,7 @@
       "back": "Retour",
       "next": "Suivant"
     },
+    "openEventPill": "Gérer l'événement",
     "detailsCta": "Voir les détails",
     "draftBadge": "Brouillon",
     "draftUntitled": "Brouillon sans titre",
@@ -455,6 +456,7 @@
     "providerDisconnectedCta": "Ouvrir les connexions",
     "noDescription": "Aucune description fournie.",
     "magicLinkLabel": "Magic link",
+    "magicLinkOpenHint": "Ouvrir la page partagée",
     "guestLink": "Lien invité :",
     "linkRevoked": "Lien invité révoqué.",
     "shareSheetTitle": "Partager le magic link",

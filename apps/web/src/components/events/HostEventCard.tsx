@@ -1,12 +1,10 @@
-import { useNavigate } from '@tanstack/react-router';
-import { type KeyboardEvent, type MouseEvent } from 'react';
-
 import { EventMagicLinkRow } from './EventMagicLinkRow';
 import { EventProviderIcon } from './EventProviderIcon';
 import { EventStatusIndicator } from './EventStatusIndicator';
 import { useI18n } from '../../hooks/useI18n';
 import { HostEvent } from '../../lib/events';
 import { AppSurfaceCard } from '../app/AppSurfaceCard';
+import { CTALink } from '../ui/cta';
 
 type HostEventCardProps = {
   event: HostEvent;
@@ -14,57 +12,10 @@ type HostEventCardProps = {
 
 export const HostEventCard = ({ event }: HostEventCardProps) => {
   const { t } = useI18n();
-  const navigate = useNavigate();
-  const eventDetailsPath = `/playlists/${event.id}`;
-
-  const isNestedInteractiveTarget = (
-    target: EventTarget | null,
-    currentTarget: EventTarget | null,
-  ) => {
-    if (!(target instanceof Element) || !(currentTarget instanceof Element)) {
-      return false;
-    }
-
-    const interactiveAncestor = target.closest(
-      'a, button, input, select, textarea, summary, [role="button"], [role="link"]',
-    );
-
-    return interactiveAncestor !== null && interactiveAncestor !== currentTarget;
-  };
-
-  const openEventDetails = () => {
-    void navigate({ to: eventDetailsPath });
-  };
-
-  const handleCardClick = (cardEvent: MouseEvent<HTMLElement>) => {
-    if (isNestedInteractiveTarget(cardEvent.target, cardEvent.currentTarget)) {
-      return;
-    }
-    openEventDetails();
-  };
-
-  const handleCardKeyDown = (cardEvent: KeyboardEvent<HTMLElement>) => {
-    if (
-      cardEvent.key !== 'Enter' ||
-      isNestedInteractiveTarget(cardEvent.target, cardEvent.currentTarget)
-    ) {
-      return;
-    }
-    cardEvent.preventDefault();
-    openEventDetails();
-  };
 
   return (
-    <AppSurfaceCard
-      as="div"
-      role="link"
-      tabIndex={0}
-      aria-label={t('eventsPage.openEventDetails')}
-      onClick={handleCardClick}
-      onKeyDown={handleCardKeyDown}
-      className="cursor-pointer transition duration-150 hover:border-brand-lime motion-safe:hover:-translate-y-0.5 focus-ring-brand"
-    >
-      <div className="grid gap-3">
+    <AppSurfaceCard>
+      <div className="grid gap-5">
         <div className="flex items-start justify-between gap-2">
           <div className="grid min-w-0 flex-1 gap-1">
             <div className="flex items-center gap-2">
@@ -86,11 +37,21 @@ export const HostEventCard = ({ event }: HostEventCardProps) => {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-xs text-app-text-secondary dark:bg-app-elevated">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-app-text-secondary dark:bg-app-elevated">
           <EventMagicLinkRow
             magicLinkToken={event.magicLinkToken}
             magicLinkRevokedAt={event.magicLinkRevokedAt}
           />
+        </div>
+
+        <div className="flex justify-end sm:mt-4">
+          <CTALink
+            to={`/playlists/${event.id}`}
+            variant="ghost"
+            className=" hover:border-brand-pink hover:text-brand-pink"
+          >
+            {t('eventsPage.openEventPill')}
+          </CTALink>
         </div>
       </div>
     </AppSurfaceCard>
