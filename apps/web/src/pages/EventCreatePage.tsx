@@ -447,6 +447,7 @@ export const EventCreatePage = () => {
     return () => {
       window.clearTimeout(timeoutId);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     createdEvent,
     description,
@@ -844,27 +845,22 @@ export const EventCreatePage = () => {
               </p>
 
               {createdEvent ? (
-                <div className="mt-4 grid gap-3 rounded-xl border border-brand-lime/50 bg-brand-lime/10 p-4">
+                <div className="mt-4 grid gap-3">
                   <p className="text-base font-black text-brand-dark dark:text-brand-white">
                     {t('eventsPage.createFlow.magicLinkReady')}
                   </p>
-                  <div className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text-secondary dark:bg-app-elevated">
-                    <EventMagicLinkRow
-                      magicLinkToken={createdEvent.magicLinkToken}
-                      magicLinkRevokedAt={null}
-                    />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <CTALink to={`/playlists/${createdEvent.eventId}`} variant="primary">
-                      <CTAMobileIconLabel
-                        icon={<Eye size={14} aria-hidden="true" />}
-                        label={t('eventsPage.createFlow.openEventDetails')}
-                      />
-                    </CTALink>
-                    <CTALink to="/playlists" variant="secondary">
-                      {t('eventsPage.backToEvents')}
-                    </CTALink>
-                  </div>
+                  <EventMagicLinkRow
+                    magicLinkToken={createdEvent.magicLinkToken}
+                    magicLinkRevokedAt={null}
+                    shareMode="inline"
+                  />
+                  <CTALink to={`/playlists/${createdEvent.eventId}`} variant="primary">
+                    <Eye size={14} aria-hidden="true" />
+                    {t('eventsPage.createFlow.openEventDetails')}
+                  </CTALink>
+                  <CTALink to="/playlists" variant="secondary">
+                    {t('eventsPage.backToEvents')}
+                  </CTALink>
                 </div>
               ) : (
                 <div className="mt-4 flex justify-center">
