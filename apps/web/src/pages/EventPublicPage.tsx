@@ -388,7 +388,7 @@ export const EventPublicPage = () => {
           {isLoading && !isEventReady ? (
             <div className="grid gap-8">
               <div className="flex flex-col items-center gap-4 pt-6 text-center">
-                <div className="h-22 w-22 sm:mb-5 animate-pulse rounded-2xl bg-app-border sm:h-36 sm:w-36 sm:rounded-3xl" />
+                <div className="h-20 w-20 sm:mb-5 animate-pulse rounded-full bg-app-border sm:h-36 sm:w-36" />
                 <div className="grid gap-2">
                   <div className="mx-auto h-8 w-56 animate-pulse rounded-xl bg-app-border sm:w-80" />
                   <div className="mx-auto h-4 w-40 animate-pulse rounded-lg bg-app-border" />
@@ -429,7 +429,7 @@ export const EventPublicPage = () => {
                   <img
                     src={eventCoverImageUrl}
                     alt=""
-                    className="h-20 w-20 sm:mb-5 rounded-2xl border-6 border-app-border shadow-lg object-cover sm:h-36 sm:w-36 sm:rounded-3xl"
+                    className="h-20 w-20 sm:mb-5 rounded-full border-4 border-app-border shadow-lg object-cover sm:h-36 sm:w-36"
                   />
                 ) : null}
                 <div className="grid gap-1">
@@ -455,7 +455,7 @@ export const EventPublicPage = () => {
               </header>
 
               {/* Sticky toolbar: tabs + search */}
-              <div className="sticky top-4 z-10 grid gap-2 rounded-2xl border border-app-border bg-app-elevated/90 p-3 shadow-soft-lift backdrop-blur-md dark:bg-app-card/90">
+              <div className="sticky top-4 z-10 grid gap-5 sm:gap-10">
                 {/* Tabs — hide search tab when closed */}
                 {!isClosed ? (
                   <div className="relative grid grid-cols-2 overflow-hidden rounded-3xl bg-app-bg dark:bg-app-surface">

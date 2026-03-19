@@ -1,12 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link2, ListMusic, Pencil } from 'lucide-react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
+import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { EventEditFormCard } from '../components/events/EventEditFormCard';
 import { EventMagicLinkCard } from '../components/events/EventMagicLinkCard';
+import { EventProviderIcon } from '../components/events/EventProviderIcon';
+import { EventStatusIndicator } from '../components/events/EventStatusIndicator';
 import { EventTracksCard } from '../components/events/EventTracksCard';
 import { HostEventDetailsHeader } from '../components/events/HostEventDetailsHeader';
+import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
@@ -20,15 +25,17 @@ import {
   fetchEvent,
   fetchEventTracks,
   queryKeys,
-  reopenEvent,
   regenerateMagicLink,
+  reopenEvent,
   revokeMagicLink,
   updateEvent,
   uploadEventImage,
 } from '../lib/queries';
 
+type ManageTab = 'edit' | 'share' | 'tracks';
+
 export const HostEventDetailsPage = () => {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
   const params = useParams({ from: '/playlists/$eventId' });
@@ -37,23 +44,8 @@ export const HostEventDetailsPage = () => {
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [activeTab, setActiveTab] = useState<ManageTab>('edit');
   const trackedDisconnectedWarningEventIdsRef = useRef<Set<string>>(new Set());
-
-  const dateFormatter = useMemo(
-    () => new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }),
-    [locale],
-  );
-
-  const formatDateTime = useCallback(
-    (value: string) => {
-      try {
-        return dateFormatter.format(new Date(value));
-      } catch {
-        return value;
-      }
-    },
-    [dateFormatter],
-  );
 
   // ---------------------------------------------------------------------------
   // Queries
@@ -240,13 +232,61 @@ export const HostEventDetailsPage = () => {
     saveEventMutation.mutate();
   };
 
+  const tabIndicatorTransform =
+    activeTab === 'tracks'
+      ? 'translateX(100%)'
+      : activeTab === 'share'
+        ? 'translateX(200%)'
+        : 'translateX(0)';
+  const showEditMetaCard = activeTab === 'edit';
+
   // ---------------------------------------------------------------------------
-  // Render — AppPageLayout for consistency with all other authenticated pages
+  // Render
   // ---------------------------------------------------------------------------
 
+  const heroImageInput = (
+    <input
+      id="hero-image-input"
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      className="sr-only"
+      onChange={(e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.size > 8_000_000) {
+          showToast(t('eventsPage.coverImageTooLarge', { maxMb: 8 }), { variant: 'error' });
+          e.target.value = '';
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === 'string') uploadImageMutation.mutate(reader.result);
+        };
+        reader.readAsDataURL(file);
+        e.target.value = '';
+      }}
+    />
+  );
+
   return (
-    <AppPageLayout>
-      <div className="relative grid gap-6">
+    <AppPageLayout
+      className="overflow-hidden"
+      backdrop={
+        <BlurSpotLayer
+          filterId="manage-page-blur-filter"
+          className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
+          spots={[
+            { id: 'a', size: 260, top: 5, left: 10, color: 'rgba(198,255,0,0.18)' },
+            { id: 'b', size: 280, top: 10, left: 78, color: 'rgba(255,46,139,0.18)' },
+            { id: 'c', size: 220, top: 40, left: 50, color: 'rgba(125,211,252,0.15)' },
+            { id: 'd', size: 240, top: 72, left: 12, color: 'rgba(198,255,0,0.15)' },
+            { id: 'e', size: 200, top: 68, left: 88, color: 'rgba(255,46,139,0.15)' },
+          ]}
+        />
+      }
+    >
+      <div className="relative grid gap-4">
+        {/* Back button */}
         <HostEventDetailsHeader
           event={event}
           isWorking={isWorking}
@@ -254,89 +294,258 @@ export const HostEventDetailsPage = () => {
           onReopen={() => reopenEventMutation.mutate()}
         />
 
+        {/* Hero — centered avatar, big title, tab bar */}
+        <header className="flex flex-col items-center gap-4 text-center">
+          <div className="relative">
+            {event?.coverImageUrl ? (
+              <img
+                src={event.coverImageUrl}
+                alt=""
+                className="h-23 w-23 rounded-full border-4 border-app-border object-cover shadow-lg sm:h-28 sm:w-28"
+              />
+            ) : (
+              <div className="h-20 w-20 rounded-full border-4 border-app-border bg-app-elevated sm:h-28 sm:w-28 dark:bg-app-card" />
+            )}
+            <button
+              type="button"
+              disabled={isUploadingImage}
+              onClick={() => document.getElementById('hero-image-input')?.click()}
+              aria-label={t('eventsPage.changeCoverImage')}
+              className="group absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated p-1.5 shadow-soft-lift transition duration-200 hover:border-brand-pink motion-safe:hover:-translate-y-0.5 dark:bg-app-card disabled:opacity-50"
+            >
+              <Pencil
+                className="h-3.5 w-3.5 transition-transform duration-200 ease-out motion-safe:group-hover:-rotate-12 motion-safe:group-hover:scale-110"
+                aria-hidden="true"
+              />
+            </button>
+            {heroImageInput}
+          </div>
+
+          <div className="grid gap-1 pt-1">
+            <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+              {event?.name ?? t('eventsPage.loadingDetails')}
+            </h1>
+            {event?.description ? (
+              <p className="text-sm text-app-text-secondary sm:text-base">{event.description}</p>
+            ) : null}
+          </div>
+
+          {/* Tab bar */}
+          {event ? (
+            <div className="relative grid w-full max-w-md grid-cols-3 overflow-hidden rounded-3xl border border-app-border bg-app-elevated shadow-soft-lift dark:bg-app-card">
+              <div
+                className="absolute inset-0 w-1/3 bg-brand-lime transition-transform duration-200 ease-in-out"
+                style={{ transform: tabIndicatorTransform }}
+              />
+              <button
+                type="button"
+                onClick={() => setActiveTab('edit')}
+                className={`group relative z-10 inline-flex cursor-pointer items-center justify-center gap-1.5 py-3 text-xs font-extrabold leading-none transition-colors duration-200 focus-ring-brand ${
+                  activeTab === 'edit'
+                    ? 'text-brand-dark'
+                    : 'bg-brand-dark/5 text-app-text-secondary hover:bg-brand-lime/15 hover:text-app-text'
+                }`}
+              >
+                <span
+                  className={`inline-flex transition-transform duration-200 ease-out motion-safe:group-hover:-translate-y-0.5 motion-safe:group-hover:-rotate-12 ${
+                    activeTab === 'edit' ? '-rotate-6 -translate-y-0.5' : ''
+                  }`}
+                >
+                  <Pencil size={13} aria-hidden="true" />
+                </span>
+                {t('eventsPage.edit')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('tracks')}
+                className={`group relative z-10 inline-flex cursor-pointer items-center justify-center gap-1.5 py-3 text-xs font-extrabold leading-none transition-colors duration-200 focus-ring-brand ${
+                  activeTab === 'tracks'
+                    ? 'text-brand-dark'
+                    : 'bg-brand-dark/5 text-app-text-secondary hover:bg-brand-lime/15 hover:text-app-text'
+                }`}
+              >
+                <span
+                  className={`inline-flex transition-transform duration-200 ease-out motion-safe:group-hover:-translate-y-0.5 motion-safe:group-hover:scale-110 ${
+                    activeTab === 'tracks' ? '-translate-y-0.5 scale-105' : ''
+                  }`}
+                >
+                  <ListMusic size={13} aria-hidden="true" />
+                </span>
+                {t('eventsPage.track')}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('share')}
+                className={`group relative z-10 inline-flex cursor-pointer items-center justify-center gap-1.5 py-3 text-xs font-extrabold leading-none transition-colors duration-200 focus-ring-brand ${
+                  activeTab === 'share'
+                    ? 'text-brand-dark'
+                    : 'bg-brand-dark/5 text-app-text-secondary hover:bg-brand-lime/15 hover:text-app-text'
+                }`}
+              >
+                <span
+                  className={`inline-flex transition-transform duration-200 ease-out motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5 motion-safe:group-hover:rotate-12 ${
+                    activeTab === 'share' ? 'translate-x-0.5 -translate-y-0.5 rotate-6' : ''
+                  }`}
+                >
+                  <Link2 size={13} aria-hidden="true" />
+                </span>
+                {t('eventsPage.share')}
+              </button>
+            </div>
+          ) : null}
+        </header>
+
+        {/* Two-col: left sidebar + right content */}
         {event ? (
-          <>
-            {event.providerConnectionStatus === 'not_connected' ? (
-              <article className="rounded-2xl border border-amber-400/45 bg-amber-400/10 p-5 shadow-soft-lift dark:bg-amber-300/10">
-                <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-                  <div className="grid gap-1">
-                    <h2 className="text-base font-bold text-amber-800 dark:text-amber-200">
-                      {t('eventsPage.providerDisconnectedTitle')}
-                    </h2>
-                    <p className="text-sm text-amber-700 dark:text-amber-200/90">
-                      {t('eventsPage.providerDisconnectedBody')}
-                    </p>
+          <div className={`grid gap-4 ${showEditMetaCard ? 'sm:grid-cols-[1fr_2fr]' : ''}`}>
+            {/* Left col — status, streaming service, close CTA */}
+            {showEditMetaCard ? (
+              <AppSurfaceCard className="flex flex-col gap-4">
+                {/* Status */}
+                <div className="grid gap-1.5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+                    {t('eventsPage.statusLabel')}
+                  </p>
+                  <div className="flex items-center gap-2.5 rounded-xl border border-app-border bg-app-bg px-3 py-2.5 dark:bg-app-elevated">
+                    <EventStatusIndicator
+                      status={event.status}
+                      connectionStatus={event.providerConnectionStatus}
+                      mode="dot"
+                      dotSize="md"
+                    />
+                    <span className="text-sm font-semibold text-app-text">
+                      {event.status === 'open'
+                        ? t('eventsPage.statusOpen')
+                        : t('eventsPage.statusClosed')}
+                    </span>
                   </div>
-                  <CTALink to="/profile/platforms" variant="secondary" className="justify-center">
-                    {t('eventsPage.providerDisconnectedCta')}
-                  </CTALink>
                 </div>
-              </article>
+
+                {/* Streaming service */}
+                <div className="grid gap-1.5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+                    {t('eventsPage.streamingServiceLabel')}
+                  </p>
+                  <div className="flex items-center gap-2.5 rounded-xl border border-app-border bg-app-bg px-3 py-2.5 dark:bg-app-elevated">
+                    <EventProviderIcon
+                      provider={event.provider}
+                      sizeClassName="h-7 w-7 shrink-0"
+                      className="dark:shadow-glow-pink"
+                    />
+                    <span className="text-sm font-semibold text-app-text">
+                      {event.provider === 'apple' ? 'Apple Music' : 'Spotify'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Close/reopen CTA */}
+                <div className="mt-auto pt-2">
+                  <CTAButton
+                    disabled={isWorking}
+                    onClick={() =>
+                      event.status === 'open'
+                        ? setIsCloseConfirmOpen(true)
+                        : reopenEventMutation.mutate()
+                    }
+                    type="button"
+                    variant={event.status === 'open' ? 'dangerSoft' : 'secondary'}
+                    className="w-full justify-center"
+                  >
+                    {isWorking
+                      ? t('eventsPage.working')
+                      : event.status === 'open'
+                        ? t('eventsPage.closeEvent')
+                        : t('eventsPage.reopenEvent')}
+                  </CTAButton>
+                </div>
+              </AppSurfaceCard>
             ) : null}
 
-            <EventEditFormCard
-              editName={editName}
-              editDescription={editDescription}
-              coverImageUrl={event.coverImageUrl ?? null}
-              isWorking={isWorking}
-              isUploadingImage={isUploadingImage}
-              onSubmit={handleSave}
-              onNameChange={setEditName}
-              onDescriptionChange={setEditDescription}
-              onCancel={() => {
-                setEditName(event.name);
-                setEditDescription(event.description);
-              }}
-              onImageUpload={(dataUrl) => uploadImageMutation.mutate(dataUrl)}
-              onImageDelete={() => deleteImageMutation.mutate()}
-              onImageError={(message) => showToast(message, { variant: 'error' })}
-            />
+            {/* Right col — disconnected warning + tab panel */}
+            <div className="grid content-start gap-4">
+              {event.providerConnectionStatus === 'not_connected' ? (
+                <article className="rounded-2xl border border-amber-400/45 bg-amber-400/10 p-5 shadow-soft-lift dark:bg-amber-300/10">
+                  <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+                    <div className="grid gap-1">
+                      <h2 className="text-base font-bold text-amber-800 dark:text-amber-200">
+                        {t('eventsPage.providerDisconnectedTitle')}
+                      </h2>
+                      <p className="text-sm text-amber-700 dark:text-amber-200/90">
+                        {t('eventsPage.providerDisconnectedBody')}
+                      </p>
+                    </div>
+                    <CTALink to="/profile/platforms" variant="secondary" className="justify-center">
+                      {t('eventsPage.providerDisconnectedCta')}
+                    </CTALink>
+                  </div>
+                </article>
+              ) : null}
 
-            <Modal
-              open={isCloseConfirmOpen}
-              title={t('eventsPage.closeEventConfirmTitle')}
-              onClose={() => setIsCloseConfirmOpen(false)}
-            >
-              <div className="grid gap-4">
-                <p className="text-sm text-app-text-secondary">
-                  {t('eventsPage.closeEventConfirmBody')}
-                </p>
-                <div className="flex flex-wrap justify-end gap-2">
-                  <CTAButton
-                    type="button"
-                    variant="secondary"
-                    disabled={isWorking}
-                    onClick={() => setIsCloseConfirmOpen(false)}
-                  >
-                    {t('eventsPage.cancel')}
-                  </CTAButton>
-                  <CTAButton
-                    type="button"
-                    variant="danger"
-                    disabled={isWorking || event.status !== 'open'}
-                    onClick={() => closeEventMutation.mutate()}
-                  >
-                    {isWorking ? t('eventsPage.working') : t('eventsPage.closeEventConfirmCta')}
-                  </CTAButton>
-                </div>
-              </div>
-            </Modal>
-
-            <EventMagicLinkCard
-              event={event}
-              isWorking={isWorking}
-              formatDateTime={formatDateTime}
-              onRevoke={() => revokeMagicLinkMutation.mutate()}
-              onRegenerate={() => regenerateMagicLinkMutation.mutate()}
-            />
-
-            <EventTracksCard
-              tracks={tracks}
-              isLoadingTracks={tracksQuery.isFetching}
-              onRefreshTracks={() => void tracksQuery.refetch()}
-            />
-          </>
+              {activeTab === 'edit' ? (
+                <EventEditFormCard
+                  editName={editName}
+                  editDescription={editDescription}
+                  coverImageUrl={event.coverImageUrl ?? null}
+                  isWorking={isWorking}
+                  isUploadingImage={isUploadingImage}
+                  onSubmit={handleSave}
+                  onNameChange={setEditName}
+                  onDescriptionChange={setEditDescription}
+                  onCancel={() => {
+                    setEditName(event.name);
+                    setEditDescription(event.description);
+                  }}
+                  onImageUpload={(dataUrl) => uploadImageMutation.mutate(dataUrl)}
+                  onImageDelete={() => deleteImageMutation.mutate()}
+                  onImageError={(message) => showToast(message, { variant: 'error' })}
+                />
+              ) : activeTab === 'share' ? (
+                <EventMagicLinkCard
+                  event={event}
+                  isWorking={isWorking}
+                  onRevoke={() => revokeMagicLinkMutation.mutate()}
+                  onRegenerate={() => regenerateMagicLinkMutation.mutate()}
+                />
+              ) : (
+                <EventTracksCard
+                  tracks={tracks}
+                  isLoadingTracks={tracksQuery.isFetching}
+                  onRefreshTracks={() => void tracksQuery.refetch()}
+                />
+              )}
+            </div>
+          </div>
         ) : null}
+
+        <Modal
+          open={isCloseConfirmOpen}
+          title={t('eventsPage.closeEventConfirmTitle')}
+          onClose={() => setIsCloseConfirmOpen(false)}
+        >
+          <div className="grid gap-4">
+            <p className="text-sm text-app-text-secondary">
+              {t('eventsPage.closeEventConfirmBody')}
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <CTAButton
+                type="button"
+                variant="secondary"
+                disabled={isWorking}
+                onClick={() => setIsCloseConfirmOpen(false)}
+              >
+                {t('eventsPage.cancel')}
+              </CTAButton>
+              <CTAButton
+                type="button"
+                variant="danger"
+                disabled={isWorking || event?.status !== 'open'}
+                onClick={() => closeEventMutation.mutate()}
+              >
+                {isWorking ? t('eventsPage.working') : t('eventsPage.closeEventConfirmCta')}
+              </CTAButton>
+            </div>
+          </div>
+        </Modal>
       </div>
     </AppPageLayout>
   );
