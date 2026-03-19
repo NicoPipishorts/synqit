@@ -543,6 +543,7 @@ export const eventSchema = z.object({
   status: eventStatusSchema,
   name: z.string(),
   description: z.string(),
+  coverImageUrl: z.string().nullable().optional(),
   magicLinkToken: z.string(),
   magicLinkRevokedAt: z.string().nullable(),
   createdAt: z.string(),
@@ -597,6 +598,7 @@ export const eventPublicSchema = z.object({
   status: eventStatusSchema,
   name: z.string(),
   description: z.string(),
+  coverImageUrl: z.string().nullable().optional(),
   createdAt: z.string(),
 });
 export type EventPublic = z.infer<typeof eventPublicSchema>;

@@ -16,6 +16,7 @@ import { toApiError } from '../lib/api';
 import { HostEvent } from '../lib/events';
 import {
   closeEvent,
+  deleteEventImage,
   fetchEvent,
   fetchEventTracks,
   queryKeys,
@@ -23,6 +24,7 @@ import {
   regenerateMagicLink,
   revokeMagicLink,
   updateEvent,
+  uploadEventImage,
 } from '../lib/queries';
 
 export const HostEventDetailsPage = () => {
@@ -193,12 +195,40 @@ export const HostEventDetailsPage = () => {
     },
   });
 
+  const uploadImageMutation = useMutation({
+    mutationFn: (imageDataUrl: string) => uploadEventImage({ eventId, imageDataUrl }),
+    onSuccess: (updated) => {
+      applyEventUpdate(updated);
+      showToast(t('eventsPage.coverImageUpdated'), { variant: 'success' });
+    },
+    onError: (error) => {
+      showToast(t('eventsPage.error', { message: toApiError(error).message }), {
+        variant: 'error',
+      });
+    },
+  });
+
+  const deleteImageMutation = useMutation({
+    mutationFn: () => deleteEventImage(eventId),
+    onSuccess: (updated) => {
+      applyEventUpdate(updated);
+      showToast(t('eventsPage.coverImageRemoved'), { variant: 'success' });
+    },
+    onError: (error) => {
+      showToast(t('eventsPage.error', { message: toApiError(error).message }), {
+        variant: 'error',
+      });
+    },
+  });
+
   const isWorking =
     saveEventMutation.isPending ||
     closeEventMutation.isPending ||
     reopenEventMutation.isPending ||
     revokeMagicLinkMutation.isPending ||
     regenerateMagicLinkMutation.isPending;
+
+  const isUploadingImage = uploadImageMutation.isPending || deleteImageMutation.isPending;
 
   // ---------------------------------------------------------------------------
   // Handlers
@@ -247,7 +277,9 @@ export const HostEventDetailsPage = () => {
             <EventEditFormCard
               editName={editName}
               editDescription={editDescription}
+              coverImageUrl={event.coverImageUrl ?? null}
               isWorking={isWorking}
+              isUploadingImage={isUploadingImage}
               onSubmit={handleSave}
               onNameChange={setEditName}
               onDescriptionChange={setEditDescription}
@@ -255,6 +287,9 @@ export const HostEventDetailsPage = () => {
                 setEditName(event.name);
                 setEditDescription(event.description);
               }}
+              onImageUpload={(dataUrl) => uploadImageMutation.mutate(dataUrl)}
+              onImageDelete={() => deleteImageMutation.mutate()}
+              onImageError={(message) => showToast(message, { variant: 'error' })}
             />
 
             <Modal

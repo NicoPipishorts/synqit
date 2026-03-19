@@ -6,6 +6,7 @@ export type HostEvent = {
   id: string;
   name: string;
   description: string;
+  coverImageUrl: string | null;
   provider: EventProvider;
   providerConnectionStatus: ProviderConnectionStatus;
   status: EventStatus;

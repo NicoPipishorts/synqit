@@ -112,12 +112,12 @@ export const EventMagicLinkRow = ({
         href={getPublicEventPath(magicLinkToken)}
         target="_blank"
         rel="noreferrer"
-        className="group inline-flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-1 text-app-text shadow-soft-lift transition duration-150 hover:border-brand-pink focus-ring-brand dark:bg-app-elevated"
+        className="group inline-flex min-w-0 items-center gap-2 rounded-xl border border-app-border bg-app-surface px-3 py-1 text-app-text shadow-soft-lift transition duration-150 hover:border-brand-pink focus-ring-brand dark:bg-app-elevated"
       >
         <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center  text-brand-pink dark:bg-app-card">
           <Link2 size={14} aria-hidden="true" />
         </span>
-        <span className="grid min-w-0 flex-1 gap-0.5">
+        <span className="grid min-w-0 gap-0.5">
           <span className="truncate text-sm font-semibold">
             {t('eventsPage.magicLinkOpenHint')}
           </span>

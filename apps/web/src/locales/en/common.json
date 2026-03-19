@@ -432,6 +432,12 @@
     "emptyBody": "Create your first playlist to start collecting guest tracks.",
     "eventName": "Playlist name",
     "eventDescription": "Description",
+    "coverImage": "Cover image",
+    "addCoverImage": "Add cover image",
+    "changeCoverImage": "Change",
+    "coverImageUpdated": "Cover image updated.",
+    "coverImageRemoved": "Cover image removed.",
+    "coverImageTooLarge": "Image is too large. Max size is {{maxMb}} MB.",
     "save": "Save",
     "saving": "Saving...",
     "cancel": "Cancel",
@@ -492,8 +498,8 @@
     "addedToast": "Added \"{{name}}\".",
     "noDescription": "No description provided.",
     "tabs": {
-      "search": "Search ({{count}})",
-      "list": "List ({{count}})"
+      "search": "Add a track",
+      "list": "Tracks ({{count}})"
     },
     "searchPlaceholder": "Search songs or artists",
     "search": "Search",

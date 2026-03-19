@@ -432,6 +432,12 @@
     "emptyBody": "Crée ta première playlist pour commencer à collecter des titres.",
     "eventName": "Nom de la playlist",
     "eventDescription": "Description",
+    "coverImage": "Image de couverture",
+    "addCoverImage": "Ajouter une image",
+    "changeCoverImage": "Changer",
+    "coverImageUpdated": "Image de couverture mise à jour.",
+    "coverImageRemoved": "Image de couverture supprimée.",
+    "coverImageTooLarge": "L'image est trop grande. Taille max : {{maxMb}} Mo.",
     "save": "Enregistrer",
     "saving": "Enregistrement...",
     "cancel": "Annuler",
@@ -492,8 +498,8 @@
     "addedToast": "« {{name}} » ajouté.",
     "noDescription": "Aucune description fournie.",
     "tabs": {
-      "search": "Recherche ({{count}})",
-      "list": "Liste ({{count}})"
+      "search": "Ajoute un morceau",
+      "list": "Les morceaux ({{count}})"
     },
     "searchPlaceholder": "Rechercher des titres ou des artistes",
     "search": "Rechercher",

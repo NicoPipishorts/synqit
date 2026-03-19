@@ -20,6 +20,13 @@ import {
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 
+import {
+  createEventImageReadStream,
+  buildEventImageUrl,
+  deleteEventImage,
+  resolveEventImageFile,
+  saveEventImage,
+} from './event-image-storage';
 import { eventsStore, EventDraftRecord, EventRecord } from './store';
 import { authStore } from '../auth/store';
 import { getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
@@ -126,6 +133,7 @@ const toEventResponse = (params: {
   eventResponseSchema.parse({
     event: {
       ...params.event,
+      coverImageUrl: buildEventImageUrl(params.event.coverImageUrl),
       providerConnectionStatus: params.providerConnectionStatus,
       magicLinkRevokedAt: params.event.magicLinkRevokedAt
         ? params.event.magicLinkRevokedAt.toISOString()
@@ -816,6 +824,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         status: event.status,
         name: event.name,
         description: event.description,
+        coverImageUrl: buildEventImageUrl(event.coverImageUrl),
         createdAt: event.createdAt.toISOString(),
       },
     });
@@ -1737,5 +1746,105 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       event,
       providerConnectionStatus,
     });
+  });
+
+  // ── Cover image upload ──────────────────────────────────────────────────
+  app.post('/playlists/:eventId/image', { bodyLimit: 12_000_000 }, async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const event = await eventsStore.findEventById(eventId);
+    if (!event || event.hostUserId !== userId) {
+      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
+    }
+
+    const body = request.body as { imageDataUrl?: unknown };
+    if (typeof body?.imageDataUrl !== 'string') {
+      return reply
+        .status(400)
+        .send({ code: 'validation_error', message: 'imageDataUrl is required.' });
+    }
+
+    // Delete old image if present
+    if (event.coverImageUrl) {
+      await deleteEventImage(event.coverImageUrl).catch(() => null);
+    }
+
+    let imagePath: string;
+    try {
+      const result = await saveEventImage({ eventId, imageDataUrl: body.imageDataUrl });
+      imagePath = result.imagePath;
+    } catch {
+      return reply
+        .status(400)
+        .send({ code: 'invalid_image', message: 'Image is invalid or too large.' });
+    }
+
+    const updated = await eventsStore.updateEventCoverImage({
+      eventId,
+      hostUserId: userId,
+      coverImageUrl: imagePath,
+    });
+    if (!updated) {
+      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
+    }
+
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: updated.hostUserId,
+      provider: updated.provider,
+    });
+
+    return toEventResponse({ event: updated, providerConnectionStatus });
+  });
+
+  // ── Cover image delete ──────────────────────────────────────────────────
+  app.delete('/playlists/:eventId/image', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const event = await eventsStore.findEventById(eventId);
+    if (!event || event.hostUserId !== userId) {
+      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
+    }
+
+    if (event.coverImageUrl) {
+      await deleteEventImage(event.coverImageUrl).catch(() => null);
+    }
+
+    const updated = await eventsStore.updateEventCoverImage({
+      eventId,
+      hostUserId: userId,
+      coverImageUrl: null,
+    });
+    if (!updated) {
+      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
+    }
+
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: updated.hostUserId,
+      provider: updated.provider,
+    });
+
+    return toEventResponse({ event: updated, providerConnectionStatus });
+  });
+
+  // ── Public image serving ────────────────────────────────────────────────
+  app.get('/public/event-images/:fileName', async (request, reply) => {
+    const fileName = (request.params as { fileName?: string }).fileName ?? '';
+    const resolved = await resolveEventImageFile(fileName);
+    if (!resolved) {
+      return reply.status(404).send({ code: 'not_found', message: 'Image not found.' });
+    }
+
+    void reply.header('Content-Type', resolved.contentType);
+    void reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+    void reply.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    return reply.send(createEventImageReadStream(resolved.filePath));
   });
 };

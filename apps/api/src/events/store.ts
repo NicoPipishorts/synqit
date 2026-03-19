@@ -18,6 +18,7 @@ type EventRecord = {
   status: EventStatus;
   name: string;
   description: string;
+  coverImageUrl: string | null;
   magicLinkToken: string;
   magicLinkRevokedAt: Date | null;
   createdAt: Date;
@@ -56,6 +57,7 @@ type EventRow = {
   status: string;
   name: string;
   description: string;
+  cover_image_url: string | null;
   magic_link_token: string;
   magic_link_revoked_at: Date | null;
   created_at: Date;
@@ -104,6 +106,7 @@ const toEventRecord = (row: EventRow): EventRecord => ({
   status: eventStatusSchema.parse(row.status),
   name: row.name,
   description: row.description,
+  coverImageUrl: row.cover_image_url ?? null,
   magicLinkToken: row.magic_link_token,
   magicLinkRevokedAt: row.magic_link_revoked_at ? new Date(row.magic_link_revoked_at) : null,
   createdAt: new Date(row.created_at),
@@ -613,6 +616,25 @@ export const eventsStore = {
         magic_link_revoked_at: existing.magic_link_revoked_at ?? new Date(),
         updated_at: new Date(),
       },
+    });
+
+    return toEventWithTracks(toEventRecord(updated));
+  },
+
+  async updateEventCoverImage(params: {
+    eventId: string;
+    hostUserId: string;
+    coverImageUrl: string | null;
+  }): Promise<EventRecord | null> {
+    const existing = await prisma.events.findFirst({
+      where: { id: params.eventId, host_user_id: params.hostUserId },
+      select: { id: true },
+    });
+    if (!existing) return null;
+
+    const updated = await prisma.events.update({
+      where: { id: existing.id },
+      data: { cover_image_url: params.coverImageUrl, updated_at: new Date() },
     });
 
     return toEventWithTracks(toEventRecord(updated));

@@ -107,6 +107,7 @@ export const HostEventDetailsHeader = ({
             onClick={() => (event.status === 'open' ? onOpenCloseConfirm?.() : onReopen?.())}
             type="button"
             variant="secondary"
+            className="w-fit"
           >
             {isWorking
               ? t('eventsPage.working')
