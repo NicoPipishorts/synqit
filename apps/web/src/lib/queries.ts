@@ -79,6 +79,7 @@ export const mapApiEvent = (event: {
   provider: HostEvent['provider'];
   providerConnectionStatus: HostEvent['providerConnectionStatus'];
   status: HostEvent['status'];
+  closeReason?: HostEvent['closeReason'];
   magicLinkToken: string;
   magicLinkRevokedAt: string | null;
   updatedAt: string;
@@ -90,6 +91,7 @@ export const mapApiEvent = (event: {
   provider: event.provider,
   providerConnectionStatus: event.providerConnectionStatus,
   status: event.status,
+  closeReason: event.closeReason ?? null,
   magicLinkToken: event.magicLinkToken,
   magicLinkRevokedAt: event.magicLinkRevokedAt,
   updatedAt: event.updatedAt,

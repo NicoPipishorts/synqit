@@ -135,6 +135,7 @@ const toEventResponse = (params: {
       ...params.event,
       coverImageUrl: buildEventImageUrl(params.event.coverImageUrl),
       providerConnectionStatus: params.providerConnectionStatus,
+      closeReason: params.event.closeReason ?? null,
       magicLinkRevokedAt: params.event.magicLinkRevokedAt
         ? params.event.magicLinkRevokedAt.toISOString()
         : null,
@@ -196,6 +197,7 @@ const reconcileMissingProviderPlaylist = async (params: {
   const closedEvent = await eventsStore.closeEvent({
     eventId: params.event.id,
     hostUserId: params.event.hostUserId,
+    closeReason: 'provider_playlist_missing',
   });
 
   params.app.log.warn(
@@ -794,6 +796,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         providerConnectionStatus: connectedProviders.has(event.provider)
           ? 'connected'
           : 'not_connected',
+        closeReason: event.closeReason ?? null,
         magicLinkRevokedAt: event.magicLinkRevokedAt
           ? event.magicLinkRevokedAt.toISOString()
           : null,
@@ -822,6 +825,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         provider: event.provider,
         providerConnectionStatus,
         status: event.status,
+        closeReason: event.closeReason ?? null,
         name: event.name,
         description: event.description,
         coverImageUrl: buildEventImageUrl(event.coverImageUrl),

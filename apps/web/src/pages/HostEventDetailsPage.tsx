@@ -88,13 +88,17 @@ export const HostEventDetailsPage = () => {
   useEffect(() => {
     if (!tracksQuery.isError) return;
     const apiError = toApiError(tracksQuery.error);
+    if (apiError.code === 'provider_playlist_missing') {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.events.detail(eventId) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.events.list() });
+    }
     showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
     trackAnalyticsEvent({
       eventName: 'event_tracks_load_failed',
       target: 'events',
       properties: { scope: 'host', code: apiError.code, eventId },
     });
-  }, [tracksQuery.isError, tracksQuery.error, showToast, t, eventId]);
+  }, [tracksQuery.isError, tracksQuery.error, showToast, t, eventId, queryClient]);
 
   // Analytics: disconnected warning (fire once per event id)
   useEffect(() => {
@@ -239,6 +243,7 @@ export const HostEventDetailsPage = () => {
         ? 'translateX(200%)'
         : 'translateX(0)';
   const showEditMetaCard = activeTab === 'edit';
+  const isReopenDisabled = event?.closeReason === 'provider_playlist_missing';
 
   // ---------------------------------------------------------------------------
   // Render
@@ -401,26 +406,6 @@ export const HostEventDetailsPage = () => {
             {/* Left col — status, streaming service, close CTA */}
             {showEditMetaCard ? (
               <AppSurfaceCard className="flex flex-col gap-4">
-                {/* Status */}
-                <div className="grid gap-1.5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
-                    {t('eventsPage.statusLabel')}
-                  </p>
-                  <div className="flex items-center gap-2.5 rounded-xl border border-app-border bg-app-bg px-3 py-2.5 dark:bg-app-elevated">
-                    <EventStatusIndicator
-                      status={event.status}
-                      connectionStatus={event.providerConnectionStatus}
-                      mode="dot"
-                      dotSize="md"
-                    />
-                    <span className="text-sm font-semibold text-app-text">
-                      {event.status === 'open'
-                        ? t('eventsPage.statusOpen')
-                        : t('eventsPage.statusClosed')}
-                    </span>
-                  </div>
-                </div>
-
                 {/* Streaming service */}
                 <div className="grid gap-1.5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
@@ -436,12 +421,40 @@ export const HostEventDetailsPage = () => {
                       {event.provider === 'apple' ? 'Apple Music' : 'Spotify'}
                     </span>
                   </div>
+                  {event.closeReason === 'provider_playlist_missing' ? (
+                    <p className="rounded-xl border border-brand-pink/35 bg-brand-pink/10 px-3 py-2 text-xs text-[#b41563] dark:text-[#ff8ac0]">
+                      {t('eventsPage.providerPlaylistDeletedBody')}
+                    </p>
+                  ) : null}
+                </div>
+
+                {/* Status */}
+                <div className="grid gap-1.5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+                    {t('eventsPage.statusLabel')}
+                  </p>
+                  <div className="flex items-center gap-2.5 rounded-xl border border-app-border bg-app-bg px-3 py-2.5 dark:bg-app-elevated">
+                    <EventStatusIndicator
+                      status={event.status}
+                      closeReason={event.closeReason}
+                      connectionStatus={event.providerConnectionStatus}
+                      mode="dot"
+                      dotSize="md"
+                    />
+                    <span className="text-sm font-semibold text-app-text">
+                      {event.status === 'open'
+                        ? t('eventsPage.statusOpen')
+                        : event.closeReason === 'provider_playlist_missing'
+                          ? t('eventsPage.statusDeleted')
+                          : t('eventsPage.statusClosed')}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Close/reopen CTA */}
                 <div className="mt-auto pt-2">
                   <CTAButton
-                    disabled={isWorking}
+                    disabled={isWorking || (event.status === 'closed' && isReopenDisabled)}
                     onClick={() =>
                       event.status === 'open'
                         ? setIsCloseConfirmOpen(true)

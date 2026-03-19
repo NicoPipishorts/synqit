@@ -3,6 +3,9 @@ import { z } from 'zod';
 export const providerSchema = z.enum(['spotify', 'apple']);
 export type Provider = z.infer<typeof providerSchema>;
 
+export const eventCloseReasonSchema = z.enum(['provider_playlist_missing']);
+export type EventCloseReason = z.infer<typeof eventCloseReasonSchema>;
+
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 128;
 
@@ -541,6 +544,7 @@ export const eventSchema = z.object({
   providerConnectionStatus: providerConnectionStatusSchema,
   providerPlaylistId: z.string(),
   status: eventStatusSchema,
+  closeReason: eventCloseReasonSchema.nullable().optional(),
   name: z.string(),
   description: z.string(),
   coverImageUrl: z.string().nullable().optional(),
@@ -596,6 +600,7 @@ export const eventPublicSchema = z.object({
   provider: providerSchema,
   providerConnectionStatus: providerConnectionStatusSchema,
   status: eventStatusSchema,
+  closeReason: eventCloseReasonSchema.nullable().optional(),
   name: z.string(),
   description: z.string(),
   coverImageUrl: z.string().nullable().optional(),

@@ -1,8 +1,9 @@
 import { useI18n } from '../../hooks/useI18n';
-import { EventStatus, ProviderConnectionStatus } from '../../lib/events';
+import { EventCloseReason, EventStatus, ProviderConnectionStatus } from '../../lib/events';
 
 type EventStatusIndicatorProps = {
   status: EventStatus;
+  closeReason?: EventCloseReason | null;
   connectionStatus?: ProviderConnectionStatus;
   mode?: 'dot' | 'responsive' | 'pill';
   dotSize?: 'sm' | 'md';
@@ -10,18 +11,22 @@ type EventStatusIndicatorProps = {
 
 export const EventStatusIndicator = ({
   status,
+  closeReason = null,
   connectionStatus = 'connected',
   mode = 'responsive',
   dotSize = 'sm',
 }: EventStatusIndicatorProps) => {
   const { t } = useI18n();
   const isClosed = status === 'closed';
+  const isDeleted = isClosed && closeReason === 'provider_playlist_missing';
   const isDisconnected = !isClosed && connectionStatus === 'not_connected';
-  const label = isClosed
-    ? t('eventsPage.statusClosed')
-    : isDisconnected
-      ? t('eventsPage.statusDisconnected')
-      : t('eventsPage.statusOpen');
+  const label = isDeleted
+    ? t('eventsPage.statusDeleted')
+    : isClosed
+      ? t('eventsPage.statusClosed')
+      : isDisconnected
+        ? t('eventsPage.statusDisconnected')
+        : t('eventsPage.statusOpen');
   const dotClass = isClosed ? 'bg-brand-pink' : isDisconnected ? 'bg-amber-400' : 'bg-brand-lime';
   const dotSizeClass = dotSize === 'md' ? 'h-3 w-3' : 'h-2.5 w-2.5';
 

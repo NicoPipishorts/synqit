@@ -31,6 +31,7 @@ model events {
   provider              String
   provider_playlist_id  String
   status                String
+  close_reason          String?
   name                  String
   description           String
   magic_link_token      String         @unique

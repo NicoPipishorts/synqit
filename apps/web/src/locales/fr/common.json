@@ -461,9 +461,11 @@
     "statusOpen": "Ouvert",
     "statusDisconnected": "Déconnecté",
     "statusClosed": "Fermé",
+    "statusDeleted": "Supprimée",
     "providerDisconnectedTitle": "Connexion plateforme perdue",
     "providerDisconnectedBody": "Reconnectez votre service de streaming pour gérer la synchronisation et les mises à jour de cette playlist.",
     "providerDisconnectedCta": "Ouvrir les connexions",
+    "providerPlaylistDeletedBody": "Playlist supprimée du service de streaming.",
     "noDescription": "Aucune description fournie.",
     "magicLinkLabel": "Magic link",
     "magicLinkActive": "Lien actif",
@@ -499,6 +501,7 @@
     "loadingEvent": "Chargement de la playlist...",
     "statusEventClosed": "Cette playlist est fermée. Vous ne pouvez plus ajouter de titres.",
     "statusEventClosedBrowseOnly": "Cette playlist est fermée. Vous pouvez consulter les titres, mais vous ne pouvez plus en ajouter.",
+    "statusPlaylistDeleted": "L’hôte a supprimé cette playlist du service de streaming. Elle n’existe plus.",
     "minChars": "Saisissez au moins 2 caractères.",
     "searchFound": "{{count}} titre(s) trouvé(s).",
     "addedToPlaylist": "« {{name}} » a été ajouté à la playlist hôte.",
@@ -527,6 +530,7 @@
     "refresh": "Rafraîchir",
     "refreshing": "Rafraîchissement...",
     "loadMoreTracks": "Charger plus de titres",
+    "noTracksPlaylistDeleted": "Cette playlist n’existe plus sur le service de streaming.",
     "noTracksYet": "Aucun titre pour le moment."
   },
   "home": {

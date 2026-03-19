@@ -20,6 +20,7 @@ import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { toApiAssetUrl } from '../lib/apiAssetUrl';
 import {
+  EventCloseReason,
   EventProvider,
   EventStatus,
   EventTrackItem,
@@ -50,6 +51,7 @@ export const EventPublicPage = () => {
   const [eventName, setEventName] = useState('');
   const [eventDescription, setEventDescription] = useState('');
   const [eventState, setEventState] = useState<EventStatus | null>(null);
+  const [eventCloseReason, setEventCloseReason] = useState<EventCloseReason | null>(null);
   const [eventConnectionStatus, setEventConnectionStatus] =
     useState<ProviderConnectionStatus | null>(null);
   const [eventProvider, setEventProvider] = useState<EventProvider | null>(null);
@@ -70,6 +72,26 @@ export const EventPublicPage = () => {
   const [addingTrackId, setAddingTrackId] = useState<string | null>(null);
   const [isLoadingTracks, setIsLoadingTracks] = useState(false);
 
+  const getPublicErrorMessage = useCallback(
+    (code: string, fallbackMessage: string) => {
+      if (code === 'provider_playlist_missing') {
+        return t('eventPublicPage.statusPlaylistDeleted');
+      }
+
+      return t('eventsPage.error', { message: fallbackMessage });
+    },
+    [t],
+  );
+
+  const applyProviderPlaylistMissingState = useCallback(() => {
+    setEventState('closed');
+    setEventCloseReason('provider_playlist_missing');
+    setTracks([]);
+    setSearchResults([]);
+    setHasMoreSearchResults(false);
+    setActiveTab('added');
+  }, []);
+
   const loadTracks = useCallback(async () => {
     setIsLoadingTracks(true);
     try {
@@ -84,7 +106,10 @@ export const EventPublicPage = () => {
       setVisibleAddedTracksCount((currentCount) => Math.max(currentCount, ADDED_TRACKS_PAGE_SIZE));
     } catch (error) {
       const apiError = toApiError(error);
-      const message = t('eventsPage.error', { message: apiError.message });
+      if (apiError.code === 'provider_playlist_missing') {
+        applyProviderPlaylistMissingState();
+      }
+      const message = getPublicErrorMessage(apiError.code, apiError.message);
       setPageError(message);
       showToast(message, { variant: 'error' });
       trackAnalyticsEvent({
@@ -98,7 +123,7 @@ export const EventPublicPage = () => {
     } finally {
       setIsLoadingTracks(false);
     }
-  }, [params.magicLinkToken, showToast, t]);
+  }, [applyProviderPlaylistMissingState, getPublicErrorMessage, params.magicLinkToken, showToast]);
 
   useEffect(() => {
     const loadEventAndTracks = async () => {
@@ -125,6 +150,7 @@ export const EventPublicPage = () => {
         setEventName(eventResult.event.name);
         setEventDescription(eventResult.event.description);
         setEventState(eventResult.event.status);
+        setEventCloseReason(eventResult.event.closeReason ?? null);
         setEventConnectionStatus(eventResult.event.providerConnectionStatus);
         setEventProvider(eventResult.event.provider);
         setEventCoverImageUrl(toApiAssetUrl(eventResult.event.coverImageUrl));
@@ -132,7 +158,10 @@ export const EventPublicPage = () => {
         setVisibleAddedTracksCount(ADDED_TRACKS_PAGE_SIZE);
       } catch (error) {
         const apiError = toApiError(error);
-        const message = t('eventsPage.error', { message: apiError.message });
+        if (apiError.code === 'provider_playlist_missing') {
+          applyProviderPlaylistMissingState();
+        }
+        const message = getPublicErrorMessage(apiError.code, apiError.message);
         setPageError(message);
         showToast(message, { variant: 'error' });
         trackAnalyticsEvent({
@@ -148,7 +177,7 @@ export const EventPublicPage = () => {
     };
 
     void loadEventAndTracks();
-  }, [params.magicLinkToken, showToast, t]);
+  }, [applyProviderPlaylistMissingState, getPublicErrorMessage, params.magicLinkToken, showToast]);
 
   useEffect(() => {
     if (typeof document === 'undefined') {
@@ -196,7 +225,11 @@ export const EventPublicPage = () => {
     event.preventDefault();
 
     if (eventState !== 'open') {
-      setSearchStatus(t('eventPublicPage.statusEventClosed'));
+      setSearchStatus(
+        eventCloseReason === 'provider_playlist_missing'
+          ? t('eventPublicPage.statusPlaylistDeleted')
+          : t('eventPublicPage.statusEventClosed'),
+      );
       trackAnalyticsEvent({
         eventName: 'event_track_add_blocked',
         target: 'events',
@@ -231,7 +264,10 @@ export const EventPublicPage = () => {
       setActiveTab('results');
     } catch (error) {
       const apiError = toApiError(error);
-      const message = t('eventsPage.error', { message: apiError.message });
+      if (apiError.code === 'provider_playlist_missing') {
+        applyProviderPlaylistMissingState();
+      }
+      const message = getPublicErrorMessage(apiError.code, apiError.message);
       setSearchStatus(message);
       showToast(message, { variant: 'error' });
       trackAnalyticsEvent({
@@ -278,7 +314,10 @@ export const EventPublicPage = () => {
       );
     } catch (error) {
       const apiError = toApiError(error);
-      const message = t('eventsPage.error', { message: apiError.message });
+      if (apiError.code === 'provider_playlist_missing') {
+        applyProviderPlaylistMissingState();
+      }
+      const message = getPublicErrorMessage(apiError.code, apiError.message);
       setSearchStatus(message);
       showToast(message, { variant: 'error' });
       trackAnalyticsEvent({
@@ -296,7 +335,11 @@ export const EventPublicPage = () => {
 
   const addTrack = async (track: SearchTrackResult) => {
     if (eventState !== 'open') {
-      setSearchStatus(t('eventPublicPage.statusEventClosed'));
+      setSearchStatus(
+        eventCloseReason === 'provider_playlist_missing'
+          ? t('eventPublicPage.statusPlaylistDeleted')
+          : t('eventPublicPage.statusEventClosed'),
+      );
       trackAnalyticsEvent({
         eventName: 'event_track_add_blocked',
         target: 'events',
@@ -332,7 +375,10 @@ export const EventPublicPage = () => {
       });
     } catch (error) {
       const apiError = toApiError(error);
-      const message = t('eventsPage.error', { message: apiError.message });
+      if (apiError.code === 'provider_playlist_missing') {
+        applyProviderPlaylistMissingState();
+      }
+      const message = getPublicErrorMessage(apiError.code, apiError.message);
       setSearchStatus(message);
       showToast(message, { variant: 'error' });
       trackAnalyticsEvent({
@@ -358,6 +404,7 @@ export const EventPublicPage = () => {
 
   const isEventReady = Boolean(eventName && eventState && eventProvider && eventConnectionStatus);
   const isClosed = eventState === 'closed';
+  const isProviderPlaylistMissing = eventCloseReason === 'provider_playlist_missing';
   const addedTrackIds = new Set(tracks.map((track) => track.providerTrackId));
 
   // When event is closed, force the added tab
@@ -444,12 +491,15 @@ export const EventPublicPage = () => {
                 </div>
                 <EventStatusIndicator
                   status={eventState!}
+                  closeReason={eventCloseReason}
                   connectionStatus={eventConnectionStatus!}
                   mode="pill"
                 />
                 {isClosed ? (
                   <p className="text-xs font-semibold text-brand-pink">
-                    {t('eventPublicPage.statusEventClosedBrowseOnly')}
+                    {isProviderPlaylistMissing
+                      ? t('eventPublicPage.statusPlaylistDeleted')
+                      : t('eventPublicPage.statusEventClosedBrowseOnly')}
                   </p>
                 ) : null}
               </header>
@@ -652,24 +702,26 @@ export const EventPublicPage = () => {
                   </div>
                 ) : (
                   <div className="grid gap-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs sm:text-sm font-semibold text-app-text-secondary">
-                        {t('eventPublicPage.currentTracks', { count: tracks.length })}
-                      </p>
-                      <button
-                        type="button"
-                        aria-label={t('eventPublicPage.refresh')}
-                        disabled={isLoadingTracks}
-                        onClick={() => void loadTracks()}
-                        className="group flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-surface transition hover:border-brand-pink disabled:opacity-50 dark:bg-app-elevated"
-                      >
-                        <RefreshCcw
-                          size={13}
-                          aria-hidden="true"
-                          className={`transition-colors group-hover:text-brand-pink ${isLoadingTracks ? 'animate-spin' : 'group-hover:animate-[spin_0.4s_linear_reverse_0.5]'}`}
-                        />
-                      </button>
-                    </div>
+                    {!isProviderPlaylistMissing ? (
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs sm:text-sm font-semibold text-app-text-secondary">
+                          {t('eventPublicPage.currentTracks', { count: tracks.length })}
+                        </p>
+                        <button
+                          type="button"
+                          aria-label={t('eventPublicPage.refresh')}
+                          disabled={isLoadingTracks}
+                          onClick={() => void loadTracks()}
+                          className="group flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-surface transition hover:border-brand-pink disabled:opacity-50 dark:bg-app-elevated"
+                        >
+                          <RefreshCcw
+                            size={13}
+                            aria-hidden="true"
+                            className={`transition-colors group-hover:text-brand-pink ${isLoadingTracks ? 'animate-spin' : 'group-hover:animate-[spin_0.4s_linear_reverse_0.5]'}`}
+                          />
+                        </button>
+                      </div>
+                    ) : null}
 
                     {isLoadingTracks ? (
                       <ul className="grid gap-3">
@@ -736,7 +788,9 @@ export const EventPublicPage = () => {
                           aria-hidden="true"
                         />
                         <p className="text-sm font-semibold text-app-text-secondary">
-                          {t('eventPublicPage.noTracksYet')}
+                          {isProviderPlaylistMissing
+                            ? t('eventPublicPage.noTracksPlaylistDeleted')
+                            : t('eventPublicPage.noTracksYet')}
                         </p>
                       </div>
                     )}
