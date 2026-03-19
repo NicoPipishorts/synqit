@@ -1961,8 +1961,7 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
         results: Array<{ providerTrackId: string }>;
       };
       assert.equal(searchBody.results[0]?.providerTrackId, 'queen-fr-track');
-      assert.ok(lastSearchUrl);
-      assert.ok(lastSearchUrl?.includes('/v1/catalog/fr/search?'));
+      assert.match(lastSearchUrl ?? '', /\/v1\/catalog\/fr\/search\?/);
     } finally {
       globalThis.fetch = originalFetch;
       process.env.APPLE_TEAM_ID = previousAppleTeamId;
