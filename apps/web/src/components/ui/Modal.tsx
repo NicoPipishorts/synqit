@@ -1,7 +1,10 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { CTAMobileIconLabel } from './cta';
+import { IconButton } from './IconButton';
 import { useI18n } from '../../hooks/useI18n';
 
 type ModalProps = {
@@ -92,12 +95,23 @@ export const Modal = ({ open, title, onClose, children }: ModalProps) => {
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3 className="text-xl font-bold text-brand-dark dark:text-brand-white">{title}</h3>
+              <div className="sm:hidden">
+                <IconButton
+                  onClick={onClose}
+                  aria-label={t('modal.close')}
+                  size="sm"
+                  icon={<X size={16} aria-hidden="true" />}
+                />
+              </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-lg border border-app-border px-2 py-1 text-xs font-semibold transition hover:border-brand-pink focus-ring-brand"
+                className="hidden rounded-lg border border-app-border px-2 py-1 text-xs font-semibold transition hover:border-brand-pink focus-ring-brand sm:inline-flex"
               >
-                {t('modal.close')}
+                <CTAMobileIconLabel
+                  icon={<X size={16} aria-hidden="true" />}
+                  label={t('modal.close')}
+                />
               </button>
             </div>
             {children}
