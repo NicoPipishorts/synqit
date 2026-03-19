@@ -469,7 +469,7 @@ export const EventPublicPage = () => {
 
           {/* ── Content ── */}
           {isEventReady ? (
-            <div className="grid gap-6">
+            <div className="grid gap-3">
               {/* Hero header */}
               <header className="flex flex-col items-center gap-3 pt-4 text-center">
                 {eventCoverImageUrl ? (
@@ -495,13 +495,6 @@ export const EventPublicPage = () => {
                   connectionStatus={eventConnectionStatus!}
                   mode="pill"
                 />
-                {isClosed ? (
-                  <p className="text-xs font-semibold text-brand-pink">
-                    {isProviderPlaylistMissing
-                      ? t('eventPublicPage.statusPlaylistDeleted')
-                      : t('eventPublicPage.statusEventClosedBrowseOnly')}
-                  </p>
-                ) : null}
               </header>
 
               {/* Sticky toolbar: tabs + search */}
@@ -789,7 +782,7 @@ export const EventPublicPage = () => {
                         />
                         <p className="text-sm font-semibold text-app-text-secondary">
                           {isProviderPlaylistMissing
-                            ? t('eventPublicPage.noTracksPlaylistDeleted')
+                            ? t('eventPublicPage.statusPlaylistDeleted')
                             : t('eventPublicPage.noTracksYet')}
                         </p>
                       </div>

@@ -244,6 +244,10 @@ export const HostEventDetailsPage = () => {
         : 'translateX(0)';
   const showEditMetaCard = activeTab === 'edit';
   const isReopenDisabled = event?.closeReason === 'provider_playlist_missing';
+  const eventActionButtonClassName =
+    event?.status === 'closed' && isReopenDisabled
+      ? 'w-full justify-center disabled:hover:border-app-border disabled:hover:bg-app-surface dark:disabled:hover:border-app-border dark:disabled:hover:bg-app-elevated'
+      : 'w-full justify-center';
 
   // ---------------------------------------------------------------------------
   // Render
@@ -462,7 +466,7 @@ export const HostEventDetailsPage = () => {
                     }
                     type="button"
                     variant={event.status === 'open' ? 'dangerSoft' : 'secondary'}
-                    className="w-full justify-center"
+                    className={eventActionButtonClassName}
                   >
                     {isWorking
                       ? t('eventsPage.working')
