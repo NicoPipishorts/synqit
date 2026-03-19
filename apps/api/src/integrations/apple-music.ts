@@ -51,6 +51,14 @@ const appleCreatePlaylistResponseSchema = z.object({
   ),
 });
 
+const appleStorefrontResponseSchema = z.object({
+  data: z.array(
+    z.object({
+      id: z.string().min(1),
+    }),
+  ),
+});
+
 const applePlaylistTracksResponseSchema = z.object({
   data: z.array(
     z.object({
@@ -79,7 +87,13 @@ const applePlaylistTracksResponseSchema = z.object({
 });
 
 const toAppleApiError = (params: {
-  action: 'search' | 'create_playlist' | 'add_track' | 'remove_track' | 'list_playlist_tracks';
+  action:
+    | 'search'
+    | 'create_playlist'
+    | 'resolve_storefront'
+    | 'add_track'
+    | 'remove_track'
+    | 'list_playlist_tracks';
   statusCode: number;
   payload: unknown;
   wwwAuthenticate: string | null;
@@ -87,6 +101,7 @@ const toAppleApiError = (params: {
   const actionMessageByType = {
     search: 'Apple Music search failed',
     create_playlist: 'Apple Music playlist creation failed',
+    resolve_storefront: 'Apple Music storefront lookup failed',
     add_track: 'Apple Music add-track failed',
     remove_track: 'Apple Music remove-track failed',
     list_playlist_tracks: 'Apple Music playlist-track lookup failed',
@@ -256,6 +271,46 @@ export const createAppleLibraryPlaylist = async (params: {
   return {
     providerPlaylistId: playlistId,
   };
+};
+
+export const getAppleUserStorefront = async (params: {
+  developerToken: string;
+  musicUserToken: string;
+}): Promise<string> => {
+  const response = await fetch('https://api.music.apple.com/v1/me/storefront', {
+    method: 'GET',
+    headers: appleHeaders({
+      developerToken: params.developerToken,
+      musicUserToken: params.musicUserToken,
+    }),
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as unknown;
+  if (!response.ok) {
+    throw toAppleApiError({
+      action: 'resolve_storefront',
+      statusCode: response.status,
+      payload,
+      wwwAuthenticate: response.headers.get('www-authenticate'),
+    });
+  }
+
+  const parsed = appleStorefrontResponseSchema.safeParse(payload);
+  const storefrontId = parsed.success ? parsed.data.data[0]?.id : null;
+  if (!storefrontId) {
+    throw new ProviderApiError({
+      provider: 'apple',
+      statusCode: response.status,
+      message: 'Apple Music did not return a storefront id.',
+      details: {
+        action: 'resolve_storefront',
+        payload,
+        wwwAuthenticate: response.headers.get('www-authenticate'),
+      },
+    });
+  }
+
+  return storefrontId.toLowerCase();
 };
 
 export const addAppleTrackToPlaylist = async (params: {

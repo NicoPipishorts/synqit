@@ -1,7 +1,9 @@
 import {
+  EventCloseReason,
   EventDraftStep,
   EventStatus,
   Provider,
+  eventCloseReasonSchema,
   eventDraftStepSchema,
   eventStatusSchema,
   providerSchema,
@@ -16,8 +18,10 @@ type EventRecord = {
   provider: Provider;
   providerPlaylistId: string;
   status: EventStatus;
+  closeReason: EventCloseReason | null;
   name: string;
   description: string;
+  coverImageUrl: string | null;
   magicLinkToken: string;
   magicLinkRevokedAt: Date | null;
   createdAt: Date;
@@ -54,8 +58,10 @@ type EventRow = {
   provider: string;
   provider_playlist_id: string;
   status: string;
+  close_reason: string | null;
   name: string;
   description: string;
+  cover_image_url: string | null;
   magic_link_token: string;
   magic_link_revoked_at: Date | null;
   created_at: Date;
@@ -102,8 +108,10 @@ const toEventRecord = (row: EventRow): EventRecord => ({
   provider: providerSchema.parse(row.provider),
   providerPlaylistId: row.provider_playlist_id,
   status: eventStatusSchema.parse(row.status),
+  closeReason: row.close_reason ? eventCloseReasonSchema.parse(row.close_reason) : null,
   name: row.name,
   description: row.description,
+  coverImageUrl: row.cover_image_url ?? null,
   magicLinkToken: row.magic_link_token,
   magicLinkRevokedAt: row.magic_link_revoked_at ? new Date(row.magic_link_revoked_at) : null,
   createdAt: new Date(row.created_at),
@@ -161,6 +169,7 @@ export const eventsStore = {
         provider: params.provider,
         provider_playlist_id: params.providerPlaylistId,
         status: 'open',
+        close_reason: null,
         name: params.name,
         description: params.description,
         magic_link_token: generateMagicLinkToken(),
@@ -494,7 +503,11 @@ export const eventsStore = {
     });
   },
 
-  async closeEvent(params: { eventId: string; hostUserId: string }): Promise<EventRecord | null> {
+  async closeEvent(params: {
+    eventId: string;
+    hostUserId: string;
+    closeReason?: EventCloseReason | null;
+  }): Promise<EventRecord | null> {
     const existingRow = await prisma.events.findFirst({
       where: {
         id: params.eventId,
@@ -507,7 +520,20 @@ export const eventsStore = {
     }
 
     if (existingRow.status === 'closed') {
-      return toEventWithTracks(toEventRecord(existingRow));
+      const nextCloseReason = params.closeReason ?? null;
+      if ((existingRow.close_reason ?? null) === nextCloseReason) {
+        return toEventWithTracks(toEventRecord(existingRow));
+      }
+
+      const updatedClosedRow = await prisma.events.update({
+        where: { id: existingRow.id },
+        data: {
+          close_reason: nextCloseReason,
+          updated_at: new Date(),
+        },
+      });
+
+      return toEventWithTracks(toEventRecord(updatedClosedRow));
     }
 
     const now = new Date();
@@ -515,6 +541,7 @@ export const eventsStore = {
       where: { id: existingRow.id },
       data: {
         status: 'closed',
+        close_reason: params.closeReason ?? null,
         closed_at: now,
         updated_at: now,
       },
@@ -543,6 +570,7 @@ export const eventsStore = {
       where: { id: existingRow.id },
       data: {
         status: 'open',
+        close_reason: null,
         closed_at: null,
         updated_at: new Date(),
       },
@@ -613,6 +641,25 @@ export const eventsStore = {
         magic_link_revoked_at: existing.magic_link_revoked_at ?? new Date(),
         updated_at: new Date(),
       },
+    });
+
+    return toEventWithTracks(toEventRecord(updated));
+  },
+
+  async updateEventCoverImage(params: {
+    eventId: string;
+    hostUserId: string;
+    coverImageUrl: string | null;
+  }): Promise<EventRecord | null> {
+    const existing = await prisma.events.findFirst({
+      where: { id: params.eventId, host_user_id: params.hostUserId },
+      select: { id: true },
+    });
+    if (!existing) return null;
+
+    const updated = await prisma.events.update({
+      where: { id: existing.id },
+      data: { cover_image_url: params.coverImageUrl, updated_at: new Date() },
     });
 
     return toEventWithTracks(toEventRecord(updated));

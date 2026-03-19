@@ -25,6 +25,7 @@ import {
 import type { EventDraft } from '@synqit/shared';
 
 import { callApi } from './api';
+import { toApiAssetUrl } from './apiAssetUrl';
 import { getAccessToken } from './auth';
 import type { EventTrackItem, HostEvent, HostEventDraft } from './events';
 
@@ -74,9 +75,11 @@ export const mapApiEvent = (event: {
   id: string;
   name: string;
   description: string;
+  coverImageUrl?: string | null;
   provider: HostEvent['provider'];
   providerConnectionStatus: HostEvent['providerConnectionStatus'];
   status: HostEvent['status'];
+  closeReason?: HostEvent['closeReason'];
   magicLinkToken: string;
   magicLinkRevokedAt: string | null;
   updatedAt: string;
@@ -84,9 +87,11 @@ export const mapApiEvent = (event: {
   id: event.id,
   name: event.name,
   description: event.description,
+  coverImageUrl: toApiAssetUrl(event.coverImageUrl),
   provider: event.provider,
   providerConnectionStatus: event.providerConnectionStatus,
   status: event.status,
+  closeReason: event.closeReason ?? null,
   magicLinkToken: event.magicLinkToken,
   magicLinkRevokedAt: event.magicLinkRevokedAt,
   updatedAt: event.updatedAt,
@@ -245,6 +250,33 @@ export const updateEvent = async (params: {
       body: JSON.stringify(payload),
     },
     (responsePayload) => eventResponseSchema.parse(responsePayload),
+  );
+  return mapApiEvent(result.event);
+};
+
+export const uploadEventImage = async (params: {
+  eventId: string;
+  imageDataUrl: string;
+}): Promise<HostEvent> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/playlists/${encodeURIComponent(params.eventId)}/image`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify({ imageDataUrl: params.imageDataUrl }),
+    },
+    (payload) => eventResponseSchema.parse(payload),
+  );
+  return mapApiEvent(result.event);
+};
+
+export const deleteEventImage = async (eventId: string): Promise<HostEvent> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/playlists/${encodeURIComponent(eventId)}/image`,
+    { method: 'DELETE', headers: { authorization: `Bearer ${token}` } },
+    (payload) => eventResponseSchema.parse(payload),
   );
   return mapApiEvent(result.event);
 };

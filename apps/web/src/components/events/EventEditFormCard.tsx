@@ -7,11 +7,16 @@ import { CTAButton } from '../ui/cta';
 type EventEditFormCardProps = {
   editName: string;
   editDescription: string;
+  coverImageUrl: string | null;
   isWorking: boolean;
+  isUploadingImage: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
   onCancel: () => void;
+  onImageUpload: (dataUrl: string) => void;
+  onImageDelete: () => void;
+  onImageError: (message: string) => void;
 };
 
 export const EventEditFormCard = ({
@@ -27,7 +32,7 @@ export const EventEditFormCard = ({
 
   return (
     <AppSurfaceCard>
-      <form onSubmit={onSubmit} className="grid gap-3">
+      <form onSubmit={onSubmit} className="grid gap-4">
         <label className="grid gap-1 text-sm">
           <span>{t('eventsPage.eventName')}</span>
           <input

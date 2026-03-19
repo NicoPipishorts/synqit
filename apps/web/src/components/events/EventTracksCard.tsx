@@ -47,17 +47,26 @@ export const EventTracksCard = ({
       {isLoadingTracks ? (
         <p className="text-sm text-app-text-secondary">{t('eventsPage.loadingTracks')}</p>
       ) : tracks.length > 0 ? (
-        <ul className="grid min-w-0 gap-2">
+        <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {tracks.map((track) => (
             <li
               key={track.providerTrackId}
-              className="flex min-w-0 items-center justify-between gap-3 overflow-hidden rounded-lg border border-app-border bg-app-bg px-3 py-2 text-sm dark:bg-app-elevated"
+              className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm shadow-soft-lift dark:bg-app-elevated"
             >
-              <div className="w-0 min-w-0 flex-1 overflow-hidden">
-                <p className="block max-w-full truncate font-semibold text-brand-dark dark:text-brand-white">
+              {track.artworkUrl ? (
+                <img
+                  src={track.artworkUrl}
+                  alt=""
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 shrink-0 rounded-md object-cover"
+                />
+              ) : null}
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold text-brand-dark dark:text-brand-white">
                   {track.name}
                 </p>
-                <p className="block max-w-full truncate text-xs text-app-text-secondary">
+                <p className="truncate text-xs text-app-text-secondary">
                   {track.artist} · {track.album}
                 </p>
               </div>

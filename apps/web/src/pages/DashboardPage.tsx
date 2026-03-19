@@ -396,6 +396,7 @@ export const DashboardPage = () => {
                           </div>
                           <EventStatusIndicator
                             status={event.status}
+                            closeReason={event.closeReason}
                             connectionStatus={event.providerConnectionStatus}
                             mode="pill"
                           />

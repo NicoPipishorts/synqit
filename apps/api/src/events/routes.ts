@@ -20,13 +20,21 @@ import {
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomUUID } from 'node:crypto';
 
+import {
+  createEventImageReadStream,
+  buildEventImageUrl,
+  deleteEventImage,
+  resolveEventImageFile,
+  saveEventImage,
+} from './event-image-storage';
 import { eventsStore, EventDraftRecord, EventRecord } from './store';
 import { authStore } from '../auth/store';
-import { getAppleDeveloperToken, getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
+import { getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
 import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
   addAppleTrackToPlaylist,
   createAppleLibraryPlaylist,
+  getAppleUserStorefront,
   listApplePlaylistTracks,
   removeAppleTrackFromPlaylist,
   searchAppleCatalogTracks,
@@ -125,7 +133,9 @@ const toEventResponse = (params: {
   eventResponseSchema.parse({
     event: {
       ...params.event,
+      coverImageUrl: buildEventImageUrl(params.event.coverImageUrl),
       providerConnectionStatus: params.providerConnectionStatus,
+      closeReason: params.event.closeReason ?? null,
       magicLinkRevokedAt: params.event.magicLinkRevokedAt
         ? params.event.magicLinkRevokedAt.toISOString()
         : null,
@@ -187,6 +197,7 @@ const reconcileMissingProviderPlaylist = async (params: {
   const closedEvent = await eventsStore.closeEvent({
     eventId: params.event.id,
     hostUserId: params.event.hostUserId,
+    closeReason: 'provider_playlist_missing',
   });
 
   params.app.log.warn(
@@ -670,7 +681,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             },
             'provider create playlist failed',
           );
-          const mapped = mapProviderApiError(error);
+          const mapped = mapProviderApiError(error, {
+            500: {
+              code: 'provider_playlist_update_failed',
+              message:
+                'Apple Music could not update this playlist right now. Please try again in a moment.',
+            },
+          });
           return reply.status(502).send(mapped);
         }
 
@@ -709,7 +726,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             },
             'provider create playlist failed',
           );
-          const mapped = mapProviderApiError(error);
+          const mapped = mapProviderApiError(error, {
+            500: {
+              code: 'provider_playlist_update_failed',
+              message:
+                'Apple Music could not update this playlist right now. Please try again in a moment.',
+            },
+          });
           return reply.status(502).send(mapped);
         }
 
@@ -773,6 +796,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         providerConnectionStatus: connectedProviders.has(event.provider)
           ? 'connected'
           : 'not_connected',
+        closeReason: event.closeReason ?? null,
         magicLinkRevokedAt: event.magicLinkRevokedAt
           ? event.magicLinkRevokedAt.toISOString()
           : null,
@@ -801,8 +825,10 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         provider: event.provider,
         providerConnectionStatus,
         status: event.status,
+        closeReason: event.closeReason ?? null,
         name: event.name,
         description: event.description,
+        coverImageUrl: buildEventImageUrl(event.coverImageUrl),
         createdAt: event.createdAt.toISOString(),
       },
     });
@@ -895,7 +921,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             },
             'provider track search failed',
           );
-          const mapped = mapProviderApiError(error);
+          const mapped = mapProviderApiError(error, {
+            500: {
+              code: 'provider_playlist_update_failed',
+              message:
+                'Apple Music could not update this playlist right now. Please try again in a moment.',
+            },
+          });
           return reply.status(502).send(mapped);
         }
 
@@ -909,13 +941,53 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
     if (event.provider === 'apple' && isAppleLiveMode()) {
       try {
-        const developerToken = await getAppleDeveloperToken();
-        const results = await searchAppleCatalogTracks({
-          developerToken,
-          storefront: getAppleStorefront(),
-          query,
-          limit,
-          offset,
+        const results = await withAppleMusicUserToken({
+          userId: event.hostUserId,
+          run: async ({ developerToken, musicUserToken }) => {
+            let storefront = getAppleStorefront();
+
+            try {
+              storefront = await getAppleUserStorefront({
+                developerToken,
+                musicUserToken,
+              });
+            } catch (error) {
+              const fallbackContext = {
+                eventId: event.id,
+                magicLinkToken,
+                hostUserId: event.hostUserId,
+                fallbackStorefront: storefront,
+              };
+
+              if (error instanceof ProviderApiError) {
+                app.log.warn(
+                  {
+                    ...fallbackContext,
+                    provider: error.provider,
+                    providerStatusCode: error.statusCode,
+                    providerError: error.details,
+                  },
+                  'apple storefront lookup failed; falling back to configured storefront',
+                );
+              } else {
+                app.log.warn(
+                  {
+                    ...fallbackContext,
+                    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                  },
+                  'apple storefront lookup failed; falling back to configured storefront',
+                );
+              }
+            }
+
+            return searchAppleCatalogTracks({
+              developerToken,
+              storefront,
+              query,
+              limit,
+              offset,
+            });
+          },
         });
 
         return eventTrackSearchResponseSchema.parse({
@@ -934,7 +1006,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             },
             'provider track search failed',
           );
-          const mapped = mapProviderApiError(error);
+          const mapped = mapProviderApiError(error, {
+            500: {
+              code: 'provider_playlist_update_failed',
+              message:
+                'Apple Music could not update this playlist right now. Please try again in a moment.',
+            },
+          });
           return reply.status(502).send(mapped);
         }
 
@@ -1181,7 +1259,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             });
           }
 
-          const mapped = mapProviderApiError(error);
+          const mapped = mapProviderApiError(error, {
+            500: {
+              code: 'provider_playlist_update_failed',
+              message:
+                'Apple Music could not update this playlist right now. Please try again in a moment.',
+            },
+          });
           return reply.status(502).send(mapped);
         }
 
@@ -1666,5 +1750,105 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       event,
       providerConnectionStatus,
     });
+  });
+
+  // ── Cover image upload ──────────────────────────────────────────────────
+  app.post('/playlists/:eventId/image', { bodyLimit: 12_000_000 }, async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const event = await eventsStore.findEventById(eventId);
+    if (!event || event.hostUserId !== userId) {
+      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
+    }
+
+    const body = request.body as { imageDataUrl?: unknown };
+    if (typeof body?.imageDataUrl !== 'string') {
+      return reply
+        .status(400)
+        .send({ code: 'validation_error', message: 'imageDataUrl is required.' });
+    }
+
+    // Delete old image if present
+    if (event.coverImageUrl) {
+      await deleteEventImage(event.coverImageUrl).catch(() => null);
+    }
+
+    let imagePath: string;
+    try {
+      const result = await saveEventImage({ eventId, imageDataUrl: body.imageDataUrl });
+      imagePath = result.imagePath;
+    } catch {
+      return reply
+        .status(400)
+        .send({ code: 'invalid_image', message: 'Image is invalid or too large.' });
+    }
+
+    const updated = await eventsStore.updateEventCoverImage({
+      eventId,
+      hostUserId: userId,
+      coverImageUrl: imagePath,
+    });
+    if (!updated) {
+      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
+    }
+
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: updated.hostUserId,
+      provider: updated.provider,
+    });
+
+    return toEventResponse({ event: updated, providerConnectionStatus });
+  });
+
+  // ── Cover image delete ──────────────────────────────────────────────────
+  app.delete('/playlists/:eventId/image', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    }
+
+    const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const event = await eventsStore.findEventById(eventId);
+    if (!event || event.hostUserId !== userId) {
+      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
+    }
+
+    if (event.coverImageUrl) {
+      await deleteEventImage(event.coverImageUrl).catch(() => null);
+    }
+
+    const updated = await eventsStore.updateEventCoverImage({
+      eventId,
+      hostUserId: userId,
+      coverImageUrl: null,
+    });
+    if (!updated) {
+      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
+    }
+
+    const providerConnectionStatus = await resolveProviderConnectionStatus({
+      hostUserId: updated.hostUserId,
+      provider: updated.provider,
+    });
+
+    return toEventResponse({ event: updated, providerConnectionStatus });
+  });
+
+  // ── Public image serving ────────────────────────────────────────────────
+  app.get('/public/event-images/:fileName', async (request, reply) => {
+    const fileName = (request.params as { fileName?: string }).fileName ?? '';
+    const resolved = await resolveEventImageFile(fileName);
+    if (!resolved) {
+      return reply.status(404).send({ code: 'not_found', message: 'Image not found.' });
+    }
+
+    void reply.header('Content-Type', resolved.contentType);
+    void reply.header('Cache-Control', 'public, max-age=31536000, immutable');
+    void reply.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    return reply.send(createEventImageReadStream(resolved.filePath));
   });
 };

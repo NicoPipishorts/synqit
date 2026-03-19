@@ -24,6 +24,7 @@ export const HostEventCard = ({ event }: HostEventCardProps) => {
               </h2>
               <EventStatusIndicator
                 status={event.status}
+                closeReason={event.closeReason}
                 connectionStatus={event.providerConnectionStatus}
                 mode="responsive"
               />

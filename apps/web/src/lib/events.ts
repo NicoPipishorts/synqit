@@ -1,14 +1,17 @@
 export type EventProvider = 'spotify' | 'apple';
 export type EventStatus = 'open' | 'closed';
 export type ProviderConnectionStatus = 'connected' | 'not_connected';
+export type EventCloseReason = 'provider_playlist_missing';
 
 export type HostEvent = {
   id: string;
   name: string;
   description: string;
+  coverImageUrl: string | null;
   provider: EventProvider;
   providerConnectionStatus: ProviderConnectionStatus;
   status: EventStatus;
+  closeReason: EventCloseReason | null;
   magicLinkToken: string;
   magicLinkRevokedAt: string | null;
   updatedAt: string;

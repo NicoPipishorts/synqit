@@ -2,6 +2,7 @@ import { type ReactNode } from 'react';
 
 type AppPageLayoutProps = {
   children: ReactNode;
+  backdrop?: ReactNode;
   bodyClassName?: string;
   className?: string;
 };

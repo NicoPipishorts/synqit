@@ -20,6 +20,15 @@ const detectInitialLocale = (): Locale => {
   return 'en';
 };
 
+const shouldBypassBootLoader = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const { pathname } = window.location;
+  return pathname.startsWith('/playlist/') || pathname.startsWith('/event/');
+};
+
 const resolvePath = (obj: unknown, path: string): string | null => {
   if (!obj || typeof obj !== 'object') {
     return null;
@@ -127,7 +136,7 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [activeMessages, fallbackMessages, locale]);
 
-  if (!activeMessages && !fallbackMessages) {
+  if (!activeMessages && !fallbackMessages && !shouldBypassBootLoader()) {
     return <RouteLoadingScreen />;
   }
 
