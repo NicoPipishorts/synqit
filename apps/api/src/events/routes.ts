@@ -22,11 +22,12 @@ import { randomUUID } from 'node:crypto';
 
 import { eventsStore, EventDraftRecord, EventRecord } from './store';
 import { authStore } from '../auth/store';
-import { getAppleDeveloperToken, getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
+import { getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
 import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
   addAppleTrackToPlaylist,
   createAppleLibraryPlaylist,
+  getAppleUserStorefront,
   listApplePlaylistTracks,
   removeAppleTrackFromPlaylist,
   searchAppleCatalogTracks,
@@ -670,7 +671,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             },
             'provider create playlist failed',
           );
-          const mapped = mapProviderApiError(error);
+          const mapped = mapProviderApiError(error, {
+            500: {
+              code: 'provider_playlist_update_failed',
+              message:
+                'Apple Music could not update this playlist right now. Please try again in a moment.',
+            },
+          });
           return reply.status(502).send(mapped);
         }
 
@@ -709,7 +716,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             },
             'provider create playlist failed',
           );
-          const mapped = mapProviderApiError(error);
+          const mapped = mapProviderApiError(error, {
+            500: {
+              code: 'provider_playlist_update_failed',
+              message:
+                'Apple Music could not update this playlist right now. Please try again in a moment.',
+            },
+          });
           return reply.status(502).send(mapped);
         }
 
@@ -895,7 +908,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             },
             'provider track search failed',
           );
-          const mapped = mapProviderApiError(error);
+          const mapped = mapProviderApiError(error, {
+            500: {
+              code: 'provider_playlist_update_failed',
+              message:
+                'Apple Music could not update this playlist right now. Please try again in a moment.',
+            },
+          });
           return reply.status(502).send(mapped);
         }
 
@@ -909,13 +928,53 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
     if (event.provider === 'apple' && isAppleLiveMode()) {
       try {
-        const developerToken = await getAppleDeveloperToken();
-        const results = await searchAppleCatalogTracks({
-          developerToken,
-          storefront: getAppleStorefront(),
-          query,
-          limit,
-          offset,
+        const results = await withAppleMusicUserToken({
+          userId: event.hostUserId,
+          run: async ({ developerToken, musicUserToken }) => {
+            let storefront = getAppleStorefront();
+
+            try {
+              storefront = await getAppleUserStorefront({
+                developerToken,
+                musicUserToken,
+              });
+            } catch (error) {
+              const fallbackContext = {
+                eventId: event.id,
+                magicLinkToken,
+                hostUserId: event.hostUserId,
+                fallbackStorefront: storefront,
+              };
+
+              if (error instanceof ProviderApiError) {
+                app.log.warn(
+                  {
+                    ...fallbackContext,
+                    provider: error.provider,
+                    providerStatusCode: error.statusCode,
+                    providerError: error.details,
+                  },
+                  'apple storefront lookup failed; falling back to configured storefront',
+                );
+              } else {
+                app.log.warn(
+                  {
+                    ...fallbackContext,
+                    errorMessage: error instanceof Error ? error.message : 'Unknown error',
+                  },
+                  'apple storefront lookup failed; falling back to configured storefront',
+                );
+              }
+            }
+
+            return searchAppleCatalogTracks({
+              developerToken,
+              storefront,
+              query,
+              limit,
+              offset,
+            });
+          },
         });
 
         return eventTrackSearchResponseSchema.parse({
@@ -934,7 +993,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             },
             'provider track search failed',
           );
-          const mapped = mapProviderApiError(error);
+          const mapped = mapProviderApiError(error, {
+            500: {
+              code: 'provider_playlist_update_failed',
+              message:
+                'Apple Music could not update this playlist right now. Please try again in a moment.',
+            },
+          });
           return reply.status(502).send(mapped);
         }
 
@@ -1181,7 +1246,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
             });
           }
 
-          const mapped = mapProviderApiError(error);
+          const mapped = mapProviderApiError(error, {
+            500: {
+              code: 'provider_playlist_update_failed',
+              message:
+                'Apple Music could not update this playlist right now. Please try again in a moment.',
+            },
+          });
           return reply.status(502).send(mapped);
         }
 
