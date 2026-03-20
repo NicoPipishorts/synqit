@@ -203,6 +203,7 @@ model playlist_sync_imports {
   recipient_provider String
   recipient_provider_playlist_id String?
   synced_source_track_fingerprints String[] @default([])
+  synced_recipient_track_fingerprints String[] @default([])
   status             String          @default("pending")
   matched_count      Int?
   skipped_count      Int?

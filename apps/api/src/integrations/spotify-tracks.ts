@@ -79,7 +79,33 @@ const spotifyPlaylistTracksResponseSchema = z.object({
             .optional(),
           duration_ms: z.number().int().nonnegative().optional().default(0),
         })
-        .nullable(),
+        .nullable()
+        .optional(),
+      item: z
+        .object({
+          id: z.string().nullable(),
+          name: z.string().optional().default('Unknown track'),
+          artists: z
+            .array(z.object({ name: z.string().min(1) }))
+            .optional()
+            .default([]),
+          album: z
+            .object({
+              name: z.string().optional().default('Unknown album'),
+              images: z
+                .array(
+                  z.object({
+                    url: z.string().url(),
+                  }),
+                )
+                .optional()
+                .default([]),
+            })
+            .optional(),
+          duration_ms: z.number().int().nonnegative().optional().default(0),
+        })
+        .nullable()
+        .optional(),
     }),
   ),
   next: z.string().url().nullable().optional(),
@@ -203,7 +229,7 @@ export const listSpotifyPlaylistTracks = async (params: {
   const limit = Math.min(Math.max(params.limit ?? 100, 1), 100);
   let nextUrl: string | null = `https://api.spotify.com/v1/playlists/${encodeURIComponent(
     params.providerPlaylistId,
-  )}/tracks?limit=${limit}`;
+  )}/items?limit=${limit}`;
   const byProviderTrackId = new Map<string, SpotifyTrackSearchResult>();
 
   while (nextUrl) {
@@ -226,21 +252,22 @@ export const listSpotifyPlaylistTracks = async (params: {
 
     const parsed = spotifyPlaylistTracksResponseSchema.parse(payload);
     for (const item of parsed.items) {
-      if (!item.track?.id) {
+      const track = item.track ?? item.item;
+      if (!track?.id) {
         continue;
       }
 
-      if (byProviderTrackId.has(item.track.id)) {
+      if (byProviderTrackId.has(track.id)) {
         continue;
       }
 
-      byProviderTrackId.set(item.track.id, {
-        providerTrackId: item.track.id,
-        name: item.track.name,
-        artist: item.track.artists.map((artist) => artist.name).join(', '),
-        album: item.track.album?.name ?? 'Unknown album',
-        durationMs: item.track.duration_ms,
-        artworkUrl: item.track.album?.images[0]?.url ?? null,
+      byProviderTrackId.set(track.id, {
+        providerTrackId: track.id,
+        name: track.name,
+        artist: track.artists.map((artist) => artist.name).join(', '),
+        album: track.album?.name ?? 'Unknown album',
+        durationMs: track.duration_ms,
+        artworkUrl: track.album?.images[0]?.url ?? null,
       });
     }
 

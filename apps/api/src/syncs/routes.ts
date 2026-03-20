@@ -738,6 +738,7 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
       recipientProvider,
       recipientProviderPlaylistId,
       syncedSourceTrackFingerprints,
+      syncedRecipientTrackFingerprints: syncedSourceTrackFingerprints,
       status: 'completed',
       matchedCount,
       skippedCount: Math.max(0, sourceTracks.length - matchedCount),

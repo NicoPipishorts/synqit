@@ -30,6 +30,7 @@ export type SyncImportRecord = {
   recipientProvider: Provider;
   recipientProviderPlaylistId: string | null;
   syncedSourceTrackFingerprints: string[];
+  syncedRecipientTrackFingerprints: string[];
   status: string;
   matchedCount: number | null;
   skippedCount: number | null;
@@ -69,6 +70,7 @@ type SyncImportRow = {
   recipient_provider: string;
   recipient_provider_playlist_id: string | null;
   synced_source_track_fingerprints: string[];
+  synced_recipient_track_fingerprints: string[];
   status: string;
   matched_count: number | null;
   skipped_count: number | null;
@@ -112,6 +114,7 @@ const mapSyncImportRow = (row: SyncImportRow): SyncImportRecord => ({
   recipientProvider: providerSchema.parse(row.recipient_provider),
   recipientProviderPlaylistId: row.recipient_provider_playlist_id,
   syncedSourceTrackFingerprints: row.synced_source_track_fingerprints,
+  syncedRecipientTrackFingerprints: row.synced_recipient_track_fingerprints,
   status: row.status,
   matchedCount: row.matched_count,
   skippedCount: row.skipped_count,
@@ -333,6 +336,7 @@ export const syncsStore = {
     recipientProvider: Provider;
     recipientProviderPlaylistId?: string | null;
     syncedSourceTrackFingerprints?: string[];
+    syncedRecipientTrackFingerprints?: string[];
     status: string;
     matchedCount: number;
     skippedCount: number;
@@ -354,6 +358,7 @@ export const syncsStore = {
         recipient_provider: params.recipientProvider,
         recipient_provider_playlist_id: params.recipientProviderPlaylistId ?? null,
         synced_source_track_fingerprints: params.syncedSourceTrackFingerprints ?? [],
+        synced_recipient_track_fingerprints: params.syncedRecipientTrackFingerprints ?? [],
         status: params.status,
         matched_count: params.matchedCount,
         skipped_count: params.skippedCount,
@@ -369,6 +374,9 @@ export const syncsStore = {
           : {}),
         ...(params.syncedSourceTrackFingerprints !== undefined
           ? { synced_source_track_fingerprints: params.syncedSourceTrackFingerprints }
+          : {}),
+        ...(params.syncedRecipientTrackFingerprints !== undefined
+          ? { synced_recipient_track_fingerprints: params.syncedRecipientTrackFingerprints }
           : {}),
         status: params.status,
         matched_count: params.matchedCount,
@@ -412,6 +420,7 @@ export const syncsStore = {
     recipientUserId: string;
     recipientProviderPlaylistId?: string | null;
     syncedSourceTrackFingerprints?: string[];
+    syncedRecipientTrackFingerprints?: string[];
     status?: string;
     lastSyncedAt?: Date | null;
     lastError?: string | null;
@@ -442,6 +451,9 @@ export const syncsStore = {
           : {}),
         ...(params.syncedSourceTrackFingerprints !== undefined
           ? { synced_source_track_fingerprints: params.syncedSourceTrackFingerprints }
+          : {}),
+        ...(params.syncedRecipientTrackFingerprints !== undefined
+          ? { synced_recipient_track_fingerprints: params.syncedRecipientTrackFingerprints }
           : {}),
         ...(params.status !== undefined ? { status: params.status } : {}),
         ...(params.lastSyncedAt !== undefined ? { last_synced_at: params.lastSyncedAt } : {}),

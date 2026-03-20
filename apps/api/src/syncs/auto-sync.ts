@@ -60,29 +60,138 @@ const toErrorMessage = (error: unknown, provider?: 'spotify' | 'apple'): string 
   return 'Automatic sync failed.';
 };
 
+const diagnoseSpotifyRecipientPlaylistAccess = async (params: {
+  userId: string;
+  providerPlaylistId: string;
+}) => {
+  if (!isSpotifyOauthLiveMode()) {
+    return null;
+  }
+
+  return withSpotifyAccessTokenRetry({
+    userId: params.userId,
+    run: async (accessToken) => {
+      const currentUserResponse = await fetch('https://api.spotify.com/v1/me', {
+        method: 'GET',
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+        },
+      });
+      const currentUserPayload = (await currentUserResponse.json().catch(() => ({}))) as unknown;
+
+      const playlistResponse = await fetch(
+        `https://api.spotify.com/v1/playlists/${encodeURIComponent(params.providerPlaylistId)}`,
+        {
+          method: 'GET',
+          headers: {
+            authorization: `Bearer ${accessToken}`,
+          },
+        },
+      );
+      const playlistPayload = (await playlistResponse.json().catch(() => ({}))) as unknown;
+
+      const playlistInfo =
+        playlistPayload &&
+        typeof playlistPayload === 'object' &&
+        'owner' in playlistPayload &&
+        playlistPayload.owner &&
+        typeof playlistPayload.owner === 'object'
+          ? {
+              ownerId:
+                'id' in playlistPayload.owner && typeof playlistPayload.owner.id === 'string'
+                  ? playlistPayload.owner.id
+                  : null,
+              collaborative:
+                'collaborative' in playlistPayload &&
+                typeof playlistPayload.collaborative === 'boolean'
+                  ? playlistPayload.collaborative
+                  : null,
+              public:
+                'public' in playlistPayload &&
+                (typeof playlistPayload.public === 'boolean' || playlistPayload.public === null)
+                  ? playlistPayload.public
+                  : null,
+              name:
+                'name' in playlistPayload && typeof playlistPayload.name === 'string'
+                  ? playlistPayload.name
+                  : null,
+            }
+          : null;
+
+      return {
+        currentUserStatus: currentUserResponse.status,
+        currentUserId:
+          currentUserPayload &&
+          typeof currentUserPayload === 'object' &&
+          'id' in currentUserPayload &&
+          typeof currentUserPayload.id === 'string'
+            ? currentUserPayload.id
+            : null,
+        playlistStatus: playlistResponse.status,
+        playlistInfo,
+        playlistPayload,
+      };
+    },
+  });
+};
+
 const loadSourceTracks = async (sync: SyncWithImportsRecord): Promise<SyncTrack[]> => {
-  if (sync.provider === 'spotify') {
+  return loadPlaylistTracks({
+    provider: sync.provider,
+    userId: sync.senderUserId,
+    providerPlaylistId: sync.providerPlaylistId,
+  });
+};
+
+const loadPlaylistTracks = async (params: {
+  provider: 'spotify' | 'apple';
+  userId: string;
+  providerPlaylistId: string;
+}): Promise<SyncTrack[]> => {
+  if (params.provider === 'spotify') {
     const { result } = await withSpotifyAccessTokenRetry({
-      userId: sync.senderUserId,
+      userId: params.userId,
       run: (accessToken) =>
         listSpotifyPlaylistTracks({
           accessToken,
-          providerPlaylistId: sync.providerPlaylistId,
+          providerPlaylistId: params.providerPlaylistId,
         }),
     });
     return result;
   }
 
   const tracks = await withAppleMusicUserToken({
-    userId: sync.senderUserId,
+    userId: params.userId,
     run: (ctx) =>
       listApplePlaylistTracks({
         ...ctx,
-        providerPlaylistId: sync.providerPlaylistId,
+        providerPlaylistId: params.providerPlaylistId,
       }),
   });
 
   return tracks;
+};
+
+const loadImportTracks = async (importRecord: SyncImportRecord): Promise<SyncTrack[]> => {
+  if (!importRecord.recipientProviderPlaylistId) {
+    return [];
+  }
+
+  return loadPlaylistTracks({
+    provider: importRecord.recipientProvider,
+    userId: importRecord.recipientUserId,
+    providerPlaylistId: importRecord.recipientProviderPlaylistId,
+  });
+};
+
+const findProviderMatch = async (params: {
+  provider: 'spotify' | 'apple';
+  userId: string;
+  track: SyncTrack;
+}): Promise<string | null> => {
+  return params.provider === 'spotify'
+    ? findSpotifyMatch({ userId: params.userId, track: params.track })
+    : findAppleMatch({ userId: params.userId, track: params.track });
 };
 
 const findSpotifyMatch = async (params: {
@@ -210,7 +319,7 @@ const addTrackToRecipientPlaylist = async (params: {
   });
 };
 
-const syncImport = async (params: {
+const syncSourceToImport = async (params: {
   sync: SyncWithImportsRecord;
   importRecord: SyncImportRecord;
   sourceTracks: SyncTrack[];
@@ -218,6 +327,7 @@ const syncImport = async (params: {
   addedCount: number;
   recipientProviderPlaylistId: string | null;
   syncedSourceTrackFingerprints: string[];
+  syncedRecipientTrackFingerprints: string[];
 }> => {
   const recipientProviderPlaylistId = await ensureRecipientPlaylist(params);
   if (!recipientProviderPlaylistId) {
@@ -225,10 +335,21 @@ const syncImport = async (params: {
       addedCount: 0,
       recipientProviderPlaylistId: null,
       syncedSourceTrackFingerprints: params.importRecord.syncedSourceTrackFingerprints,
+      syncedRecipientTrackFingerprints: params.importRecord.syncedRecipientTrackFingerprints,
     };
   }
 
   const syncedSourceTrackFingerprints = new Set(params.importRecord.syncedSourceTrackFingerprints);
+  const syncedRecipientTrackFingerprints = new Set(
+    params.importRecord.syncedRecipientTrackFingerprints,
+  );
+  const recipientTracks = await loadImportTracks({
+    ...params.importRecord,
+    recipientProviderPlaylistId,
+  });
+  const recipientProviderTrackIds = new Set(
+    recipientTracks.map((track) => track.providerTrackId).filter(Boolean),
+  );
   if (
     syncedSourceTrackFingerprints.size === 0 &&
     params.importRecord.lastSyncedAt &&
@@ -261,6 +382,12 @@ const syncImport = async (params: {
       continue;
     }
 
+    if (recipientProviderTrackIds.has(matchedRecipientTrackId)) {
+      syncedSourceTrackFingerprints.add(trackFingerprint);
+      syncedRecipientTrackFingerprints.add(trackFingerprint);
+      continue;
+    }
+
     await addTrackToRecipientPlaylist({
       userId: params.importRecord.recipientUserId,
       provider: params.importRecord.recipientProvider,
@@ -268,7 +395,9 @@ const syncImport = async (params: {
       recipientTrackId: matchedRecipientTrackId,
     });
 
+    recipientProviderTrackIds.add(matchedRecipientTrackId);
     syncedSourceTrackFingerprints.add(trackFingerprint);
+    syncedRecipientTrackFingerprints.add(trackFingerprint);
     addedCount += 1;
   }
 
@@ -276,11 +405,85 @@ const syncImport = async (params: {
     addedCount,
     recipientProviderPlaylistId,
     syncedSourceTrackFingerprints: Array.from(syncedSourceTrackFingerprints),
+    syncedRecipientTrackFingerprints: Array.from(syncedRecipientTrackFingerprints),
+  };
+};
+
+const syncImportBackToSource = async (params: {
+  sync: SyncWithImportsRecord;
+  importRecord: SyncImportRecord;
+  syncedSourceTrackFingerprints: string[];
+  syncedRecipientTrackFingerprints: string[];
+}): Promise<{
+  addedCount: number;
+  syncedSourceTrackFingerprints: string[];
+  syncedRecipientTrackFingerprints: string[];
+}> => {
+  if (
+    params.sync.syncMode !== 'bidirectional' ||
+    !params.importRecord.recipientProviderPlaylistId
+  ) {
+    return {
+      addedCount: 0,
+      syncedSourceTrackFingerprints: params.syncedSourceTrackFingerprints,
+      syncedRecipientTrackFingerprints: params.syncedRecipientTrackFingerprints,
+    };
+  }
+
+  const recipientTracks = await loadImportTracks(params.importRecord);
+  const syncedSourceTrackFingerprints = new Set(params.syncedSourceTrackFingerprints);
+  const syncedRecipientTrackFingerprints = new Set(params.syncedRecipientTrackFingerprints);
+
+  // Backfill a baseline for imports created before the recipient-side ledger existed.
+  if (
+    syncedRecipientTrackFingerprints.size === 0 &&
+    params.importRecord.lastSyncedAt &&
+    params.importRecord.status === 'completed'
+  ) {
+    for (const recipientTrack of recipientTracks) {
+      syncedRecipientTrackFingerprints.add(buildTrackFingerprint(recipientTrack));
+    }
+  }
+
+  let addedCount = 0;
+  for (const recipientTrack of recipientTracks) {
+    const trackFingerprint = buildTrackFingerprint(recipientTrack);
+    if (syncedRecipientTrackFingerprints.has(trackFingerprint)) {
+      continue;
+    }
+
+    const matchedSourceTrackId = await findProviderMatch({
+      provider: params.sync.provider,
+      userId: params.sync.senderUserId,
+      track: recipientTrack,
+    });
+
+    if (!matchedSourceTrackId) {
+      continue;
+    }
+
+    await addTrackToRecipientPlaylist({
+      userId: params.sync.senderUserId,
+      provider: params.sync.provider,
+      recipientProviderPlaylistId: params.sync.providerPlaylistId,
+      recipientTrackId: matchedSourceTrackId,
+    });
+
+    syncedRecipientTrackFingerprints.add(trackFingerprint);
+    syncedSourceTrackFingerprints.add(trackFingerprint);
+    addedCount += 1;
+  }
+
+  return {
+    addedCount,
+    syncedSourceTrackFingerprints: Array.from(syncedSourceTrackFingerprints),
+    syncedRecipientTrackFingerprints: Array.from(syncedRecipientTrackFingerprints),
   };
 };
 
 export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
   const syncs = await syncsStore.listSyncsForAutoSync();
+  logger.info({ syncCount: syncs.length }, '[poll] automatic sync tick');
 
   for (const sync of syncs) {
     const polledAt = new Date();
@@ -289,6 +492,10 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
       const sourceTracks = await loadSourceTracks(sync);
       const sourceFingerprint = buildSourceFingerprint(sourceTracks);
       const shouldRetryFailedImports = sync.imports.some((item) => item.lastError);
+      const shouldProcessImports =
+        sync.syncMode === 'bidirectional' ||
+        sourceFingerprint !== sync.lastSourceFingerprint ||
+        shouldRetryFailedImports;
 
       await syncsStore.updateSyncAutoState({
         syncId: sync.id,
@@ -296,29 +503,98 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
         lastPolledAt: polledAt,
       });
 
-      if (sourceFingerprint === sync.lastSourceFingerprint && !shouldRetryFailedImports) {
+      logger.info(
+        {
+          syncId: sync.id,
+          syncMode: sync.syncMode,
+          importCount: sync.imports.length,
+          sourceTrackCount: sourceTracks.length,
+          sourceChanged: sourceFingerprint !== sync.lastSourceFingerprint,
+          shouldRetryFailedImports,
+          shouldProcessImports,
+        },
+        '[poll] automatic sync polled',
+      );
+
+      if (!shouldProcessImports) {
+        logger.info({ syncId: sync.id }, '[poll] automatic sync skipped');
         continue;
       }
 
       let syncLastError: string | null = null;
       for (const importRecord of sync.imports) {
         try {
-          const result = await syncImport({
+          const forwardResult = await syncSourceToImport({
             sync,
             importRecord,
             sourceTracks,
           });
+          const reverseResult = await syncImportBackToSource({
+            sync,
+            importRecord,
+            syncedSourceTrackFingerprints: forwardResult.syncedSourceTrackFingerprints,
+            syncedRecipientTrackFingerprints: forwardResult.syncedRecipientTrackFingerprints,
+          });
+
+          logger.info(
+            {
+              syncId: sync.id,
+              recipientUserId: importRecord.recipientUserId,
+              recipientProvider: importRecord.recipientProvider,
+              sourceToRecipientAddedCount: forwardResult.addedCount,
+              recipientToSourceAddedCount: reverseResult.addedCount,
+            },
+            '[poll] automatic sync import completed',
+          );
 
           await syncsStore.updateImportSyncState({
             syncId: sync.id,
             recipientUserId: importRecord.recipientUserId,
-            recipientProviderPlaylistId: result.recipientProviderPlaylistId,
-            syncedSourceTrackFingerprints: result.syncedSourceTrackFingerprints,
+            recipientProviderPlaylistId: forwardResult.recipientProviderPlaylistId,
+            syncedSourceTrackFingerprints: reverseResult.syncedSourceTrackFingerprints,
+            syncedRecipientTrackFingerprints: reverseResult.syncedRecipientTrackFingerprints,
             status: 'completed',
             lastSyncedAt: polledAt,
             lastError: null,
           });
         } catch (error) {
+          if (
+            importRecord.recipientProvider === 'spotify' &&
+            importRecord.recipientProviderPlaylistId &&
+            error instanceof ProviderApiError &&
+            error.statusCode === 403
+          ) {
+            try {
+              const diagnostics = await diagnoseSpotifyRecipientPlaylistAccess({
+                userId: importRecord.recipientUserId,
+                providerPlaylistId: importRecord.recipientProviderPlaylistId,
+              });
+              const payload = {
+                syncId: sync.id,
+                recipientUserId: importRecord.recipientUserId,
+                recipientProviderPlaylistId: importRecord.recipientProviderPlaylistId,
+                diagnostics,
+              };
+              if (logger.warn) {
+                logger.warn(payload, 'spotify recipient playlist access diagnostics');
+              } else {
+                logger.error(payload, 'spotify recipient playlist access diagnostics');
+              }
+            } catch (diagnosticError) {
+              const payload = {
+                syncId: sync.id,
+                recipientUserId: importRecord.recipientUserId,
+                recipientProviderPlaylistId: importRecord.recipientProviderPlaylistId,
+                err: diagnosticError,
+              };
+              if (logger.warn) {
+                logger.warn(payload, 'spotify recipient playlist diagnostics failed');
+              } else {
+                logger.error(payload, 'spotify recipient playlist diagnostics failed');
+              }
+            }
+          }
+
           const message = toErrorMessage(error, importRecord.recipientProvider);
           syncLastError ??= message;
           await syncsStore.updateImportSyncState({
@@ -356,6 +632,8 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
       logger.error({ err: error, syncId: sync.id }, 'automatic sync failed');
     }
   }
+
+  logger.info({ syncCount: syncs.length }, '[poll] automatic sync tick complete');
 };
 
 export const startAutoSyncScheduler = (logger: Logger) => {
