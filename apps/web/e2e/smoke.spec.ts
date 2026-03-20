@@ -64,6 +64,7 @@ const mockDrafts = [
   },
 ] as const;
 
+// 20 tracks for event-1, 5 for event-2 → 25 total activity rows → 2 pages of 15
 const mockTracksByEventId = {
   'event-1': Array.from({ length: 20 }, (_, index) => ({
     providerTrackId: `event-1-track-${index + 1}`,
@@ -202,7 +203,12 @@ test.describe('web smoke regressions', () => {
     await expect(page.getByText('Track 01')).toBeVisible();
     await expect(page.getByText('Page 1 / 2')).toBeVisible();
 
-    await page.getByRole('button', { name: 'Next' }).click();
+    // Scope to the activity section to avoid matching any other "Next" button
+    const activitySection = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Latest activity' }) });
+    await activitySection.getByRole('button', { name: 'Next' }).click();
+
     await expect(page.getByText('Page 2 / 2')).toBeVisible();
     await expect(page.getByText('Track 16')).toBeVisible();
   });
@@ -213,10 +219,12 @@ test.describe('web smoke regressions', () => {
 
     await page.goto('/dashboard');
     await expect(page.getByText('Track 01')).toBeVisible();
+
+    // Wait until all expected API calls have completed before snapshotting counters
     await expect.poll(() => counters.drafts).toBeGreaterThanOrEqual(1);
     await expect.poll(() => counters.events).toBeGreaterThanOrEqual(1);
-    await expect.poll(() => counters.tracks).toBeGreaterThanOrEqual(2);
-    await page.waitForTimeout(120);
+    // Both events are fetched for activity, so exactly 2 track requests expected
+    await expect.poll(() => counters.tracks).toBe(2);
     const baselineCounters = { ...counters };
 
     await page.locator('header nav a[href="/profile"]').first().click();
@@ -225,9 +233,8 @@ test.describe('web smoke regressions', () => {
     await page.locator('header nav a[href="/dashboard"]').first().click();
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Track 01')).toBeVisible();
-    await page.waitForTimeout(120);
 
-    // Dashboard cache should prevent refetch while still inside TTL window.
+    // All counters must be unchanged — cache was served, no new network requests fired
     expect(counters.integrations).toBe(baselineCounters.integrations);
     expect(counters.events).toBe(baselineCounters.events);
     expect(counters.tracks).toBe(baselineCounters.tracks);

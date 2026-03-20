@@ -113,8 +113,8 @@ export const HostEventsPage = () => {
           filterId="events-blur"
           className="pointer-events-none absolute inset-0 z-0"
           spots={[
-            { cx: '10%', cy: '15%', r: 180, color: '#c6f135', opacity: 0.07 },
-            { cx: '85%', cy: '60%', r: 200, color: '#e8579a', opacity: 0.06 },
+            { id: 'events-a', size: 180, top: 15, left: 10, color: 'rgba(198,241,53,0.07)' },
+            { id: 'events-b', size: 200, top: 60, left: 85, color: 'rgba(232,87,154,0.06)' },
           ]}
         />
       }
