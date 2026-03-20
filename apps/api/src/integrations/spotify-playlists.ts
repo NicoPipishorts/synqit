@@ -12,6 +12,7 @@ const spotifyCurrentUserResponseSchema = z.object({
 const spotifyPlaylistSummaryResponseSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  snapshot_id: z.string().min(1),
   public: z.boolean().nullable(),
   collaborative: z.boolean(),
   owner: z.object({
@@ -36,6 +37,7 @@ type SpotifyCurrentUser = {
 type SpotifyPlaylistSummary = {
   id: string;
   name: string;
+  snapshotId: string;
   ownerId: string;
   isPublic: boolean;
   collaborative: boolean;
@@ -171,6 +173,7 @@ export const getSpotifyPlaylistSummary = async (params: {
   return {
     id: parsed.id,
     name: parsed.name,
+    snapshotId: parsed.snapshot_id,
     ownerId: parsed.owner.id,
     isPublic: parsed.public === true,
     collaborative: parsed.collaborative,

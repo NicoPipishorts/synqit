@@ -13,6 +13,7 @@ import { isSpotifyOauthLiveMode } from '../integrations/spotify';
 import { IntegrationError } from '../integrations/spotify-client';
 import { withSpotifyAccessTokenRetry } from '../integrations/spotify-client';
 import { createSpotifyPlaylist } from '../integrations/spotify-playlists';
+import { getSpotifyPlaylistSummary } from '../integrations/spotify-playlists';
 import { ProviderApiError } from '../integrations/spotify-tracks';
 import { addSpotifyTrackToPlaylist } from '../integrations/spotify-tracks';
 import { listSpotifyPlaylistTracks } from '../integrations/spotify-tracks';
@@ -68,7 +69,7 @@ const diagnoseSpotifyRecipientPlaylistAccess = async (params: {
     return null;
   }
 
-  return withSpotifyAccessTokenRetry({
+  const { result } = await withSpotifyAccessTokenRetry({
     userId: params.userId,
     run: async (accessToken) => {
       const currentUserResponse = await fetch('https://api.spotify.com/v1/me', {
@@ -133,6 +134,24 @@ const diagnoseSpotifyRecipientPlaylistAccess = async (params: {
       };
     },
   });
+
+  return result;
+};
+
+const loadSpotifyPlaylistSnapshot = async (params: {
+  userId: string;
+  providerPlaylistId: string;
+}): Promise<string> => {
+  const { result } = await withSpotifyAccessTokenRetry({
+    userId: params.userId,
+    run: (accessToken) =>
+      getSpotifyPlaylistSummary({
+        accessToken,
+        providerPlaylistId: params.providerPlaylistId,
+      }),
+  });
+
+  return result.snapshotId;
 };
 
 const loadSourceTracks = async (sync: SyncWithImportsRecord): Promise<SyncTrack[]> => {
@@ -489,17 +508,39 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
     const polledAt = new Date();
 
     try {
-      const sourceTracks = await loadSourceTracks(sync);
-      const sourceFingerprint = buildSourceFingerprint(sourceTracks);
       const shouldRetryFailedImports = sync.imports.some((item) => item.lastError);
+      let sourceTracks: SyncTrack[] = [];
+      let sourceFingerprint = sync.lastSourceFingerprint;
+      let sourceChanged = true;
+      let sourceTrackCount = sync.trackCount;
+      let sourceSnapshotId = sync.lastSourceSnapshotId;
+
+      if (sync.provider === 'spotify' && isSpotifyOauthLiveMode()) {
+        sourceSnapshotId = await loadSpotifyPlaylistSnapshot({
+          userId: sync.senderUserId,
+          providerPlaylistId: sync.providerPlaylistId,
+        });
+        sourceChanged = sourceSnapshotId !== sync.lastSourceSnapshotId;
+
+        if (sourceChanged || shouldRetryFailedImports) {
+          sourceTracks = await loadSourceTracks(sync);
+          sourceFingerprint = buildSourceFingerprint(sourceTracks);
+          sourceTrackCount = sourceTracks.length;
+        }
+      } else {
+        sourceTracks = await loadSourceTracks(sync);
+        sourceFingerprint = buildSourceFingerprint(sourceTracks);
+        sourceTrackCount = sourceTracks.length;
+        sourceChanged = sourceFingerprint !== sync.lastSourceFingerprint;
+      }
+
       const shouldProcessImports =
-        sync.syncMode === 'bidirectional' ||
-        sourceFingerprint !== sync.lastSourceFingerprint ||
-        shouldRetryFailedImports;
+        sync.syncMode === 'bidirectional' || sourceChanged || shouldRetryFailedImports;
 
       await syncsStore.updateSyncAutoState({
         syncId: sync.id,
-        trackCount: sourceTracks.length,
+        trackCount: sourceTrackCount,
+        lastSourceSnapshotId: sourceSnapshotId,
         lastPolledAt: polledAt,
       });
 
@@ -508,8 +549,8 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
           syncId: sync.id,
           syncMode: sync.syncMode,
           importCount: sync.imports.length,
-          sourceTrackCount: sourceTracks.length,
-          sourceChanged: sourceFingerprint !== sync.lastSourceFingerprint,
+          sourceTrackCount,
+          sourceChanged,
           shouldRetryFailedImports,
           shouldProcessImports,
         },
@@ -524,17 +565,76 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
       let syncLastError: string | null = null;
       for (const importRecord of sync.imports) {
         try {
-          const forwardResult = await syncSourceToImport({
-            sync,
-            importRecord,
-            sourceTracks,
-          });
-          const reverseResult = await syncImportBackToSource({
-            sync,
-            importRecord,
+          const shouldRetryImport = Boolean(importRecord.lastError);
+          let recipientChanged = sync.syncMode === 'bidirectional';
+          let recipientSnapshotId = importRecord.lastRecipientSnapshotId;
+
+          if (
+            sync.syncMode === 'bidirectional' &&
+            importRecord.recipientProvider === 'spotify' &&
+            importRecord.recipientProviderPlaylistId &&
+            isSpotifyOauthLiveMode()
+          ) {
+            recipientSnapshotId = await loadSpotifyPlaylistSnapshot({
+              userId: importRecord.recipientUserId,
+              providerPlaylistId: importRecord.recipientProviderPlaylistId,
+            });
+            recipientChanged = recipientSnapshotId !== importRecord.lastRecipientSnapshotId;
+          }
+
+          if (!sourceChanged && !recipientChanged && !shouldRetryImport) {
+            logger.info(
+              {
+                syncId: sync.id,
+                recipientUserId: importRecord.recipientUserId,
+                recipientProvider: importRecord.recipientProvider,
+                recipientChanged,
+                sourceChanged,
+              },
+              '[poll] automatic sync import skipped',
+            );
+            await syncsStore.updateImportSyncState({
+              syncId: sync.id,
+              recipientUserId: importRecord.recipientUserId,
+              lastRecipientSnapshotId: recipientSnapshotId,
+              status: 'completed',
+              lastError: null,
+            });
+            continue;
+          }
+
+          let forwardResult = {
+            addedCount: 0,
+            recipientProviderPlaylistId: importRecord.recipientProviderPlaylistId,
+            syncedSourceTrackFingerprints: importRecord.syncedSourceTrackFingerprints,
+            syncedRecipientTrackFingerprints: importRecord.syncedRecipientTrackFingerprints,
+          };
+
+          if (sourceChanged || shouldRetryImport) {
+            forwardResult = await syncSourceToImport({
+              sync,
+              importRecord,
+              sourceTracks,
+            });
+          }
+
+          let reverseResult = {
+            addedCount: 0,
             syncedSourceTrackFingerprints: forwardResult.syncedSourceTrackFingerprints,
             syncedRecipientTrackFingerprints: forwardResult.syncedRecipientTrackFingerprints,
-          });
+          };
+
+          if (sync.syncMode === 'bidirectional' && (recipientChanged || shouldRetryImport)) {
+            reverseResult = await syncImportBackToSource({
+              sync,
+              importRecord: {
+                ...importRecord,
+                recipientProviderPlaylistId: forwardResult.recipientProviderPlaylistId,
+              },
+              syncedSourceTrackFingerprints: forwardResult.syncedSourceTrackFingerprints,
+              syncedRecipientTrackFingerprints: forwardResult.syncedRecipientTrackFingerprints,
+            });
+          }
 
           logger.info(
             {
@@ -551,6 +651,7 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
             syncId: sync.id,
             recipientUserId: importRecord.recipientUserId,
             recipientProviderPlaylistId: forwardResult.recipientProviderPlaylistId,
+            lastRecipientSnapshotId: recipientSnapshotId,
             syncedSourceTrackFingerprints: reverseResult.syncedSourceTrackFingerprints,
             syncedRecipientTrackFingerprints: reverseResult.syncedRecipientTrackFingerprints,
             status: 'completed',
@@ -616,7 +717,8 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
 
       await syncsStore.updateSyncAutoState({
         syncId: sync.id,
-        trackCount: sourceTracks.length,
+        trackCount: sourceTrackCount,
+        lastSourceSnapshotId: sourceSnapshotId,
         lastSourceFingerprint: sourceFingerprint,
         lastPolledAt: polledAt,
         lastSyncedAt: syncLastError ? sync.lastSyncedAt : polledAt,

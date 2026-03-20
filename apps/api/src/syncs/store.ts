@@ -13,6 +13,7 @@ export type SyncRecord = {
   trackCount: number | null;
   syncMode: SyncMode;
   autoSyncEnabled: boolean;
+  lastSourceSnapshotId: string | null;
   lastSourceFingerprint: string | null;
   lastPolledAt: Date | null;
   lastSyncedAt: Date | null;
@@ -29,6 +30,7 @@ export type SyncImportRecord = {
   recipientUserId: string;
   recipientProvider: Provider;
   recipientProviderPlaylistId: string | null;
+  lastRecipientSnapshotId: string | null;
   syncedSourceTrackFingerprints: string[];
   syncedRecipientTrackFingerprints: string[];
   status: string;
@@ -53,6 +55,7 @@ type SyncRow = {
   track_count: number | null;
   sync_mode: string;
   auto_sync_enabled: boolean;
+  last_source_snapshot_id: string | null;
   last_source_fingerprint: string | null;
   last_polled_at: Date | null;
   last_synced_at: Date | null;
@@ -69,6 +72,7 @@ type SyncImportRow = {
   recipient_user_id: string;
   recipient_provider: string;
   recipient_provider_playlist_id: string | null;
+  last_recipient_snapshot_id: string | null;
   synced_source_track_fingerprints: string[];
   synced_recipient_track_fingerprints: string[];
   status: string;
@@ -97,6 +101,7 @@ const mapSyncRow = (row: SyncRow): SyncRecord => ({
   trackCount: row.track_count,
   syncMode: syncModeSchema.parse(row.sync_mode),
   autoSyncEnabled: row.auto_sync_enabled,
+  lastSourceSnapshotId: row.last_source_snapshot_id,
   lastSourceFingerprint: row.last_source_fingerprint,
   lastPolledAt: row.last_polled_at,
   lastSyncedAt: row.last_synced_at,
@@ -113,6 +118,7 @@ const mapSyncImportRow = (row: SyncImportRow): SyncImportRecord => ({
   recipientUserId: row.recipient_user_id,
   recipientProvider: providerSchema.parse(row.recipient_provider),
   recipientProviderPlaylistId: row.recipient_provider_playlist_id,
+  lastRecipientSnapshotId: row.last_recipient_snapshot_id,
   syncedSourceTrackFingerprints: row.synced_source_track_fingerprints,
   syncedRecipientTrackFingerprints: row.synced_recipient_track_fingerprints,
   status: row.status,
@@ -247,6 +253,7 @@ export const syncsStore = {
   async updateSyncAutoState(params: {
     syncId: string;
     trackCount?: number | null;
+    lastSourceSnapshotId?: string | null;
     lastSourceFingerprint?: string | null;
     lastPolledAt?: Date | null;
     lastSyncedAt?: Date | null;
@@ -256,6 +263,9 @@ export const syncsStore = {
       where: { id: params.syncId },
       data: {
         ...(params.trackCount !== undefined ? { track_count: params.trackCount } : {}),
+        ...(params.lastSourceSnapshotId !== undefined
+          ? { last_source_snapshot_id: params.lastSourceSnapshotId }
+          : {}),
         ...(params.lastSourceFingerprint !== undefined
           ? { last_source_fingerprint: params.lastSourceFingerprint }
           : {}),
@@ -335,6 +345,7 @@ export const syncsStore = {
     recipientUserId: string;
     recipientProvider: Provider;
     recipientProviderPlaylistId?: string | null;
+    lastRecipientSnapshotId?: string | null;
     syncedSourceTrackFingerprints?: string[];
     syncedRecipientTrackFingerprints?: string[];
     status: string;
@@ -357,6 +368,7 @@ export const syncsStore = {
         recipient_user_id: params.recipientUserId,
         recipient_provider: params.recipientProvider,
         recipient_provider_playlist_id: params.recipientProviderPlaylistId ?? null,
+        last_recipient_snapshot_id: params.lastRecipientSnapshotId ?? null,
         synced_source_track_fingerprints: params.syncedSourceTrackFingerprints ?? [],
         synced_recipient_track_fingerprints: params.syncedRecipientTrackFingerprints ?? [],
         status: params.status,
@@ -371,6 +383,9 @@ export const syncsStore = {
         recipient_provider: params.recipientProvider,
         ...(params.recipientProviderPlaylistId !== undefined
           ? { recipient_provider_playlist_id: params.recipientProviderPlaylistId }
+          : {}),
+        ...(params.lastRecipientSnapshotId !== undefined
+          ? { last_recipient_snapshot_id: params.lastRecipientSnapshotId }
           : {}),
         ...(params.syncedSourceTrackFingerprints !== undefined
           ? { synced_source_track_fingerprints: params.syncedSourceTrackFingerprints }
@@ -419,6 +434,7 @@ export const syncsStore = {
     syncId: string;
     recipientUserId: string;
     recipientProviderPlaylistId?: string | null;
+    lastRecipientSnapshotId?: string | null;
     syncedSourceTrackFingerprints?: string[];
     syncedRecipientTrackFingerprints?: string[];
     status?: string;
@@ -448,6 +464,9 @@ export const syncsStore = {
       data: {
         ...(params.recipientProviderPlaylistId !== undefined
           ? { recipient_provider_playlist_id: params.recipientProviderPlaylistId }
+          : {}),
+        ...(params.lastRecipientSnapshotId !== undefined
+          ? { last_recipient_snapshot_id: params.lastRecipientSnapshotId }
           : {}),
         ...(params.syncedSourceTrackFingerprints !== undefined
           ? { synced_source_track_fingerprints: params.syncedSourceTrackFingerprints }

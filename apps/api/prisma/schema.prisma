@@ -182,6 +182,7 @@ model playlist_syncs {
   track_count           Int?
   sync_mode             String                  @default("host_only")
   auto_sync_enabled     Boolean                 @default(true)
+  last_source_snapshot_id String?
   last_source_fingerprint String?
   last_polled_at        DateTime?               @db.Timestamptz(6)
   last_synced_at        DateTime?               @db.Timestamptz(6)
@@ -202,6 +203,7 @@ model playlist_sync_imports {
   recipient_user_id  String
   recipient_provider String
   recipient_provider_playlist_id String?
+  last_recipient_snapshot_id String?
   synced_source_track_fingerprints String[] @default([])
   synced_recipient_track_fingerprints String[] @default([])
   status             String          @default("pending")
