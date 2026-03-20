@@ -182,6 +182,8 @@ model playlist_syncs {
   track_count           Int?
   sync_mode             String                  @default("host_only")
   auto_sync_enabled     Boolean                 @default(true)
+  next_poll_at          DateTime?               @db.Timestamptz(6)
+  unchanged_poll_streak Int                     @default(0)
   last_source_snapshot_id String?
   last_source_fingerprint String?
   last_polled_at        DateTime?               @db.Timestamptz(6)

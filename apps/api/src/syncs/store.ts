@@ -13,6 +13,8 @@ export type SyncRecord = {
   trackCount: number | null;
   syncMode: SyncMode;
   autoSyncEnabled: boolean;
+  nextPollAt: Date | null;
+  unchangedPollStreak: number;
   lastSourceSnapshotId: string | null;
   lastSourceFingerprint: string | null;
   lastPolledAt: Date | null;
@@ -55,6 +57,8 @@ type SyncRow = {
   track_count: number | null;
   sync_mode: string;
   auto_sync_enabled: boolean;
+  next_poll_at: Date | null;
+  unchanged_poll_streak: number;
   last_source_snapshot_id: string | null;
   last_source_fingerprint: string | null;
   last_polled_at: Date | null;
@@ -101,6 +105,8 @@ const mapSyncRow = (row: SyncRow): SyncRecord => ({
   trackCount: row.track_count,
   syncMode: syncModeSchema.parse(row.sync_mode),
   autoSyncEnabled: row.auto_sync_enabled,
+  nextPollAt: row.next_poll_at,
+  unchangedPollStreak: row.unchanged_poll_streak,
   lastSourceSnapshotId: row.last_source_snapshot_id,
   lastSourceFingerprint: row.last_source_fingerprint,
   lastPolledAt: row.last_polled_at,
@@ -149,6 +155,8 @@ export const syncsStore = {
       track_count: params.trackCount,
       sync_mode: params.syncMode,
       auto_sync_enabled: true,
+      next_poll_at: null,
+      unchanged_poll_streak: 0,
       magic_link_token: randomBytes(24).toString('hex'),
       created_at: now,
       updated_at: now,
@@ -193,6 +201,7 @@ export const syncsStore = {
       where: {
         auto_sync_enabled: true,
         magic_link_revoked_at: null,
+        OR: [{ next_poll_at: null }, { next_poll_at: { lte: new Date() } }],
         playlist_sync_imports: {
           some: {
             recipient_provider_playlist_id: {
@@ -204,7 +213,7 @@ export const syncsStore = {
       include: {
         playlist_sync_imports: true,
       },
-      orderBy: { updated_at: 'asc' },
+      orderBy: [{ next_poll_at: 'asc' }, { updated_at: 'asc' }],
     });
 
     return (rows as unknown as SyncWithImportsRow[]).map((row) => ({
@@ -253,6 +262,8 @@ export const syncsStore = {
   async updateSyncAutoState(params: {
     syncId: string;
     trackCount?: number | null;
+    nextPollAt?: Date | null;
+    unchangedPollStreak?: number;
     lastSourceSnapshotId?: string | null;
     lastSourceFingerprint?: string | null;
     lastPolledAt?: Date | null;
@@ -263,6 +274,10 @@ export const syncsStore = {
       where: { id: params.syncId },
       data: {
         ...(params.trackCount !== undefined ? { track_count: params.trackCount } : {}),
+        ...(params.nextPollAt !== undefined ? { next_poll_at: params.nextPollAt } : {}),
+        ...(params.unchangedPollStreak !== undefined
+          ? { unchanged_poll_streak: params.unchangedPollStreak }
+          : {}),
         ...(params.lastSourceSnapshotId !== undefined
           ? { last_source_snapshot_id: params.lastSourceSnapshotId }
           : {}),

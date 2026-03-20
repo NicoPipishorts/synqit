@@ -34,11 +34,58 @@ type SyncTrack = {
 };
 
 const DEFAULT_AUTO_SYNC_INTERVAL_MS = 60_000;
+const DEFAULT_MAX_AUTO_SYNC_INTERVAL_MS = 15 * 60_000;
+const DEFAULT_APPLE_MAX_AUTO_SYNC_INTERVAL_MS = 30 * 60_000;
+const DEFAULT_APPLE_BACKOFF_MULTIPLIER = 3;
 
 const buildSourceFingerprint = (tracks: SyncTrack[]): string =>
   createHash('sha256')
     .update(tracks.map((track) => track.providerTrackId).join('\n'))
     .digest('hex');
+
+const hasAppleInSync = (sync: SyncWithImportsRecord): boolean =>
+  sync.provider === 'apple' ||
+  (sync.syncMode === 'bidirectional' &&
+    sync.imports.some((item) => item.recipientProvider === 'apple'));
+
+const computeNextPollPlan = (params: {
+  sync: SyncWithImportsRecord;
+  hadChange: boolean;
+  hadError: boolean;
+  now: Date;
+}) => {
+  const baseIntervalMs = Math.max(
+    Number(process.env.SYNC_POLL_INTERVAL_MS ?? DEFAULT_AUTO_SYNC_INTERVAL_MS),
+    10_000,
+  );
+  const hasApple = hasAppleInSync(params.sync);
+  const maxIntervalMs = Math.max(
+    Number(
+      hasApple
+        ? (process.env.APPLE_SYNC_MAX_POLL_INTERVAL_MS ?? DEFAULT_APPLE_MAX_AUTO_SYNC_INTERVAL_MS)
+        : (process.env.MAX_SYNC_POLL_INTERVAL_MS ?? DEFAULT_MAX_AUTO_SYNC_INTERVAL_MS),
+    ),
+    baseIntervalMs,
+  );
+
+  if (params.hadChange || params.hadError) {
+    return {
+      nextPollAt: new Date(params.now.getTime() + baseIntervalMs),
+      unchangedPollStreak: 0,
+      intervalMs: baseIntervalMs,
+    };
+  }
+
+  const nextStreak = params.sync.unchangedPollStreak + 1;
+  const multiplier = hasApple ? DEFAULT_APPLE_BACKOFF_MULTIPLIER : 2;
+  const intervalMs = Math.min(baseIntervalMs * multiplier ** nextStreak, maxIntervalMs);
+
+  return {
+    nextPollAt: new Date(params.now.getTime() + intervalMs),
+    unchangedPollStreak: nextStreak,
+    intervalMs,
+  };
+};
 
 const toErrorMessage = (error: unknown, provider?: 'spotify' | 'apple'): string => {
   if (error instanceof ProviderApiError) {
@@ -433,6 +480,7 @@ const syncImportBackToSource = async (params: {
   importRecord: SyncImportRecord;
   syncedSourceTrackFingerprints: string[];
   syncedRecipientTrackFingerprints: string[];
+  recipientTracks?: SyncTrack[];
 }): Promise<{
   addedCount: number;
   syncedSourceTrackFingerprints: string[];
@@ -449,7 +497,7 @@ const syncImportBackToSource = async (params: {
     };
   }
 
-  const recipientTracks = await loadImportTracks(params.importRecord);
+  const recipientTracks = params.recipientTracks ?? (await loadImportTracks(params.importRecord));
   const syncedSourceTrackFingerprints = new Set(params.syncedSourceTrackFingerprints);
   const syncedRecipientTrackFingerprints = new Set(params.syncedRecipientTrackFingerprints);
 
@@ -502,7 +550,7 @@ const syncImportBackToSource = async (params: {
 
 export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
   const syncs = await syncsStore.listSyncsForAutoSync();
-  logger.info({ syncCount: syncs.length }, '[poll] automatic sync tick');
+  logger.info({ syncCount: syncs.length }, '[api][poll] automatic sync tick');
 
   for (const sync of syncs) {
     const polledAt = new Date();
@@ -530,8 +578,9 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
       } else {
         sourceTracks = await loadSourceTracks(sync);
         sourceFingerprint = buildSourceFingerprint(sourceTracks);
+        sourceSnapshotId = sourceFingerprint;
         sourceTrackCount = sourceTracks.length;
-        sourceChanged = sourceFingerprint !== sync.lastSourceFingerprint;
+        sourceChanged = sourceSnapshotId !== sync.lastSourceSnapshotId;
       }
 
       const shouldProcessImports =
@@ -554,33 +603,38 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
           shouldRetryFailedImports,
           shouldProcessImports,
         },
-        '[poll] automatic sync polled',
+        '[api][poll] automatic sync polled',
       );
 
       if (!shouldProcessImports) {
-        logger.info({ syncId: sync.id }, '[poll] automatic sync skipped');
+        logger.info({ syncId: sync.id }, '[api][poll] automatic sync skipped');
         continue;
       }
 
       let syncLastError: string | null = null;
+      let detectedChange = sourceChanged;
       for (const importRecord of sync.imports) {
         try {
           const shouldRetryImport = Boolean(importRecord.lastError);
           let recipientChanged = sync.syncMode === 'bidirectional';
           let recipientSnapshotId = importRecord.lastRecipientSnapshotId;
+          let preloadedRecipientTracks: SyncTrack[] | undefined;
 
-          if (
-            sync.syncMode === 'bidirectional' &&
-            importRecord.recipientProvider === 'spotify' &&
-            importRecord.recipientProviderPlaylistId &&
-            isSpotifyOauthLiveMode()
-          ) {
-            recipientSnapshotId = await loadSpotifyPlaylistSnapshot({
-              userId: importRecord.recipientUserId,
-              providerPlaylistId: importRecord.recipientProviderPlaylistId,
-            });
-            recipientChanged = recipientSnapshotId !== importRecord.lastRecipientSnapshotId;
+          if (sync.syncMode === 'bidirectional' && importRecord.recipientProviderPlaylistId) {
+            if (importRecord.recipientProvider === 'spotify' && isSpotifyOauthLiveMode()) {
+              recipientSnapshotId = await loadSpotifyPlaylistSnapshot({
+                userId: importRecord.recipientUserId,
+                providerPlaylistId: importRecord.recipientProviderPlaylistId,
+              });
+              recipientChanged = recipientSnapshotId !== importRecord.lastRecipientSnapshotId;
+            } else {
+              preloadedRecipientTracks = await loadImportTracks(importRecord);
+              recipientSnapshotId = buildSourceFingerprint(preloadedRecipientTracks);
+              recipientChanged = recipientSnapshotId !== importRecord.lastRecipientSnapshotId;
+            }
           }
+
+          detectedChange ||= recipientChanged;
 
           if (!sourceChanged && !recipientChanged && !shouldRetryImport) {
             logger.info(
@@ -591,7 +645,7 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
                 recipientChanged,
                 sourceChanged,
               },
-              '[poll] automatic sync import skipped',
+              '[api][poll] automatic sync import skipped',
             );
             await syncsStore.updateImportSyncState({
               syncId: sync.id,
@@ -633,6 +687,7 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
               },
               syncedSourceTrackFingerprints: forwardResult.syncedSourceTrackFingerprints,
               syncedRecipientTrackFingerprints: forwardResult.syncedRecipientTrackFingerprints,
+              recipientTracks: preloadedRecipientTracks,
             });
           }
 
@@ -644,7 +699,7 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
               sourceToRecipientAddedCount: forwardResult.addedCount,
               recipientToSourceAddedCount: reverseResult.addedCount,
             },
-            '[poll] automatic sync import completed',
+            '[api][poll] automatic sync import completed',
           );
 
           await syncsStore.updateImportSyncState({
@@ -715,19 +770,48 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
         }
       }
 
+      const pollPlan = computeNextPollPlan({
+        sync,
+        hadChange: detectedChange,
+        hadError: Boolean(syncLastError),
+        now: polledAt,
+      });
+
       await syncsStore.updateSyncAutoState({
         syncId: sync.id,
         trackCount: sourceTrackCount,
+        nextPollAt: pollPlan.nextPollAt,
+        unchangedPollStreak: pollPlan.unchangedPollStreak,
         lastSourceSnapshotId: sourceSnapshotId,
         lastSourceFingerprint: sourceFingerprint,
         lastPolledAt: polledAt,
         lastSyncedAt: syncLastError ? sync.lastSyncedAt : polledAt,
         lastError: syncLastError,
       });
+
+      logger.info(
+        {
+          syncId: sync.id,
+          hadChange: detectedChange,
+          hadError: Boolean(syncLastError),
+          unchangedPollStreak: pollPlan.unchangedPollStreak,
+          nextPollAt: pollPlan.nextPollAt.toISOString(),
+          nextPollInMs: pollPlan.intervalMs,
+        },
+        '[api][poll] automatic sync scheduled',
+      );
     } catch (error) {
       const message = toErrorMessage(error, sync.provider);
+      const pollPlan = computeNextPollPlan({
+        sync,
+        hadChange: false,
+        hadError: true,
+        now: polledAt,
+      });
       await syncsStore.updateSyncAutoState({
         syncId: sync.id,
+        nextPollAt: pollPlan.nextPollAt,
+        unchangedPollStreak: pollPlan.unchangedPollStreak,
         lastPolledAt: polledAt,
         lastError: message,
       });
@@ -735,7 +819,7 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
     }
   }
 
-  logger.info({ syncCount: syncs.length }, '[poll] automatic sync tick complete');
+  logger.info({ syncCount: syncs.length }, '[api][poll] automatic sync tick complete');
 };
 
 export const startAutoSyncScheduler = (logger: Logger) => {
