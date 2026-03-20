@@ -119,18 +119,8 @@ export const HostEventsPage = () => {
         />
       }
     >
-      {/* ── Header ── */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div className="grid gap-1">
-          <p className="text-xs font-semibold uppercase tracking-widest text-app-text-secondary">
-            {t('eventsPage.title')}
-          </p>
-          <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
-            {t('eventsPage.myPlaylistsTitle')}
-          </h1>
-          <p className="text-sm text-app-text-secondary">{t('eventsPage.description')}</p>
-        </div>
-        {hasAny && (
+      {hasAny && (
+        <div className="flex justify-end">
           <CTALink
             to="/playlists/new"
             variant="primary"
@@ -139,8 +129,8 @@ export const HostEventsPage = () => {
             <Plus size={14} aria-hidden="true" />
             {t('eventsPage.create')}
           </CTALink>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── List / Empty ── */}
       {!hasAny ? (

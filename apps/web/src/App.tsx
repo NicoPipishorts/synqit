@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import {
   createRootRoute,
   createRoute,
@@ -13,16 +13,9 @@ import { buildAdminAppUrl } from './lib/admin-url';
 import { isAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
 import { createLazyRouteComponent } from './lib/lazy-route';
+import { queryClient } from './lib/queryClient';
 import { EventPublicPage } from './pages/EventPublicPage';
-
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 60_000,
-      retry: 1,
-    },
-  },
-});
+import { SyncPublicPage } from './pages/SyncPublicPage';
 
 const AppShell = createLazyRouteComponent(() =>
   import('./components/shell/AppShell').then((module) => ({
@@ -52,6 +45,11 @@ const EventCreatePage = createLazyRouteComponent(() =>
 const SyncedListsPage = createLazyRouteComponent(() =>
   import('./pages/SyncedListsPage').then((module) => ({
     default: module.SyncedListsPage,
+  })),
+);
+const SyncCreatePage = createLazyRouteComponent(() =>
+  import('./pages/SyncCreatePage').then((module) => ({
+    default: module.SyncCreatePage,
   })),
 );
 const ProfilePage = createLazyRouteComponent(() =>
@@ -158,6 +156,19 @@ const syncedListsRoute = createRoute({
   path: '/synced-lists',
   beforeLoad: requireAuth,
   component: SyncedListsPage,
+});
+
+const syncCreateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/synced-lists/new',
+  beforeLoad: requireAuth,
+  component: SyncCreatePage,
+});
+
+const syncPublicRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/sync/$token',
+  component: SyncPublicPage,
 });
 
 const eventsRoute = createRoute({
@@ -330,6 +341,8 @@ const routeTree = rootRoute.addChildren([
   appEntryRoute,
   providersRoute,
   syncedListsRoute,
+  syncCreateRoute,
+  syncPublicRoute,
   eventsRoute,
   legacyEventsRoute,
   eventDetailsRoute,

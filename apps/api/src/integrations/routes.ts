@@ -27,7 +27,7 @@ import { authStore } from '../auth/store';
 
 const DEFAULT_OAUTH_STATE_TTL_SECONDS = 10 * 60;
 const DEFAULT_SPOTIFY_SCOPES =
-  'playlist-read-private playlist-modify-private playlist-modify-public';
+  'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public';
 const DEFAULT_APPLE_SCOPES = 'music-library-read music-library-modify';
 const DEFAULT_API_BASE_URL = 'http://localhost:3001';
 const DEFAULT_WEB_APP_URL = 'http://127.0.0.1:5173';

@@ -1,3 +1,4 @@
+import type { ProviderPlaylistItem } from '@synqit/shared';
 import { z } from 'zod';
 
 const spotifyPlaylistCreateResponseSchema = z.object({
@@ -98,6 +99,52 @@ export const getSpotifyCurrentUser = async (params: {
   const parsed = spotifyCurrentUserResponseSchema.parse(payload);
   return {
     id: parsed.id,
+  };
+};
+
+const spotifyUserPlaylistsResponseSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string(),
+      tracks: z.object({ total: z.number().int().nonnegative() }).nullable().optional(),
+      images: z
+        .array(z.object({ url: z.string() }))
+        .optional()
+        .default([]),
+    }),
+  ),
+  next: z.string().nullable().optional(),
+});
+
+export const listSpotifyUserPlaylists = async (params: {
+  accessToken: string;
+  limit: number;
+  offset: number;
+}): Promise<{ playlists: ProviderPlaylistItem[]; hasMore: boolean }> => {
+  const url = new URL('https://api.spotify.com/v1/me/playlists');
+  url.searchParams.set('limit', String(Math.min(params.limit, 50)));
+  url.searchParams.set('offset', String(params.offset));
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: { authorization: `Bearer ${params.accessToken}` },
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as unknown;
+  if (!response.ok) {
+    throw new Error(`Spotify user playlists fetch failed with status ${response.status}.`);
+  }
+
+  const parsed = spotifyUserPlaylistsResponseSchema.parse(payload);
+  return {
+    playlists: parsed.items.map((item) => ({
+      providerPlaylistId: item.id,
+      name: item.name,
+      trackCount: item.tracks?.total ?? null,
+      coverImageUrl: item.images[0]?.url ?? null,
+    })),
+    hasMore: !!parsed.next,
   };
 };
 

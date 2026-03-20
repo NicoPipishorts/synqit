@@ -1,5 +1,5 @@
-import { Link, useNavigate } from '@tanstack/react-router';
-import { FormEvent, useState } from 'react';
+import { Link, useRouterState } from '@tanstack/react-router';
+import { FormEvent, useMemo, useState } from 'react';
 
 import { AuthPageLayout } from '../components/auth/AuthPageLayout';
 import { CTAButton } from '../components/ui/cta';
@@ -12,7 +12,9 @@ import { storeAuth } from '../lib/auth';
 import { PASSWORD_MIN_LENGTH } from '../lib/client-models';
 
 export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/auth/login' }) => {
-  const navigate = useNavigate();
+  const search = useRouterState({
+    select: (state) => state.location.searchStr,
+  });
   const { t } = useI18n();
   const isLogin = endpoint === '/v1/auth/login';
   const title = isLogin ? t('auth.loginTitle') : t('auth.registerTitle');
@@ -21,6 +23,19 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<'error' | 'success' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const redirectTo = useMemo(() => {
+    const rawValue = new URLSearchParams(search).get('redirectTo')?.trim();
+    if (!rawValue || !rawValue.startsWith('/') || rawValue.startsWith('//')) {
+      return '/dashboard';
+    }
+    if (rawValue.startsWith('/auth/')) {
+      return '/dashboard';
+    }
+    return rawValue;
+  }, [search]);
+
+  const authRouteHref = (path: '/auth/login' | '/auth/register') =>
+    redirectTo === '/dashboard' ? path : `${path}?redirectTo=${encodeURIComponent(redirectTo)}`;
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -49,7 +64,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
         eventName: isLogin ? 'auth_login_success' : 'auth_register_success',
         target: 'auth',
       });
-      void navigate({ to: '/dashboard' });
+      window.location.assign(redirectTo);
     } catch (error) {
       const apiError = toApiError(error);
       setStatus(apiError.message);
@@ -139,7 +154,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
             {isLogin ? t('auth.noAccount') : t('auth.alreadyAccount')}
           </p>
           <Link
-            to={isLogin ? '/auth/register' : '/auth/login'}
+            to={authRouteHref(isLogin ? '/auth/register' : '/auth/login')}
             className="text-base font-bold text-brand-pink hover:text-[#d12074]"
           >
             {isLogin ? t('auth.createOne') : t('auth.loginTitle')}

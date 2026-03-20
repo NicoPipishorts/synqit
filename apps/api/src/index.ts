@@ -15,6 +15,7 @@ import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
 import { registerMetricsEndpoint } from './observability/metrics';
+import { registerSyncRoutes } from './syncs/routes';
 
 const loadEnvFileIfPresent = (filePath: string): void => {
   try {
@@ -141,6 +142,7 @@ export const buildServer = async () => {
       await registerAnalyticsRoutes(v1);
       await registerIntegrationRoutes(v1);
       await registerEventRoutes(v1);
+      await registerSyncRoutes(v1);
       v1.get('/version', async () => ({
         service: 'api',
         version: APP_VERSION,
