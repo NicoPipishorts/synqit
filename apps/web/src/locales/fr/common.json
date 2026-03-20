@@ -349,7 +349,9 @@
     "comingSoonBody": "Bientôt, vous pourrez créer des playlists synchronisées réutilisables et les appliquer à vos playlists en un clic."
   },
   "eventsPage": {
-    "title": "Mes playlists événements",
+    "title": "Mes playlists",
+    "myPlaylistsTitle": "Mes événements",
+    "closedSectionTitle": "Fermées",
     "description": "Gérez les détails des playlists, les liens invités et les titres soumis.",
     "detailsTitle": "Détails de la playlist",
     "backToEvents": "Retour aux playlists",

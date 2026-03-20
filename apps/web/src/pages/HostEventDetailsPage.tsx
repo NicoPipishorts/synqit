@@ -286,7 +286,7 @@ export const HostEventDetailsPage = () => {
 
   return (
     <AppPageLayout
-      className="overflow-hidden"
+      className="overflow-hidden pt-20 sm:pt-4"
       backdrop={
         <BlurSpotLayer
           filterId="manage-page-blur-filter"
@@ -499,7 +499,7 @@ export const HostEventDetailsPage = () => {
             ) : null}
 
             {/* Right col — disconnected warning + tab panel */}
-            <div className="flex content-start gap-4">
+            <div className="flex flex-col gap-4">
               {event.providerConnectionStatus === 'not_connected' ? (
                 <article className="rounded-2xl border border-amber-400/45 bg-amber-400/10 p-5 shadow-soft-lift dark:bg-amber-300/10">
                   <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">

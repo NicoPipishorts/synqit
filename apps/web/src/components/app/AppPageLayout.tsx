@@ -9,16 +9,14 @@ type AppPageLayoutProps = {
 
 export const AppPageLayout = ({
   children,
-  backdrop,
   bodyClassName = 'gap-6',
   className,
 }: AppPageLayoutProps) => (
   <section
-    className={`relative mx-auto flex min-h-svh w-full max-w-6xl flex-col px-4 pb-28 pt-28 sm:px-6 sm:pb-16 sm:pt-32 lg:px-8 ${
+    className={`relative mx-auto flex min-h-svh w-full max-w-6xl flex-col px-4 pb-28 pt-36 sm:px-6 sm:pb-16 sm:pt-48  lg:px-8 ${
       className ?? ''
     }`.trim()}
   >
-    {backdrop}
-    <div className={`relative grid ${bodyClassName}`.trim()}>{children}</div>
+    <div className={`relative flex flex-col ${bodyClassName}`.trim()}>{children}</div>
   </section>
 );

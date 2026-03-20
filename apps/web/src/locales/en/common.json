@@ -349,7 +349,9 @@
     "comingSoonBody": "Soon you will be able to build reusable synced playlists and apply them across your playlists in one click."
   },
   "eventsPage": {
-    "title": "My events playlists",
+    "title": "My playlists",
+    "myPlaylistsTitle": "My events",
+    "closedSectionTitle": "Closed",
     "description": "Manage playlist details, guest links, and submitted tracks.",
     "detailsTitle": "Playlist details",
     "backToEvents": "Back to playlists",

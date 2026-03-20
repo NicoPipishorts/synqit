@@ -33,7 +33,7 @@ export const HostEventDetailsHeader = ({
   if (!showBackButton) return null;
 
   return (
-    <div className="flex items-center">
+    <div className="absolute left-4 top-4">
       <CircleChevronBackButton to={backTo} label={resolvedBackLabel} />
     </div>
   );
