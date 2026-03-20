@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { Link2, ListMusic, Pencil } from 'lucide-react';
+import { ImagePlus, Link2, ListMusic, Pencil } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
@@ -44,7 +44,13 @@ export const HostEventDetailsPage = () => {
   const [isCloseConfirmOpen, setIsCloseConfirmOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [activeTab, setActiveTab] = useState<ManageTab>('edit');
+  const initialTab = ((): ManageTab => {
+    if (typeof window === 'undefined') return 'edit';
+    const hash = window.location.hash.replace('#', '');
+    if (hash === 'tracks' || hash === 'share') return hash;
+    return 'edit';
+  })();
+  const [activeTab, setActiveTab] = useState<ManageTab>(initialTab);
   const trackedDisconnectedWarningEventIdsRef = useRef<Set<string>>(new Set());
 
   // ---------------------------------------------------------------------------
@@ -54,6 +60,7 @@ export const HostEventDetailsPage = () => {
   const eventQuery = useQuery({
     queryKey: queryKeys.events.detail(eventId),
     queryFn: () => fetchEvent(eventId),
+    staleTime: 0,
   });
 
   const tracksQuery = useQuery({
@@ -313,20 +320,33 @@ export const HostEventDetailsPage = () => {
                 className="h-23 w-23 rounded-full border-4 border-app-border object-cover shadow-lg sm:h-28 sm:w-28"
               />
             ) : (
-              <div className="h-20 w-20 rounded-full border-4 border-app-border bg-app-elevated sm:h-28 sm:w-28 dark:bg-app-card" />
+              <button
+                type="button"
+                disabled={isUploadingImage}
+                onClick={() => document.getElementById('hero-image-input')?.click()}
+                aria-label={t('eventsPage.changeCoverImage')}
+                className="group flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-full border-4 border-dashed border-app-border bg-app-elevated transition duration-200 hover:border-brand-pink sm:h-28 sm:w-28 dark:bg-app-card disabled:opacity-50"
+              >
+                <ImagePlus
+                  className="h-6 w-6 text-app-text-secondary transition duration-200 group-hover:text-brand-pink sm:h-7 sm:w-7"
+                  aria-hidden="true"
+                />
+              </button>
             )}
-            <button
-              type="button"
-              disabled={isUploadingImage}
-              onClick={() => document.getElementById('hero-image-input')?.click()}
-              aria-label={t('eventsPage.changeCoverImage')}
-              className="group absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated p-1.5 shadow-soft-lift transition duration-200 hover:border-brand-pink motion-safe:hover:-translate-y-0.5 dark:bg-app-card disabled:opacity-50"
-            >
-              <Pencil
-                className="h-3.5 w-3.5 transition-transform duration-200 ease-out motion-safe:group-hover:-rotate-12 motion-safe:group-hover:scale-110"
-                aria-hidden="true"
-              />
-            </button>
+            {event?.coverImageUrl ? (
+              <button
+                type="button"
+                disabled={isUploadingImage}
+                onClick={() => document.getElementById('hero-image-input')?.click()}
+                aria-label={t('eventsPage.changeCoverImage')}
+                className="group absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated p-1.5 shadow-soft-lift transition duration-200 hover:border-brand-pink motion-safe:hover:-translate-y-0.5 dark:bg-app-card disabled:opacity-50"
+              >
+                <Pencil
+                  className="h-3.5 w-3.5 transition-transform duration-200 ease-out motion-safe:group-hover:-rotate-12 motion-safe:group-hover:scale-110"
+                  aria-hidden="true"
+                />
+              </button>
+            ) : null}
             {heroImageInput}
           </div>
 
@@ -479,7 +499,7 @@ export const HostEventDetailsPage = () => {
             ) : null}
 
             {/* Right col — disconnected warning + tab panel */}
-            <div className="grid content-start gap-4">
+            <div className="flex content-start gap-4">
               {event.providerConnectionStatus === 'not_connected' ? (
                 <article className="rounded-2xl border border-amber-400/45 bg-amber-400/10 p-5 shadow-soft-lift dark:bg-amber-300/10">
                   <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -505,6 +525,7 @@ export const HostEventDetailsPage = () => {
                   coverImageUrl={event.coverImageUrl ?? null}
                   isWorking={isWorking}
                   isUploadingImage={isUploadingImage}
+                  provider={event.provider}
                   onSubmit={handleSave}
                   onNameChange={setEditName}
                   onDescriptionChange={setEditDescription}
@@ -524,11 +545,13 @@ export const HostEventDetailsPage = () => {
                   onRegenerate={() => regenerateMagicLinkMutation.mutate()}
                 />
               ) : (
-                <EventTracksCard
-                  tracks={tracks}
-                  isLoadingTracks={tracksQuery.isFetching}
-                  onRefreshTracks={() => void tracksQuery.refetch()}
-                />
+                <div className="mx-auto w-full max-w-2xl">
+                  <EventTracksCard
+                    tracks={tracks}
+                    isLoadingTracks={tracksQuery.isFetching}
+                    onRefreshTracks={() => void tracksQuery.refetch()}
+                  />
+                </div>
               )}
             </div>
           </div>

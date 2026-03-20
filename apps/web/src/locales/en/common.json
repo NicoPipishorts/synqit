@@ -438,6 +438,8 @@
     "coverImageUpdated": "Cover image updated.",
     "coverImageRemoved": "Cover image removed.",
     "coverImageTooLarge": "Image is too large. Max size is {{maxMb}} MB.",
+    "appleEditDisabledTitle": "Editing not supported",
+    "appleEditDisabledBody": "Apple Music doesn't allow editing a playlist's name or description through its API. To rename this playlist, open it directly in Apple Music.",
     "save": "Save",
     "saving": "Saving...",
     "cancel": "Cancel",

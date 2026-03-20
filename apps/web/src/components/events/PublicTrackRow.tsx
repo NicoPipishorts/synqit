@@ -3,10 +3,6 @@ import { Check, LoaderCircle, Plus } from 'lucide-react';
 import { useI18n } from '../../hooks/useI18n';
 import { SearchTrackResult } from '../../hooks/usePublicEvent';
 import { EventTrackItem } from '../../lib/events';
-import { CTAButton } from '../ui/cta';
-
-const TRACK_ROW_CLASS =
-  'group flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-3 shadow-soft-lift transition duration-150 hover:border-brand-lime/60 hover:bg-app-surface dark:bg-app-elevated dark:hover:bg-app-card';
 
 type ArtworkProps = { url: string | null; fallbackLabel: string };
 
@@ -35,17 +31,9 @@ type SearchTrackRowProps = {
 export const SearchTrackRow = ({ track, isAdded, isAdding, onAdd }: SearchTrackRowProps) => {
   const { t } = useI18n();
   return (
-    <li className={TRACK_ROW_CLASS}>
-      <TrackArtwork url={track.artworkUrl} fallbackLabel={t('eventPublicPage.notAvailable')} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
-          {track.name}
-        </p>
-        <p className="truncate text-xs text-app-text-secondary">
-          {track.artist} · {track.album}
-        </p>
-      </div>
-      <CTAButton
+    <li>
+      <button
+        type="button"
         aria-label={
           isAdding
             ? t('eventPublicPage.adding')
@@ -55,18 +43,42 @@ export const SearchTrackRow = ({ track, isAdded, isAdding, onAdd }: SearchTrackR
         }
         disabled={isAdding || isAdded}
         onClick={onAdd}
-        type="button"
-        variant={isAdded ? 'ghost' : 'secondary'}
-        className="shrink-0"
+        className={`group flex min-w-0 w-full cursor-pointer items-center gap-3 rounded-xl border bg-app-bg px-3 py-3 shadow-soft-lift transition duration-150 dark:bg-app-elevated disabled:pointer-events-none ${
+          isAdded
+            ? 'border-app-border opacity-60'
+            : 'border-app-border hover:border-brand-pink hover:bg-app-surface dark:hover:bg-app-card'
+        }`}
       >
+        <TrackArtwork url={track.artworkUrl} fallbackLabel={t('eventPublicPage.notAvailable')} />
+        <div className="min-w-0 flex-1 text-left">
+          <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
+            {track.name}
+          </p>
+          <p className="truncate text-xs text-app-text-secondary">
+            {track.artist} · {track.album}
+          </p>
+        </div>
         {isAdding ? (
-          <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />
+          <LoaderCircle
+            size={16}
+            className="shrink-0 animate-spin text-app-text-secondary"
+            aria-hidden="true"
+          />
         ) : isAdded ? (
-          <Check size={14} aria-hidden="true" />
+          <Check
+            size={18}
+            strokeWidth={3}
+            className="shrink-0 text-brand-dark dark:text-brand-white"
+            aria-hidden="true"
+          />
         ) : (
-          <Plus size={14} aria-hidden="true" />
+          <Plus
+            size={18}
+            aria-hidden="true"
+            className="shrink-0 text-app-text-secondary transition-transform duration-150 ease-out group-hover:scale-125 group-hover:text-brand-pink active:scale-95"
+          />
         )}
-      </CTAButton>
+      </button>
     </li>
   );
 };
@@ -74,7 +86,7 @@ export const SearchTrackRow = ({ track, isAdded, isAdding, onAdd }: SearchTrackR
 type AddedTrackRowProps = { track: EventTrackItem };
 
 export const AddedTrackRow = ({ track }: AddedTrackRowProps) => (
-  <li className={TRACK_ROW_CLASS}>
+  <li className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-3 shadow-soft-lift dark:bg-app-elevated">
     {track.artworkUrl ? (
       <img
         src={track.artworkUrl}
@@ -110,7 +122,7 @@ export const TrackSkeletonList = ({ count = 7, withAddButton = false }: TrackSke
           <div className="h-3 w-1/2 animate-pulse rounded bg-app-border" />
         </div>
         {withAddButton ? (
-          <div className="h-8 w-14 shrink-0 animate-pulse rounded-lg bg-app-border" />
+          <div className="h-5 w-5 shrink-0 animate-pulse rounded-full bg-app-border" />
         ) : null}
       </li>
     ))}

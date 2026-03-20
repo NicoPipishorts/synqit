@@ -1,9 +1,8 @@
-import { RefreshCcw } from 'lucide-react';
+import { ListMusic, RefreshCcw } from 'lucide-react';
 
+import { AddedTrackRow, TrackSkeletonList } from './PublicTrackRow';
 import { useI18n } from '../../hooks/useI18n';
 import { EventTrackItem } from '../../lib/events';
-import { AppSurfaceCard } from '../app/AppSurfaceCard';
-import { CTAButton, CTAMobileIconLabel } from '../ui/cta';
 
 type EventTracksCardProps = {
   tracks: EventTrackItem[];
@@ -19,63 +18,46 @@ export const EventTracksCard = ({
   const { t } = useI18n();
 
   return (
-    <AppSurfaceCard>
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-          {t('eventsPage.tracksTitle')}
-        </h2>
-        <CTAButton
+    <div className="grid gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="pl-4 text-xs font-semibold text-app-text-secondary">
+          {t('eventsPage.tracksTitle')} ({tracks.length})
+        </p>
+        <button
+          type="button"
           aria-label={t('eventsPage.refreshTracks')}
-          className="h-9 w-9 px-0 sm:h-auto sm:w-auto sm:px-3"
           disabled={isLoadingTracks}
           onClick={onRefreshTracks}
-          variant="secondary"
+          className="group flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-surface transition hover:border-brand-pink disabled:opacity-50 dark:bg-app-elevated"
         >
-          <CTAMobileIconLabel
-            icon={
-              <RefreshCcw
-                size={14}
-                className={isLoadingTracks ? 'animate-spin' : ''}
-                aria-hidden="true"
-              />
-            }
-            label={isLoadingTracks ? t('eventsPage.loadingTracks') : t('eventsPage.refreshTracks')}
+          <RefreshCcw
+            size={13}
+            aria-hidden="true"
+            className={`transition-colors group-hover:text-brand-pink ${
+              isLoadingTracks
+                ? 'animate-spin'
+                : 'group-hover:animate-[spin_0.4s_linear_reverse_0.5]'
+            }`}
           />
-        </CTAButton>
+        </button>
       </div>
 
       {isLoadingTracks ? (
-        <p className="text-sm text-app-text-secondary">{t('eventsPage.loadingTracks')}</p>
+        <TrackSkeletonList />
       ) : tracks.length > 0 ? (
-        <ul className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+        <ul className="grid gap-3">
           {tracks.map((track) => (
-            <li
-              key={track.providerTrackId}
-              className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm shadow-soft-lift dark:bg-app-elevated"
-            >
-              {track.artworkUrl ? (
-                <img
-                  src={track.artworkUrl}
-                  alt=""
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 shrink-0 rounded-md object-cover"
-                />
-              ) : null}
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-brand-dark dark:text-brand-white">
-                  {track.name}
-                </p>
-                <p className="truncate text-xs text-app-text-secondary">
-                  {track.artist} · {track.album}
-                </p>
-              </div>
-            </li>
+            <AddedTrackRow key={track.providerTrackId} track={track} />
           ))}
         </ul>
       ) : (
-        <p className="text-sm text-app-text-secondary">{t('eventsPage.noTracks')}</p>
+        <div className="flex flex-col items-center gap-3 py-12 text-center">
+          <ListMusic size={32} className="text-app-text-secondary/40" aria-hidden="true" />
+          <p className="text-sm font-semibold text-app-text-secondary">
+            {t('eventsPage.noTracks')}
+          </p>
+        </div>
       )}
-    </AppSurfaceCard>
+    </div>
   );
 };

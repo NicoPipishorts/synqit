@@ -9,6 +9,7 @@ type AppPageLayoutProps = {
 
 export const AppPageLayout = ({
   children,
+  backdrop,
   bodyClassName = 'gap-6',
   className,
 }: AppPageLayoutProps) => (
@@ -17,6 +18,7 @@ export const AppPageLayout = ({
       className ?? ''
     }`.trim()}
   >
+    {backdrop}
     <div className={`relative grid ${bodyClassName}`.trim()}>{children}</div>
   </section>
 );
