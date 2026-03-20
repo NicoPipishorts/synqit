@@ -13,13 +13,13 @@ import { useState } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
 import { useToast } from '../../hooks/useToast';
-import { EventProviderIcon } from '../events/EventProviderIcon';
-import { CTAButton } from '../ui/cta';
+import { CTAButton, CTALink } from '../ui/cta';
 import { IconButton } from '../ui/IconButton';
 import { Modal } from '../ui/Modal';
 
 type SyncCardProps = {
   sync: SyncItem;
+  detailTo?: string;
 };
 
 const buildSyncUrl = (token: string): string => {
@@ -31,12 +31,47 @@ const buildSyncUrl = (token: string): string => {
 
 const buildSyncPath = (token: string): string => `/sync/${token}`;
 
-export const SyncCard = ({ sync }: SyncCardProps) => {
+const formatSyncTimestamp = (value: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+};
+
+const formatSyncErrorMessage = (
+  sync: SyncItem,
+  t: ReturnType<typeof useI18n>['t'],
+): string | null => {
+  if (!sync.lastError) {
+    return null;
+  }
+
+  if (sync.lastError === 'Forbidden') {
+    return t('syncedListsPage.destinationPlaylistAccessError', {
+      provider: sync.provider === 'spotify' ? 'Spotify' : 'Apple Music',
+    });
+  }
+
+  return sync.lastError;
+};
+
+export const SyncCard = ({ sync, detailTo }: SyncCardProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
 
   const isRevoked = sync.magicLinkRevokedAt !== null;
+  const formattedLastSyncedAt = formatSyncTimestamp(sync.lastSyncedAt);
+  const formattedLastError = formatSyncErrorMessage(sync, t);
   const syncUrl = buildSyncUrl(sync.magicLinkToken);
   const shareText = t('eventsPage.shareMessage', { url: syncUrl });
   const canUseNativeShare =
@@ -100,7 +135,7 @@ export const SyncCard = ({ sync }: SyncCardProps) => {
         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-dashed border-app-border bg-app-bg dark:bg-app-elevated">
           <ListMusic size={18} className="text-app-text-secondary/40" aria-hidden="true" />
         </div>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <h2 className="truncate text-sm font-black text-brand-dark dark:text-brand-white">
             {sync.name}
           </h2>
@@ -109,8 +144,32 @@ export const SyncCard = ({ sync }: SyncCardProps) => {
               {t('syncCreatePage.trackCount', { count: sync.trackCount })}
             </p>
           ) : null}
+          {!isRevoked && formattedLastError ? (
+            <p className="truncate pt-1 text-[11px] text-[#b41563] dark:text-[#ff8ac0]">
+              {formattedLastError}
+            </p>
+          ) : !isRevoked ? (
+            <p className="truncate pt-1 text-[11px] text-app-text-secondary">
+              {formattedLastSyncedAt
+                ? t('syncedListsPage.lastSyncedAt', { date: formattedLastSyncedAt })
+                : t('syncedListsPage.autoSyncActive')}
+            </p>
+          ) : null}
         </div>
-        <EventProviderIcon provider={sync.provider} className="h-4 w-4 shrink-0 opacity-60" />
+        {detailTo ? (
+          <CTALink
+            to={detailTo}
+            variant="ghost"
+            className="group shrink-0 gap-1.5 rounded-xl px-2.5 py-1.5 text-xs hover:border-brand-pink hover:text-brand-pink"
+          >
+            <span className="hidden sm:inline">{t('syncedListsPage.manageList')}</span>
+            <ArrowUpRight
+              size={12}
+              aria-hidden="true"
+              className="transition duration-150 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+            />
+          </CTALink>
+        ) : null}
       </div>
 
       {isRevoked ? (

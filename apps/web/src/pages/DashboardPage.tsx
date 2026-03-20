@@ -14,7 +14,13 @@ import { useToast } from '../hooks/useToast';
 import { callApi } from '../lib/api';
 import { toApiAssetUrl } from '../lib/apiAssetUrl';
 import { getAccessToken } from '../lib/auth';
-import { fetchDrafts, fetchEvents, queryKeys } from '../lib/queries';
+import {
+  fetchDrafts,
+  fetchEvents,
+  fetchSyncCollections,
+  queryKeys,
+  syncQueryKeys,
+} from '../lib/queries';
 
 type RecentTrackActivity = {
   eventId: string;
@@ -63,8 +69,16 @@ export const DashboardPage = () => {
     staleTime: 120_000,
   });
 
+  const syncsQuery = useQuery({
+    queryKey: syncQueryKeys.list(),
+    queryFn: fetchSyncCollections,
+    staleTime: 120_000,
+  });
+
   const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
   const activeDraft = draftsQuery.data?.[0] ?? null;
+  const ownedSyncs = syncsQuery.data?.ownedSyncs ?? [];
+  const subscribedSyncs = syncsQuery.data?.subscribedSyncs ?? [];
 
   const trackQueries = useQuery({
     queryKey: ['dashboard', 'activity-tracks', events.map((e) => e.id)],
@@ -292,8 +306,10 @@ export const DashboardPage = () => {
   // Render
   // ---------------------------------------------------------------------------
 
-  const hasPlaylists = events.length > 0;
+  const hasCreatedPlaylist =
+    events.length > 0 || ownedSyncs.length > 0 || subscribedSyncs.length > 0;
   const isInitialLoad = eventsQuery.isLoading;
+  const showCreatePlaylistCta = !hasCreatedPlaylist;
 
   return (
     <AppPageLayout
@@ -312,7 +328,7 @@ export const DashboardPage = () => {
     >
       <PwaInstallPrompt />
 
-      {!hasPlaylists && !isInitialLoad ? (
+      {!hasCreatedPlaylist && !isInitialLoad ? (
         /* ── Empty state ── */
         <div className="flex min-h-[60vh] flex-col items-center justify-center">
           <div className="relative w-85 p-6 sm:w-[35vw] sm:p-10">
@@ -372,7 +388,7 @@ export const DashboardPage = () => {
       ) : (
         <>
           {/* ── Page header ── */}
-          <header className="flex items-start justify-between gap-4">
+          <header className="flex items-start justify-between gap-4 sm:pb-4 sm:px-2">
             <div className="grid gap-1">
               <p className="text-xs font-bold uppercase tracking-widest text-app-text-secondary">
                 {t('dashboard.pill')}
@@ -384,29 +400,33 @@ export const DashboardPage = () => {
                 {t('dashboard.description')}
               </p>
             </div>
-            <div className="hidden shrink-0 sm:block">
+            {showCreatePlaylistCta ? (
+              <div className="hidden shrink-0 sm:block">
+                <CTALink
+                  to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
+                  variant="primary"
+                  size="lg"
+                >
+                  <Plus size={16} aria-hidden="true" />
+                  {activeDraft ? t('dashboard.ctaResumeDraft') : t('dashboard.ctaCreateEvent')}
+                </CTALink>
+              </div>
+            ) : null}
+          </header>
+
+          {/* Mobile CTA */}
+          {showCreatePlaylistCta ? (
+            <div className="sm:hidden">
               <CTALink
                 to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
                 variant="primary"
-                size="lg"
+                className="w-full justify-center"
               >
                 <Plus size={16} aria-hidden="true" />
                 {activeDraft ? t('dashboard.ctaResumeDraft') : t('dashboard.ctaCreateEvent')}
               </CTALink>
             </div>
-          </header>
-
-          {/* Mobile CTA */}
-          <div className="sm:hidden">
-            <CTALink
-              to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
-              variant="primary"
-              className="w-full justify-center"
-            >
-              <Plus size={16} aria-hidden="true" />
-              {activeDraft ? t('dashboard.ctaResumeDraft') : t('dashboard.ctaCreateEvent')}
-            </CTALink>
-          </div>
+          ) : null}
 
           {/* ── Active playlists ── */}
           <section className="grid gap-4">

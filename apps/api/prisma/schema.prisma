@@ -180,6 +180,11 @@ model playlist_syncs {
   provider_playlist_id  String
   name                  String
   track_count           Int?
+  auto_sync_enabled     Boolean                 @default(true)
+  last_source_fingerprint String?
+  last_polled_at        DateTime?               @db.Timestamptz(6)
+  last_synced_at        DateTime?               @db.Timestamptz(6)
+  last_error            String?
   magic_link_token      String                  @unique
   magic_link_revoked_at DateTime?               @db.Timestamptz(6)
   created_at            DateTime                @db.Timestamptz(6)
@@ -195,9 +200,13 @@ model playlist_sync_imports {
   sync_id            String
   recipient_user_id  String
   recipient_provider String
+  recipient_provider_playlist_id String?
+  synced_source_track_fingerprints String[] @default([])
   status             String          @default("pending")
   matched_count      Int?
   skipped_count      Int?
+  last_synced_at     DateTime?       @db.Timestamptz(6)
+  last_error         String?
   created_at         DateTime        @db.Timestamptz(6)
   updated_at         DateTime        @db.Timestamptz(6)
   playlist_syncs     playlist_syncs  @relation(fields: [sync_id], references: [id], onDelete: Cascade, onUpdate: NoAction)

@@ -52,6 +52,11 @@ const SyncCreatePage = createLazyRouteComponent(() =>
     default: module.SyncCreatePage,
   })),
 );
+const SyncDetailsPage = createLazyRouteComponent(() =>
+  import('./pages/SyncDetailsPage').then((module) => ({
+    default: module.SyncDetailsPage,
+  })),
+);
 const ProfilePage = createLazyRouteComponent(() =>
   import('./pages/ProfilePage').then((module) => ({
     default: module.ProfilePage,
@@ -163,6 +168,13 @@ const syncCreateRoute = createRoute({
   path: '/synced-lists/new',
   beforeLoad: requireAuth,
   component: SyncCreatePage,
+});
+
+const syncDetailsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/synced-lists/$syncId',
+  beforeLoad: requireAuth,
+  component: SyncDetailsPage,
 });
 
 const syncPublicRoute = createRoute({
@@ -342,6 +354,7 @@ const routeTree = rootRoute.addChildren([
   providersRoute,
   syncedListsRoute,
   syncCreateRoute,
+  syncDetailsRoute,
   syncPublicRoute,
   eventsRoute,
   legacyEventsRoute,

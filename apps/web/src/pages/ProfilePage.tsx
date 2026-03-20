@@ -155,8 +155,11 @@ export const ProfilePage = () => {
   return (
     <AppPageLayout>
       <article>
-        <div className="grid grid-cols-[minmax(0,14rem)_auto] items-start gap-5 px-5 py-7 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:px-8 sm:py-9">
+        <div className="grid grid-cols-[minmax(0,14rem)_auto] items-start gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:pb-8 sm:px-2">
           <div className="grid gap-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary">
+              {t('profile.pill')}
+            </p>
             <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
               {t('profile.pageTitle')}
             </h1>

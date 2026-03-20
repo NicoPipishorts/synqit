@@ -10,6 +10,11 @@ export type SyncRecord = {
   providerPlaylistId: string;
   name: string;
   trackCount: number | null;
+  autoSyncEnabled: boolean;
+  lastSourceFingerprint: string | null;
+  lastPolledAt: Date | null;
+  lastSyncedAt: Date | null;
+  lastError: string | null;
   magicLinkToken: string;
   magicLinkRevokedAt: Date | null;
   createdAt: Date;
@@ -21,11 +26,19 @@ export type SyncImportRecord = {
   syncId: string;
   recipientUserId: string;
   recipientProvider: Provider;
+  recipientProviderPlaylistId: string | null;
+  syncedSourceTrackFingerprints: string[];
   status: string;
   matchedCount: number | null;
   skippedCount: number | null;
+  lastSyncedAt: Date | null;
+  lastError: string | null;
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type SyncWithImportsRecord = SyncRecord & {
+  imports: SyncImportRecord[];
 };
 
 type SyncRow = {
@@ -35,6 +48,11 @@ type SyncRow = {
   provider_playlist_id: string;
   name: string;
   track_count: number | null;
+  auto_sync_enabled: boolean;
+  last_source_fingerprint: string | null;
+  last_polled_at: Date | null;
+  last_synced_at: Date | null;
+  last_error: string | null;
   magic_link_token: string;
   magic_link_revoked_at: Date | null;
   created_at: Date;
@@ -46,11 +64,23 @@ type SyncImportRow = {
   sync_id: string;
   recipient_user_id: string;
   recipient_provider: string;
+  recipient_provider_playlist_id: string | null;
+  synced_source_track_fingerprints: string[];
   status: string;
   matched_count: number | null;
   skipped_count: number | null;
+  last_synced_at: Date | null;
+  last_error: string | null;
   created_at: Date;
   updated_at: Date;
+};
+
+type SyncWithImportsRow = SyncRow & {
+  playlist_sync_imports: SyncImportRow[];
+};
+
+type ImportWithSyncRow = SyncImportRow & {
+  playlist_syncs: SyncRow;
 };
 
 const mapSyncRow = (row: SyncRow): SyncRecord => ({
@@ -60,6 +90,11 @@ const mapSyncRow = (row: SyncRow): SyncRecord => ({
   providerPlaylistId: row.provider_playlist_id,
   name: row.name,
   trackCount: row.track_count,
+  autoSyncEnabled: row.auto_sync_enabled,
+  lastSourceFingerprint: row.last_source_fingerprint,
+  lastPolledAt: row.last_polled_at,
+  lastSyncedAt: row.last_synced_at,
+  lastError: row.last_error,
   magicLinkToken: row.magic_link_token,
   magicLinkRevokedAt: row.magic_link_revoked_at,
   createdAt: row.created_at,
@@ -71,9 +106,13 @@ const mapSyncImportRow = (row: SyncImportRow): SyncImportRecord => ({
   syncId: row.sync_id,
   recipientUserId: row.recipient_user_id,
   recipientProvider: providerSchema.parse(row.recipient_provider),
+  recipientProviderPlaylistId: row.recipient_provider_playlist_id,
+  syncedSourceTrackFingerprints: row.synced_source_track_fingerprints,
   status: row.status,
   matchedCount: row.matched_count,
   skippedCount: row.skipped_count,
+  lastSyncedAt: row.last_synced_at,
+  lastError: row.last_error,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -95,6 +134,7 @@ export const syncsStore = {
         provider_playlist_id: params.providerPlaylistId,
         name: params.name,
         track_count: params.trackCount,
+        auto_sync_enabled: true,
         magic_link_token: randomBytes(24).toString('hex'),
         created_at: now,
         updated_at: now,
@@ -108,7 +148,53 @@ export const syncsStore = {
       where: { sender_user_id: senderUserId },
       orderBy: { created_at: 'desc' },
     });
-    return rows.map((r) => mapSyncRow(r as SyncRow));
+    return rows.map((row) => mapSyncRow(row as SyncRow));
+  },
+
+  async listSyncsByRecipient(recipientUserId: string): Promise<SyncRecord[]> {
+    const rows = await prisma.playlist_sync_imports.findMany({
+      where: { recipient_user_id: recipientUserId },
+      include: {
+        playlist_syncs: true,
+      },
+      orderBy: { created_at: 'desc' },
+    });
+
+    return (rows as unknown as ImportWithSyncRow[]).map((row) => {
+      const sync = mapSyncRow(row.playlist_syncs);
+      return {
+        ...sync,
+        lastSyncedAt: row.last_synced_at ?? sync.lastSyncedAt,
+        lastError: row.last_error ?? sync.lastError,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    });
+  },
+
+  async listSyncsForAutoSync(): Promise<SyncWithImportsRecord[]> {
+    const rows = await prisma.playlist_syncs.findMany({
+      where: {
+        auto_sync_enabled: true,
+        magic_link_revoked_at: null,
+        playlist_sync_imports: {
+          some: {
+            recipient_provider_playlist_id: {
+              not: null,
+            },
+          },
+        },
+      },
+      include: {
+        playlist_sync_imports: true,
+      },
+      orderBy: { updated_at: 'asc' },
+    });
+
+    return (rows as unknown as SyncWithImportsRow[]).map((row) => ({
+      ...mapSyncRow(row),
+      imports: row.playlist_sync_imports.map(mapSyncImportRow),
+    }));
   },
 
   async findSyncById(syncId: string): Promise<SyncRecord | null> {
@@ -116,11 +202,61 @@ export const syncsStore = {
     return row ? mapSyncRow(row as SyncRow) : null;
   },
 
+  async findOwnedSyncWithImports(params: {
+    syncId: string;
+    senderUserId: string;
+  }): Promise<SyncWithImportsRecord | null> {
+    const row = await prisma.playlist_syncs.findFirst({
+      where: {
+        id: params.syncId,
+        sender_user_id: params.senderUserId,
+      },
+      include: {
+        playlist_sync_imports: true,
+      },
+    });
+
+    if (!row) {
+      return null;
+    }
+
+    const typedRow = row as unknown as SyncWithImportsRow;
+    return {
+      ...mapSyncRow(typedRow),
+      imports: typedRow.playlist_sync_imports.map(mapSyncImportRow),
+    };
+  },
+
   async findSyncByMagicLinkToken(token: string): Promise<SyncRecord | null> {
     const row = await prisma.playlist_syncs.findUnique({
       where: { magic_link_token: token },
     });
     return row ? mapSyncRow(row as SyncRow) : null;
+  },
+
+  async updateSyncAutoState(params: {
+    syncId: string;
+    trackCount?: number | null;
+    lastSourceFingerprint?: string | null;
+    lastPolledAt?: Date | null;
+    lastSyncedAt?: Date | null;
+    lastError?: string | null;
+  }): Promise<SyncRecord> {
+    const row = await prisma.playlist_syncs.update({
+      where: { id: params.syncId },
+      data: {
+        ...(params.trackCount !== undefined ? { track_count: params.trackCount } : {}),
+        ...(params.lastSourceFingerprint !== undefined
+          ? { last_source_fingerprint: params.lastSourceFingerprint }
+          : {}),
+        ...(params.lastPolledAt !== undefined ? { last_polled_at: params.lastPolledAt } : {}),
+        ...(params.lastSyncedAt !== undefined ? { last_synced_at: params.lastSyncedAt } : {}),
+        ...(params.lastError !== undefined ? { last_error: params.lastError } : {}),
+        updated_at: new Date(),
+      },
+    });
+
+    return mapSyncRow(row as SyncRow);
   },
 
   async revokeMagicLink(params: {
@@ -142,9 +278,13 @@ export const syncsStore = {
     syncId: string;
     recipientUserId: string;
     recipientProvider: Provider;
+    recipientProviderPlaylistId?: string | null;
+    syncedSourceTrackFingerprints?: string[];
     status: string;
     matchedCount: number;
     skippedCount: number;
+    lastSyncedAt?: Date | null;
+    lastError?: string | null;
   }): Promise<SyncImportRecord> {
     const now = new Date();
     const row = await prisma.playlist_sync_imports.upsert({
@@ -159,17 +299,29 @@ export const syncsStore = {
         sync_id: params.syncId,
         recipient_user_id: params.recipientUserId,
         recipient_provider: params.recipientProvider,
+        recipient_provider_playlist_id: params.recipientProviderPlaylistId ?? null,
+        synced_source_track_fingerprints: params.syncedSourceTrackFingerprints ?? [],
         status: params.status,
         matched_count: params.matchedCount,
         skipped_count: params.skippedCount,
+        last_synced_at: params.lastSyncedAt ?? null,
+        last_error: params.lastError ?? null,
         created_at: now,
         updated_at: now,
       },
       update: {
         recipient_provider: params.recipientProvider,
+        ...(params.recipientProviderPlaylistId !== undefined
+          ? { recipient_provider_playlist_id: params.recipientProviderPlaylistId }
+          : {}),
+        ...(params.syncedSourceTrackFingerprints !== undefined
+          ? { synced_source_track_fingerprints: params.syncedSourceTrackFingerprints }
+          : {}),
         status: params.status,
         matched_count: params.matchedCount,
         skipped_count: params.skippedCount,
+        ...(params.lastSyncedAt !== undefined ? { last_synced_at: params.lastSyncedAt } : {}),
+        ...(params.lastError !== undefined ? { last_error: params.lastError } : {}),
         updated_at: now,
       },
     });
@@ -200,6 +352,52 @@ export const syncsStore = {
     });
 
     return deleted.count > 0;
+  },
+
+  async updateImportSyncState(params: {
+    syncId: string;
+    recipientUserId: string;
+    recipientProviderPlaylistId?: string | null;
+    syncedSourceTrackFingerprints?: string[];
+    status?: string;
+    lastSyncedAt?: Date | null;
+    lastError?: string | null;
+  }): Promise<SyncImportRecord | null> {
+    const existing = await prisma.playlist_sync_imports.findUnique({
+      where: {
+        sync_id_recipient_user_id: {
+          sync_id: params.syncId,
+          recipient_user_id: params.recipientUserId,
+        },
+      },
+    });
+
+    if (!existing) {
+      return null;
+    }
+
+    const updated = await prisma.playlist_sync_imports.update({
+      where: {
+        sync_id_recipient_user_id: {
+          sync_id: params.syncId,
+          recipient_user_id: params.recipientUserId,
+        },
+      },
+      data: {
+        ...(params.recipientProviderPlaylistId !== undefined
+          ? { recipient_provider_playlist_id: params.recipientProviderPlaylistId }
+          : {}),
+        ...(params.syncedSourceTrackFingerprints !== undefined
+          ? { synced_source_track_fingerprints: params.syncedSourceTrackFingerprints }
+          : {}),
+        ...(params.status !== undefined ? { status: params.status } : {}),
+        ...(params.lastSyncedAt !== undefined ? { last_synced_at: params.lastSyncedAt } : {}),
+        ...(params.lastError !== undefined ? { last_error: params.lastError } : {}),
+        updated_at: new Date(),
+      },
+    });
+
+    return mapSyncImportRow(updated as SyncImportRow);
   },
 
   async countImports(syncId: string): Promise<number> {

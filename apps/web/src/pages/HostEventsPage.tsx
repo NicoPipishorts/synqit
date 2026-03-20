@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ListMusic, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { HostEventCard } from '../components/events/HostEventCard';
 import { HostEventDraftCard } from '../components/events/HostEventDraftCard';
@@ -119,18 +120,23 @@ export const HostEventsPage = () => {
         />
       }
     >
-      {hasAny && (
-        <div className="flex justify-end">
-          <CTALink
-            to="/playlists/new"
-            variant="primary"
-            className="w-full justify-center gap-2 px-4 py-2.5 text-sm font-black sm:w-fit sm:shrink-0"
-          >
-            <Plus size={14} aria-hidden="true" />
-            {t('eventsPage.create')}
-          </CTALink>
-        </div>
-      )}
+      {hasAny ? (
+        <AppPageHeader
+          eyebrow={t('eventsPage.title')}
+          title={t('eventsPage.myPlaylistsTitle')}
+          description={t('eventsPage.description')}
+          actions={
+            <CTALink
+              to="/playlists/new"
+              variant="primary"
+              className="justify-center gap-2 px-4 py-2.5 text-sm font-black"
+            >
+              <Plus size={14} aria-hidden="true" />
+              {t('eventsPage.create')}
+            </CTALink>
+          }
+        />
+      ) : null}
 
       {/* ── List / Empty ── */}
       {!hasAny ? (

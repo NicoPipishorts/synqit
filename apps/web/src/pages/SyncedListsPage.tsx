@@ -1,23 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { ListMusic, Plus } from 'lucide-react';
 
+import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { SyncCard } from '../components/syncs/SyncCard';
 import { CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
-import { fetchSyncs, syncQueryKeys } from '../lib/queries';
+import { fetchSyncCollections, syncQueryKeys } from '../lib/queries';
 
 export const SyncedListsPage = () => {
   const { t } = useI18n();
 
   const syncsQuery = useQuery({
     queryKey: syncQueryKeys.list(),
-    queryFn: fetchSyncs,
+    queryFn: fetchSyncCollections,
   });
 
-  const syncs = syncsQuery.data ?? [];
-  const hasAny = syncs.length > 0;
+  const ownedSyncs = syncsQuery.data?.ownedSyncs ?? [];
+  const subscribedSyncs = syncsQuery.data?.subscribedSyncs ?? [];
+  const hasAny = ownedSyncs.length > 0 || subscribedSyncs.length > 0;
 
   return (
     <AppPageLayout
@@ -45,18 +47,23 @@ export const SyncedListsPage = () => {
         />
       }
     >
-      {hasAny && (
-        <div className="flex justify-end">
-          <CTALink
-            to="/synced-lists/new"
-            variant="primary"
-            className="w-full justify-center gap-2 px-4 py-2.5 text-sm font-black sm:w-fit sm:shrink-0"
-          >
-            <Plus size={14} aria-hidden="true" />
-            {t('syncedListsPage.create')}
-          </CTALink>
-        </div>
-      )}
+      {hasAny ? (
+        <AppPageHeader
+          eyebrow={t('syncedListsPage.title')}
+          title={t('syncedListsPage.myTitle')}
+          description={t('syncedListsPage.description')}
+          actions={
+            <CTALink
+              to="/synced-lists/new"
+              variant="primary"
+              className="justify-center gap-2 px-4 py-2.5 text-sm font-black"
+            >
+              <Plus size={14} aria-hidden="true" />
+              {t('syncedListsPage.create')}
+            </CTALink>
+          }
+        />
+      ) : null}
 
       {/* ── List / Empty ── */}
       {!hasAny ? (
@@ -95,10 +102,46 @@ export const SyncedListsPage = () => {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {syncs.map((sync) => (
-            <SyncCard key={sync.id} sync={sync} />
-          ))}
+        <div className="grid gap-8">
+          {ownedSyncs.length > 0 ? (
+            <section className="grid gap-4">
+              <div className="grid gap-1">
+                <h2 className="text-xl font-black tracking-tight text-brand-dark dark:text-brand-white">
+                  {t('syncedListsPage.ownerSectionTitle')}
+                </h2>
+                <p className="text-sm text-app-text-secondary">
+                  {t('syncedListsPage.ownerSectionBody')}
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {ownedSyncs.map((sync) => (
+                  <SyncCard
+                    key={`owned-${sync.id}`}
+                    sync={sync}
+                    detailTo={`/synced-lists/${sync.id}`}
+                  />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {subscribedSyncs.length > 0 ? (
+            <section className="grid gap-4">
+              <div className="grid gap-1">
+                <h2 className="text-xl font-black tracking-tight text-brand-dark dark:text-brand-white">
+                  {t('syncedListsPage.subscriberSectionTitle')}
+                </h2>
+                <p className="text-sm text-app-text-secondary">
+                  {t('syncedListsPage.subscriberSectionBody')}
+                </p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {subscribedSyncs.map((sync) => (
+                  <SyncCard key={`subscribed-${sync.id}`} sync={sync} />
+                ))}
+              </div>
+            </section>
+          ) : null}
         </div>
       )}
     </AppPageLayout>

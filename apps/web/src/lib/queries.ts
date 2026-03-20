@@ -23,6 +23,7 @@ import {
   oauthCallbackResponseSchema,
   providerPlaylistListResponseSchema,
   providerPlaylistTrackCountResponseSchema,
+  syncDetailResponseSchema,
   syncListResponseSchema,
   syncPublicResponseSchema,
   syncResponseSchema,
@@ -30,6 +31,7 @@ import {
   userPreferencesResponseSchema,
   type ImportSyncResponse,
   type ProviderPlaylistItem,
+  type SyncDetailItem,
   type SyncItem,
   type SyncPublicItem,
   type UserPreferences,
@@ -484,6 +486,7 @@ export type { UserPreferences };
 export const syncQueryKeys = {
   all: () => ['syncs'] as const,
   list: () => ['syncs', 'list'] as const,
+  detail: (syncId: string) => ['syncs', 'detail', syncId] as const,
   public: (token: string) => ['syncs', 'public', token] as const,
   providerPlaylists: (provider: string, offset: number) =>
     ['syncs', 'providerPlaylists', provider, offset] as const,
@@ -502,7 +505,29 @@ export const fetchSyncs = async (): Promise<SyncItem[]> => {
     { method: 'GET', headers: { authorization: `Bearer ${token}` } },
     (payload) => syncListResponseSchema.parse(payload),
   );
-  return result.syncs;
+  return result.ownedSyncs;
+};
+
+export const fetchSyncCollections = async (): Promise<{
+  ownedSyncs: SyncItem[];
+  subscribedSyncs: SyncItem[];
+}> => {
+  const token = requireToken();
+  return callApi(
+    '/v1/syncs',
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => syncListResponseSchema.parse(payload),
+  );
+};
+
+export const fetchSyncDetail = async (syncId: string): Promise<SyncDetailItem> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/syncs/${encodeURIComponent(syncId)}`,
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => syncDetailResponseSchema.parse(payload),
+  );
+  return result.sync;
 };
 
 export const fetchSyncPublic = async (magicLinkToken: string): Promise<SyncPublicItem> => {

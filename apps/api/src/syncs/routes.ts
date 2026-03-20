@@ -5,6 +5,7 @@ import {
   providerPlaylistListResponseSchema,
   providerPlaylistTrackCountResponseSchema,
   providerSchema,
+  syncDetailResponseSchema,
   syncListResponseSchema,
   syncPublicResponseSchema,
   syncResponseSchema,
@@ -12,6 +13,7 @@ import {
 import { FastifyInstance, FastifyRequest } from 'fastify';
 
 import { syncsStore } from './store';
+import { buildTrackFingerprint } from './track-fingerprint';
 import { authStore } from '../auth/store';
 import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
@@ -82,14 +84,18 @@ const buildSyncMagicLinkUrl = (magicLinkToken: string): string => {
   return new URL(`/sync/${magicLinkToken}`, base).toString();
 };
 
+const toSyncItem = (sync: Awaited<ReturnType<typeof syncsStore.createSync>>) => ({
+  ...sync,
+  lastSyncedAt: sync.lastSyncedAt?.toISOString() ?? null,
+  lastError: sync.lastError,
+  magicLinkRevokedAt: sync.magicLinkRevokedAt?.toISOString() ?? null,
+  createdAt: sync.createdAt.toISOString(),
+  updatedAt: sync.updatedAt.toISOString(),
+});
+
 const toSyncResponse = (sync: Awaited<ReturnType<typeof syncsStore.createSync>>) =>
   syncResponseSchema.parse({
-    sync: {
-      ...sync,
-      magicLinkRevokedAt: sync.magicLinkRevokedAt?.toISOString() ?? null,
-      createdAt: sync.createdAt.toISOString(),
-      updatedAt: sync.updatedAt.toISOString(),
-    },
+    sync: toSyncItem(sync),
     magicLinkUrl: buildSyncMagicLinkUrl(sync.magicLinkToken),
   });
 
@@ -276,15 +282,100 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     if (!userId)
       return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
 
-    const syncs = await syncsStore.listSyncsBySender(userId);
+    const [ownedSyncs, subscribedSyncs] = await Promise.all([
+      syncsStore.listSyncsBySender(userId),
+      syncsStore.listSyncsByRecipient(userId),
+    ]);
     return reply.send(
       syncListResponseSchema.parse({
-        syncs: syncs.map((s) => ({
-          ...s,
-          magicLinkRevokedAt: s.magicLinkRevokedAt?.toISOString() ?? null,
-          createdAt: s.createdAt.toISOString(),
-          updatedAt: s.updatedAt.toISOString(),
-        })),
+        ownedSyncs: ownedSyncs.map(toSyncItem),
+        subscribedSyncs: subscribedSyncs.map(toSyncItem),
+      }),
+    );
+  });
+
+  // GET /syncs/:syncId (owner only)
+  app.get('/syncs/:syncId', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    }
+
+    const { syncId } = request.params as { syncId: string };
+    const sync = await syncsStore.findOwnedSyncWithImports({
+      syncId,
+      senderUserId: userId,
+    });
+
+    if (!sync) {
+      return reply.status(404).send({ code: 'not_found', message: 'Sync not found.' });
+    }
+
+    let tracks: Array<{
+      providerTrackId: string;
+      name: string;
+      artist: string;
+      album: string;
+      durationMs: number;
+      artworkUrl: string | null;
+    }> = [];
+
+    try {
+      if (sync.provider === 'spotify') {
+        if (isSpotifyOauthLiveMode()) {
+          const { result } = await withSpotifyAccessTokenRetry({
+            userId: sync.senderUserId,
+            run: (accessToken) =>
+              listSpotifyPlaylistTracks({
+                accessToken,
+                providerPlaylistId: sync.providerPlaylistId,
+              }),
+          });
+          tracks = result;
+        }
+      } else {
+        tracks = await withAppleMusicUserToken({
+          userId: sync.senderUserId,
+          run: (ctx) =>
+            listApplePlaylistTracks({
+              ...ctx,
+              providerPlaylistId: sync.providerPlaylistId,
+            }),
+        });
+      }
+    } catch (err) {
+      if (err instanceof ProviderApiError) {
+        const mapped = mapProviderApiError(err);
+        return reply.status(502).send({ code: 'provider_error', message: mapped.message });
+      }
+      if (err instanceof IntegrationError) {
+        return reply.status(400).send({ code: err.code, message: err.message });
+      }
+      throw err;
+    }
+
+    const subscriberCounts = new Map<'spotify' | 'apple', number>([
+      ['spotify', 0],
+      ['apple', 0],
+    ]);
+    for (const importRecord of sync.imports) {
+      subscriberCounts.set(
+        importRecord.recipientProvider,
+        (subscriberCounts.get(importRecord.recipientProvider) ?? 0) + 1,
+      );
+    }
+
+    return reply.send(
+      syncDetailResponseSchema.parse({
+        sync: {
+          ...toSyncItem(sync),
+          subscriberCount: sync.imports.length,
+          subscriberPlatformStats: [
+            { provider: 'spotify', count: subscriberCounts.get('spotify') ?? 0 },
+            { provider: 'apple', count: subscriberCounts.get('apple') ?? 0 },
+          ],
+          tracks,
+        },
       }),
     );
   });
@@ -391,7 +482,12 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     // -----------------------------------------------------------------------
     // 1. Fetch source tracks from sender's provider
     // -----------------------------------------------------------------------
-    let sourceTracks: Array<{ name: string; artist: string; providerTrackId: string }> = [];
+    let sourceTracks: Array<{
+      name: string;
+      artist: string;
+      providerTrackId: string;
+      durationMs: number;
+    }> = [];
 
     if (sync.provider === 'spotify') {
       if (isSpotifyOauthLiveMode()) {
@@ -433,7 +529,7 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     // -----------------------------------------------------------------------
     // 2. Match tracks in recipient's provider and collect matched IDs
     // -----------------------------------------------------------------------
-    const matchedTrackIds: string[] = [];
+    const matchedTracks: Array<{ recipientTrackId: string; sourceTrackFingerprint: string }> = [];
     const skippedTracks: string[] = [];
 
     for (const track of sourceTracks) {
@@ -452,7 +548,10 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
             });
             const first = results[0];
             if (first && first.name.toLowerCase().includes(track.name.toLowerCase())) {
-              matchedTrackIds.push(first.providerTrackId);
+              matchedTracks.push({
+                recipientTrackId: first.providerTrackId,
+                sourceTrackFingerprint: buildTrackFingerprint(track),
+              });
             } else {
               skippedTracks.push(track.providerTrackId);
             }
@@ -469,7 +568,10 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
               });
               const first = results[0];
               if (first && first.name.toLowerCase().includes(track.name.toLowerCase())) {
-                matchedTrackIds.push(first.providerTrackId);
+                matchedTracks.push({
+                  recipientTrackId: first.providerTrackId,
+                  sourceTrackFingerprint: buildTrackFingerprint(track),
+                });
               } else {
                 skippedTracks.push(track.providerTrackId);
               }
@@ -485,63 +587,33 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     // 3. Create playlist in recipient's provider and add matched tracks
     // -----------------------------------------------------------------------
     const playlistName = `${sync.name} (via Synqit)`;
+    let recipientProviderPlaylistId: string | null = null;
+    const syncedSourceTrackFingerprints: string[] = [];
 
-    if (matchedTrackIds.length > 0) {
-      if (recipientProvider === 'spotify') {
-        if (isSpotifyOauthLiveMode()) {
-          try {
-            const { result: accessToken } = await withSpotifyAccessTokenRetry({
-              userId,
-              run: async (at) => at,
-            });
-            const created = await createSpotifyPlaylist({
-              accessToken,
-              name: playlistName,
-              description: '',
-            });
-            for (const trackId of matchedTrackIds) {
-              await addSpotifyTrackToPlaylist({
-                accessToken,
-                providerPlaylistId: created.providerPlaylistId,
-                providerTrackId: trackId,
-              }).catch(() => null);
-            }
-          } catch (err) {
-            if (err instanceof ProviderApiError) {
-              const mapped = mapProviderApiError(err);
-              return reply.status(502).send({ code: 'provider_error', message: mapped.message });
-            }
-            throw err;
-          }
-        }
-      } else {
+    if (recipientProvider === 'spotify') {
+      if (isSpotifyOauthLiveMode()) {
         try {
-          await withAppleMusicUserToken({
+          const { result: accessToken } = await withSpotifyAccessTokenRetry({
             userId,
-            run: async (ctx) => {
-              const storefront = await getAppleUserStorefront(ctx);
-              const created = await createAppleLibraryPlaylist({
-                ...ctx,
-                name: playlistName,
-                description: '',
-              });
-              for (const trackId of matchedTrackIds) {
-                // Resolve catalog ID via search first
-                const results = await searchAppleCatalogTracks({
-                  developerToken: ctx.developerToken,
-                  storefront,
-                  query: trackId,
-                  limit: 1,
-                }).catch(() => []);
-                const catalogId = results[0]?.providerTrackId ?? trackId;
-                await addAppleTrackToPlaylist({
-                  ...ctx,
-                  providerPlaylistId: created.providerPlaylistId,
-                  providerTrackId: catalogId,
-                }).catch(() => null);
-              }
-            },
+            run: async (at) => at,
           });
+          const created = await createSpotifyPlaylist({
+            accessToken,
+            name: playlistName,
+            description: '',
+          });
+          recipientProviderPlaylistId = created.providerPlaylistId;
+          for (const track of matchedTracks) {
+            await addSpotifyTrackToPlaylist({
+              accessToken,
+              providerPlaylistId: created.providerPlaylistId,
+              providerTrackId: track.recipientTrackId,
+            })
+              .then(() => {
+                syncedSourceTrackFingerprints.push(track.sourceTrackFingerprint);
+              })
+              .catch(() => null);
+          }
         } catch (err) {
           if (err instanceof ProviderApiError) {
             const mapped = mapProviderApiError(err);
@@ -550,16 +622,60 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
           throw err;
         }
       }
+    } else {
+      try {
+        await withAppleMusicUserToken({
+          userId,
+          run: async (ctx) => {
+            const storefront = await getAppleUserStorefront(ctx);
+            const created = await createAppleLibraryPlaylist({
+              ...ctx,
+              name: playlistName,
+              description: '',
+            });
+            recipientProviderPlaylistId = created.providerPlaylistId;
+            for (const track of matchedTracks) {
+              // Resolve catalog ID via search first
+              const results = await searchAppleCatalogTracks({
+                developerToken: ctx.developerToken,
+                storefront,
+                query: track.recipientTrackId,
+                limit: 1,
+              }).catch(() => []);
+              const catalogId = results[0]?.providerTrackId ?? track.recipientTrackId;
+              await addAppleTrackToPlaylist({
+                ...ctx,
+                providerPlaylistId: created.providerPlaylistId,
+                providerTrackId: catalogId,
+              })
+                .then(() => {
+                  syncedSourceTrackFingerprints.push(track.sourceTrackFingerprint);
+                })
+                .catch(() => null);
+            }
+          },
+        });
+      } catch (err) {
+        if (err instanceof ProviderApiError) {
+          const mapped = mapProviderApiError(err);
+          return reply.status(502).send({ code: 'provider_error', message: mapped.message });
+        }
+        throw err;
+      }
     }
 
-    const matchedCount = matchedTrackIds.length;
+    const matchedCount = syncedSourceTrackFingerprints.length;
     await syncsStore.upsertImport({
       syncId: sync.id,
       recipientUserId: userId,
       recipientProvider,
+      recipientProviderPlaylistId,
+      syncedSourceTrackFingerprints,
       status: 'completed',
       matchedCount,
       skippedCount: Math.max(0, sourceTracks.length - matchedCount),
+      lastSyncedAt: new Date(),
+      lastError: null,
     });
 
     return reply.send(
