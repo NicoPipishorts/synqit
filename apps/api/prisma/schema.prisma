@@ -180,6 +180,7 @@ model playlist_syncs {
   provider_playlist_id  String
   name                  String
   track_count           Int?
+  sync_mode             String                  @default("host_only")
   auto_sync_enabled     Boolean                 @default(true)
   last_source_fingerprint String?
   last_polled_at        DateTime?               @db.Timestamptz(6)

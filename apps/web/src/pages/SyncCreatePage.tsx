@@ -1,17 +1,17 @@
-import { providerSchema } from '@synqit/shared';
-import type { ProviderPlaylistItem, SyncItem } from '@synqit/shared';
+import type { ProviderPlaylistItem, SyncItem, SyncMode } from '@synqit/shared';
+import { providerSchema, syncModeSchema } from '@synqit/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Variants } from 'framer-motion';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
-import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ArrowRight, Check, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { SyncCard } from '../components/syncs/SyncCard';
 import { SyncPlaylistPicker } from '../components/syncs/SyncPlaylistPicker';
-import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
+import { CTAButton, CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { toApiError } from '../lib/api';
@@ -19,9 +19,9 @@ import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
 import {
   createSync,
-  fetchProviderPlaylistTrackCount,
   fetchIntegrations,
   fetchProviderPlaylists,
+  fetchProviderPlaylistTrackCount,
   fetchSyncs,
   queryKeys,
   syncQueryKeys,
@@ -29,7 +29,7 @@ import {
 import { Provider } from '../lib/types';
 
 type ProviderIntegrationStatus = 'connected' | 'not_connected';
-type CreateStep = 1 | 2 | 3;
+type CreateStep = 1 | 2 | 3 | 4;
 
 const STEP_SLIDE_EASE = [0.16, 1, 0.3, 1] as const;
 const BREADCRUMB_LAYOUT_TRANSITION = {
@@ -78,24 +78,12 @@ export const SyncCreatePage = () => {
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
   const [provider, setProvider] = useState<Provider | null>(null);
   const [selectedPlaylist, setSelectedPlaylist] = useState<ProviderPlaylistItem | null>(null);
+  const [syncMode, setSyncMode] = useState<SyncMode | null>(null);
   const [playlistOffset, setPlaylistOffset] = useState(0);
   const [allPlaylists, setAllPlaylists] = useState<ProviderPlaylistItem[]>([]);
   const [hasMorePlaylists, setHasMorePlaylists] = useState(false);
   const [isConnectingProvider, setIsConnectingProvider] = useState(false);
   const [createdSync, setCreatedSync] = useState<SyncItem | null>(null);
-  const [isActionsBarStuck, setIsActionsBarStuck] = useState(false);
-  const actionsSentinelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const sentinel = actionsSentinelRef.current;
-    if (!sentinel) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsActionsBarStuck(!entry.isIntersecting),
-      { threshold: 1 },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, []);
 
   // ---------------------------------------------------------------------------
   // Integrations query
@@ -319,13 +307,16 @@ export const SyncCreatePage = () => {
   const stepItems = [
     { value: 1 as const, label: t('syncCreatePage.stepProvider') },
     { value: 2 as const, label: t('syncCreatePage.stepPlaylist') },
-    { value: 3 as const, label: t('syncCreatePage.stepConfirm') },
+    { value: 3 as const, label: t('syncCreatePage.stepMode') },
+    { value: 4 as const, label: t('syncCreatePage.stepConfirm') },
   ];
 
   const canOpenStep = (nextStep: CreateStep): boolean => {
     if (nextStep <= step) return true;
     if (nextStep === 2) return selectedProviderConnected;
     if (nextStep === 3) return selectedProviderConnected && selectedPlaylist !== null;
+    if (nextStep === 4)
+      return selectedProviderConnected && selectedPlaylist !== null && syncMode !== null;
     return false;
   };
 
@@ -347,7 +338,8 @@ export const SyncCreatePage = () => {
       }
     }
     if (step === 2 && !selectedPlaylist) return;
-    navigateToStep(Math.min(3, step + 1) as CreateStep);
+    if (step === 3 && !syncMode) return;
+    navigateToStep(Math.min(4, step + 1) as CreateStep);
   };
 
   const goBackStep = () => {
@@ -355,7 +347,7 @@ export const SyncCreatePage = () => {
   };
 
   const handleShare = () => {
-    if (!provider || !selectedPlaylist) return;
+    if (!provider || !selectedPlaylist || !syncMode) return;
     const selectedTrackCount = selectedPlaylistTrackCountQuery.data ?? selectedPlaylist.trackCount;
 
     createSyncMutation.mutate({
@@ -363,6 +355,7 @@ export const SyncCreatePage = () => {
       providerPlaylistId: selectedPlaylist.providerPlaylistId,
       name: selectedPlaylist.name,
       trackCount: selectedTrackCount,
+      syncMode,
     });
   };
 
@@ -374,6 +367,17 @@ export const SyncCreatePage = () => {
     selectedPlaylist !== null &&
     selectedTrackCount === null &&
     selectedPlaylistTrackCountQuery.isFetching;
+  const syncModeOptions = syncModeSchema.options.map((value) => ({
+    value,
+    label:
+      value === 'host_only'
+        ? t('syncCreatePage.syncModeHostOnlyLabel')
+        : t('syncCreatePage.syncModeBidirectionalLabel'),
+    body:
+      value === 'host_only'
+        ? t('syncCreatePage.syncModeHostOnlyBody')
+        : t('syncCreatePage.syncModeBidirectionalBody'),
+  }));
 
   const alreadyShared =
     createdSync === null &&
@@ -591,6 +595,104 @@ export const SyncCreatePage = () => {
               initial="enter"
               animate="center"
               exit="exit"
+              className="p-1 sm:p-2"
+            >
+              <p className="mx-auto mb-4 max-w-[78%] text-center text-sm text-app-text-secondary sm:max-w-[56%]">
+                {t('syncCreatePage.stepModeBody')}
+              </p>
+              <div className="mx-auto max-w-xl">
+                <div className="grid gap-4 rounded-2xl border border-app-border bg-app-elevated p-4 shadow-soft-lift dark:bg-app-card">
+                  <div className="grid grid-cols-2 gap-2">
+                    {syncModeOptions.map((option) => {
+                      const isSelected = syncMode === option.value;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setSyncMode(option.value)}
+                          className={`relative inline-flex items-center justify-center rounded-xl border px-4 py-3 text-sm font-black transition ${
+                            isSelected
+                              ? 'border-brand-lime/50 bg-brand-lime/12 text-brand-dark shadow-soft-lift dark:text-brand-white'
+                              : 'border-app-border bg-app-elevated text-app-text-secondary hover:border-brand-pink hover:text-brand-pink dark:bg-app-card'
+                          }`}
+                        >
+                          <AnimatePresence initial={false}>
+                            {isSelected ? (
+                              <motion.span
+                                key={`${option.value}-check`}
+                                initial={{ opacity: 0, scale: 0.2, y: 2 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.2, y: -2 }}
+                                transition={{
+                                  duration: 0.2,
+                                  delay: 0.14,
+                                  ease: [0.22, 1, 0.36, 1],
+                                }}
+                                className="absolute right-3 top-1/2 inline-flex h-4.5 w-4.5 -translate-y-1/2 items-center justify-center rounded-full bg-brand-lime text-brand-white"
+                              >
+                                <motion.svg
+                                  width="11"
+                                  height="11"
+                                  viewBox="0 0 12 12"
+                                  fill="none"
+                                  aria-hidden="true"
+                                  className="overflow-visible"
+                                  initial="hidden"
+                                  animate="visible"
+                                  exit="hidden"
+                                  transition={{
+                                    duration: 0.18,
+                                    delay: 0.3,
+                                    ease: [0.33, 1, 0.68, 1],
+                                  }}
+                                >
+                                  <motion.path
+                                    d="M2 6.2L4.6 8.8L10 3.4"
+                                    stroke="currentColor"
+                                    strokeWidth="1.9"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    variants={{
+                                      hidden: { pathLength: 0, opacity: 0 },
+                                      visible: { pathLength: 1, opacity: 1 },
+                                    }}
+                                  />
+                                </motion.svg>
+                              </motion.span>
+                            ) : null}
+                          </AnimatePresence>
+                          <span>{option.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {syncMode ? (
+                    <div className="mt-4 grid gap-1 px-1">
+                      <p className="text-sm font-semibold text-brand-dark dark:text-brand-white">
+                        {syncMode === 'bidirectional'
+                          ? t('syncCreatePage.syncModeBidirectionalTitle')
+                          : t('syncCreatePage.syncModeHostOnlyTitle')}
+                      </p>
+                      <p className="text-sm text-app-text-secondary">
+                        {syncMode === 'bidirectional'
+                          ? t('syncCreatePage.syncModeBidirectionalBody')
+                          : t('syncCreatePage.syncModeHostOnlyBody')}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </motion.article>
+          ) : null}
+
+          {step === 4 ? (
+            <motion.article
+              key="step-4"
+              custom={stepDirection}
+              variants={STEP_SLIDE_VARIANTS}
+              initial="enter"
+              animate="center"
+              exit="exit"
               className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card sm:p-6"
             >
               <p className="max-w-full text-sm text-app-text-secondary sm:max-w-[60%]">
@@ -625,6 +727,16 @@ export const SyncCreatePage = () => {
                           ? t('syncCreatePage.trackCountUnavailable')
                           : t('syncCreatePage.trackCount', { count: selectedTrackCount })
                       : '—'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-app-text-secondary">{t('syncCreatePage.summaryMode')}</span>
+                  <span className="max-w-[60%] text-right font-bold text-app-text">
+                    {syncMode === 'bidirectional'
+                      ? t('syncCreatePage.syncModeBidirectionalLabel')
+                      : syncMode === 'host_only'
+                        ? t('syncCreatePage.syncModeHostOnlyLabel')
+                        : '—'}
                   </span>
                 </div>
               </div>
@@ -665,17 +777,11 @@ export const SyncCreatePage = () => {
           ) : null}
         </AnimatePresence>
 
-        <div ref={actionsSentinelRef} className="h-px" aria-hidden="true" />
-
         <LayoutGroup id="create-sync-actions">
           <motion.div
             layout
             transition={STEP_ACTIONS_LAYOUT_TRANSITION}
-            className={`sticky bottom-0 mt-6 flex min-h-10 items-center justify-center gap-2 py-4 ${
-              isActionsBarStuck
-                ? 'before:pointer-events-none before:absolute before:inset-x-0 before:bottom-0 before:h-20 before:-z-10 before:bg-linear-to-t before:from-app-bg before:to-transparent'
-                : ''
-            }`}
+            className="fixed inset-x-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 mt-6 flex min-h-10 items-center justify-center gap-2 py-4 sm:sticky sm:inset-x-auto sm:bottom-0 sm:z-auto"
           >
             <AnimatePresence initial={false} mode="popLayout">
               {step > 1 && !createdSync ? (
@@ -688,22 +794,22 @@ export const SyncCreatePage = () => {
                   exit={{ opacity: 0, x: -18, scale: 0.96 }}
                 >
                   <CTAButton type="button" onClick={goBackStep} variant="secondary">
-                    <CTAMobileIconLabel
-                      icon={<ChevronLeft size={14} aria-hidden="true" />}
-                      label={t('syncCreatePage.back')}
-                    />
+                    <ArrowLeft size={16} strokeWidth={2.4} aria-hidden="true" />
+                    <span className="sr-only sm:not-sr-only sm:inline">
+                      {t('syncCreatePage.back')}
+                    </span>
                   </CTAButton>
                 </motion.div>
               ) : null}
 
-              {step < 3 ? (
+              {step < 4 ? (
                 <motion.div
                   key="create-step-next"
                   layout
                   transition={STEP_ACTIONS_LAYOUT_TRANSITION}
-                  initial={{ opacity: 0, x: 18, scale: 0.96 }}
+                  initial={{ opacity: 0, x: 18, scale: 1 }}
                   animate={{ opacity: 1, x: 0, scale: 1 }}
-                  exit={{ opacity: 0, x: 18, scale: 0.96 }}
+                  exit={{ opacity: 0, x: 18, scale: 1 }}
                 >
                   <CTAButton
                     type="button"
@@ -712,14 +818,19 @@ export const SyncCreatePage = () => {
                       (step === 1 &&
                         (!provider || !selectedProviderConnected || isConnectingProvider)) ||
                       (step === 2 && !selectedPlaylist) ||
+                      (step === 3 && !syncMode) ||
                       isLoadingIntegrations
                     }
                     variant="primary"
-                    className="group"
+                    className="group disabled:opacity-100"
+                    aria-label={t('syncCreatePage.next')}
                   >
-                    {t('syncCreatePage.next')}
-                    <ChevronRight
-                      size={14}
+                    <span className="sr-only sm:not-sr-only sm:inline">
+                      {t('syncCreatePage.next')}
+                    </span>
+                    <ArrowRight
+                      size={16}
+                      strokeWidth={2.4}
                       aria-hidden="true"
                       className="transition-transform duration-150 group-hover:translate-x-0.5"
                     />

@@ -28,6 +28,7 @@ import {
   syncPublicResponseSchema,
   syncResponseSchema,
   updateEventRequestSchema,
+  updateSyncRequestSchema,
   userPreferencesResponseSchema,
   type ImportSyncResponse,
   type ProviderPlaylistItem,
@@ -589,6 +590,7 @@ export const createSync = async (params: {
   providerPlaylistId: string;
   name: string;
   trackCount: number | null;
+  syncMode: 'host_only' | 'bidirectional';
 }): Promise<{ sync: SyncItem; magicLinkUrl: string }> => {
   const token = requireToken();
   const body = createSyncRequestSchema.parse(params);
@@ -598,6 +600,56 @@ export const createSync = async (params: {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
+    },
+    (payload) => syncResponseSchema.parse(payload),
+  );
+  return result;
+};
+
+export const updateSync = async (params: {
+  syncId: string;
+  syncMode: 'host_only' | 'bidirectional';
+}): Promise<{ sync: SyncItem; magicLinkUrl: string }> => {
+  const token = requireToken();
+  const body = updateSyncRequestSchema.parse({
+    syncMode: params.syncMode,
+  });
+  const result = await callApi(
+    `/v1/syncs/${encodeURIComponent(params.syncId)}`,
+    {
+      method: 'PATCH',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+    (payload) => syncResponseSchema.parse(payload),
+  );
+  return result;
+};
+
+export const revokeSyncMagicLink = async (
+  syncId: string,
+): Promise<{ sync: SyncItem; magicLinkUrl: string }> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/syncs/${encodeURIComponent(syncId)}/magic-link/revoke`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    },
+    (payload) => syncResponseSchema.parse(payload),
+  );
+  return result;
+};
+
+export const regenerateSyncMagicLink = async (
+  syncId: string,
+): Promise<{ sync: SyncItem; magicLinkUrl: string }> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/syncs/${encodeURIComponent(syncId)}/magic-link/regenerate`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
     },
     (payload) => syncResponseSchema.parse(payload),
   );

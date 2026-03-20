@@ -685,6 +685,9 @@ export type SyncStatus = z.infer<typeof syncStatusSchema>;
 export const syncImportStatusSchema = z.enum(['pending', 'completed', 'failed']);
 export type SyncImportStatus = z.infer<typeof syncImportStatusSchema>;
 
+export const syncModeSchema = z.enum(['host_only', 'bidirectional']);
+export type SyncMode = z.infer<typeof syncModeSchema>;
+
 export const providerPlaylistItemSchema = z.object({
   providerPlaylistId: z.string().min(1),
   name: z.string(),
@@ -711,8 +714,18 @@ export const createSyncRequestSchema = z.object({
   providerPlaylistId: z.string().min(1),
   name: z.string().min(1).max(200),
   trackCount: z.number().int().nonnegative().nullable(),
+  syncMode: syncModeSchema,
 });
 export type CreateSyncRequest = z.infer<typeof createSyncRequestSchema>;
+
+export const updateSyncRequestSchema = z
+  .object({
+    syncMode: syncModeSchema.optional(),
+  })
+  .refine((data) => data.syncMode !== undefined, {
+    message: 'At least one field must be provided.',
+  });
+export type UpdateSyncRequest = z.infer<typeof updateSyncRequestSchema>;
 
 export const syncItemSchema = z.object({
   id: z.string(),
@@ -721,6 +734,7 @@ export const syncItemSchema = z.object({
   providerPlaylistId: z.string(),
   name: z.string(),
   trackCount: z.number().int().nonnegative().nullable(),
+  syncMode: syncModeSchema,
   autoSyncEnabled: z.boolean().default(true),
   lastSyncedAt: z.string().nullable().default(null),
   lastError: z.string().nullable().default(null),
@@ -782,6 +796,7 @@ export type SyncPublicTrack = z.infer<typeof syncPublicTrackSchema>;
 export const syncPublicItemSchema = z.object({
   id: z.string(),
   provider: providerSchema,
+  syncMode: syncModeSchema,
   name: z.string(),
   trackCount: z.number().int().nonnegative(),
   isRevoked: z.boolean(),

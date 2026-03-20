@@ -9,6 +9,7 @@ import {
   syncListResponseSchema,
   syncPublicResponseSchema,
   syncResponseSchema,
+  updateSyncRequestSchema,
 } from '@synqit/shared';
 import { FastifyInstance, FastifyRequest } from 'fastify';
 
@@ -271,6 +272,7 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
       providerPlaylistId: body.data.providerPlaylistId,
       name: body.data.name,
       trackCount: body.data.trackCount,
+      syncMode: body.data.syncMode,
     });
 
     return reply.status(201).send(toSyncResponse(sync));
@@ -380,6 +382,70 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     );
   });
 
+  // PATCH /syncs/:syncId (owner only)
+  app.patch('/syncs/:syncId', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    }
+
+    const { syncId } = request.params as { syncId: string };
+    const body = updateSyncRequestSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ code: 'invalid_request', message: body.error.message });
+    }
+
+    const sync = await syncsStore.updateOwnedSync({
+      syncId,
+      senderUserId: userId,
+      syncMode: body.data.syncMode,
+    });
+
+    if (!sync) {
+      return reply.status(404).send({ code: 'not_found', message: 'Sync not found.' });
+    }
+
+    return reply.send(toSyncResponse(sync));
+  });
+
+  app.post('/syncs/:syncId/magic-link/revoke', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    }
+
+    const { syncId } = request.params as { syncId: string };
+    const sync = await syncsStore.revokeMagicLink({
+      syncId,
+      senderUserId: userId,
+    });
+
+    if (!sync) {
+      return reply.status(404).send({ code: 'not_found', message: 'Sync not found.' });
+    }
+
+    return reply.send(toSyncResponse(sync));
+  });
+
+  app.post('/syncs/:syncId/magic-link/regenerate', async (request, reply) => {
+    const userId = await verifyAndGetUserId(request);
+    if (!userId) {
+      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    }
+
+    const { syncId } = request.params as { syncId: string };
+    const sync = await syncsStore.regenerateMagicLink({
+      syncId,
+      senderUserId: userId,
+    });
+
+    if (!sync) {
+      return reply.status(404).send({ code: 'not_found', message: 'Sync not found.' });
+    }
+
+    return reply.send(toSyncResponse(sync));
+  });
+
   // GET /syncs/link/:token  (public)
   app.get('/syncs/link/:token', async (request, reply) => {
     const { token } = request.params as { token: string };
@@ -436,6 +502,7 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
         sync: {
           id: sync.id,
           provider: sync.provider,
+          syncMode: sync.syncMode,
           name: sync.name,
           trackCount: sync.trackCount ?? tracks.length,
           isRevoked: sync.magicLinkRevokedAt !== null,

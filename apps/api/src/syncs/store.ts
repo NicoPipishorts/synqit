@@ -1,7 +1,8 @@
-import { Provider, providerSchema } from '@synqit/shared';
+import { Provider, providerSchema, syncModeSchema, type SyncMode } from '@synqit/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 
 import { prisma } from '../db/prisma';
+import type { Prisma } from '../generated/prisma/client';
 
 export type SyncRecord = {
   id: string;
@@ -10,6 +11,7 @@ export type SyncRecord = {
   providerPlaylistId: string;
   name: string;
   trackCount: number | null;
+  syncMode: SyncMode;
   autoSyncEnabled: boolean;
   lastSourceFingerprint: string | null;
   lastPolledAt: Date | null;
@@ -48,6 +50,7 @@ type SyncRow = {
   provider_playlist_id: string;
   name: string;
   track_count: number | null;
+  sync_mode: string;
   auto_sync_enabled: boolean;
   last_source_fingerprint: string | null;
   last_polled_at: Date | null;
@@ -90,6 +93,7 @@ const mapSyncRow = (row: SyncRow): SyncRecord => ({
   providerPlaylistId: row.provider_playlist_id,
   name: row.name,
   trackCount: row.track_count,
+  syncMode: syncModeSchema.parse(row.sync_mode),
   autoSyncEnabled: row.auto_sync_enabled,
   lastSourceFingerprint: row.last_source_fingerprint,
   lastPolledAt: row.last_polled_at,
@@ -124,21 +128,24 @@ export const syncsStore = {
     providerPlaylistId: string;
     name: string;
     trackCount: number | null;
+    syncMode: SyncMode;
   }): Promise<SyncRecord> {
     const now = new Date();
+    const data: Prisma.playlist_syncsUncheckedCreateInput = {
+      id: randomUUID(),
+      sender_user_id: params.senderUserId,
+      provider: params.provider,
+      provider_playlist_id: params.providerPlaylistId,
+      name: params.name,
+      track_count: params.trackCount,
+      sync_mode: params.syncMode,
+      auto_sync_enabled: true,
+      magic_link_token: randomBytes(24).toString('hex'),
+      created_at: now,
+      updated_at: now,
+    };
     const row = await prisma.playlist_syncs.create({
-      data: {
-        id: randomUUID(),
-        sender_user_id: params.senderUserId,
-        provider: params.provider,
-        provider_playlist_id: params.providerPlaylistId,
-        name: params.name,
-        track_count: params.trackCount,
-        auto_sync_enabled: true,
-        magic_link_token: randomBytes(24).toString('hex'),
-        created_at: now,
-        updated_at: now,
-      },
+      data,
     });
     return mapSyncRow(row as SyncRow);
   },
@@ -259,6 +266,33 @@ export const syncsStore = {
     return mapSyncRow(row as SyncRow);
   },
 
+  async updateOwnedSync(params: {
+    syncId: string;
+    senderUserId: string;
+    syncMode?: SyncMode;
+  }): Promise<SyncRecord | null> {
+    const existing = await prisma.playlist_syncs.findFirst({
+      where: {
+        id: params.syncId,
+        sender_user_id: params.senderUserId,
+      },
+    });
+
+    if (!existing) {
+      return null;
+    }
+
+    const updated = await prisma.playlist_syncs.update({
+      where: { id: params.syncId },
+      data: {
+        ...(params.syncMode !== undefined ? { sync_mode: params.syncMode } : {}),
+        updated_at: new Date(),
+      },
+    });
+
+    return mapSyncRow(updated as SyncRow);
+  },
+
   async revokeMagicLink(params: {
     syncId: string;
     senderUserId: string;
@@ -270,6 +304,25 @@ export const syncsStore = {
     const updated = await prisma.playlist_syncs.update({
       where: { id: params.syncId },
       data: { magic_link_revoked_at: new Date(), updated_at: new Date() },
+    });
+    return mapSyncRow(updated as SyncRow);
+  },
+
+  async regenerateMagicLink(params: {
+    syncId: string;
+    senderUserId: string;
+  }): Promise<SyncRecord | null> {
+    const existing = await prisma.playlist_syncs.findFirst({
+      where: { id: params.syncId, sender_user_id: params.senderUserId },
+    });
+    if (!existing) return null;
+    const updated = await prisma.playlist_syncs.update({
+      where: { id: params.syncId },
+      data: {
+        magic_link_token: randomBytes(24).toString('hex'),
+        magic_link_revoked_at: null,
+        updated_at: new Date(),
+      },
     });
     return mapSyncRow(updated as SyncRow);
   },

@@ -1,5 +1,6 @@
 import { providerSchema } from '@synqit/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRouterState } from '@tanstack/react-router';
 import { RefreshCcw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -26,6 +27,9 @@ const PROVIDER_META: Record<Provider, { label: string; iconPath: string }> = {
 };
 
 export const ProviderConnections = () => {
+  const search = useRouterState({
+    select: (state) => state.location.searchStr,
+  });
   const { t, locale } = useI18n();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -45,6 +49,24 @@ export const ProviderConnections = () => {
     },
     [locale],
   );
+
+  const redirectTo = useMemo(() => {
+    const rawValue = new URLSearchParams(search).get('redirectTo')?.trim();
+    if (!rawValue || !rawValue.startsWith('/') || rawValue.startsWith('//')) {
+      return null;
+    }
+    if (rawValue.startsWith('/auth/') || rawValue === '/profile/platforms') {
+      return null;
+    }
+    return rawValue;
+  }, [search]);
+
+  const redirectAfterConnect = useCallback(() => {
+    if (!redirectTo || typeof window === 'undefined') {
+      return;
+    }
+    window.location.assign(redirectTo);
+  }, [redirectTo]);
 
   // ---------------------------------------------------------------------------
   // Query
@@ -68,14 +90,22 @@ export const ProviderConnections = () => {
     },
   });
 
-  const integrationByProvider = snapshotQuery.data?.byProvider ?? {
-    spotify: { status: 'not_connected', connectedAt: null, expiresAt: null },
-    apple: { status: 'not_connected', connectedAt: null, expiresAt: null },
-  };
-  const eventCountByProvider = snapshotQuery.data?.eventCountByProvider ?? {
-    spotify: 0,
-    apple: 0,
-  };
+  const integrationByProvider = useMemo(
+    () =>
+      snapshotQuery.data?.byProvider ?? {
+        spotify: { status: 'not_connected', connectedAt: null, expiresAt: null },
+        apple: { status: 'not_connected', connectedAt: null, expiresAt: null },
+      },
+    [snapshotQuery.data],
+  );
+  const eventCountByProvider = useMemo(
+    () =>
+      snapshotQuery.data?.eventCountByProvider ?? {
+        spotify: 0,
+        apple: 0,
+      },
+    [snapshotQuery.data],
+  );
 
   // ---------------------------------------------------------------------------
   // Disconnect mutation
@@ -165,6 +195,7 @@ export const ProviderConnections = () => {
             target: 'providers',
             properties: { provider, action },
           });
+          redirectAfterConnect();
         } else if (
           popupResult === 'blocked' ||
           popupResult === 'error' ||
@@ -202,7 +233,7 @@ export const ProviderConnections = () => {
         });
       }
     },
-    [disconnectMutation, queryClient, showToast, t],
+    [disconnectMutation, queryClient, redirectAfterConnect, showToast, t],
   );
 
   // Handle provider/status query params written by the OAuth callback page
@@ -218,6 +249,7 @@ export const ProviderConnections = () => {
         showToast(t('profile.connectionConnected', { provider: providerLabel }), {
           variant: 'success',
         });
+        redirectAfterConnect();
       } else {
         showToast(t('profile.connectionFailed', { provider: providerLabel }), {
           variant: 'error',
@@ -234,7 +266,7 @@ export const ProviderConnections = () => {
       '',
       `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`,
     );
-  }, [queryClient, showToast, t]);
+  }, [queryClient, redirectAfterConnect, showToast, t]);
 
   // ---------------------------------------------------------------------------
   // Derived
