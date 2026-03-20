@@ -34,6 +34,7 @@ import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
   addAppleTrackToPlaylist,
   createAppleLibraryPlaylist,
+  getAppleLibraryPlaylist,
   getAppleUserStorefront,
   listApplePlaylistTracks,
   removeAppleTrackFromPlaylist,
@@ -1314,7 +1315,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = await findEventForHost({
+    let event = await findEventForHost({
       eventId,
       hostUserId: userId,
     });
@@ -1323,6 +1324,35 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         code: 'event_not_found',
         message: 'Playlist not found.',
       });
+    }
+
+    if (event.provider === 'apple' && isAppleLiveMode()) {
+      try {
+        const currentEvent = event;
+        const appleAttrs = await withAppleMusicUserToken({
+          userId: currentEvent.hostUserId,
+          run: ({ developerToken, musicUserToken }) =>
+            getAppleLibraryPlaylist({
+              developerToken,
+              musicUserToken,
+              providerPlaylistId: currentEvent.providerPlaylistId,
+            }),
+        });
+        const nameChanged = appleAttrs.name !== null && appleAttrs.name !== event.name;
+        const descChanged =
+          appleAttrs.description !== null && appleAttrs.description !== event.description;
+        if (nameChanged || descChanged) {
+          const synced = await eventsStore.updateEvent({
+            eventId: event.id,
+            hostUserId: event.hostUserId,
+            name: appleAttrs.name ?? event.name,
+            description: appleAttrs.description ?? event.description,
+          });
+          if (synced) event = synced;
+        }
+      } catch {
+        // Non-fatal: fall through and return the DB version
+      }
     }
 
     const providerConnectionStatus = await resolveProviderConnectionStatus({

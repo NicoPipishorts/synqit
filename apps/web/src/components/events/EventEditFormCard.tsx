@@ -1,6 +1,7 @@
 import { FormEvent } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
+import { EventProvider } from '../../lib/events';
 import { AppSurfaceCard } from '../app/AppSurfaceCard';
 import { CTAButton } from '../ui/cta';
 
@@ -10,6 +11,7 @@ type EventEditFormCardProps = {
   coverImageUrl: string | null;
   isWorking: boolean;
   isUploadingImage: boolean;
+  provider: EventProvider;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onNameChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
@@ -23,12 +25,24 @@ export const EventEditFormCard = ({
   editName,
   editDescription,
   isWorking,
+  provider,
   onSubmit,
   onNameChange,
   onDescriptionChange,
   onCancel,
 }: EventEditFormCardProps) => {
   const { t } = useI18n();
+
+  if (provider === 'apple') {
+    return (
+      <AppSurfaceCard className="flex h-full flex-col gap-3">
+        <p className="text-sm font-bold text-brand-dark dark:text-brand-white">
+          {t('eventsPage.appleEditDisabledTitle')}
+        </p>
+        <p className="text-sm text-app-text-secondary">{t('eventsPage.appleEditDisabledBody')}</p>
+      </AppSurfaceCard>
+    );
+  }
 
   return (
     <AppSurfaceCard>

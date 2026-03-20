@@ -86,6 +86,28 @@ const applePlaylistTracksResponseSchema = z.object({
   next: z.string().optional(),
 });
 
+const appleGetPlaylistResponseSchema = z.object({
+  data: z.array(
+    z.object({
+      attributes: z
+        .object({
+          name: z.string().optional(),
+          description: z
+            .object({
+              standard: z.string().optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+    }),
+  ),
+});
+
+export type ApplePlaylistAttributes = {
+  name: string | null;
+  description: string | null;
+};
+
 const toAppleApiError = (params: {
   action:
     | 'search'
@@ -93,7 +115,8 @@ const toAppleApiError = (params: {
     | 'resolve_storefront'
     | 'add_track'
     | 'remove_track'
-    | 'list_playlist_tracks';
+    | 'list_playlist_tracks'
+    | 'get_playlist';
   statusCode: number;
   payload: unknown;
   wwwAuthenticate: string | null;
@@ -105,6 +128,7 @@ const toAppleApiError = (params: {
     add_track: 'Apple Music add-track failed',
     remove_track: 'Apple Music remove-track failed',
     list_playlist_tracks: 'Apple Music playlist-track lookup failed',
+    get_playlist: 'Apple Music playlist lookup failed',
   } as const;
 
   let message = `${actionMessageByType[params.action]} with status ${params.statusCode}.`;
@@ -673,6 +697,41 @@ export const removeAppleTrackFromPlaylist = async (params: {
       attempts,
     },
   });
+};
+
+export const getAppleLibraryPlaylist = async (params: {
+  developerToken: string;
+  musicUserToken: string;
+  providerPlaylistId: string;
+}): Promise<ApplePlaylistAttributes> => {
+  const response = await fetch(
+    `https://api.music.apple.com/v1/me/library/playlists/${encodeURIComponent(params.providerPlaylistId)}`,
+    {
+      method: 'GET',
+      headers: appleHeaders({
+        developerToken: params.developerToken,
+        musicUserToken: params.musicUserToken,
+      }),
+    },
+  );
+
+  const payload = (await response.json().catch(() => ({}))) as unknown;
+  if (!response.ok) {
+    throw toAppleApiError({
+      action: 'get_playlist',
+      statusCode: response.status,
+      payload,
+      wwwAuthenticate: response.headers.get('www-authenticate'),
+    });
+  }
+
+  const parsed = appleGetPlaylistResponseSchema.safeParse(payload);
+  const attrs = parsed.success ? parsed.data.data[0]?.attributes : undefined;
+
+  return {
+    name: attrs?.name ?? null,
+    description: attrs?.description?.standard ?? null,
+  };
 };
 
 export type { AppleTrackSearchResult };

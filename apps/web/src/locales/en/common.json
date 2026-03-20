@@ -349,7 +349,9 @@
     "comingSoonBody": "Soon you will be able to build reusable synced playlists and apply them across your playlists in one click."
   },
   "eventsPage": {
-    "title": "My events playlists",
+    "title": "My playlists",
+    "myPlaylistsTitle": "My events",
+    "closedSectionTitle": "Closed",
     "description": "Manage playlist details, guest links, and submitted tracks.",
     "detailsTitle": "Playlist details",
     "backToEvents": "Back to playlists",
@@ -438,6 +440,8 @@
     "coverImageUpdated": "Cover image updated.",
     "coverImageRemoved": "Cover image removed.",
     "coverImageTooLarge": "Image is too large. Max size is {{maxMb}} MB.",
+    "appleEditDisabledTitle": "Editing not supported",
+    "appleEditDisabledBody": "Apple Music doesn't allow editing a playlist's name or description through its API. To rename this playlist, open it directly in Apple Music.",
     "save": "Save",
     "saving": "Saving...",
     "cancel": "Cancel",

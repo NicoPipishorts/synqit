@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Trash2 } from 'lucide-react';
+import { ListMusic, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { HostEventCard } from '../components/events/HostEventCard';
 import { HostEventDraftCard } from '../components/events/HostEventDraftCard';
+import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
@@ -34,8 +34,8 @@ export const HostEventsPage = () => {
     queryFn: fetchDrafts,
   });
 
-  const events = eventsQuery.data ?? [];
-  const drafts = draftsQuery.data ?? [];
+  const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
+  const drafts = useMemo(() => draftsQuery.data ?? [], [draftsQuery.data]);
 
   // ---------------------------------------------------------------------------
   // Mutations
@@ -63,13 +63,15 @@ export const HostEventsPage = () => {
   // Derived
   // ---------------------------------------------------------------------------
 
-  const listItems = useMemo(() => {
-    const eventItems = events.map((event) => ({
-      kind: 'event' as const,
-      id: `event:${event.id}`,
-      updatedAt: event.updatedAt,
-      event,
-    }));
+  const activeItems = useMemo(() => {
+    const eventItems = events
+      .filter((e) => e.status === 'open')
+      .map((event) => ({
+        kind: 'event' as const,
+        id: `event:${event.id}`,
+        updatedAt: event.updatedAt,
+        event,
+      }));
     const draftItems = drafts.map((draft) => ({
       kind: 'draft' as const,
       id: `draft:${draft.id}`,
@@ -81,35 +83,69 @@ export const HostEventsPage = () => {
     );
   }, [drafts, events]);
 
-  // ---------------------------------------------------------------------------
-  // Handlers
-  // ---------------------------------------------------------------------------
+  const closedItems = useMemo(
+    () =>
+      events
+        .filter((e) => e.status === 'closed')
+        .map((event) => ({
+          kind: 'event' as const,
+          id: `event:${event.id}`,
+          updatedAt: event.updatedAt,
+          event,
+        }))
+        .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt)),
+    [events],
+  );
+
+  const hasAny = activeItems.length > 0 || closedItems.length > 0;
+
+  const isDeleting = deleteDraftMutation.isPending;
 
   // ---------------------------------------------------------------------------
   // Render
   // ---------------------------------------------------------------------------
 
-  const isDeleting = deleteDraftMutation.isPending;
-
   return (
-    <AppPageLayout>
-      <AppPageHeader title={t('eventsPage.title')} description={t('eventsPage.description')}>
-        {listItems.length > 0 && (
-          <div className="flex justify-center py-4">
-            <CTALink
-              to="/playlists/new"
-              variant="primary"
-              className="w-[90%] justify-center px-4 py-3 text-sm font-black sm:text-base"
-            >
-              {t('eventsPage.create')}
-            </CTALink>
-          </div>
+    <AppPageLayout
+      bodyClassName="gap-8"
+      backdrop={
+        <BlurSpotLayer
+          filterId="events-blur"
+          className="pointer-events-none absolute inset-0 z-0"
+          spots={[
+            { cx: '10%', cy: '15%', r: 180, color: '#c6f135', opacity: 0.07 },
+            { cx: '85%', cy: '60%', r: 200, color: '#e8579a', opacity: 0.06 },
+          ]}
+        />
+      }
+    >
+      {/* ── Header ── */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="grid gap-1">
+          <p className="text-xs font-semibold uppercase tracking-widest text-app-text-secondary">
+            {t('eventsPage.title')}
+          </p>
+          <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
+            {t('eventsPage.myPlaylistsTitle')}
+          </h1>
+          <p className="text-sm text-app-text-secondary">{t('eventsPage.description')}</p>
+        </div>
+        {hasAny && (
+          <CTALink
+            to="/playlists/new"
+            variant="primary"
+            className="w-full justify-center gap-2 px-4 py-2.5 text-sm font-black sm:w-fit sm:shrink-0"
+          >
+            <Plus size={14} aria-hidden="true" />
+            {t('eventsPage.create')}
+          </CTALink>
         )}
-      </AppPageHeader>
+      </div>
 
-      {listItems.length === 0 ? (
-        <div className="flex min-h-[calc(100svh-24rem)] items-start pt-8 sm:pt-16 justify-center">
-          <div className="relative w-85 sm:w-[35vw]  p-6 sm:p-10">
+      {/* ── List / Empty ── */}
+      {!hasAny ? (
+        <div className="flex min-h-[calc(100svh-24rem)] items-start justify-center pt-8 sm:pt-16">
+          <div className="relative w-85 p-6 sm:w-[35vw] sm:p-10">
             <span
               aria-hidden="true"
               className="pointer-events-none absolute left-0 top-0 h-7 w-7 rounded-tl-lg border-l border-t border-brand-dark dark:border-brand-white"
@@ -127,6 +163,7 @@ export const HostEventsPage = () => {
               className="pointer-events-none absolute bottom-0 right-0 h-7 w-7 rounded-br-lg border-b border-r border-brand-dark dark:border-brand-white"
             />
             <div className="flex flex-col items-center gap-6 text-center">
+              <ListMusic size={36} className="text-app-text-secondary/40" aria-hidden="true" />
               <div className="flex flex-col items-center gap-2">
                 <p className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl">
                   {t('eventsPage.emptyTitle')}
@@ -142,22 +179,42 @@ export const HostEventsPage = () => {
           </div>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {listItems.map((item) =>
-            item.kind === 'event' ? (
-              <HostEventCard key={item.id} event={item.event} />
-            ) : (
-              <HostEventDraftCard
-                key={item.id}
-                draft={item.draft}
-                onDelete={(draft) => setDraftToDelete(draft)}
-                isDeleting={deleteDraftMutation.isPending && draftToDelete?.id === item.draft.id}
-              />
-            ),
+        <div className="grid gap-10">
+          {activeItems.length > 0 && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {activeItems.map((item) =>
+                item.kind === 'event' ? (
+                  <HostEventCard key={item.id} event={item.event} />
+                ) : (
+                  <HostEventDraftCard
+                    key={item.id}
+                    draft={item.draft}
+                    onDelete={(draft) => setDraftToDelete(draft)}
+                    isDeleting={
+                      deleteDraftMutation.isPending && draftToDelete?.id === item.draft.id
+                    }
+                  />
+                ),
+              )}
+            </div>
+          )}
+
+          {closedItems.length > 0 && (
+            <section className="grid gap-4">
+              <p className="pl-1 text-xs font-semibold uppercase tracking-widest text-app-text-secondary">
+                {t('eventsPage.closedSectionTitle')}
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                {closedItems.map((item) => (
+                  <HostEventCard key={item.id} event={item.event} />
+                ))}
+              </div>
+            </section>
           )}
         </div>
       )}
 
+      {/* ── Delete draft modal ── */}
       <Modal
         open={draftToDelete !== null}
         title={t('eventsPage.deleteDraft')}
