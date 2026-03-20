@@ -212,6 +212,22 @@
   }
 }
 
+@keyframes nudge-x {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(3px);
+  }
+}
+
+@layer utilities {
+  .animate-nudge-x {
+    animation: nudge-x 0.6s ease-in-out infinite;
+  }
+}
+
 @keyframes route-loader-float {
   0%,
   100% {

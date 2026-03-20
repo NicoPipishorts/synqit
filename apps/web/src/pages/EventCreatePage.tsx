@@ -924,9 +924,14 @@ export const EventCreatePage = () => {
                       isLoadingIntegrations
                     }
                     variant="primary"
+                    className="group"
                   >
                     {t('eventsPage.createFlow.next')}
-                    <ChevronRight size={14} aria-hidden="true" />
+                    <ChevronRight
+                      size={14}
+                      aria-hidden="true"
+                      className="transition-transform duration-150 group-hover:translate-x-0.5"
+                    />
                   </CTAButton>
                 </motion.div>
               ) : null}
