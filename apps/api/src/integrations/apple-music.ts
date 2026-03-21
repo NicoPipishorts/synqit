@@ -1,3 +1,4 @@
+import type { ProviderPlaylistItem } from '@synqit/shared';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
@@ -116,6 +117,7 @@ const toAppleApiError = (params: {
     | 'add_track'
     | 'remove_track'
     | 'list_playlist_tracks'
+    | 'list_user_playlists'
     | 'get_playlist';
   statusCode: number;
   payload: unknown;
@@ -128,6 +130,7 @@ const toAppleApiError = (params: {
     add_track: 'Apple Music add-track failed',
     remove_track: 'Apple Music remove-track failed',
     list_playlist_tracks: 'Apple Music playlist-track lookup failed',
+    list_user_playlists: 'Apple Music user playlist lookup failed',
     get_playlist: 'Apple Music playlist lookup failed',
   } as const;
 
@@ -204,6 +207,79 @@ const appleHeaders = (params: {
   }
 
   return headers;
+};
+
+const appleLibraryPlaylistsResponseSchema = z.object({
+  data: z.array(
+    z.object({
+      id: z.string().min(1),
+      attributes: z
+        .object({
+          name: z.string().optional(),
+          trackCount: z.number().int().nonnegative().optional(),
+          artwork: z.object({ url: z.string().min(1) }).optional(),
+        })
+        .optional(),
+    }),
+  ),
+  next: z.string().optional(),
+});
+
+export const listAppleLibraryPlaylists = async (params: {
+  developerToken: string;
+  musicUserToken: string;
+  limit: number;
+  offset: number;
+}): Promise<{ playlists: ProviderPlaylistItem[]; hasMore: boolean }> => {
+  const makeRequest = async (includeTrackCount: boolean) => {
+    const url = new URL('https://api.music.apple.com/v1/me/library/playlists');
+    url.searchParams.set('limit', String(Math.min(params.limit, 100)));
+    url.searchParams.set('offset', String(params.offset));
+    url.searchParams.set(
+      'fields[library-playlists]',
+      includeTrackCount ? 'name,artwork,trackCount' : 'name,artwork',
+    );
+
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: appleHeaders({
+        developerToken: params.developerToken,
+        musicUserToken: params.musicUserToken,
+      }),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as unknown;
+    return { response, payload };
+  };
+
+  // Some Apple Music accounts reject `trackCount` in library playlist field selection.
+  // Retry without it so playlist picking still works, and fall back to 0 when unavailable.
+  let includeTrackCount = true;
+  let { response, payload } = await makeRequest(includeTrackCount);
+  if (!response.ok && response.status === 400) {
+    includeTrackCount = false;
+    ({ response, payload } = await makeRequest(false));
+  }
+
+  if (!response.ok) {
+    throw toAppleApiError({
+      action: 'list_user_playlists',
+      statusCode: response.status,
+      payload,
+      wwwAuthenticate: response.headers.get('www-authenticate'),
+    });
+  }
+
+  const parsed = appleLibraryPlaylistsResponseSchema.parse(payload);
+  return {
+    playlists: parsed.data.map((item) => ({
+      providerPlaylistId: item.id,
+      name: item.attributes?.name ?? 'Untitled playlist',
+      trackCount: includeTrackCount ? (item.attributes?.trackCount ?? null) : null,
+      coverImageUrl: formatAppleArtworkUrl(item.attributes?.artwork?.url),
+    })),
+    hasMore: !!parsed.next,
+  };
 };
 
 export const searchAppleCatalogTracks = async (params: {

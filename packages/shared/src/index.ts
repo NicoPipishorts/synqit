@@ -675,6 +675,155 @@ export const deleteEventResponseSchema = z.object({
 });
 export type DeleteEventResponse = z.infer<typeof deleteEventResponseSchema>;
 
+// ---------------------------------------------------------------------------
+// Sync playlists
+// ---------------------------------------------------------------------------
+
+export const syncStatusSchema = z.enum(['active', 'revoked']);
+export type SyncStatus = z.infer<typeof syncStatusSchema>;
+
+export const syncImportStatusSchema = z.enum(['pending', 'completed', 'failed']);
+export type SyncImportStatus = z.infer<typeof syncImportStatusSchema>;
+
+export const syncModeSchema = z.enum(['host_only', 'bidirectional']);
+export type SyncMode = z.infer<typeof syncModeSchema>;
+
+export const providerPlaylistItemSchema = z.object({
+  providerPlaylistId: z.string().min(1),
+  name: z.string(),
+  trackCount: z.number().int().nonnegative().nullable(),
+  coverImageUrl: z.string().nullable(),
+});
+export type ProviderPlaylistItem = z.infer<typeof providerPlaylistItemSchema>;
+
+export const providerPlaylistListResponseSchema = z.object({
+  playlists: z.array(providerPlaylistItemSchema),
+  hasMore: z.boolean(),
+});
+export type ProviderPlaylistListResponse = z.infer<typeof providerPlaylistListResponseSchema>;
+
+export const providerPlaylistTrackCountResponseSchema = z.object({
+  trackCount: z.number().int().nonnegative(),
+});
+export type ProviderPlaylistTrackCountResponse = z.infer<
+  typeof providerPlaylistTrackCountResponseSchema
+>;
+
+export const createSyncRequestSchema = z.object({
+  provider: providerSchema,
+  providerPlaylistId: z.string().min(1),
+  name: z.string().min(1).max(200),
+  trackCount: z.number().int().nonnegative().nullable(),
+  syncMode: syncModeSchema,
+});
+export type CreateSyncRequest = z.infer<typeof createSyncRequestSchema>;
+
+export const updateSyncRequestSchema = z
+  .object({
+    syncMode: syncModeSchema.optional(),
+  })
+  .refine((data) => data.syncMode !== undefined, {
+    message: 'At least one field must be provided.',
+  });
+export type UpdateSyncRequest = z.infer<typeof updateSyncRequestSchema>;
+
+export const syncItemSchema = z.object({
+  id: z.string(),
+  senderUserId: z.string(),
+  provider: providerSchema,
+  providerPlaylistId: z.string(),
+  name: z.string(),
+  trackCount: z.number().int().nonnegative().nullable(),
+  syncMode: syncModeSchema,
+  autoSyncEnabled: z.boolean().default(true),
+  lastSyncedAt: z.string().nullable().default(null),
+  lastError: z.string().nullable().default(null),
+  magicLinkToken: z.string(),
+  magicLinkRevokedAt: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type SyncItem = z.infer<typeof syncItemSchema>;
+
+export const syncResponseSchema = z.object({
+  sync: syncItemSchema,
+  magicLinkUrl: z.string().url(),
+});
+export type SyncResponse = z.infer<typeof syncResponseSchema>;
+
+export const syncListResponseSchema = z.object({
+  ownedSyncs: z.array(syncItemSchema),
+  subscribedSyncs: z.array(syncItemSchema),
+});
+export type SyncListResponse = z.infer<typeof syncListResponseSchema>;
+
+export const syncDetailTrackSchema = z.object({
+  providerTrackId: z.string(),
+  name: z.string(),
+  artist: z.string(),
+  album: z.string(),
+  durationMs: z.number().int().nonnegative(),
+  artworkUrl: z.string().nullable(),
+});
+export type SyncDetailTrack = z.infer<typeof syncDetailTrackSchema>;
+
+export const syncSubscriberPlatformStatSchema = z.object({
+  provider: providerSchema,
+  count: z.number().int().nonnegative(),
+});
+export type SyncSubscriberPlatformStat = z.infer<typeof syncSubscriberPlatformStatSchema>;
+
+export const syncDetailItemSchema = syncItemSchema.extend({
+  subscriberCount: z.number().int().nonnegative(),
+  subscriberPlatformStats: z.array(syncSubscriberPlatformStatSchema),
+  tracks: z.array(syncDetailTrackSchema),
+});
+export type SyncDetailItem = z.infer<typeof syncDetailItemSchema>;
+
+export const syncDetailResponseSchema = z.object({
+  sync: syncDetailItemSchema,
+});
+export type SyncDetailResponse = z.infer<typeof syncDetailResponseSchema>;
+
+export const syncPublicTrackSchema = z.object({
+  name: z.string(),
+  artist: z.string(),
+  album: z.string(),
+  artworkUrl: z.string().nullable(),
+});
+export type SyncPublicTrack = z.infer<typeof syncPublicTrackSchema>;
+
+export const syncPublicItemSchema = z.object({
+  id: z.string(),
+  provider: providerSchema,
+  syncMode: syncModeSchema,
+  name: z.string(),
+  trackCount: z.number().int().nonnegative(),
+  isRevoked: z.boolean(),
+  isOwner: z.boolean().default(false),
+  isSubscribed: z.boolean().default(false),
+  subscriberCount: z.number().int().nonnegative(),
+  tracks: z.array(syncPublicTrackSchema),
+});
+export type SyncPublicItem = z.infer<typeof syncPublicItemSchema>;
+
+export const syncPublicResponseSchema = z.object({
+  sync: syncPublicItemSchema,
+});
+export type SyncPublicResponse = z.infer<typeof syncPublicResponseSchema>;
+
+export const importSyncRequestSchema = z.object({
+  recipientProvider: providerSchema,
+});
+export type ImportSyncRequest = z.infer<typeof importSyncRequestSchema>;
+
+export const importSyncResponseSchema = z.object({
+  ok: z.literal(true),
+  matchedCount: z.number().int().nonnegative(),
+  skippedCount: z.number().int().nonnegative(),
+});
+export type ImportSyncResponse = z.infer<typeof importSyncResponseSchema>;
+
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   service: z.string(),

@@ -9,17 +9,32 @@
  */
 
 import {
+  createSyncRequestSchema,
   deleteEventDraftResponseSchema,
   eventDraftListResponseSchema,
   eventDraftResponseSchema,
   eventListResponseSchema,
   eventResponseSchema,
   eventTracksResponseSchema,
+  importSyncRequestSchema,
+  importSyncResponseSchema,
   integrationDisconnectResponseSchema,
   integrationListResponseSchema,
   oauthCallbackResponseSchema,
+  providerPlaylistListResponseSchema,
+  providerPlaylistTrackCountResponseSchema,
+  syncDetailResponseSchema,
+  syncListResponseSchema,
+  syncPublicResponseSchema,
+  syncResponseSchema,
   updateEventRequestSchema,
+  updateSyncRequestSchema,
   userPreferencesResponseSchema,
+  type ImportSyncResponse,
+  type ProviderPlaylistItem,
+  type SyncDetailItem,
+  type SyncItem,
+  type SyncPublicItem,
   type UserPreferences,
 } from '@synqit/shared';
 import type { EventDraft } from '@synqit/shared';
@@ -27,6 +42,7 @@ import type { EventDraft } from '@synqit/shared';
 import { callApi } from './api';
 import { toApiAssetUrl } from './apiAssetUrl';
 import { getAccessToken } from './auth';
+import { parseOkResponse } from './client-models';
 import type { EventTrackItem, HostEvent, HostEventDraft } from './events';
 
 // ---------------------------------------------------------------------------
@@ -463,3 +479,209 @@ export const updateUserPreferences = async (
 };
 
 export type { UserPreferences };
+
+// ---------------------------------------------------------------------------
+// Sync query keys
+// ---------------------------------------------------------------------------
+
+export const syncQueryKeys = {
+  all: () => ['syncs'] as const,
+  list: () => ['syncs', 'list'] as const,
+  detail: (syncId: string) => ['syncs', 'detail', syncId] as const,
+  public: (token: string) => ['syncs', 'public', token] as const,
+  providerPlaylists: (provider: string, offset: number) =>
+    ['syncs', 'providerPlaylists', provider, offset] as const,
+  providerPlaylistTrackCount: (provider: string, providerPlaylistId: string) =>
+    ['syncs', 'providerPlaylistTrackCount', provider, providerPlaylistId] as const,
+};
+
+// ---------------------------------------------------------------------------
+// Sync fetchers
+// ---------------------------------------------------------------------------
+
+export const fetchSyncs = async (): Promise<SyncItem[]> => {
+  const token = requireToken();
+  const result = await callApi(
+    '/v1/syncs',
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => syncListResponseSchema.parse(payload),
+  );
+  return result.ownedSyncs;
+};
+
+export const fetchSyncCollections = async (): Promise<{
+  ownedSyncs: SyncItem[];
+  subscribedSyncs: SyncItem[];
+}> => {
+  const token = requireToken();
+  return callApi(
+    '/v1/syncs',
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => syncListResponseSchema.parse(payload),
+  );
+};
+
+export const fetchSyncDetail = async (syncId: string): Promise<SyncDetailItem> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/syncs/${encodeURIComponent(syncId)}`,
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => syncDetailResponseSchema.parse(payload),
+  );
+  return result.sync;
+};
+
+export const fetchSyncPublic = async (magicLinkToken: string): Promise<SyncPublicItem> => {
+  const accessToken = getAccessToken();
+  const result = await callApi(
+    `/v1/syncs/link/${encodeURIComponent(magicLinkToken)}`,
+    {
+      method: 'GET',
+      headers: accessToken ? { authorization: `Bearer ${accessToken}` } : undefined,
+    },
+    (payload) => syncPublicResponseSchema.parse(payload),
+  );
+  return result.sync;
+};
+
+export const fetchProviderPlaylists = async (params: {
+  provider: 'spotify' | 'apple';
+  limit?: number;
+  offset?: number;
+}): Promise<{ playlists: ProviderPlaylistItem[]; hasMore: boolean }> => {
+  const token = requireToken();
+  const url = new URL('/v1/syncs/provider-playlists', 'http://placeholder');
+  url.searchParams.set('provider', params.provider);
+  url.searchParams.set('limit', String(params.limit ?? 25));
+  url.searchParams.set('offset', String(params.offset ?? 0));
+  const result = await callApi(
+    `/v1/syncs/provider-playlists?${url.searchParams.toString()}`,
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => providerPlaylistListResponseSchema.parse(payload),
+  );
+  return result;
+};
+
+export const fetchProviderPlaylistTrackCount = async (params: {
+  provider: 'spotify' | 'apple';
+  providerPlaylistId: string;
+}): Promise<number> => {
+  const token = requireToken();
+  const url = new URL(
+    `/v1/syncs/provider-playlists/${encodeURIComponent(params.providerPlaylistId)}/track-count`,
+    'http://placeholder',
+  );
+  url.searchParams.set('provider', params.provider);
+
+  const result = await callApi(
+    `${url.pathname}?${url.searchParams.toString()}`,
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => providerPlaylistTrackCountResponseSchema.parse(payload),
+  );
+  return result.trackCount;
+};
+
+// ---------------------------------------------------------------------------
+// Sync mutations
+// ---------------------------------------------------------------------------
+
+export const createSync = async (params: {
+  provider: 'spotify' | 'apple';
+  providerPlaylistId: string;
+  name: string;
+  trackCount: number | null;
+  syncMode: 'host_only' | 'bidirectional';
+}): Promise<{ sync: SyncItem; magicLinkUrl: string }> => {
+  const token = requireToken();
+  const body = createSyncRequestSchema.parse(params);
+  const result = await callApi(
+    '/v1/syncs',
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+    (payload) => syncResponseSchema.parse(payload),
+  );
+  return result;
+};
+
+export const updateSync = async (params: {
+  syncId: string;
+  syncMode: 'host_only' | 'bidirectional';
+}): Promise<{ sync: SyncItem; magicLinkUrl: string }> => {
+  const token = requireToken();
+  const body = updateSyncRequestSchema.parse({
+    syncMode: params.syncMode,
+  });
+  const result = await callApi(
+    `/v1/syncs/${encodeURIComponent(params.syncId)}`,
+    {
+      method: 'PATCH',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+    (payload) => syncResponseSchema.parse(payload),
+  );
+  return result;
+};
+
+export const revokeSyncMagicLink = async (
+  syncId: string,
+): Promise<{ sync: SyncItem; magicLinkUrl: string }> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/syncs/${encodeURIComponent(syncId)}/magic-link/revoke`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    },
+    (payload) => syncResponseSchema.parse(payload),
+  );
+  return result;
+};
+
+export const regenerateSyncMagicLink = async (
+  syncId: string,
+): Promise<{ sync: SyncItem; magicLinkUrl: string }> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/syncs/${encodeURIComponent(syncId)}/magic-link/regenerate`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    },
+    (payload) => syncResponseSchema.parse(payload),
+  );
+  return result;
+};
+
+export const importSync = async (params: {
+  magicLinkToken: string;
+  recipientProvider: 'spotify' | 'apple';
+}): Promise<ImportSyncResponse> => {
+  const token = requireToken();
+  const body = importSyncRequestSchema.parse({ recipientProvider: params.recipientProvider });
+  const result = await callApi(
+    `/v1/syncs/link/${encodeURIComponent(params.magicLinkToken)}/import`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+    (payload) => importSyncResponseSchema.parse(payload),
+  );
+  return result;
+};
+
+export const unsubscribeSync = async (magicLinkToken: string): Promise<{ ok: true }> => {
+  const token = requireToken();
+  return callApi(
+    `/v1/syncs/link/${encodeURIComponent(magicLinkToken)}/import`,
+    {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${token}` },
+    },
+    parseOkResponse,
+  );
+};

@@ -42,7 +42,7 @@ export const PrivateDesktopNavigation = ({
               key={item.to}
               to={item.to}
               onMouseEnter={() => setHoveredNavPath(item.to)}
-              className="relative inline-flex h-10 items-center rounded-full px-4 text-sm font-black tracking-[0.01em] transition focus-ring-brand"
+              className="relative inline-flex h-10 items-center rounded-full px-2.5 text-sm font-black tracking-[0.01em] transition focus-ring-brand sm:px-3 lg:px-4"
             >
               {isHovered ? (
                 <motion.span

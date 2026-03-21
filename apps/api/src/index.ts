@@ -15,6 +15,8 @@ import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
 import { registerMetricsEndpoint } from './observability/metrics';
+import { startAutoSyncScheduler } from './syncs/auto-sync';
+import { registerSyncRoutes } from './syncs/routes';
 
 const loadEnvFileIfPresent = (filePath: string): void => {
   try {
@@ -141,6 +143,7 @@ export const buildServer = async () => {
       await registerAnalyticsRoutes(v1);
       await registerIntegrationRoutes(v1);
       await registerEventRoutes(v1);
+      await registerSyncRoutes(v1);
       v1.get('/version', async () => ({
         service: 'api',
         version: APP_VERSION,
@@ -155,13 +158,28 @@ export const buildServer = async () => {
 
 export const start = async () => {
   const app = await buildServer();
+  let stopAutoSyncScheduler: (() => void) | null = null;
 
   try {
     await app.listen({ port: PORT, host: HOST });
+    stopAutoSyncScheduler = startAutoSyncScheduler(app.log);
   } catch (error) {
     app.log.error(error);
     process.exit(1);
   }
+
+  const shutdown = async () => {
+    stopAutoSyncScheduler?.();
+    await app.close();
+  };
+
+  process.on('SIGINT', () => {
+    void shutdown().finally(() => process.exit(0));
+  });
+
+  process.on('SIGTERM', () => {
+    void shutdown().finally(() => process.exit(0));
+  });
 };
 
 if (require.main === module) {

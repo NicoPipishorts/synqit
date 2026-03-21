@@ -1,3 +1,4 @@
+import type { ProviderPlaylistItem } from '@synqit/shared';
 import { z } from 'zod';
 
 const spotifyPlaylistCreateResponseSchema = z.object({
@@ -11,6 +12,7 @@ const spotifyCurrentUserResponseSchema = z.object({
 const spotifyPlaylistSummaryResponseSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
+  snapshot_id: z.string().min(1),
   public: z.boolean().nullable(),
   collaborative: z.boolean(),
   owner: z.object({
@@ -35,6 +37,7 @@ type SpotifyCurrentUser = {
 type SpotifyPlaylistSummary = {
   id: string;
   name: string;
+  snapshotId: string;
   ownerId: string;
   isPublic: boolean;
   collaborative: boolean;
@@ -101,6 +104,52 @@ export const getSpotifyCurrentUser = async (params: {
   };
 };
 
+const spotifyUserPlaylistsResponseSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string(),
+      tracks: z.object({ total: z.number().int().nonnegative() }).nullable().optional(),
+      images: z
+        .array(z.object({ url: z.string() }))
+        .optional()
+        .default([]),
+    }),
+  ),
+  next: z.string().nullable().optional(),
+});
+
+export const listSpotifyUserPlaylists = async (params: {
+  accessToken: string;
+  limit: number;
+  offset: number;
+}): Promise<{ playlists: ProviderPlaylistItem[]; hasMore: boolean }> => {
+  const url = new URL('https://api.spotify.com/v1/me/playlists');
+  url.searchParams.set('limit', String(Math.min(params.limit, 50)));
+  url.searchParams.set('offset', String(params.offset));
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: { authorization: `Bearer ${params.accessToken}` },
+  });
+
+  const payload = (await response.json().catch(() => ({}))) as unknown;
+  if (!response.ok) {
+    throw new Error(`Spotify user playlists fetch failed with status ${response.status}.`);
+  }
+
+  const parsed = spotifyUserPlaylistsResponseSchema.parse(payload);
+  return {
+    playlists: parsed.items.map((item) => ({
+      providerPlaylistId: item.id,
+      name: item.name,
+      trackCount: item.tracks?.total ?? null,
+      coverImageUrl: item.images[0]?.url ?? null,
+    })),
+    hasMore: !!parsed.next,
+  };
+};
+
 export const getSpotifyPlaylistSummary = async (params: {
   accessToken: string;
   providerPlaylistId: string;
@@ -124,6 +173,7 @@ export const getSpotifyPlaylistSummary = async (params: {
   return {
     id: parsed.id,
     name: parsed.name,
+    snapshotId: parsed.snapshot_id,
     ownerId: parsed.owner.id,
     isPublic: parsed.public === true,
     collaborative: parsed.collaborative,

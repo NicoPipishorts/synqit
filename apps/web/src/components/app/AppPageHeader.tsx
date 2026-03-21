@@ -3,6 +3,7 @@ import { type ReactNode } from 'react';
 import { CircleChevronBackButton } from '../ui/CircleChevronBackButton';
 
 type AppPageHeaderProps = {
+  eyebrow?: string;
   title: string;
   description?: string;
   backTo?: string;
@@ -14,6 +15,7 @@ type AppPageHeaderProps = {
 };
 
 export const AppPageHeader = ({
+  eyebrow,
   title,
   description,
   backTo,
@@ -24,12 +26,17 @@ export const AppPageHeader = ({
   descriptionClassName,
 }: AppPageHeaderProps) => (
   <article className={className}>
-    <div className="p-4 sm:px-8 sm:py-9">
+    <div className="sm:px-2 sm:pb-8">
       <div className="flex items-start gap-4">
         {backTo ? <CircleChevronBackButton to={backTo} label={backLabel ?? title} /> : null}
         <div className="grid flex-1 gap-3">
           <div className="flex items-start justify-between gap-3">
             <div className="grid gap-1">
+              {eyebrow ? (
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary">
+                  {eyebrow}
+                </p>
+              ) : null}
               <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
                 {title}
               </h1>

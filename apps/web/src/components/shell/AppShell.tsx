@@ -38,7 +38,8 @@ export const AppShell = () => {
   const isPrivateRoute =
     !pathname.startsWith('/auth/') &&
     !pathname.startsWith('/playlist/') &&
-    !pathname.startsWith('/event/');
+    !pathname.startsWith('/event/') &&
+    !pathname.startsWith('/sync/');
   const navItems = [
     { to: '/dashboard', label: t('accountMenu.dashboard') },
     { to: '/playlists', label: t('accountMenu.myEvents') },
@@ -145,7 +146,7 @@ export const AppShell = () => {
           <div className="flex items-center">
             {isPrivateRoute ? (
               <Link to="/" aria-label="Synqit home" className="inline-flex">
-                <BrandLogo className="h-12 w-auto sm:h-24" />
+                <BrandLogo className="h-12 w-auto sm:h-14 lg:h-20" />
               </Link>
             ) : (
               <a
@@ -153,7 +154,7 @@ export const AppShell = () => {
                 aria-label="Synqit home"
                 className="inline-flex"
               >
-                <BrandLogo className="h-12 w-auto sm:h-24" />
+                <BrandLogo className="h-12 w-auto sm:h-14 lg:h-20" />
               </a>
             )}
           </div>

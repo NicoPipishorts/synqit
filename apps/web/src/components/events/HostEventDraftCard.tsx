@@ -21,10 +21,10 @@ export const HostEventDraftCard = ({ draft, onDelete, isDeleting }: HostEventDra
         <div className="h-12 w-12 shrink-0 rounded-xl border border-dashed border-brand-pink/40 bg-brand-pink/5 dark:bg-brand-pink/10" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h2 className="truncate text-sm font-black text-brand-dark dark:text-brand-white">
+            <h2 className="min-w-0 truncate text-sm font-black text-brand-dark dark:text-brand-white">
               {hasName ? draft.name : t('eventsPage.draftUntitled')}
             </h2>
-            <span className="inline-flex h-5 items-center rounded-full border border-brand-pink/50 bg-brand-pink/10 px-2 text-[10px] font-black uppercase tracking-wide text-brand-pink">
+            <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-brand-pink/50 bg-brand-pink/10 px-2 text-[10px] font-black uppercase tracking-wide text-brand-pink">
               {t('eventsPage.draftBadge')}
             </span>
           </div>

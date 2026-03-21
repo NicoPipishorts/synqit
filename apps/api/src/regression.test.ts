@@ -98,7 +98,7 @@ describe('API regression', () => {
     process.env.SPOTIFY_CLIENT_SECRET = 'replace-me';
     process.env.SPOTIFY_SCOPES =
       process.env.SPOTIFY_SCOPES ??
-      'playlist-read-private playlist-modify-private playlist-modify-public';
+      'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public';
     process.env.APPLE_TEAM_ID = 'replace-me';
     process.env.APPLE_KEY_ID = 'replace-me';
     process.env.APPLE_MUSICKIT_IDENTIFIER = 'replace-me';
@@ -1453,7 +1453,8 @@ describe('API regression', () => {
           JSON.stringify({
             access_token: 'mock-access-token',
             token_type: 'Bearer',
-            scope: 'playlist-read-private playlist-modify-private playlist-modify-public',
+            scope:
+              'playlist-read-private playlist-read-collaborative playlist-modify-private playlist-modify-public',
             expires_in: 3600,
             refresh_token: 'mock-refresh-token',
           }),

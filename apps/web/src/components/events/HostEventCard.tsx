@@ -16,8 +16,8 @@ export const HostEventCard = ({ event }: HostEventCardProps) => {
   const coverUrl = event.coverImageUrl ? toApiAssetUrl(event.coverImageUrl) : null;
 
   return (
-    <div className="grid min-w-0 gap-3 overflow-hidden rounded-2xl border border-app-border bg-app-surface p-4 shadow-soft-lift transition duration-150 hover:border-brand-lime/40 dark:bg-app-card">
-      <div className="flex items-start gap-3">
+    <div className="grid min-w-0 gap-3 rounded-2xl border border-app-border bg-app-surface p-4 shadow-soft-lift transition duration-150 hover:border-brand-lime/40 dark:bg-app-card">
+      <div className="flex min-w-0 items-start gap-3">
         {coverUrl ? (
           <img src={coverUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
         ) : (
@@ -25,9 +25,9 @@ export const HostEventCard = ({ event }: HostEventCardProps) => {
             <Music2 size={18} className="text-app-text-secondary/40" aria-hidden="true" />
           </div>
         )}
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-hidden">
           <div className="flex items-center gap-2">
-            <h2 className="truncate text-sm font-black text-brand-dark dark:text-brand-white">
+            <h2 className="min-w-0 truncate text-sm font-black text-brand-dark dark:text-brand-white">
               {event.name}
             </h2>
             <EventStatusIndicator

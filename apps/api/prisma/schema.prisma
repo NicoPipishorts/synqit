@@ -169,6 +169,58 @@ model users {
   refresh_tokens refresh_tokens[]
   user_profile   user_profiles?
   user_preferences user_preferences?
+  playlist_syncs playlist_syncs[]
+  playlist_sync_imports playlist_sync_imports[]
+}
+
+model playlist_syncs {
+  id                    String                  @id
+  sender_user_id        String
+  provider              String
+  provider_playlist_id  String
+  name                  String
+  track_count           Int?
+  sync_mode             String                  @default("host_only")
+  auto_sync_enabled     Boolean                 @default(true)
+  next_poll_at          DateTime?               @db.Timestamptz(6)
+  unchanged_poll_streak Int                     @default(0)
+  last_source_snapshot_id String?
+  last_source_fingerprint String?
+  last_polled_at        DateTime?               @db.Timestamptz(6)
+  last_synced_at        DateTime?               @db.Timestamptz(6)
+  last_error            String?
+  magic_link_token      String                  @unique
+  magic_link_revoked_at DateTime?               @db.Timestamptz(6)
+  created_at            DateTime                @db.Timestamptz(6)
+  updated_at            DateTime                @db.Timestamptz(6)
+  users                 users                   @relation(fields: [sender_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  playlist_sync_imports playlist_sync_imports[]
+
+  @@index([sender_user_id], map: "idx_playlist_syncs_sender_user_id")
+}
+
+model playlist_sync_imports {
+  id                 String          @id
+  sync_id            String
+  recipient_user_id  String
+  recipient_provider String
+  recipient_provider_playlist_id String?
+  last_recipient_snapshot_id String?
+  synced_source_track_fingerprints String[] @default([])
+  synced_recipient_track_fingerprints String[] @default([])
+  status             String          @default("pending")
+  matched_count      Int?
+  skipped_count      Int?
+  last_synced_at     DateTime?       @db.Timestamptz(6)
+  last_error         String?
+  created_at         DateTime        @db.Timestamptz(6)
+  updated_at         DateTime        @db.Timestamptz(6)
+  playlist_syncs     playlist_syncs  @relation(fields: [sync_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users              users           @relation(fields: [recipient_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([sync_id, recipient_user_id])
+  @@index([sync_id], map: "idx_playlist_sync_imports_sync_id")
+  @@index([recipient_user_id], map: "idx_playlist_sync_imports_recipient_user_id")
 }
 
 model user_admin_permissions {
