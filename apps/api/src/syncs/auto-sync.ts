@@ -43,6 +43,23 @@ const buildSourceFingerprint = (tracks: SyncTrack[]): string =>
     .update(tracks.map((track) => track.providerTrackId).join('\n'))
     .digest('hex');
 
+const mergeTracksByFingerprint = (tracks: SyncTrack[], additions: SyncTrack[]): SyncTrack[] => {
+  const merged = [...tracks];
+  const fingerprints = new Set(tracks.map((track) => buildTrackFingerprint(track)));
+
+  for (const track of additions) {
+    const fingerprint = buildTrackFingerprint(track);
+    if (fingerprints.has(fingerprint)) {
+      continue;
+    }
+
+    fingerprints.add(fingerprint);
+    merged.push(track);
+  }
+
+  return merged;
+};
+
 const hasAppleInSync = (sync: SyncWithImportsRecord): boolean =>
   sync.provider === 'apple' ||
   (sync.syncMode === 'bidirectional' &&
@@ -480,9 +497,11 @@ const syncImportBackToSource = async (params: {
   importRecord: SyncImportRecord;
   syncedSourceTrackFingerprints: string[];
   syncedRecipientTrackFingerprints: string[];
+  sourceTracks: SyncTrack[];
   recipientTracks?: SyncTrack[];
 }): Promise<{
   addedCount: number;
+  addedSourceTracks: SyncTrack[];
   syncedSourceTrackFingerprints: string[];
   syncedRecipientTrackFingerprints: string[];
 }> => {
@@ -492,6 +511,7 @@ const syncImportBackToSource = async (params: {
   ) {
     return {
       addedCount: 0,
+      addedSourceTracks: [],
       syncedSourceTrackFingerprints: params.syncedSourceTrackFingerprints,
       syncedRecipientTrackFingerprints: params.syncedRecipientTrackFingerprints,
     };
@@ -500,6 +520,9 @@ const syncImportBackToSource = async (params: {
   const recipientTracks = params.recipientTracks ?? (await loadImportTracks(params.importRecord));
   const syncedSourceTrackFingerprints = new Set(params.syncedSourceTrackFingerprints);
   const syncedRecipientTrackFingerprints = new Set(params.syncedRecipientTrackFingerprints);
+  const sourceTrackFingerprints = new Set(
+    params.sourceTracks.map((track) => buildTrackFingerprint(track)),
+  );
 
   // Backfill a baseline for imports created before the recipient-side ledger existed.
   if (
@@ -513,9 +536,16 @@ const syncImportBackToSource = async (params: {
   }
 
   let addedCount = 0;
+  const addedSourceTracks: SyncTrack[] = [];
   for (const recipientTrack of recipientTracks) {
     const trackFingerprint = buildTrackFingerprint(recipientTrack);
     if (syncedRecipientTrackFingerprints.has(trackFingerprint)) {
+      continue;
+    }
+
+    if (sourceTrackFingerprints.has(trackFingerprint)) {
+      syncedRecipientTrackFingerprints.add(trackFingerprint);
+      syncedSourceTrackFingerprints.add(trackFingerprint);
       continue;
     }
 
@@ -538,11 +568,17 @@ const syncImportBackToSource = async (params: {
 
     syncedRecipientTrackFingerprints.add(trackFingerprint);
     syncedSourceTrackFingerprints.add(trackFingerprint);
+    sourceTrackFingerprints.add(trackFingerprint);
+    addedSourceTracks.push({
+      ...recipientTrack,
+      providerTrackId: matchedSourceTrackId,
+    });
     addedCount += 1;
   }
 
   return {
     addedCount,
+    addedSourceTracks,
     syncedSourceTrackFingerprints: Array.from(syncedSourceTrackFingerprints),
     syncedRecipientTrackFingerprints: Array.from(syncedRecipientTrackFingerprints),
   };
@@ -586,10 +622,62 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
       const shouldProcessImports =
         sync.syncMode === 'bidirectional' || sourceChanged || shouldRetryFailedImports;
 
+      type PreparedImportState = {
+        importRecord: SyncImportRecord;
+        shouldRetryImport: boolean;
+        recipientChanged: boolean;
+        recipientSnapshotId: string | null;
+        preloadedRecipientTracks?: SyncTrack[];
+      };
+
+      const importStates: PreparedImportState[] = [];
+      let detectedChange = sourceChanged;
+
+      for (const importRecord of sync.imports) {
+        const shouldRetryImport = Boolean(importRecord.lastError);
+        let recipientChanged = sync.syncMode === 'bidirectional';
+        let recipientSnapshotId = importRecord.lastRecipientSnapshotId;
+        let preloadedRecipientTracks: SyncTrack[] | undefined;
+
+        if (sync.syncMode === 'bidirectional' && importRecord.recipientProviderPlaylistId) {
+          if (importRecord.recipientProvider === 'spotify' && isSpotifyOauthLiveMode()) {
+            recipientSnapshotId = await loadSpotifyPlaylistSnapshot({
+              userId: importRecord.recipientUserId,
+              providerPlaylistId: importRecord.recipientProviderPlaylistId,
+            });
+            recipientChanged = recipientSnapshotId !== importRecord.lastRecipientSnapshotId;
+          } else {
+            preloadedRecipientTracks = await loadImportTracks(importRecord);
+            recipientSnapshotId = buildSourceFingerprint(preloadedRecipientTracks);
+            recipientChanged = recipientSnapshotId !== importRecord.lastRecipientSnapshotId;
+          }
+        }
+
+        detectedChange ||= recipientChanged;
+        importStates.push({
+          importRecord,
+          shouldRetryImport,
+          recipientChanged,
+          recipientSnapshotId,
+          preloadedRecipientTracks,
+        });
+      }
+
+      if (
+        sync.syncMode === 'bidirectional' &&
+        sourceTracks.length === 0 &&
+        importStates.some((state) => state.recipientChanged || state.shouldRetryImport)
+      ) {
+        sourceTracks = await loadSourceTracks(sync);
+        sourceFingerprint = buildSourceFingerprint(sourceTracks);
+        sourceTrackCount = sourceTracks.length;
+      }
+
       await syncsStore.updateSyncAutoState({
         syncId: sync.id,
         trackCount: sourceTrackCount,
         lastSourceSnapshotId: sourceSnapshotId,
+        lastSourceFingerprint: sourceFingerprint,
         lastPolledAt: polledAt,
       });
 
@@ -612,123 +700,95 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
       }
 
       let syncLastError: string | null = null;
-      let detectedChange = sourceChanged;
-      for (const importRecord of sync.imports) {
+      let effectiveSourceChanged = sourceChanged;
+      const preparedResults = new Map<
+        string,
+        {
+          recipientProviderPlaylistId: string | null;
+          syncedSourceTrackFingerprints: string[];
+          syncedRecipientTrackFingerprints: string[];
+          reverseAddedCount: number;
+          recipientSnapshotId: string | null;
+          shouldRetryImport: boolean;
+        }
+      >();
+
+      for (const state of importStates) {
         try {
-          const shouldRetryImport = Boolean(importRecord.lastError);
-          let recipientChanged = sync.syncMode === 'bidirectional';
-          let recipientSnapshotId = importRecord.lastRecipientSnapshotId;
-          let preloadedRecipientTracks: SyncTrack[] | undefined;
-
-          if (sync.syncMode === 'bidirectional' && importRecord.recipientProviderPlaylistId) {
-            if (importRecord.recipientProvider === 'spotify' && isSpotifyOauthLiveMode()) {
-              recipientSnapshotId = await loadSpotifyPlaylistSnapshot({
-                userId: importRecord.recipientUserId,
-                providerPlaylistId: importRecord.recipientProviderPlaylistId,
-              });
-              recipientChanged = recipientSnapshotId !== importRecord.lastRecipientSnapshotId;
-            } else {
-              preloadedRecipientTracks = await loadImportTracks(importRecord);
-              recipientSnapshotId = buildSourceFingerprint(preloadedRecipientTracks);
-              recipientChanged = recipientSnapshotId !== importRecord.lastRecipientSnapshotId;
-            }
-          }
-
-          detectedChange ||= recipientChanged;
-
-          if (!sourceChanged && !recipientChanged && !shouldRetryImport) {
+          if (!sourceChanged && !state.recipientChanged && !state.shouldRetryImport) {
             logger.info(
               {
                 syncId: sync.id,
-                recipientUserId: importRecord.recipientUserId,
-                recipientProvider: importRecord.recipientProvider,
-                recipientChanged,
+                recipientUserId: state.importRecord.recipientUserId,
+                recipientProvider: state.importRecord.recipientProvider,
+                recipientChanged: state.recipientChanged,
                 sourceChanged,
               },
               '[api][poll] automatic sync import skipped',
             );
             await syncsStore.updateImportSyncState({
               syncId: sync.id,
-              recipientUserId: importRecord.recipientUserId,
-              lastRecipientSnapshotId: recipientSnapshotId,
+              recipientUserId: state.importRecord.recipientUserId,
+              lastRecipientSnapshotId: state.recipientSnapshotId,
               status: 'completed',
               lastError: null,
             });
             continue;
           }
 
-          let forwardResult = {
-            addedCount: 0,
-            recipientProviderPlaylistId: importRecord.recipientProviderPlaylistId,
-            syncedSourceTrackFingerprints: importRecord.syncedSourceTrackFingerprints,
-            syncedRecipientTrackFingerprints: importRecord.syncedRecipientTrackFingerprints,
-          };
-
-          if (sourceChanged || shouldRetryImport) {
-            forwardResult = await syncSourceToImport({
-              sync,
-              importRecord,
-              sourceTracks,
-            });
-          }
-
           let reverseResult = {
             addedCount: 0,
-            syncedSourceTrackFingerprints: forwardResult.syncedSourceTrackFingerprints,
-            syncedRecipientTrackFingerprints: forwardResult.syncedRecipientTrackFingerprints,
+            addedSourceTracks: [] as SyncTrack[],
+            syncedSourceTrackFingerprints: state.importRecord.syncedSourceTrackFingerprints,
+            syncedRecipientTrackFingerprints: state.importRecord.syncedRecipientTrackFingerprints,
           };
 
-          if (sync.syncMode === 'bidirectional' && (recipientChanged || shouldRetryImport)) {
+          if (
+            sync.syncMode === 'bidirectional' &&
+            (state.recipientChanged || state.shouldRetryImport)
+          ) {
             reverseResult = await syncImportBackToSource({
               sync,
-              importRecord: {
-                ...importRecord,
-                recipientProviderPlaylistId: forwardResult.recipientProviderPlaylistId,
-              },
-              syncedSourceTrackFingerprints: forwardResult.syncedSourceTrackFingerprints,
-              syncedRecipientTrackFingerprints: forwardResult.syncedRecipientTrackFingerprints,
-              recipientTracks: preloadedRecipientTracks,
+              importRecord: state.importRecord,
+              syncedSourceTrackFingerprints: state.importRecord.syncedSourceTrackFingerprints,
+              syncedRecipientTrackFingerprints: state.importRecord.syncedRecipientTrackFingerprints,
+              sourceTracks,
+              recipientTracks: state.preloadedRecipientTracks,
             });
           }
 
-          logger.info(
-            {
-              syncId: sync.id,
-              recipientUserId: importRecord.recipientUserId,
-              recipientProvider: importRecord.recipientProvider,
-              sourceToRecipientAddedCount: forwardResult.addedCount,
-              recipientToSourceAddedCount: reverseResult.addedCount,
-            },
-            '[api][poll] automatic sync import completed',
-          );
+          if (reverseResult.addedSourceTracks.length > 0) {
+            effectiveSourceChanged = true;
+            detectedChange = true;
+            sourceTracks = mergeTracksByFingerprint(sourceTracks, reverseResult.addedSourceTracks);
+            sourceFingerprint = buildSourceFingerprint(sourceTracks);
+            sourceTrackCount = sourceTracks.length;
+          }
 
-          await syncsStore.updateImportSyncState({
-            syncId: sync.id,
-            recipientUserId: importRecord.recipientUserId,
-            recipientProviderPlaylistId: forwardResult.recipientProviderPlaylistId,
-            lastRecipientSnapshotId: recipientSnapshotId,
+          preparedResults.set(state.importRecord.id, {
+            recipientProviderPlaylistId: state.importRecord.recipientProviderPlaylistId,
             syncedSourceTrackFingerprints: reverseResult.syncedSourceTrackFingerprints,
             syncedRecipientTrackFingerprints: reverseResult.syncedRecipientTrackFingerprints,
-            status: 'completed',
-            lastSyncedAt: polledAt,
-            lastError: null,
+            reverseAddedCount: reverseResult.addedCount,
+            recipientSnapshotId: state.recipientSnapshotId,
+            shouldRetryImport: state.shouldRetryImport,
           });
         } catch (error) {
           if (
-            importRecord.recipientProvider === 'spotify' &&
-            importRecord.recipientProviderPlaylistId &&
+            state.importRecord.recipientProvider === 'spotify' &&
+            state.importRecord.recipientProviderPlaylistId &&
             error instanceof ProviderApiError &&
             error.statusCode === 403
           ) {
             try {
               const diagnostics = await diagnoseSpotifyRecipientPlaylistAccess({
-                userId: importRecord.recipientUserId,
-                providerPlaylistId: importRecord.recipientProviderPlaylistId,
+                userId: state.importRecord.recipientUserId,
+                providerPlaylistId: state.importRecord.recipientProviderPlaylistId,
               });
               const payload = {
                 syncId: sync.id,
-                recipientUserId: importRecord.recipientUserId,
-                recipientProviderPlaylistId: importRecord.recipientProviderPlaylistId,
+                recipientUserId: state.importRecord.recipientUserId,
+                recipientProviderPlaylistId: state.importRecord.recipientProviderPlaylistId,
                 diagnostics,
               };
               if (logger.warn) {
@@ -739,8 +799,8 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
             } catch (diagnosticError) {
               const payload = {
                 syncId: sync.id,
-                recipientUserId: importRecord.recipientUserId,
-                recipientProviderPlaylistId: importRecord.recipientProviderPlaylistId,
+                recipientUserId: state.importRecord.recipientUserId,
+                recipientProviderPlaylistId: state.importRecord.recipientProviderPlaylistId,
                 err: diagnosticError,
               };
               if (logger.warn) {
@@ -751,11 +811,11 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
             }
           }
 
-          const message = toErrorMessage(error, importRecord.recipientProvider);
+          const message = toErrorMessage(error, state.importRecord.recipientProvider);
           syncLastError ??= message;
           await syncsStore.updateImportSyncState({
             syncId: sync.id,
-            recipientUserId: importRecord.recipientUserId,
+            recipientUserId: state.importRecord.recipientUserId,
             status: 'failed',
             lastError: message,
           });
@@ -763,7 +823,76 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
             {
               err: error,
               syncId: sync.id,
-              recipientUserId: importRecord.recipientUserId,
+              recipientUserId: state.importRecord.recipientUserId,
+            },
+            'automatic sync import failed',
+          );
+        }
+      }
+
+      for (const state of importStates) {
+        const prepared = preparedResults.get(state.importRecord.id);
+        if (!prepared) {
+          continue;
+        }
+
+        try {
+          let forwardResult = {
+            addedCount: 0,
+            recipientProviderPlaylistId: prepared.recipientProviderPlaylistId,
+            syncedSourceTrackFingerprints: prepared.syncedSourceTrackFingerprints,
+            syncedRecipientTrackFingerprints: prepared.syncedRecipientTrackFingerprints,
+          };
+
+          if (effectiveSourceChanged || prepared.shouldRetryImport) {
+            forwardResult = await syncSourceToImport({
+              sync,
+              importRecord: {
+                ...state.importRecord,
+                recipientProviderPlaylistId: prepared.recipientProviderPlaylistId,
+                syncedSourceTrackFingerprints: prepared.syncedSourceTrackFingerprints,
+                syncedRecipientTrackFingerprints: prepared.syncedRecipientTrackFingerprints,
+              },
+              sourceTracks,
+            });
+          }
+
+          logger.info(
+            {
+              syncId: sync.id,
+              recipientUserId: state.importRecord.recipientUserId,
+              recipientProvider: state.importRecord.recipientProvider,
+              sourceToRecipientAddedCount: forwardResult.addedCount,
+              recipientToSourceAddedCount: prepared.reverseAddedCount,
+            },
+            '[api][poll] automatic sync import completed',
+          );
+
+          await syncsStore.updateImportSyncState({
+            syncId: sync.id,
+            recipientUserId: state.importRecord.recipientUserId,
+            recipientProviderPlaylistId: forwardResult.recipientProviderPlaylistId,
+            lastRecipientSnapshotId: prepared.recipientSnapshotId,
+            syncedSourceTrackFingerprints: forwardResult.syncedSourceTrackFingerprints,
+            syncedRecipientTrackFingerprints: forwardResult.syncedRecipientTrackFingerprints,
+            status: 'completed',
+            lastSyncedAt: polledAt,
+            lastError: null,
+          });
+        } catch (error) {
+          const message = toErrorMessage(error, state.importRecord.recipientProvider);
+          syncLastError ??= message;
+          await syncsStore.updateImportSyncState({
+            syncId: sync.id,
+            recipientUserId: state.importRecord.recipientUserId,
+            status: 'failed',
+            lastError: message,
+          });
+          logger.error(
+            {
+              err: error,
+              syncId: sync.id,
+              recipientUserId: state.importRecord.recipientUserId,
             },
             'automatic sync import failed',
           );
