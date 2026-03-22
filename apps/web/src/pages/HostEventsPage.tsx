@@ -129,7 +129,7 @@ export const HostEventsPage = () => {
             <CTALink
               to="/playlists/new"
               variant="primary"
-              className="justify-center gap-2 px-4 py-2.5 text-sm font-black"
+              className="w-full justify-center gap-2 px-4 py-2.5 text-sm font-black sm:w-auto"
             >
               <Plus size={14} aria-hidden="true" />
               {t('eventsPage.create')}

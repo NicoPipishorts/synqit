@@ -21,6 +21,19 @@ export const openProviderOauthPopup = async (params: {
   nextPath?: string;
 }): Promise<ProviderOauthPopupResult> => {
   const nextPath = params.nextPath ?? '/auth/provider-connected';
+  const popup = window.open(
+    '',
+    `synqit-${params.provider}-oauth`,
+    'width=520,height=760,resizable=yes,scrollbars=yes',
+  );
+  if (!popup) {
+    return 'blocked';
+  }
+
+  popup.document.title = 'Synqit';
+  popup.document.body.innerHTML =
+    '<div style="font-family: system-ui, sans-serif; padding: 24px; color: #111827;">Connecting…</div>';
+
   const startResponse = await callApi(
     `/v1/auth/${params.provider}/start?next=${encodeURIComponent(nextPath)}`,
     {
@@ -31,16 +44,7 @@ export const openProviderOauthPopup = async (params: {
     },
     (payload) => oauthStartResponseSchema.parse(payload),
   );
-
-  const popup = window.open(
-    startResponse.authorizationUrl,
-    `synqit-${params.provider}-oauth`,
-    'width=520,height=760,resizable=yes,scrollbars=yes',
-  );
-  if (!popup) {
-    return 'blocked';
-  }
-
+  popup.location.href = startResponse.authorizationUrl;
   popup.focus();
 
   return new Promise<ProviderOauthPopupResult>((resolve) => {
