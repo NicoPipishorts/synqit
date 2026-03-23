@@ -530,8 +530,12 @@ export const SyncPublicPage = () => {
                     {t('syncPublicPage.loginRequired')}
                   </p>
                 )}
-                <div className="w-full max-w-xl rounded-2xl border border-app-border bg-app-elevated/80 px-4 py-4 text-left shadow-soft-lift backdrop-blur-sm dark:bg-app-card/80">
-                  <div className="relative ">
+                <motion.div
+                  layout
+                  transition={{ layout: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } }}
+                  className="w-full max-w-xl rounded-2xl border border-app-border bg-app-elevated/80 px-4 py-4 text-left shadow-soft-lift backdrop-blur-sm dark:bg-app-card/80"
+                >
+                  <div className="relative">
                     <AnimatePresence initial={false} mode="wait">
                       {showImportProgressCard ? (
                         <motion.div
@@ -608,9 +612,9 @@ export const SyncPublicPage = () => {
                                   duration: 0.32,
                                   ease: [0.22, 1, 0.36, 1],
                                 }}
-                                className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-app-elevated px-6 text-center dark:bg-app-card"
+                                className="absolute inset-0 flex items-center justify-center rounded-[inherit] px-6 text-center"
                               >
-                                <div className="grid justify-items-center gap-3">
+                                <div className="grid min-h-18 justify-items-center gap-2">
                                   <motion.div
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{
@@ -701,10 +705,10 @@ export const SyncPublicPage = () => {
                                     }}
                                     className="grid gap-1"
                                   >
-                                    <p className="text-base font-black text-brand-dark dark:text-brand-dark">
+                                    <p className="text-base font-black text-brand-dark dark:text-brand-white">
                                       {t('syncPublicPage.importSuccessTitle')}
                                     </p>
-                                    <p className="text-sm font-medium text-brand-dark/80">
+                                    <p className="text-sm font-medium text-brand-dark/80 dark:text-brand-white/80">
                                       {t('syncPublicPage.importSuccessBody')}
                                     </p>
                                   </motion.div>
@@ -737,7 +741,7 @@ export const SyncPublicPage = () => {
                       )}
                     </AnimatePresence>
                   </div>
-                </div>
+                </motion.div>
 
                 {/* Subscriber count */}
                 <div className="flex flex-wrap items-center justify-center gap-2">
