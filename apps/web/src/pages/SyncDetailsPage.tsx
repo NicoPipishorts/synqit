@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Link2, ListMusic, Pencil, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -17,7 +16,6 @@ import {
   regenerateSyncMagicLink,
   revokeSyncMagicLink,
   syncQueryKeys,
-  updateSync,
 } from '../lib/queries';
 
 type ManageTab = 'edit' | 'tracks' | 'share';
@@ -73,22 +71,6 @@ export const SyncDetailsPage = () => {
         ? 'translateX(200%)'
         : 'translateX(0%)';
 
-  const updateSyncMutation = useMutation({
-    mutationFn: updateSync,
-    onSuccess: (result) => {
-      showToast(t('syncedListsPage.permissionsUpdated'), { variant: 'success' });
-      void queryClient.invalidateQueries({ queryKey: syncQueryKeys.detail(syncId) });
-      void queryClient.invalidateQueries({ queryKey: syncQueryKeys.list() });
-      void queryClient.invalidateQueries({
-        queryKey: syncQueryKeys.public(result.sync.magicLinkToken),
-      });
-    },
-    onError: (error) => {
-      showToast(t('eventsPage.error', { message: toApiError(error).message }), {
-        variant: 'error',
-      });
-    },
-  });
   const revokeMagicLinkMutation = useMutation({
     mutationFn: () => revokeSyncMagicLink(syncId),
     onSuccess: (result) => {
@@ -263,109 +245,6 @@ export const SyncDetailsPage = () => {
               <div className="flex flex-col gap-4">
                 {activeTab === 'edit' ? (
                   <>
-                    <AppSurfaceCard className="grid gap-4">
-                      <div className="grid gap-1">
-                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-text-secondary">
-                          {t('syncedListsPage.permissionsTitle')}
-                        </p>
-                        <p className="text-sm text-app-text-secondary">
-                          {t('syncedListsPage.permissionsBody')}
-                        </p>
-                      </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {(['host_only', 'bidirectional'] as const).map((mode) => {
-                          const isSelected = sync.syncMode === mode;
-
-                          return (
-                            <button
-                              key={mode}
-                              type="button"
-                              onClick={() => {
-                                if (isSelected || updateSyncMutation.isPending) {
-                                  return;
-                                }
-                                updateSyncMutation.mutate({ syncId, syncMode: mode });
-                              }}
-                              className={`relative inline-flex items-center justify-center rounded-xl border px-4 py-3 text-sm font-black transition ${
-                                isSelected
-                                  ? 'border-brand-lime/50 bg-brand-lime/12 text-brand-dark shadow-soft-lift dark:text-brand-white'
-                                  : 'border-app-border bg-app-elevated text-app-text-secondary hover:border-brand-pink hover:text-brand-pink dark:bg-app-card'
-                              } ${updateSyncMutation.isPending ? 'cursor-wait' : 'cursor-pointer'}`}
-                              disabled={updateSyncMutation.isPending}
-                            >
-                              <AnimatePresence initial={false}>
-                                {isSelected ? (
-                                  <motion.span
-                                    key={`${mode}-check`}
-                                    initial={{ opacity: 0, scale: 0.2, y: 2 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.2, y: -2 }}
-                                    transition={{
-                                      duration: 0.2,
-                                      delay: 0.14,
-                                      ease: [0.22, 1, 0.36, 1],
-                                    }}
-                                    className="absolute right-3 top-1/2 inline-flex h-4.5 w-4.5 -translate-y-1/2 items-center justify-center rounded-full bg-brand-lime text-brand-white"
-                                  >
-                                    <motion.svg
-                                      width="11"
-                                      height="11"
-                                      viewBox="0 0 12 12"
-                                      fill="none"
-                                      aria-hidden="true"
-                                      className="overflow-visible"
-                                      initial="hidden"
-                                      animate="visible"
-                                      exit="hidden"
-                                      transition={{
-                                        duration: 0.18,
-                                        delay: 0.3,
-                                        ease: [0.33, 1, 0.68, 1],
-                                      }}
-                                    >
-                                      <motion.path
-                                        d="M2 6.2L4.6 8.8L10 3.4"
-                                        stroke="currentColor"
-                                        strokeWidth="1.9"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        variants={{
-                                          hidden: { pathLength: 0, opacity: 0 },
-                                          visible: { pathLength: 1, opacity: 1 },
-                                        }}
-                                      />
-                                    </motion.svg>
-                                  </motion.span>
-                                ) : null}
-                              </AnimatePresence>
-                              <span>
-                                {mode === 'bidirectional'
-                                  ? t('syncCreatePage.syncModeBidirectionalLabel')
-                                  : t('syncCreatePage.syncModeHostOnlyLabel')}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div className="mt-2 grid gap-1 px-1">
-                        <p className="text-sm font-black tracking-tight text-brand-dark dark:text-brand-white">
-                          {sync.syncMode === 'bidirectional'
-                            ? t('syncCreatePage.syncModeBidirectionalTitle')
-                            : t('syncCreatePage.syncModeHostOnlyTitle')}
-                        </p>
-                        <p className="text-sm text-app-text-secondary">
-                          {sync.syncMode === 'bidirectional'
-                            ? t('syncCreatePage.syncModeBidirectionalBody')
-                            : t('syncCreatePage.syncModeHostOnlyBody')}
-                        </p>
-                        {updateSyncMutation.isPending ? (
-                          <p className="pt-1 text-[11px] font-semibold text-brand-pink">
-                            {t('syncedListsPage.permissionsSaving')}
-                          </p>
-                        ) : null}
-                      </div>
-                    </AppSurfaceCard>
-
                     <AppSurfaceCard className="grid gap-4">
                       <div className="grid gap-1">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary">

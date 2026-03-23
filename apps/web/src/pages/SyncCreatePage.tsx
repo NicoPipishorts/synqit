@@ -1,5 +1,5 @@
-import type { ProviderPlaylistItem, SyncItem, SyncMode } from '@synqit/shared';
-import { providerSchema, syncModeSchema } from '@synqit/shared';
+import type { ProviderPlaylistItem, SyncItem } from '@synqit/shared';
+import { providerSchema } from '@synqit/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Variants } from 'framer-motion';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
@@ -29,7 +29,7 @@ import {
 import { Provider } from '../lib/types';
 
 type ProviderIntegrationStatus = 'connected' | 'not_connected';
-type CreateStep = 1 | 2 | 3 | 4;
+type CreateStep = 1 | 2 | 3;
 
 const STEP_SLIDE_EASE = [0.16, 1, 0.3, 1] as const;
 const BREADCRUMB_LAYOUT_TRANSITION = {
@@ -78,7 +78,6 @@ export const SyncCreatePage = () => {
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
   const [provider, setProvider] = useState<Provider | null>(null);
   const [selectedPlaylist, setSelectedPlaylist] = useState<ProviderPlaylistItem | null>(null);
-  const [syncMode, setSyncMode] = useState<SyncMode | null>(null);
   const [playlistOffset, setPlaylistOffset] = useState(0);
   const [allPlaylists, setAllPlaylists] = useState<ProviderPlaylistItem[]>([]);
   const [hasMorePlaylists, setHasMorePlaylists] = useState(false);
@@ -307,16 +306,13 @@ export const SyncCreatePage = () => {
   const stepItems = [
     { value: 1 as const, label: t('syncCreatePage.stepProvider') },
     { value: 2 as const, label: t('syncCreatePage.stepPlaylist') },
-    { value: 3 as const, label: t('syncCreatePage.stepMode') },
-    { value: 4 as const, label: t('syncCreatePage.stepConfirm') },
+    { value: 3 as const, label: t('syncCreatePage.stepConfirm') },
   ];
 
   const canOpenStep = (nextStep: CreateStep): boolean => {
     if (nextStep <= step) return true;
     if (nextStep === 2) return selectedProviderConnected;
     if (nextStep === 3) return selectedProviderConnected && selectedPlaylist !== null;
-    if (nextStep === 4)
-      return selectedProviderConnected && selectedPlaylist !== null && syncMode !== null;
     return false;
   };
 
@@ -338,8 +334,7 @@ export const SyncCreatePage = () => {
       }
     }
     if (step === 2 && !selectedPlaylist) return;
-    if (step === 3 && !syncMode) return;
-    navigateToStep(Math.min(4, step + 1) as CreateStep);
+    navigateToStep(Math.min(3, step + 1) as CreateStep);
   };
 
   const goBackStep = () => {
@@ -347,7 +342,7 @@ export const SyncCreatePage = () => {
   };
 
   const handleShare = () => {
-    if (!provider || !selectedPlaylist || !syncMode) return;
+    if (!provider || !selectedPlaylist) return;
     const selectedTrackCount = selectedPlaylistTrackCountQuery.data ?? selectedPlaylist.trackCount;
 
     createSyncMutation.mutate({
@@ -355,7 +350,7 @@ export const SyncCreatePage = () => {
       providerPlaylistId: selectedPlaylist.providerPlaylistId,
       name: selectedPlaylist.name,
       trackCount: selectedTrackCount,
-      syncMode,
+      syncMode: 'host_only',
     });
   };
 
@@ -367,18 +362,6 @@ export const SyncCreatePage = () => {
     selectedPlaylist !== null &&
     selectedTrackCount === null &&
     selectedPlaylistTrackCountQuery.isFetching;
-  const syncModeOptions = syncModeSchema.options.map((value) => ({
-    value,
-    label:
-      value === 'host_only'
-        ? t('syncCreatePage.syncModeHostOnlyLabel')
-        : t('syncCreatePage.syncModeBidirectionalLabel'),
-    body:
-      value === 'host_only'
-        ? t('syncCreatePage.syncModeHostOnlyBody')
-        : t('syncCreatePage.syncModeBidirectionalBody'),
-  }));
-
   const alreadyShared =
     createdSync === null &&
     selectedPlaylist !== null &&
@@ -595,104 +578,6 @@ export const SyncCreatePage = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              className="p-1 sm:p-2"
-            >
-              <p className="mx-auto mb-4 max-w-[78%] text-center text-sm text-app-text-secondary sm:max-w-[56%]">
-                {t('syncCreatePage.stepModeBody')}
-              </p>
-              <div className="mx-auto max-w-xl">
-                <div className="grid gap-4 rounded-2xl border border-app-border bg-app-elevated p-4 shadow-soft-lift dark:bg-app-card">
-                  <div className="grid grid-cols-2 gap-2">
-                    {syncModeOptions.map((option) => {
-                      const isSelected = syncMode === option.value;
-                      return (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setSyncMode(option.value)}
-                          className={`relative inline-flex items-center justify-center rounded-xl border px-4 py-3 text-sm font-black transition ${
-                            isSelected
-                              ? 'border-brand-lime/50 bg-brand-lime/12 text-brand-dark shadow-soft-lift dark:text-brand-white'
-                              : 'border-app-border bg-app-elevated text-app-text-secondary hover:border-brand-pink hover:text-brand-pink dark:bg-app-card'
-                          }`}
-                        >
-                          <AnimatePresence initial={false}>
-                            {isSelected ? (
-                              <motion.span
-                                key={`${option.value}-check`}
-                                initial={{ opacity: 0, scale: 0.2, y: 2 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.2, y: -2 }}
-                                transition={{
-                                  duration: 0.2,
-                                  delay: 0.14,
-                                  ease: [0.22, 1, 0.36, 1],
-                                }}
-                                className="absolute right-3 top-1/2 inline-flex h-4.5 w-4.5 -translate-y-1/2 items-center justify-center rounded-full bg-brand-lime text-brand-white"
-                              >
-                                <motion.svg
-                                  width="11"
-                                  height="11"
-                                  viewBox="0 0 12 12"
-                                  fill="none"
-                                  aria-hidden="true"
-                                  className="overflow-visible"
-                                  initial="hidden"
-                                  animate="visible"
-                                  exit="hidden"
-                                  transition={{
-                                    duration: 0.18,
-                                    delay: 0.3,
-                                    ease: [0.33, 1, 0.68, 1],
-                                  }}
-                                >
-                                  <motion.path
-                                    d="M2 6.2L4.6 8.8L10 3.4"
-                                    stroke="currentColor"
-                                    strokeWidth="1.9"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    variants={{
-                                      hidden: { pathLength: 0, opacity: 0 },
-                                      visible: { pathLength: 1, opacity: 1 },
-                                    }}
-                                  />
-                                </motion.svg>
-                              </motion.span>
-                            ) : null}
-                          </AnimatePresence>
-                          <span>{option.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                  {syncMode ? (
-                    <div className="mt-4 grid gap-1 px-1">
-                      <p className="text-sm font-semibold text-brand-dark dark:text-brand-white">
-                        {syncMode === 'bidirectional'
-                          ? t('syncCreatePage.syncModeBidirectionalTitle')
-                          : t('syncCreatePage.syncModeHostOnlyTitle')}
-                      </p>
-                      <p className="text-sm text-app-text-secondary">
-                        {syncMode === 'bidirectional'
-                          ? t('syncCreatePage.syncModeBidirectionalBody')
-                          : t('syncCreatePage.syncModeHostOnlyBody')}
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </motion.article>
-          ) : null}
-
-          {step === 4 ? (
-            <motion.article
-              key="step-4"
-              custom={stepDirection}
-              variants={STEP_SLIDE_VARIANTS}
-              initial="enter"
-              animate="center"
-              exit="exit"
               className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card sm:p-6"
             >
               <p className="max-w-full text-sm text-app-text-secondary sm:max-w-[60%]">
@@ -727,16 +612,6 @@ export const SyncCreatePage = () => {
                           ? t('syncCreatePage.trackCountUnavailable')
                           : t('syncCreatePage.trackCount', { count: selectedTrackCount })
                       : '—'}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-app-text-secondary">{t('syncCreatePage.summaryMode')}</span>
-                  <span className="max-w-[60%] text-right font-bold text-app-text">
-                    {syncMode === 'bidirectional'
-                      ? t('syncCreatePage.syncModeBidirectionalLabel')
-                      : syncMode === 'host_only'
-                        ? t('syncCreatePage.syncModeHostOnlyLabel')
-                        : '—'}
                   </span>
                 </div>
               </div>
@@ -802,7 +677,7 @@ export const SyncCreatePage = () => {
                 </motion.div>
               ) : null}
 
-              {step < 4 ? (
+              {step < 3 ? (
                 <motion.div
                   key="create-step-next"
                   layout
@@ -818,7 +693,6 @@ export const SyncCreatePage = () => {
                       (step === 1 &&
                         (!provider || !selectedProviderConnected || isConnectingProvider)) ||
                       (step === 2 && !selectedPlaylist) ||
-                      (step === 3 && !syncMode) ||
                       isLoadingIntegrations
                     }
                     variant="primary"

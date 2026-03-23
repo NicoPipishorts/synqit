@@ -2,8 +2,8 @@ import { providerSchema } from '@synqit/shared';
 import type { SyncPublicTrack } from '@synqit/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { Check, CirclePlus, ListMusic, LoaderCircle, Lock, Music4, Users } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { Check, ListMusic, LoaderCircle, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
 import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { TrackSkeletonList } from '../components/events/PublicTrackRow';
@@ -50,7 +50,6 @@ const ProviderSheet = ({
   isImporting,
 }: ProviderSheetProps) => {
   const { t } = useI18n();
-  const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -67,7 +66,6 @@ const ProviderSheet = ({
     <>
       {/* Backdrop */}
       <div
-        ref={overlayRef}
         onClick={onClose}
         className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
         aria-hidden="true"
@@ -150,59 +148,6 @@ const SyncTrackRow = ({ track }: { track: SyncPublicTrack }) => (
     </div>
   </li>
 );
-
-const SyncModeBadge = ({
-  mode,
-  label,
-  hint,
-  tooltipLabel,
-}: {
-  mode: 'host_only' | 'bidirectional';
-  label: string;
-  hint: string;
-  tooltipLabel: string;
-}) => {
-  const [isMobileOpen, setIsMobileOpen] = useState(false);
-
-  return (
-    <div className="relative group">
-      <button
-        type="button"
-        onClick={() => setIsMobileOpen((current) => !current)}
-        className="inline-flex items-center gap-2 rounded-full border border-brand-pink/60 bg-brand-pink/10 px-3 py-1.5 text-xs font-semibold text-[#b41563] backdrop-blur-sm transition hover:border-brand-pink dark:text-[#ff8ac0]"
-        aria-label={tooltipLabel}
-        aria-expanded={isMobileOpen}
-      >
-        <span
-          className="relative inline-flex h-4 w-4 items-center justify-center"
-          aria-hidden="true"
-        >
-          <Music4 size={14} strokeWidth={2.2} className="text-current" />
-          {mode === 'host_only' ? (
-            <span className="absolute -bottom-1 -right-1 inline-flex h-2.5 w-2.5 items-center justify-center rounded-full bg-brand-pink/20">
-              <Lock size={8} strokeWidth={2.6} className="text-current" />
-            </span>
-          ) : (
-            <span className="absolute -bottom-1 -right-1 inline-flex h-2.5 w-2.5 items-center justify-center rounded-full bg-brand-pink/20">
-              <CirclePlus size={9} strokeWidth={2.4} className="text-current" />
-            </span>
-          )}
-        </span>
-        <span>{label}</span>
-      </button>
-
-      <div className="pointer-events-none absolute left-1/2 top-[calc(100%+0.6rem)] z-20 hidden w-56 -translate-x-1/2 rounded-2xl border border-app-border bg-app-bg px-3 py-2 text-center text-xs font-medium text-app-text-secondary shadow-soft-lift dark:bg-app-card sm:group-hover:block sm:group-focus-within:block">
-        {hint}
-      </div>
-
-      {isMobileOpen ? (
-        <div className="absolute left-1/2 top-[calc(100%+0.6rem)] z-20 w-56 -translate-x-1/2 rounded-2xl border border-app-border bg-app-bg px-3 py-2 text-center text-xs font-medium text-app-text-secondary shadow-soft-lift dark:bg-app-card sm:hidden">
-          {hint}
-        </div>
-      ) : null}
-    </div>
-  );
-};
 
 // ---------------------------------------------------------------------------
 // Page
@@ -384,14 +329,6 @@ export const SyncPublicPage = () => {
   const isOwner = Boolean(sync?.isOwner);
   const isSubscribed = Boolean(sync?.isSubscribed);
   const isBusy = importMutation.isPending || unsubscribeMutation.isPending;
-  const syncModeLabel =
-    sync?.syncMode === 'bidirectional'
-      ? t('syncPublicPage.modeBidirectionalLabel')
-      : t('syncPublicPage.modeHostOnlyLabel');
-  const syncModeHint =
-    sync?.syncMode === 'bidirectional'
-      ? t('syncPublicPage.modeBidirectionalHint')
-      : t('syncPublicPage.modeHostOnlyHint');
   const primaryLabel = isOwner
     ? t('syncPublicPage.ownerCta')
     : isSubscribed
@@ -570,12 +507,6 @@ export const SyncPublicPage = () => {
                     <Users size={12} aria-hidden="true" />
                     {t('syncPublicPage.subscriberCount_other', { count: sync.subscriberCount })}
                   </div>
-                  <SyncModeBadge
-                    mode={sync.syncMode}
-                    label={syncModeLabel}
-                    hint={syncModeHint}
-                    tooltipLabel={t('syncPublicPage.modeTooltipLabel')}
-                  />
                 </div>
               </header>
 
