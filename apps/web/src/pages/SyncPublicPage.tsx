@@ -548,14 +548,18 @@ export const SyncPublicPage = () => {
                         >
                           <p
                             className={`text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary transition-opacity duration-150 ${
-                              showImportSuccessOverlay ? 'opacity-0' : 'opacity-100'
+                              showImportSuccessOverlay
+                                ? 'invisible opacity-1000'
+                                : 'visible opacity-100'
                             }`}
                           >
                             {t('syncPublicPage.importProgressTitle')}
                           </p>
                           <div
-                            className={`mt-3 grid gap-2.5 transition-opacity duration-150 ${
-                              showImportSuccessOverlay ? 'opacity-0' : 'opacity-100'
+                            className={`mt-2 grid gap-2.5 transition-opacity duration-150 ${
+                              showImportSuccessOverlay
+                                ? 'invisible opacity-100'
+                                : 'visible opacity-100'
                             }`}
                           >
                             {importSteps.map((label, index) => {
@@ -612,9 +616,9 @@ export const SyncPublicPage = () => {
                                   duration: 0.32,
                                   ease: [0.22, 1, 0.36, 1],
                                 }}
-                                className="absolute inset-0 flex items-center justify-center rounded-[inherit] px-6 text-center"
+                                className="absolute inset-0 z-10 flex items-center justify-center rounded-[inherit] px-6 text-center"
                               >
-                                <div className="grid min-h-18 justify-items-center gap-2">
+                                <div className="grid min-h-[7.75rem] justify-items-center gap-2 sm:min-h-18">
                                   <motion.div
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{
@@ -627,11 +631,11 @@ export const SyncPublicPage = () => {
                                       duration: 0.46,
                                       ease: [0.22, 1, 0.36, 1],
                                     }}
-                                    className="relative inline-flex h-16 w-16 items-center justify-center rounded-full bg-brand-lime/12 text-[#6d9600] dark:text-[#d5ff5c]"
+                                    className="relative inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand-lime/12 text-[#6d9600] dark:text-[#d5ff5c] sm:h-16 sm:w-16"
                                   >
                                     <motion.svg
-                                      width="64"
-                                      height="64"
+                                      width="56"
+                                      height="56"
                                       viewBox="0 0 64 64"
                                       fill="none"
                                       aria-hidden="true"
