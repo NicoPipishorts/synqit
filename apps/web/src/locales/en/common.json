@@ -509,7 +509,7 @@
     "importStepMatch": "Matching tracks from the shared playlist",
     "importStepAdd": "Adding matched tracks to your new playlist",
     "importSuccessTitle": "Playlist ready",
-    "importSuccessBody": "Your subscribed playlist has been created successfully.",
+    "importSuccessBody": "You've successfully subscribed !",
     "currentTracks": "{{count}} tracks in this playlist",
     "noTracksYet": "No tracks in this playlist yet.",
     "reimport": "Subscribe again"
