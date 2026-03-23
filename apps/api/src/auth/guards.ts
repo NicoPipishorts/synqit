@@ -58,6 +58,13 @@ export const loadAuthenticatedUser = async (
   reply: FastifyReply,
   options: AuthGuardOptions = {},
 ): Promise<UserRecord | null> => {
+  try {
+    await request.jwtVerify();
+  } catch {
+    await sendUnauthorized(reply);
+    return null;
+  }
+
   const userId = getAuthenticatedUserId(request);
   if (!userId) {
     await sendUnauthorized(reply);
@@ -81,6 +88,12 @@ export const loadAuthenticatedUser = async (
 export const resolveAuthenticatedUserId = async (
   request: FastifyRequest,
 ): Promise<string | null> => {
+  try {
+    await request.jwtVerify();
+  } catch {
+    return null;
+  }
+
   const userId = getAuthenticatedUserId(request);
   if (!userId) {
     return null;
