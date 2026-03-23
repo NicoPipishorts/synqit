@@ -2,11 +2,14 @@ import {
   accountRoleSchema,
   adminPermissionLevelSchema,
   adminPermissionScopeSchema,
+  emailLocaleSchema,
+  type EmailLocale,
   type AccountRole,
   type AdminPermission,
 } from '@synqit/shared';
 import { randomUUID } from 'node:crypto';
 
+import { createOpaqueToken, hashToken } from './crypto';
 import { prisma } from '../db/prisma';
 
 type UserRecord = {
@@ -44,6 +47,24 @@ type PasswordResetTokenRecord = {
   createdAt: Date;
   expiresAt: Date;
   usedAt: Date | null;
+};
+
+type RegistrationInviteTokenRecord = {
+  id: string;
+  invitedEmail: string | null;
+  locale: EmailLocale;
+  tokenPreview: string;
+  createdByUserId: string;
+  usedByUserId: string | null;
+  createdAt: Date;
+  expiresAt: Date | null;
+  lastSentAt: Date | null;
+  usedAt: Date | null;
+  revokedAt: Date | null;
+};
+
+type CreatedRegistrationInviteTokenRecord = RegistrationInviteTokenRecord & {
+  plainToken: string;
 };
 
 type UserPersonalInfoRecord = {
@@ -126,6 +147,21 @@ type PasswordResetTokenRow = {
   used_at: Date | null;
 };
 
+type RegistrationInviteTokenRow = {
+  id: string;
+  token_hash: string;
+  token_preview: string;
+  invited_email: string | null;
+  locale: string | null;
+  created_by_user_id: string;
+  used_by_user_id: string | null;
+  created_at: Date;
+  expires_at: Date | null;
+  last_sent_at: Date | null;
+  used_at: Date | null;
+  revoked_at: Date | null;
+};
+
 const toUserRecord = (row: UserRow): UserRecord => ({
   id: row.id,
   email: row.email,
@@ -161,6 +197,22 @@ const toPasswordResetTokenRecord = (row: PasswordResetTokenRow): PasswordResetTo
   createdAt: new Date(row.created_at),
   expiresAt: new Date(row.expires_at),
   usedAt: row.used_at ? new Date(row.used_at) : null,
+});
+
+const toRegistrationInviteTokenRecord = (
+  row: RegistrationInviteTokenRow,
+): RegistrationInviteTokenRecord => ({
+  id: row.id,
+  invitedEmail: row.invited_email,
+  locale: emailLocaleSchema.safeParse(row.locale).success ? (row.locale as EmailLocale) : 'en',
+  tokenPreview: row.token_preview,
+  createdByUserId: row.created_by_user_id,
+  usedByUserId: row.used_by_user_id,
+  createdAt: new Date(row.created_at),
+  expiresAt: row.expires_at ? new Date(row.expires_at) : null,
+  lastSentAt: row.last_sent_at ? new Date(row.last_sent_at) : null,
+  usedAt: row.used_at ? new Date(row.used_at) : null,
+  revokedAt: row.revoked_at ? new Date(row.revoked_at) : null,
 });
 
 const toDateOnlyString = (value: string | null): string | null => {
@@ -271,6 +323,18 @@ const toAdminPermission = (row: UserAdminPermissionRow): AdminPermission | null 
 };
 
 const PASSWORD_AUTH_PROVIDER = 'password';
+const DEFAULT_REGISTRATION_INVITE_TTL_HOURS = 24 * 7;
+const buildRegistrationInviteTokenPreview = (token: string): string =>
+  token.length <= 18 ? token : `${token.slice(0, 10)}…${token.slice(-6)}`;
+const getRegistrationInviteTtlMs = (): number => {
+  const parsed = Number(
+    process.env.REGISTRATION_INVITE_TTL_HOURS ?? DEFAULT_REGISTRATION_INVITE_TTL_HOURS,
+  );
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return DEFAULT_REGISTRATION_INVITE_TTL_HOURS * 60 * 60 * 1000;
+  }
+  return Math.floor(parsed * 60 * 60 * 1000);
+};
 
 export const authStore = {
   async createUser(params: { email: string; passwordHash: string }): Promise<UserRecord | null> {
@@ -801,6 +865,286 @@ export const authStore = {
     }
   },
 
+  async createRegistrationInviteToken(params: {
+    createdByUserId: string;
+    invitedEmail: string;
+    locale: EmailLocale;
+  }): Promise<CreatedRegistrationInviteTokenRecord | null> {
+    const id = randomUUID();
+    const plainToken = `synqit_inv_${createOpaqueToken()}`;
+    const tokenHash = hashToken(plainToken);
+    const tokenPreview = buildRegistrationInviteTokenPreview(plainToken);
+    const invitedEmail = params.invitedEmail.trim().toLowerCase();
+    const createdAt = new Date();
+    const expiresAt = new Date(createdAt.getTime() + getRegistrationInviteTtlMs());
+
+    try {
+      const rows = await prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`
+          UPDATE "registration_invite_tokens"
+          SET revoked_at = ${createdAt}
+          WHERE invited_email = ${invitedEmail}
+            AND used_at IS NULL
+            AND revoked_at IS NULL
+        `;
+
+        return tx.$queryRaw<RegistrationInviteTokenRow[]>`
+          INSERT INTO "registration_invite_tokens" (
+            id,
+            token_hash,
+            token_preview,
+            invited_email,
+            locale,
+            created_by_user_id,
+            used_by_user_id,
+            created_at,
+            expires_at,
+            last_sent_at,
+            used_at,
+            revoked_at
+          )
+          VALUES (
+            ${id},
+            ${tokenHash},
+            ${tokenPreview},
+            ${invitedEmail},
+            ${params.locale},
+            ${params.createdByUserId},
+            ${null},
+            ${createdAt},
+            ${expiresAt},
+            ${createdAt},
+            ${null},
+            ${null}
+          )
+          RETURNING
+            id,
+            token_hash,
+            token_preview,
+            invited_email,
+            locale,
+            created_by_user_id,
+            used_by_user_id,
+            created_at,
+            expires_at,
+            last_sent_at,
+            used_at,
+            revoked_at
+        `;
+      });
+
+      if (rows.length === 0) {
+        return null;
+      }
+
+      return {
+        ...toRegistrationInviteTokenRecord(rows[0]),
+        plainToken,
+      };
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async listRegistrationInviteTokens(): Promise<RegistrationInviteTokenRecord[]> {
+    try {
+      const rows = await prisma.$queryRaw<RegistrationInviteTokenRow[]>`
+        SELECT
+          id,
+          token_hash,
+          token_preview,
+          invited_email,
+          locale,
+          created_by_user_id,
+          used_by_user_id,
+          created_at,
+          expires_at,
+          last_sent_at,
+          used_at,
+          revoked_at
+        FROM "registration_invite_tokens"
+        WHERE invited_email IS NOT NULL
+        ORDER BY created_at DESC
+        LIMIT 100
+      `;
+
+      return rows.map(toRegistrationInviteTokenRecord);
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async findRegistrationInviteTokenById(id: string): Promise<RegistrationInviteTokenRecord | null> {
+    try {
+      const rows = await prisma.$queryRaw<RegistrationInviteTokenRow[]>`
+        SELECT
+          id,
+          token_hash,
+          token_preview,
+          invited_email,
+          locale,
+          created_by_user_id,
+          used_by_user_id,
+          created_at,
+          expires_at,
+          last_sent_at,
+          used_at,
+          revoked_at
+        FROM "registration_invite_tokens"
+        WHERE id = ${id}
+        LIMIT 1
+      `;
+      return rows.length > 0 ? toRegistrationInviteTokenRecord(rows[0]) : null;
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async resendRegistrationInviteToken(params: {
+    inviteId: string;
+    createdByUserId: string;
+  }): Promise<CreatedRegistrationInviteTokenRecord | null> {
+    const existing = await authStore.findRegistrationInviteTokenById(params.inviteId);
+    if (!existing?.invitedEmail || existing.usedAt) {
+      return null;
+    }
+
+    return authStore.createRegistrationInviteToken({
+      createdByUserId: params.createdByUserId,
+      invitedEmail: existing.invitedEmail,
+      locale: existing.locale,
+    });
+  },
+
+  async registerUserWithInvite(params: {
+    email: string;
+    passwordHash: string;
+    inviteToken: string;
+  }): Promise<{ kind: 'created'; user: UserRecord } | { kind: 'email_taken' | 'invalid_invite' }> {
+    const normalizedEmail = params.email.trim().toLowerCase();
+    const inviteTokenHash = hashToken(params.inviteToken.trim());
+    const userId = randomUUID();
+    const createdAt = new Date();
+
+    return prisma.$transaction(async (tx) => {
+      let inviteRows: RegistrationInviteTokenRow[];
+      try {
+        inviteRows = await tx.$queryRaw<RegistrationInviteTokenRow[]>`
+          SELECT
+            id,
+            token_hash,
+            token_preview,
+            invited_email,
+            locale,
+            created_by_user_id,
+            used_by_user_id,
+            created_at,
+            expires_at,
+            last_sent_at,
+            used_at,
+            revoked_at
+          FROM "registration_invite_tokens"
+          WHERE token_hash = ${inviteTokenHash}
+            AND invited_email = ${normalizedEmail}
+            AND used_at IS NULL
+            AND revoked_at IS NULL
+            AND (expires_at IS NULL OR expires_at > NOW())
+          LIMIT 1
+          FOR UPDATE
+        `;
+      } catch (error) {
+        if (isMissingRelationError(error)) {
+          return { kind: 'invalid_invite' } as const;
+        }
+        throw error;
+      }
+
+      if (inviteRows.length === 0) {
+        return { kind: 'invalid_invite' } as const;
+      }
+
+      let userRows: UserRow[];
+      try {
+        userRows = await tx.$queryRaw<UserRow[]>`
+          INSERT INTO "users" (
+            id,
+            email,
+            password_hash,
+            is_blocked,
+            blocked_at,
+            avatar_url,
+            created_at
+          )
+          VALUES (${userId}, ${normalizedEmail}, ${params.passwordHash}, ${false}, ${null}, ${null}, ${createdAt})
+          RETURNING id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
+        `;
+      } catch (error) {
+        if (isUniqueConstraintViolation(error)) {
+          return { kind: 'email_taken' } as const;
+        }
+        throw error;
+      }
+
+      if (userRows.length === 0) {
+        return { kind: 'email_taken' } as const;
+      }
+
+      const now = new Date();
+      await tx.$executeRaw`
+        INSERT INTO "user_auth_identities" (
+          id,
+          user_id,
+          provider,
+          provider_user_id,
+          password_hash,
+          created_at,
+          updated_at
+        )
+        VALUES (
+          ${`password:${userId}`},
+          ${userId},
+          ${PASSWORD_AUTH_PROVIDER},
+          ${normalizedEmail},
+          ${params.passwordHash},
+          ${now},
+          ${now}
+        )
+        ON CONFLICT (user_id, provider)
+        DO UPDATE SET
+          provider_user_id = EXCLUDED.provider_user_id,
+          password_hash = EXCLUDED.password_hash,
+          updated_at = EXCLUDED.updated_at
+      `;
+
+      const consumeCount = await tx.$executeRaw`
+        UPDATE "registration_invite_tokens"
+        SET
+          used_at = ${now},
+          used_by_user_id = ${userId}
+        WHERE id = ${inviteRows[0].id}
+          AND used_at IS NULL
+          AND revoked_at IS NULL
+      `;
+
+      if (Number(consumeCount) !== 1) {
+        throw new Error('Registration invite token could not be consumed.');
+      }
+
+      const user = toUserRecord(userRows[0]);
+      user.adminPermissions = await authStore.listUserAdminPermissionsByUserId(user.id);
+      return { kind: 'created', user } as const;
+    });
+  },
+
   async findActivePasswordResetTokenByHash(
     tokenHash: string,
   ): Promise<PasswordResetTokenRecord | null> {
@@ -931,8 +1275,10 @@ export const authStore = {
 };
 
 export type {
+  CreatedRegistrationInviteTokenRecord,
   PasswordIdentityRecord,
   PasswordResetTokenRecord,
+  RegistrationInviteTokenRecord,
   RefreshTokenRecord,
   UserPersonalInfoRecord,
   UserPreferencesRecord,

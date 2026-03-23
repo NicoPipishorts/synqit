@@ -31,7 +31,7 @@ export const AdminLoginPage = () => {
       );
 
       storeAuth(result);
-      void navigate({ to: '/dashboard' });
+      void navigate({ to: '/invites' });
     } catch (error) {
       setStatus(toApiError(error).message);
     } finally {
