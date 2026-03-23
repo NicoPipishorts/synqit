@@ -11,6 +11,7 @@ run the platform.
 # Monorepo layout
 
     apps/
+      admin/      React + Vite admin application
       api/        Fastify API
       worker/     background queue workers
       web/        React + Vite web application
@@ -22,7 +23,7 @@ run the platform.
       container orchestration and reverse proxy configuration
 
     docs/
-      roadmap, scope, conventions, deployment plan
+      architecture, roadmap, scope, conventions, deployment plan
 
 ---
 
@@ -72,6 +73,7 @@ This launches the development stack including:
 
 - API server
 - Web frontend
+- Admin frontend
 - Background worker
 
 ---

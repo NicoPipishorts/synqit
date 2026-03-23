@@ -16,6 +16,12 @@ Use this file for deferred work that is intentionally out of the current impleme
 - Background validation:
   Add scheduled or job-based checks to verify that stored provider playlist IDs still exist.
 
+- Move sync orchestration to workers:
+  Replace the in-process API poller with worker-managed sync jobs and locking.
+
+- Sync now / diagnostics:
+  Add manual sync triggering and richer per-sync operational status.
+
 ## Provider Lifecycle
 
 - Token refresh workflow:
@@ -26,6 +32,14 @@ Use this file for deferred work that is intentionally out of the current impleme
 
 - Apple Music remove-track capability follow-up:
   Re-evaluate Apple Music API support for playlist track deletion in live mode and replace temporary UI/API constraint when Apple behavior is stable.
+
+## Product Gating
+
+- Hidden advanced sync modes:
+  Keep bidirectional behavior backend-capable but hidden until there is a clear product or monetization reason to expose it.
+
+- Premium entitlements:
+  If advanced sync returns, gate it behind product entitlement checks rather than branching ad hoc in the UI.
 
 ## Data Layer
 
