@@ -487,6 +487,7 @@ export type { UserPreferences };
 export const syncQueryKeys = {
   all: () => ['syncs'] as const,
   list: () => ['syncs', 'list'] as const,
+  ownedList: () => ['syncs', 'ownedList'] as const,
   detail: (syncId: string) => ['syncs', 'detail', syncId] as const,
   public: (token: string) => ['syncs', 'public', token] as const,
   providerPlaylists: (provider: string, offset: number) =>

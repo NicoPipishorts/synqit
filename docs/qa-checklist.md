@@ -1,57 +1,78 @@
-# QA Checklist (MVP)
+# QA Checklist
 
-Use this before shipping changes to the event collaboration flow.
+Use this before shipping changes to auth, events, synced playlists, or admin flows.
 
 ## Environment
 
-- API, web, and worker boot with `yarn dev`.
+- API, web, admin, and worker boot with `yarn dev`.
 - API health check passes: `GET /healthz`.
-- Host user can login and has Spotify connected.
-- Host user can connect Apple Music and create Apple-hosted events.
+- Prisma migrations are applied.
+- Spotify and Apple provider credentials are configured for the target environment.
 
-## Host Flow
+## Auth and Invites
+
+- Invite can be generated from admin.
+- Invite email contains a register link with `email` and `inviteToken`.
+- Register page auto-populates invite token from the URL.
+- Registration fails without a valid invite token.
+- Registration fails if invite token email does not match the submitted email.
+- Existing users cannot be invited again from admin.
+- Login, refresh, logout, forgot password, and reset password still work.
+
+## Admin
+
+- Admin bootstrap promotion works with the configured bootstrap key.
+- Admin login requires admin role.
+- Admin invites page loads without legacy token crashes.
+- Invite resend creates a fresh valid invite link.
+- Registration email preview works.
+- Password reset preview works.
+- Invite email preview works.
+
+## Event Playlist Flow
 
 - Host can create event and gets a magic link.
 - Event appears in `/events` list with correct status.
-- Host can edit event name/description.
-- Host can close event.
-- Host can delete event.
-
-## Magic Link Lifecycle
-
-- Host can revoke magic link.
-- Revoked magic link returns a failure in guest page (`magic_link_revoked`).
-- Host can regenerate magic link.
-- Old revoked link no longer allows contribution.
-- New regenerated link works.
-
-## Guest Quick Contribute
-
-- Guest opens active magic link and sees event details.
-- Guest search returns results.
-- Guest can add a track.
-- Added track appears in provider playlist (Spotify or Apple, based on host provider).
+- Host can edit event metadata.
+- Host can close and delete the event.
+- Host can revoke and regenerate the event magic link.
+- Guest can open active magic link, search, and add a track.
 - Duplicate add is blocked.
 - Closed event blocks add/search.
+- Spotify-hosted track removal works.
+- Apple-hosted removal is disabled or clearly constrained.
 
-## Host Track Management
+## Synced Playlist Flow
 
-- Host can open track list for an event.
-- Host can remove a track from Spotify-hosted events.
-- Host track remove control is disabled or clearly constrained for Apple-hosted events.
-- Removed track disappears from host event list.
-- Removed track disappears from Spotify playlist.
+- Host can create a synced playlist from a connected provider playlist.
+- Synced playlist appears in `My synced playlists`.
+- Subscriber can open the public shared page and subscribe.
+- Subscriber copy is created in the recipient provider.
+- Owner/source additions sync to subscriber copies.
+- Public synced playlist page shows subscriber count and track list.
+- Owned synced playlists open the manage/detail page.
+- Shared/subscribed sections render correctly in synced playlists list.
+
+## Sync Reliability
+
+- Poll scheduler runs without crashing.
+- Sync logs show poll activity when enabled.
+- Duplicate track adds are blocked during sync.
+- Quiet playlists back off polling over time.
+- Spotify snapshot detection skips unnecessary full work when unchanged.
+- Apple-backed syncs still detect changes correctly after backoff.
+- Provider token refresh still works on expired Spotify access tokens.
 
 ## Reliability and Errors
 
-- Expired provider token auto-refreshes and the request retries once.
-- Provider failures return structured API errors (not generic 500).
-- If linked provider playlist is missing (deleted externally), add/remove returns `provider_playlist_missing` and event is closed.
-- Apple Music remove-track API limitation is surfaced with a specific error (`provider_remove_track_temporarily_unavailable`), not an expired-token message.
-- CORS works for local web origin.
+- Provider failures return structured API errors, not generic 500s.
+- Missing provider playlist reconciliation works for event actions.
+- Sync/import errors surface a human-readable message in the UI.
+- CORS works for local web/admin origins.
 
 ## Regression Notes
 
-- Deleting an event in Synqit currently does not delete the provider playlist.
-- DB persistence is PostgreSQL + Prisma migrations.
-- Apple Music remove-track is currently unreliable in live mode (Apple returns `401` across delete variants); add/create/search remain supported.
+- Synced playlist UX is intentionally one-way in the frontend.
+- Backend bidirectional sync capability may still exist, but is hidden from product UI.
+- Deleting an event in Synqit does not currently delete the provider playlist.
+- Apple Music playlist delete/remove behavior remains limited by provider API support.

@@ -13,6 +13,8 @@
 - Prisma as ORM for v1 speed.
 - Redis + BullMQ for async sync jobs.
 - JWT auth with access token + rotating refresh token.
+- Architecture style: modular monolith + workers, not microservices.
+- Synced playlist polling currently runs in the API process and should move to worker orchestration later.
 
 ## Frontend
 

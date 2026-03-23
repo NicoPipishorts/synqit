@@ -1,28 +1,42 @@
 # Job Conventions
 
-## Queue
+## Current Reality
 
-- Queue name: `sync`.
-- Jobs are idempotent and retry-safe.
+- `notifications` queue is active and used for transactional email delivery.
+- `sync` queue exists, but synced playlist execution is still primarily driven by the API polling scheduler today.
+- Worker-based sync orchestration is a planned next step, not the fully active production path yet.
 
-## Naming
+## Active Notification Jobs
+
+- `notifications:sendRegistrationConfirmationEmail`
+- `notifications:sendRegistrationConfirmationEmailPreview`
+- `notifications:sendRegistrationInviteEmail`
+- `notifications:sendRegistrationInviteEmailPreview`
+- `notifications:sendPasswordResetEmail`
+- `notifications:sendPasswordResetEmailPreview`
+
+## Planned Sync Jobs
+
+These are still a good target shape once sync execution is moved into workers:
 
 - `sync:pullPlaylists`
 - `sync:pullPlaylistItems`
 - `sync:reconcile`
 - `sync:pushChanges`
 
-## Retry policy
+## Retry Policy
 
-- Exponential backoff.
-- Minimum `attempts=3` for network-bound jobs.
+- Jobs should be idempotent and retry-safe.
+- Use exponential backoff for network-bound jobs.
+- Notification jobs should fail loudly with structured logs.
 
-## Concurrency and locking
+## Concurrency and Locking
 
-- Allow only one active sync per `userId + provider`.
-- Use Redis lock keys to guard parallel execution.
+- Notification jobs can run concurrently.
+- Future sync jobs should use locking to prevent duplicate sync execution.
+- The target lock boundary should be per sync/import, not only per user/provider.
 
 ## Tracking
 
-- Every API-triggered sync creates a `sync_run` record.
-- Job processors append structured logs with timestamps.
+- Notification jobs should log structured payload-validation failures clearly.
+- Future sync jobs should emit run metadata and diagnostics visible to the app/admin surface.

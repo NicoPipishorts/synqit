@@ -137,7 +137,7 @@ export const SyncCreatePage = () => {
   });
 
   const existingSyncsQuery = useQuery({
-    queryKey: syncQueryKeys.list(),
+    queryKey: syncQueryKeys.ownedList(),
     queryFn: fetchSyncs,
     staleTime: 60_000,
   });

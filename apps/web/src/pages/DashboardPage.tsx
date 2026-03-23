@@ -373,10 +373,9 @@ export const DashboardPage = () => {
                   </CTALink>
                 )}
                 <CTALink
-                  to="/synced-lists"
+                  to="/synced-lists/new"
                   variant="secondary"
                   size="lg"
-                  disabled
                   className="w-full justify-center"
                 >
                   {t('dashboard.ctaCreateSyncedPlaylist')}
@@ -401,7 +400,10 @@ export const DashboardPage = () => {
               </p>
             </div>
             {showCreatePlaylistCta ? (
-              <div className="hidden shrink-0 sm:block">
+              <div className="hidden shrink-0 items-center gap-3 sm:flex">
+                <CTALink to="/synced-lists/new" variant="secondary" size="lg">
+                  {t('dashboard.ctaCreateSyncedPlaylist')}
+                </CTALink>
                 <CTALink
                   to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
                   variant="primary"
@@ -416,7 +418,10 @@ export const DashboardPage = () => {
 
           {/* Mobile CTA */}
           {showCreatePlaylistCta ? (
-            <div className="sm:hidden">
+            <div className="grid gap-3 sm:hidden">
+              <CTALink to="/synced-lists/new" variant="secondary" className="w-full justify-center">
+                {t('dashboard.ctaCreateSyncedPlaylist')}
+              </CTALink>
               <CTALink
                 to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
                 variant="primary"
