@@ -17,7 +17,7 @@ import {
   updateEventDraftRequestSchema,
   updateEventRequestSchema,
 } from '@synqit/shared';
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyInstance, FastifyReply } from 'fastify';
 import { randomUUID } from 'node:crypto';
 
 import {
@@ -27,8 +27,9 @@ import {
   resolveEventImageFile,
   saveEventImage,
 } from './event-image-storage';
+import { requireOwnedDraft, requireOwnedEvent } from './guards';
 import { eventsStore, EventDraftRecord, EventRecord } from './store';
-import { authStore } from '../auth/store';
+import { requireAuthenticatedUserId } from '../auth/guards';
 import { getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
 import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
@@ -84,30 +85,6 @@ const MOCK_TRACKS = [
     artworkUrl: null,
   },
 ] as const;
-
-const verifyAndGetUserId = async (request: FastifyRequest): Promise<string | null> => {
-  try {
-    await request.jwtVerify();
-  } catch {
-    return null;
-  }
-
-  if (!request.user || typeof request.user !== 'object' || !('sub' in request.user)) {
-    return null;
-  }
-
-  const userId = String(request.user.sub);
-  if (!userId) {
-    return null;
-  }
-
-  const user = await authStore.findUserById(userId);
-  if (!user || user.isBlocked) {
-    return null;
-  }
-
-  return userId;
-};
 
 const buildEventMagicLinkUrl = (magicLinkToken: string): string => {
   const eventLinkBaseUrl = process.env.EVENT_LINK_BASE_URL ?? DEFAULT_EVENT_LINK_BASE_URL;
@@ -216,18 +193,6 @@ const reconcileMissingProviderPlaylist = async (params: {
     },
     'provider playlist missing; event reconciled as closed',
   );
-};
-
-const findEventForHost = async (params: {
-  eventId: string;
-  hostUserId: string;
-}): Promise<EventRecord | null> => {
-  const event = await eventsStore.findEventById(params.eventId);
-  if (!event || event.hostUserId !== params.hostUserId) {
-    return null;
-  }
-
-  return event;
 };
 
 const requireActiveMagicLinkEvent = async (
@@ -469,13 +434,8 @@ const syncEventTracksFromProvider = async (params: {
 
 export const registerEventRoutes = async (app: FastifyInstance): Promise<void> => {
   app.get('/playlists/drafts', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
 
     const drafts = await eventsStore.listDraftsByHost(userId);
     return eventDraftListResponseSchema.parse({
@@ -493,14 +453,6 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.get('/playlists/drafts/:draftId', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const draftId = (request.params as { draftId?: string }).draftId ?? '';
     if (!draftId) {
       return reply.status(400).send({
@@ -509,25 +461,15 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    const draft = await eventsStore.findDraftById({ draftId, hostUserId: userId });
-    if (!draft) {
-      return reply.status(404).send({
-        code: 'draft_not_found',
-        message: 'Draft not found.',
-      });
-    }
+    const ownedDraft = await requireOwnedDraft({ request, reply, draftId });
+    if (!ownedDraft) return;
 
-    return toEventDraftResponse(draft);
+    return toEventDraftResponse(ownedDraft.draft);
   });
 
   app.post('/playlists/drafts', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
 
     const parsedBody = createEventDraftRequestSchema.safeParse(request.body ?? {});
     if (!parsedBody.success) {
@@ -550,14 +492,6 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.patch('/playlists/drafts/:draftId', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const draftId = (request.params as { draftId?: string }).draftId ?? '';
     if (!draftId) {
       return reply.status(400).send({
@@ -575,9 +509,11 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    const ownedDraft = await requireOwnedDraft({ request, reply, draftId });
+    if (!ownedDraft) return;
     const draft = await eventsStore.updateDraft({
       draftId,
-      hostUserId: userId,
+      hostUserId: ownedDraft.userId,
       provider: parsedBody.data.provider,
       name: parsedBody.data.name?.trim(),
       description: parsedBody.data.description,
@@ -585,7 +521,7 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
     if (!draft) {
       return reply.status(404).send({
-        code: 'draft_not_found',
+        code: 'not_found',
         message: 'Draft not found.',
       });
     }
@@ -594,14 +530,6 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.delete('/playlists/drafts/:draftId', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const draftId = (request.params as { draftId?: string }).draftId ?? '';
     if (!draftId) {
       return reply.status(400).send({
@@ -610,13 +538,9 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    const deleted = await eventsStore.deleteDraft({ draftId, hostUserId: userId });
-    if (!deleted) {
-      return reply.status(404).send({
-        code: 'draft_not_found',
-        message: 'Draft not found.',
-      });
-    }
+    const ownedDraft = await requireOwnedDraft({ request, reply, draftId });
+    if (!ownedDraft) return;
+    await eventsStore.deleteDraft({ draftId, hostUserId: ownedDraft.userId });
 
     return deleteEventDraftResponseSchema.parse({
       ok: true,
@@ -625,13 +549,8 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.post('/playlists', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
 
     const parsedBody = createEventRequestSchema.safeParse(request.body);
     if (!parsedBody.success) {
@@ -777,13 +696,8 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.get('/playlists', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
 
     const [events, integrations] = await Promise.all([
       eventsStore.listEventsByHost(userId),
@@ -1306,25 +1220,10 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.get('/playlists/:eventId', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    let event = await findEventForHost({
-      eventId,
-      hostUserId: userId,
-    });
-    if (!event) {
-      return reply.status(404).send({
-        code: 'event_not_found',
-        message: 'Playlist not found.',
-      });
-    }
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
+    let event = ownedEvent.event;
 
     if (event.provider === 'apple' && isAppleLiveMode()) {
       try {
@@ -1367,25 +1266,10 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.get('/playlists/:eventId/tracks', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = await findEventForHost({
-      eventId,
-      hostUserId: userId,
-    });
-    if (!event) {
-      return reply.status(404).send({
-        code: 'event_not_found',
-        message: 'Playlist not found.',
-      });
-    }
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
+    const event = ownedEvent.event;
 
     await syncEventTracksFromProvider({
       app,
@@ -1402,26 +1286,11 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.delete('/playlists/:eventId/tracks/:providerTrackId', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
     const providerTrackId = (request.params as { providerTrackId?: string }).providerTrackId ?? '';
-    const event = await findEventForHost({
-      eventId,
-      hostUserId: userId,
-    });
-    if (!event) {
-      return reply.status(404).send({
-        code: 'event_not_found',
-        message: 'Playlist not found.',
-      });
-    }
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
+    const event = ownedEvent.event;
 
     if (
       !(await eventsStore.hasTrack({
@@ -1584,14 +1453,6 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.patch('/playlists/:eventId', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const parsedBody = updateEventRequestSchema.safeParse(request.body);
     if (!parsedBody.success) {
       return reply.status(400).send({
@@ -1602,15 +1463,17 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
     const event = await eventsStore.updateEvent({
       eventId,
-      hostUserId: userId,
+      hostUserId: ownedEvent.userId,
       name: parsedBody.data.name,
       description: parsedBody.data.description,
     });
     if (!event) {
       return reply.status(404).send({
-        code: 'event_not_found',
+        code: 'not_found',
         message: 'Playlist not found.',
       });
     }
@@ -1627,25 +1490,13 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.delete('/playlists/:eventId', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const deleted = await eventsStore.deleteEvent({
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
+    await eventsStore.deleteEvent({
       eventId,
-      hostUserId: userId,
+      hostUserId: ownedEvent.userId,
     });
-    if (!deleted) {
-      return reply.status(404).send({
-        code: 'event_not_found',
-        message: 'Playlist not found.',
-      });
-    }
 
     return deleteEventResponseSchema.parse({
       ok: true,
@@ -1655,22 +1506,16 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.post('/playlists/:eventId/close', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
     const event = await eventsStore.closeEvent({
       eventId,
-      hostUserId: userId,
+      hostUserId: ownedEvent.userId,
     });
     if (!event) {
       return reply.status(404).send({
-        code: 'event_not_found',
+        code: 'not_found',
         message: 'Playlist not found.',
       });
     }
@@ -1687,22 +1532,16 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.post('/playlists/:eventId/reopen', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
     const event = await eventsStore.reopenEvent({
       eventId,
-      hostUserId: userId,
+      hostUserId: ownedEvent.userId,
     });
     if (!event) {
       return reply.status(404).send({
-        code: 'event_not_found',
+        code: 'not_found',
         message: 'Playlist not found.',
       });
     }
@@ -1719,22 +1558,16 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.post('/playlists/:eventId/magic-link/revoke', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
     const event = await eventsStore.revokeMagicLink({
       eventId,
-      hostUserId: userId,
+      hostUserId: ownedEvent.userId,
     });
     if (!event) {
       return reply.status(404).send({
-        code: 'event_not_found',
+        code: 'not_found',
         message: 'Playlist not found.',
       });
     }
@@ -1751,22 +1584,16 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
   });
 
   app.post('/playlists/:eventId/magic-link/regenerate', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
-    }
-
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
     const event = await eventsStore.regenerateMagicLink({
       eventId,
-      hostUserId: userId,
+      hostUserId: ownedEvent.userId,
     });
     if (!event) {
       return reply.status(404).send({
-        code: 'event_not_found',
+        code: 'not_found',
         message: 'Playlist not found.',
       });
     }
@@ -1784,16 +1611,10 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
   // ── Cover image upload ──────────────────────────────────────────────────
   app.post('/playlists/:eventId/image', { bodyLimit: 12_000_000 }, async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
-    }
-
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = await eventsStore.findEventById(eventId);
-    if (!event || event.hostUserId !== userId) {
-      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
-    }
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
+    const event = ownedEvent.event;
 
     const body = request.body as { imageDataUrl?: unknown };
     if (typeof body?.imageDataUrl !== 'string') {
@@ -1819,11 +1640,14 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
     const updated = await eventsStore.updateEventCoverImage({
       eventId,
-      hostUserId: userId,
+      hostUserId: ownedEvent.userId,
       coverImageUrl: imagePath,
     });
     if (!updated) {
-      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
+      return reply.status(404).send({
+        code: 'not_found',
+        message: 'Playlist not found.',
+      });
     }
 
     const providerConnectionStatus = await resolveProviderConnectionStatus({
@@ -1836,16 +1660,10 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
   // ── Cover image delete ──────────────────────────────────────────────────
   app.delete('/playlists/:eventId/image', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
-    }
-
     const eventId = (request.params as { eventId?: string }).eventId ?? '';
-    const event = await eventsStore.findEventById(eventId);
-    if (!event || event.hostUserId !== userId) {
-      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
-    }
+    const ownedEvent = await requireOwnedEvent({ request, reply, eventId });
+    if (!ownedEvent) return;
+    const event = ownedEvent.event;
 
     if (event.coverImageUrl) {
       await deleteEventImage(event.coverImageUrl).catch(() => null);
@@ -1853,11 +1671,14 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
 
     const updated = await eventsStore.updateEventCoverImage({
       eventId,
-      hostUserId: userId,
+      hostUserId: ownedEvent.userId,
       coverImageUrl: null,
     });
     if (!updated) {
-      return reply.status(404).send({ code: 'event_not_found', message: 'Playlist not found.' });
+      return reply.status(404).send({
+        code: 'not_found',
+        message: 'Playlist not found.',
+      });
     }
 
     const providerConnectionStatus = await resolveProviderConnectionStatus({

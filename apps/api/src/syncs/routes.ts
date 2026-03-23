@@ -11,11 +11,12 @@ import {
   syncResponseSchema,
   updateSyncRequestSchema,
 } from '@synqit/shared';
-import { FastifyInstance, FastifyRequest } from 'fastify';
+import { FastifyInstance } from 'fastify';
 
+import { requireOwnedSync } from './guards';
 import { syncsStore } from './store';
 import { buildTrackFingerprint } from './track-fingerprint';
-import { authStore } from '../auth/store';
+import { requireAuthenticatedUserId, resolveAuthenticatedUserId } from '../auth/guards';
 import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
   listAppleLibraryPlaylists,
@@ -60,26 +61,6 @@ const MOCK_PLAYLISTS = [
   },
 ] as const;
 
-const verifyAndGetUserId = async (request: FastifyRequest): Promise<string | null> => {
-  try {
-    await request.jwtVerify();
-  } catch {
-    return null;
-  }
-
-  if (!request.user || typeof request.user !== 'object' || !('sub' in request.user)) {
-    return null;
-  }
-
-  const userId = String(request.user.sub);
-  if (!userId) return null;
-
-  const user = await authStore.findUserById(userId);
-  if (!user || user.isBlocked) return null;
-
-  return userId;
-};
-
 const buildSyncMagicLinkUrl = (magicLinkToken: string): string => {
   const base = process.env.EVENT_LINK_BASE_URL ?? DEFAULT_SYNC_LINK_BASE_URL;
   return new URL(`/sync/${magicLinkToken}`, base).toString();
@@ -103,9 +84,8 @@ const toSyncResponse = (sync: Awaited<ReturnType<typeof syncsStore.createSync>>)
 export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> => {
   // GET /syncs/provider-playlists?provider=spotify&limit=25&offset=0
   app.get('/syncs/provider-playlists', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId)
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
 
     const query = request.query as Record<string, string>;
     const providerResult = providerSchema.safeParse(query.provider);
@@ -152,10 +132,8 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
   });
 
   app.get('/syncs/provider-playlists/:providerPlaylistId/track-count', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
-    }
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
 
     const providerPlaylistId =
       (request.params as { providerPlaylistId?: string }).providerPlaylistId ?? '';
@@ -247,9 +225,8 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
 
   // POST /syncs
   app.post('/syncs', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId)
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
 
     const body = createSyncRequestSchema.safeParse(request.body);
     if (!body.success) {
@@ -280,9 +257,8 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
 
   // GET /syncs
   app.get('/syncs', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId)
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
 
     const [ownedSyncs, subscribedSyncs] = await Promise.all([
       syncsStore.listSyncsBySender(userId),
@@ -298,20 +274,10 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
 
   // GET /syncs/:syncId (owner only)
   app.get('/syncs/:syncId', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
-    }
-
     const { syncId } = request.params as { syncId: string };
-    const sync = await syncsStore.findOwnedSyncWithImports({
-      syncId,
-      senderUserId: userId,
-    });
-
-    if (!sync) {
-      return reply.status(404).send({ code: 'not_found', message: 'Sync not found.' });
-    }
+    const ownedSync = await requireOwnedSync({ request, reply, syncId });
+    if (!ownedSync) return;
+    const sync = ownedSync.sync;
 
     let tracks: Array<{
       providerTrackId: string;
@@ -384,12 +350,9 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
 
   // PATCH /syncs/:syncId (owner only)
   app.patch('/syncs/:syncId', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
-    }
-
     const { syncId } = request.params as { syncId: string };
+    const ownedSync = await requireOwnedSync({ request, reply, syncId });
+    if (!ownedSync) return;
     const body = updateSyncRequestSchema.safeParse(request.body);
     if (!body.success) {
       return reply.status(400).send({ code: 'invalid_request', message: body.error.message });
@@ -397,10 +360,9 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
 
     const sync = await syncsStore.updateOwnedSync({
       syncId,
-      senderUserId: userId,
+      senderUserId: ownedSync.userId,
       syncMode: body.data.syncMode,
     });
-
     if (!sync) {
       return reply.status(404).send({ code: 'not_found', message: 'Sync not found.' });
     }
@@ -409,17 +371,13 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
   });
 
   app.post('/syncs/:syncId/magic-link/revoke', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
-    }
-
     const { syncId } = request.params as { syncId: string };
+    const ownedSync = await requireOwnedSync({ request, reply, syncId });
+    if (!ownedSync) return;
     const sync = await syncsStore.revokeMagicLink({
       syncId,
-      senderUserId: userId,
+      senderUserId: ownedSync.userId,
     });
-
     if (!sync) {
       return reply.status(404).send({ code: 'not_found', message: 'Sync not found.' });
     }
@@ -428,17 +386,13 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
   });
 
   app.post('/syncs/:syncId/magic-link/regenerate', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
-    }
-
     const { syncId } = request.params as { syncId: string };
+    const ownedSync = await requireOwnedSync({ request, reply, syncId });
+    if (!ownedSync) return;
     const sync = await syncsStore.regenerateMagicLink({
       syncId,
-      senderUserId: userId,
+      senderUserId: ownedSync.userId,
     });
-
     if (!sync) {
       return reply.status(404).send({ code: 'not_found', message: 'Sync not found.' });
     }
@@ -452,7 +406,7 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     const sync = await syncsStore.findSyncByMagicLinkToken(token);
     if (!sync)
       return reply.status(404).send({ code: 'not_found', message: 'Sync link not found.' });
-    const currentUserId = await verifyAndGetUserId(request);
+    const currentUserId = await resolveAuthenticatedUserId(request);
 
     const subscriberCount = await syncsStore.countImports(sync.id);
     const existingImport = currentUserId
@@ -517,9 +471,8 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
 
   // POST /syncs/link/:token/import  (auth required)
   app.post('/syncs/link/:token/import', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId)
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
 
     const { token } = request.params as { token: string };
     const sync = await syncsStore.findSyncByMagicLinkToken(token);
@@ -757,10 +710,8 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
 
   // DELETE /syncs/link/:token/import  (auth required)
   app.delete('/syncs/link/:token/import', async (request, reply) => {
-    const userId = await verifyAndGetUserId(request);
-    if (!userId) {
-      return reply.status(401).send({ code: 'unauthorized', message: 'Authentication required.' });
-    }
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
 
     const { token } = request.params as { token: string };
     const sync = await syncsStore.findSyncByMagicLinkToken(token);

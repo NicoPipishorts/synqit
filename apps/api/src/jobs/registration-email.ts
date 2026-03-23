@@ -1,11 +1,14 @@
 import {
   JOBS,
   QUEUES,
+  registrationInviteEmailJobSchema,
+  registrationInviteEmailPreviewJobSchema,
   registrationConfirmationEmailPreviewJobSchema,
   registrationConfirmationEmailJobSchema,
   type EmailLocale,
 } from '@synqit/shared';
 import { Queue } from 'bullmq';
+import { randomBytes } from 'node:crypto';
 
 const DEFAULT_REDIS_URL = 'redis://localhost:6380';
 const DEFAULT_WEB_APP_URL = 'http://127.0.0.1:5173';
@@ -75,6 +78,79 @@ export const enqueueRegistrationConfirmationEmail = async (params: {
       removeOnComplete: true,
       removeOnFail: false,
     });
+  } finally {
+    await queue.close();
+  }
+};
+
+export const enqueueRegistrationInviteEmail = async (params: {
+  inviteId: string;
+  toEmail: string;
+  locale: EmailLocale;
+  inviteToken: string;
+}) => {
+  const webAppUrl = process.env.WEB_APP_URL ?? DEFAULT_WEB_APP_URL;
+  const baseUrl = webAppUrl.replace(/\/+$/, '');
+  const inviteUrl = `${baseUrl}/auth/register?email=${encodeURIComponent(
+    params.toEmail,
+  )}&inviteToken=${encodeURIComponent(params.inviteToken)}`;
+
+  const payload = registrationInviteEmailJobSchema.parse({
+    inviteId: params.inviteId,
+    toEmail: params.toEmail,
+    locale: params.locale,
+    webAppUrl,
+    inviteUrl,
+  });
+
+  const queue = new Queue(QUEUES.notifications, { connection: createRedisConnection() });
+  try {
+    await queue.add(JOBS.sendRegistrationInviteEmail, payload, {
+      attempts: 5,
+      backoff: {
+        type: 'exponential',
+        delay: 2_000,
+      },
+      removeOnComplete: true,
+      removeOnFail: false,
+    });
+  } finally {
+    await queue.close();
+  }
+};
+
+export const enqueueRegistrationInviteEmailPreview = async (params: {
+  toEmail: string;
+  locale: EmailLocale;
+}) => {
+  const webAppUrl = process.env.WEB_APP_URL ?? DEFAULT_WEB_APP_URL;
+  const baseUrl = webAppUrl.replace(/\/+$/, '');
+  const previewToken = `synqit_inv_${randomBytes(18).toString('base64url')}`;
+  const inviteUrl = `${baseUrl}/auth/register?email=${encodeURIComponent(
+    params.toEmail,
+  )}&inviteToken=${encodeURIComponent(previewToken)}`;
+
+  const payload = registrationInviteEmailPreviewJobSchema.parse({
+    toEmail: params.toEmail,
+    locale: params.locale,
+    webAppUrl,
+    inviteUrl,
+    requestedAt: new Date().toISOString(),
+  });
+
+  const queue = new Queue(QUEUES.notifications, { connection: createRedisConnection() });
+  try {
+    const job = await queue.add(JOBS.sendRegistrationInviteEmailPreview, payload, {
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1_000,
+      },
+      removeOnComplete: false,
+      removeOnFail: false,
+    });
+
+    return job.id;
   } finally {
     await queue.close();
   }

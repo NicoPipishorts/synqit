@@ -18,8 +18,17 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   const { t } = useI18n();
   const isLogin = endpoint === '/v1/auth/login';
   const title = isLogin ? t('auth.loginTitle') : t('auth.registerTitle');
-  const [email, setEmail] = useState('');
+  const prefilledEmail = useMemo(
+    () => new URLSearchParams(search).get('email')?.trim() ?? '',
+    [search],
+  );
+  const prefilledInviteToken = useMemo(
+    () => new URLSearchParams(search).get('inviteToken')?.trim() ?? '',
+    [search],
+  );
+  const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState('');
+  const [inviteToken, setInviteToken] = useState(prefilledInviteToken);
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<'error' | 'success' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -34,8 +43,20 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
     return rawValue;
   }, [search]);
 
-  const authRouteHref = (path: '/auth/login' | '/auth/register') =>
-    redirectTo === '/dashboard' ? path : `${path}?redirectTo=${encodeURIComponent(redirectTo)}`;
+  const authRouteHref = (path: '/auth/login' | '/auth/register') => {
+    const params = new URLSearchParams();
+    if (redirectTo !== '/dashboard') {
+      params.set('redirectTo', redirectTo);
+    }
+    if (prefilledEmail) {
+      params.set('email', prefilledEmail);
+    }
+    if (prefilledInviteToken) {
+      params.set('inviteToken', prefilledInviteToken);
+    }
+    const query = params.toString();
+    return query ? `${path}?${query}` : path;
+  };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -52,7 +73,9 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
         endpoint,
         {
           method: 'POST',
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify(
+            isLogin ? { email, password } : { email, password, inviteToken: inviteToken.trim() },
+          ),
         },
         (payload) => payload,
       );
@@ -82,7 +105,10 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   };
 
   return (
-    <AuthPageLayout title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}>
+    <AuthPageLayout
+      title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
+      description={isLogin ? t('auth.inviteOnlyNotice') : t('auth.registerLeadInviteOnly')}
+    >
       <form
         onSubmit={onSubmit}
         autoComplete="on"
@@ -122,6 +148,27 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
           />
           {!isLogin ? <PasswordStrengthMeter password={password} showTooltip /> : null}
         </label>
+        {!isLogin ? (
+          <label htmlFor="auth-invite-token" className="grid gap-2 text-sm font-medium">
+            <span>{t('auth.inviteToken')}</span>
+            <input
+              id="auth-invite-token"
+              name="inviteToken"
+              required
+              type="text"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={inviteToken}
+              onChange={(event) => setInviteToken(event.target.value)}
+              className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text outline-none transition focus:border-brand-lime"
+              placeholder={t('auth.inviteTokenPlaceholder')}
+            />
+            <p className="text-xs font-medium text-app-text-secondary">
+              {t('auth.inviteTokenHint')}
+            </p>
+          </label>
+        ) : null}
         {isLogin ? (
           <div className="flex justify-end">
             <Link
@@ -146,6 +193,12 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
             }`}
           >
             {status}
+          </p>
+        ) : null}
+
+        {isLogin ? (
+          <p className="rounded-lg border border-app-border bg-app-surface px-3 py-2 text-xs font-semibold text-app-text-secondary">
+            {t('auth.inviteOnlyNotice')}
           </p>
         ) : null}
 

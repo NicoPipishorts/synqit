@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from '@tanstack/react-router';
-import { BarChart3, LayoutDashboard, LogOut, Mail, Shield, Users } from 'lucide-react';
+import { BarChart3, LogOut, Mail, Send, Shield, Users } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
 import { clearAuth, loadAuth } from '../../lib/auth';
@@ -8,10 +8,10 @@ import { CTAButton } from '../ui/cta';
 
 const NAV_ITEMS = [
   {
-    to: '/dashboard',
-    icon: LayoutDashboard,
-    labelKey: 'admin.navDashboard',
-    matches: (pathname: string) => pathname === '/dashboard',
+    to: '/invites',
+    icon: Send,
+    labelKey: 'admin.navInvites',
+    matches: (pathname: string) => pathname === '/invites' || pathname === '/dashboard',
   },
   {
     to: '/users',

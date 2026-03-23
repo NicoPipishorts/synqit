@@ -33,6 +33,7 @@ import {
   hashToken,
   verifyPassword,
 } from './crypto';
+import { loadAuthenticatedUser, requireJwtAuth } from './guards';
 import { authStore, UserRecord } from './store';
 import {
   enqueuePasswordResetEmail,
@@ -102,12 +103,6 @@ const sendForgotPasswordAccepted = (reply: FastifyReply) =>
       ok: true,
     }),
   );
-
-const sendBlockedAccountError = (reply: FastifyReply) =>
-  reply.status(403).send({
-    code: 'account_blocked',
-    message: 'This account has been blocked.',
-  });
 
 const formatPublicUser = (user: UserRecord) =>
   authUserSchema.parse({
@@ -183,59 +178,7 @@ const formatPersonalInfo = (
     },
   });
 
-const requireAuth = async (request: FastifyRequest, reply: FastifyReply) => {
-  try {
-    await request.jwtVerify();
-  } catch {
-    return reply.status(401).send({
-      code: 'unauthorized',
-      message: 'Authentication required.',
-    });
-  }
-};
-
-const getAuthenticatedUserId = (request: FastifyRequest): string | null => {
-  if (
-    !request.user ||
-    typeof request.user !== 'object' ||
-    !('sub' in request.user) ||
-    typeof request.user.sub !== 'string'
-  ) {
-    return null;
-  }
-
-  return request.user.sub;
-};
-
-const loadAuthenticatedUser = async (
-  request: FastifyRequest,
-  reply: FastifyReply,
-): Promise<UserRecord | null> => {
-  const userId = getAuthenticatedUserId(request);
-  if (!userId) {
-    await reply.status(401).send({
-      code: 'unauthorized',
-      message: 'Authentication required.',
-    });
-    return null;
-  }
-
-  const user = await authStore.findUserById(userId);
-  if (!user) {
-    await reply.status(401).send({
-      code: 'unauthorized',
-      message: 'Authentication required.',
-    });
-    return null;
-  }
-
-  if (user.isBlocked) {
-    await sendBlockedAccountError(reply);
-    return null;
-  }
-
-  return user;
-};
+const requireAuth = requireJwtAuth;
 
 const issueTokens = async (app: FastifyInstance, user: UserRecord) => {
   const refreshToken = createRefreshToken();
@@ -294,23 +237,26 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
-    const user = await authStore.createUser({
+    const registrationResult = await authStore.registerUserWithInvite({
       email: parsed.data.email,
       passwordHash,
+      inviteToken: parsed.data.inviteToken,
     });
+    if (registrationResult.kind !== 'created') {
+      if (registrationResult.kind === 'invalid_invite') {
+        return reply.status(403).send({
+          code: 'invalid_invite_token',
+          message: 'A valid registration token is required to create an account.',
+        });
+      }
 
-    if (!user) {
       return reply.status(409).send({
         code: 'email_taken',
         message: 'An account already exists for that email.',
       });
     }
 
-    await authStore.upsertPasswordIdentity({
-      userId: user.id,
-      email: user.email,
-      passwordHash,
-    });
+    const user = registrationResult.user;
 
     const tokens = await issueTokens(app, user);
 
@@ -365,7 +311,10 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     }
 
     if (user.isBlocked) {
-      return sendBlockedAccountError(reply);
+      return reply.status(403).send({
+        code: 'account_blocked',
+        message: 'Your account is blocked.',
+      });
     }
 
     const isPasswordValid = await verifyPassword(parsed.data.password, passwordHash);
@@ -524,7 +473,10 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
 
     if (user.isBlocked) {
       await authStore.revokeRefreshTokenByHash(oldTokenHash);
-      return sendBlockedAccountError(reply);
+      return reply.status(403).send({
+        code: 'account_blocked',
+        message: 'Your account is blocked.',
+      });
     }
 
     const nextRefreshToken = createRefreshToken();
@@ -594,7 +546,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         return sendValidationError(reply, parsed.error.flatten());
       }
 
-      const user = await loadAuthenticatedUser(request, reply);
+      const user = await loadAuthenticatedUser(request, reply, { blockedBehavior: 'forbidden' });
       if (!user) {
         return;
       }
@@ -652,7 +604,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         return sendValidationError(reply, parsed.error.flatten());
       }
 
-      const user = await loadAuthenticatedUser(request, reply);
+      const user = await loadAuthenticatedUser(request, reply, { blockedBehavior: 'forbidden' });
       if (!user) {
         return;
       }
@@ -713,7 +665,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       preHandler: requireAuth,
     },
     async (request, reply) => {
-      const user = await loadAuthenticatedUser(request, reply);
+      const user = await loadAuthenticatedUser(request, reply, { blockedBehavior: 'forbidden' });
       if (!user) {
         return;
       }
@@ -750,7 +702,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       preHandler: requireAuth,
     },
     async (request, reply) => {
-      const user = await loadAuthenticatedUser(request, reply);
+      const user = await loadAuthenticatedUser(request, reply, { blockedBehavior: 'forbidden' });
       if (!user) {
         return;
       }
@@ -771,7 +723,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         return sendValidationError(reply, parsed.error.flatten());
       }
 
-      const user = await loadAuthenticatedUser(request, reply);
+      const user = await loadAuthenticatedUser(request, reply, { blockedBehavior: 'forbidden' });
       if (!user) {
         return;
       }
@@ -808,7 +760,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       preHandler: requireAuth,
     },
     async (request, reply) => {
-      const user = await loadAuthenticatedUser(request, reply);
+      const user = await loadAuthenticatedUser(request, reply, { blockedBehavior: 'forbidden' });
       if (!user) {
         return;
       }
@@ -824,7 +776,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       preHandler: requireAuth,
     },
     async (request, reply) => {
-      const user = await loadAuthenticatedUser(request, reply);
+      const user = await loadAuthenticatedUser(request, reply, { blockedBehavior: 'forbidden' });
       if (!user) {
         return;
       }
@@ -839,7 +791,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       preHandler: requireAuth,
     },
     async (request, reply) => {
-      const user = await loadAuthenticatedUser(request, reply);
+      const user = await loadAuthenticatedUser(request, reply, { blockedBehavior: 'forbidden' });
       if (!user) {
         return;
       }
@@ -865,7 +817,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
         return sendValidationError(reply, parsed.error.flatten());
       }
 
-      const user = await loadAuthenticatedUser(request, reply);
+      const user = await loadAuthenticatedUser(request, reply, { blockedBehavior: 'forbidden' });
       if (!user) {
         return;
       }

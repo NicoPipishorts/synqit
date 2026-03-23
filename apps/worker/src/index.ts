@@ -3,6 +3,8 @@ import {
   QUEUES,
   passwordResetEmailJobSchema,
   passwordResetEmailPreviewJobSchema,
+  registrationInviteEmailJobSchema,
+  registrationInviteEmailPreviewJobSchema,
   registrationConfirmationEmailJobSchema,
   registrationConfirmationEmailPreviewJobSchema,
 } from '@synqit/shared';
@@ -12,7 +14,10 @@ import { resolve } from 'node:path';
 
 import { sendTransactionalEmail } from './email/provider';
 import { renderPasswordResetTemplate } from './email/templates/password-reset';
-import { renderRegistrationConfirmationTemplate } from './email/templates/registration-confirmation';
+import {
+  renderRegistrationConfirmationTemplate,
+  renderRegistrationInviteTemplate,
+} from './email/templates/registration-confirmation';
 
 const loadEnvFileIfPresent = (filePath: string): void => {
   try {
@@ -93,6 +98,61 @@ const processNotificationsJob = async (job: Job) => {
         locale: parsed.data.locale,
         webAppUrl: parsed.data.webAppUrl,
         recipientEmail: parsed.data.toEmail,
+      });
+
+      await sendTransactionalEmail({
+        to: parsed.data.toEmail,
+        subject: `[Preview] ${template.subject}`,
+        html: template.html,
+        text: template.text,
+      });
+
+      return {
+        ok: true,
+        preview: true,
+        toEmail: parsed.data.toEmail,
+        requestedAt: parsed.data.requestedAt,
+      };
+    }
+    case JOBS.sendRegistrationInviteEmail: {
+      const parsed = registrationInviteEmailJobSchema.safeParse(job.data);
+      if (!parsed.success) {
+        throw new Error(`Invalid registration invite email payload: ${parsed.error.message}`);
+      }
+
+      const template = renderRegistrationInviteTemplate({
+        locale: parsed.data.locale,
+        webAppUrl: parsed.data.webAppUrl,
+        recipientEmail: parsed.data.toEmail,
+        inviteUrl: parsed.data.inviteUrl,
+      });
+
+      await sendTransactionalEmail({
+        to: parsed.data.toEmail,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      return {
+        ok: true,
+        inviteId: parsed.data.inviteId,
+        toEmail: parsed.data.toEmail,
+      };
+    }
+    case JOBS.sendRegistrationInviteEmailPreview: {
+      const parsed = registrationInviteEmailPreviewJobSchema.safeParse(job.data);
+      if (!parsed.success) {
+        throw new Error(
+          `Invalid registration invite preview email payload: ${parsed.error.message}`,
+        );
+      }
+
+      const template = renderRegistrationInviteTemplate({
+        locale: parsed.data.locale,
+        webAppUrl: parsed.data.webAppUrl,
+        recipientEmail: parsed.data.toEmail,
+        inviteUrl: parsed.data.inviteUrl,
       });
 
       await sendTransactionalEmail({

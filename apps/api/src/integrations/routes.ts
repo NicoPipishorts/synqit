@@ -23,7 +23,7 @@ import {
   isSpotifyOauthLiveMode,
 } from './spotify';
 import { integrationStore } from './store';
-import { authStore } from '../auth/store';
+import { requireAuthenticatedUserId } from '../auth/guards';
 
 const DEFAULT_OAUTH_STATE_TTL_SECONDS = 10 * 60;
 const DEFAULT_SPOTIFY_SCOPES =
@@ -149,40 +149,6 @@ const exchangeProviderAuthorizationCode = async (params: {
   };
 };
 
-const verifyAndGetUserId = async (
-  app: FastifyInstance,
-  request: FastifyRequest,
-): Promise<string | null> => {
-  try {
-    await request.jwtVerify();
-  } catch {
-    return null;
-  }
-
-  if (!request.user || typeof request.user !== 'object' || !('sub' in request.user)) {
-    return null;
-  }
-
-  const userId = String(request.user.sub);
-  if (!userId) {
-    app.log.warn('missing user id in jwt payload');
-    return null;
-  }
-
-  const user = await authStore.findUserById(userId);
-  if (!user) {
-    app.log.warn({ userId }, 'jwt user not found');
-    return null;
-  }
-
-  if (user.isBlocked) {
-    app.log.warn({ userId }, 'blocked user attempted integration access');
-    return null;
-  }
-
-  return userId;
-};
-
 export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<void> => {
   const shouldReturnJsonFromCallback = (request: FastifyRequest): boolean => {
     const responseMode = (request.query as { response_mode?: string }).response_mode;
@@ -220,12 +186,9 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
     });
 
   app.get('/integrations', async (request, reply) => {
-    const userId = await verifyAndGetUserId(app, request);
+    const userId = await requireAuthenticatedUserId(request, reply);
     if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
+      return;
     }
 
     const existingIntegrations = await integrationStore.listIntegrationsByUser(userId);
@@ -246,12 +209,9 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
   });
 
   app.get('/auth/apple/developer-token', async (request, reply) => {
-    const userId = await verifyAndGetUserId(app, request);
+    const userId = await requireAuthenticatedUserId(request, reply);
     if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
+      return;
     }
 
     if (!isAppleLiveMode()) {
@@ -280,12 +240,9 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
   });
 
   app.post('/auth/apple/connect', async (request, reply) => {
-    const userId = await verifyAndGetUserId(app, request);
+    const userId = await requireAuthenticatedUserId(request, reply);
     if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
+      return;
     }
 
     if (!isAppleLiveMode()) {
@@ -323,12 +280,9 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
   });
 
   app.get('/auth/:provider/start', async (request, reply) => {
-    const userId = await verifyAndGetUserId(app, request);
+    const userId = await requireAuthenticatedUserId(request, reply);
     if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
+      return;
     }
 
     const providerResult = providerSchema.safeParse(
@@ -452,12 +406,9 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
   });
 
   app.post('/auth/:provider/disconnect', async (request, reply) => {
-    const userId = await verifyAndGetUserId(app, request);
+    const userId = await requireAuthenticatedUserId(request, reply);
     if (!userId) {
-      return reply.status(401).send({
-        code: 'unauthorized',
-        message: 'Authentication required.',
-      });
+      return;
     }
 
     const providerResult = providerSchema.safeParse(
