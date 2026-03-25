@@ -73,9 +73,9 @@ export const ProviderConnections = () => {
   // ---------------------------------------------------------------------------
 
   const snapshotQuery = useQuery({
-    queryKey: queryKeys.integrations.list(),
+    queryKey: queryKeys.integrations.snapshot(),
     queryFn: fetchIntegrationsSnapshot,
-    staleTime: 60_000,
+    staleTime: 0,
     select: (data): IntegrationsSnapshot => {
       trackAnalyticsEvent({
         eventName: 'providers_snapshot_loaded',
@@ -113,8 +113,14 @@ export const ProviderConnections = () => {
 
   const disconnectMutation = useMutation({
     mutationFn: (provider: Provider) => disconnectProvider(provider),
-    onSuccess: (_data, provider) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
+    onSuccess: async (_data, provider) => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() }),
+        queryClient.fetchQuery({
+          queryKey: queryKeys.integrations.snapshot(),
+          queryFn: fetchIntegrationsSnapshot,
+        }),
+      ]);
       showToast(t('profile.connectionRemoved', { provider: PROVIDER_META[provider].label }), {
         variant: 'success',
       });
@@ -179,10 +185,10 @@ export const ProviderConnections = () => {
         }
 
         await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
-
-        const snapshot = queryClient.getQueryData<IntegrationsSnapshot>(
-          queryKeys.integrations.list(),
-        );
+        const snapshot = await queryClient.fetchQuery({
+          queryKey: queryKeys.integrations.snapshot(),
+          queryFn: fetchIntegrationsSnapshot,
+        });
         const isConnected =
           snapshot?.byProvider[provider].status === 'connected' || popupResult === 'connected';
 
@@ -256,6 +262,10 @@ export const ProviderConnections = () => {
         });
       }
       void queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
+      void queryClient.fetchQuery({
+        queryKey: queryKeys.integrations.snapshot(),
+        queryFn: fetchIntegrationsSnapshot,
+      });
     }
 
     params.delete('provider');
@@ -312,7 +322,13 @@ export const ProviderConnections = () => {
           <CTAButton
             type="button"
             onClick={() =>
-              void queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() })
+              void Promise.all([
+                queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() }),
+                queryClient.fetchQuery({
+                  queryKey: queryKeys.integrations.snapshot(),
+                  queryFn: fetchIntegrationsSnapshot,
+                }),
+              ])
             }
             disabled={isRefreshing}
             variant="secondary"

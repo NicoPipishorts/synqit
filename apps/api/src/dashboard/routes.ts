@@ -81,8 +81,8 @@ export const registerDashboardRoutes = async (app: FastifyInstance): Promise<voi
           .map((sync) => {
             const addedTrackCount7d = recentSubscribedTrackActivity.get(sync.id) ?? 0;
             const latestActivityAt =
-              sync.lastSyncedAt && new Date(sync.lastSyncedAt) >= since7d
-                ? sync.lastSyncedAt
+              sync.lastSyncedAt && sync.lastSyncedAt >= since7d
+                ? sync.lastSyncedAt.toISOString()
                 : null;
             return {
               syncId: sync.id,

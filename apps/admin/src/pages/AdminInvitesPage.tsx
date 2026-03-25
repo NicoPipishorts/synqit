@@ -155,7 +155,7 @@ export const AdminInvitesPage = () => {
         description={t('admin.registrationInvitesDescription')}
       />
 
-      <article className="grid gap-5 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+      <article className="grid gap-5 rounded-3xl border border-app-border bg-app-elevated p-4 shadow-soft-lift sm:p-5 dark:bg-app-card">
         <div className="grid gap-1">
           <h2 className="text-lg font-black text-app-text">{t('admin.sendInviteTitle')}</h2>
           <p className="text-sm text-app-text-secondary">{t('admin.registrationInvitesHelp')}</p>
@@ -191,7 +191,7 @@ export const AdminInvitesPage = () => {
             type="submit"
             variant="primary"
             disabled={isSubmitting}
-            className="min-h-[42px]"
+            className="min-h-[42px] w-full sm:w-auto"
           >
             {isSubmitting ? t('admin.generatingInviteToken') : t('admin.sendInvite')}
           </CTAButton>
@@ -202,60 +202,120 @@ export const AdminInvitesPage = () => {
         ) : invites.length === 0 ? (
           <p className="text-sm text-app-text-secondary">{t('admin.noInviteTokens')}</p>
         ) : (
-          <div className="overflow-x-auto rounded-2xl border border-app-border">
-            <table className="w-full min-w-[940px] border-collapse text-left">
-              <thead className="bg-app-surface dark:bg-app-card">
-                <tr className="border-b border-app-border text-[11px] uppercase tracking-wide text-app-text-secondary">
-                  <th className="px-3 py-2 font-black">{t('auth.email')}</th>
-                  <th className="px-3 py-2 font-black">{t('admin.inviteTokenPreview')}</th>
-                  <th className="px-3 py-2 font-black">{t('admin.inviteTokenCreatedAt')}</th>
-                  <th className="px-3 py-2 font-black">{t('admin.inviteTokenExpiresAt')}</th>
-                  <th className="px-3 py-2 font-black">{t('admin.inviteTokenLastSentAt')}</th>
-                  <th className="px-3 py-2 font-black">{t('admin.inviteTokenStatus')}</th>
-                  <th className="px-3 py-2 font-black">{t('admin.inviteActions')}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invites.map((invite) => {
-                  const canResend = invite.status !== 'used';
-                  return (
-                    <tr key={invite.id} className="border-b border-app-border last:border-b-0">
-                      <td className="px-3 py-2 text-sm font-bold text-app-text">
+          <>
+            <div className="grid gap-3 md:hidden">
+              {invites.map((invite) => {
+                const canResend = invite.status !== 'used';
+                return (
+                  <div
+                    key={invite.id}
+                    className="grid gap-3 rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card"
+                  >
+                    <div className="grid gap-1">
+                      <p className="truncate text-sm font-black text-app-text">
                         {invite.invitedEmail}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
+                      </p>
+                      <p className="text-xs font-semibold text-app-text-secondary">
                         {invite.tokenPreview}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                        {formatOptionalDate(invite.createdAt)}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                        {formatOptionalDate(invite.expiresAt)}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                        {formatOptionalDate(invite.lastSentAt)}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                        {t(`admin.inviteStatus.${invite.status}` as never)}
-                      </td>
-                      <td className="px-3 py-2">
-                        <CTAButton
-                          type="button"
-                          variant="secondary"
-                          disabled={!canResend || resendingInviteId === invite.id}
-                          onClick={() => void resendInvite(invite.id)}
-                        >
-                          {resendingInviteId === invite.id
-                            ? t('admin.sendingInvite')
-                            : t('admin.resendInvite')}
-                        </CTAButton>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-xs font-semibold text-app-text-secondary">
+                      <div className="grid gap-1">
+                        <span>{t('admin.inviteTokenCreatedAt')}</span>
+                        <span className="text-app-text">
+                          {formatOptionalDate(invite.createdAt)}
+                        </span>
+                      </div>
+                      <div className="grid gap-1">
+                        <span>{t('admin.inviteTokenExpiresAt')}</span>
+                        <span className="text-app-text">
+                          {formatOptionalDate(invite.expiresAt)}
+                        </span>
+                      </div>
+                      <div className="grid gap-1">
+                        <span>{t('admin.inviteTokenLastSentAt')}</span>
+                        <span className="text-app-text">
+                          {formatOptionalDate(invite.lastSentAt)}
+                        </span>
+                      </div>
+                      <div className="grid gap-1">
+                        <span>{t('admin.inviteTokenStatus')}</span>
+                        <span className="text-app-text">
+                          {t(`admin.inviteStatus.${invite.status}` as never)}
+                        </span>
+                      </div>
+                    </div>
+                    <CTAButton
+                      type="button"
+                      variant="secondary"
+                      disabled={!canResend || resendingInviteId === invite.id}
+                      onClick={() => void resendInvite(invite.id)}
+                      className="w-full justify-center"
+                    >
+                      {resendingInviteId === invite.id
+                        ? t('admin.sendingInvite')
+                        : t('admin.resendInvite')}
+                    </CTAButton>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden overflow-x-auto rounded-2xl border border-app-border md:block">
+              <table className="w-full min-w-[940px] border-collapse text-left">
+                <thead className="bg-app-surface dark:bg-app-card">
+                  <tr className="border-b border-app-border text-[11px] uppercase tracking-wide text-app-text-secondary">
+                    <th className="px-3 py-2 font-black">{t('auth.email')}</th>
+                    <th className="px-3 py-2 font-black">{t('admin.inviteTokenPreview')}</th>
+                    <th className="px-3 py-2 font-black">{t('admin.inviteTokenCreatedAt')}</th>
+                    <th className="px-3 py-2 font-black">{t('admin.inviteTokenExpiresAt')}</th>
+                    <th className="px-3 py-2 font-black">{t('admin.inviteTokenLastSentAt')}</th>
+                    <th className="px-3 py-2 font-black">{t('admin.inviteTokenStatus')}</th>
+                    <th className="px-3 py-2 font-black">{t('admin.inviteActions')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {invites.map((invite) => {
+                    const canResend = invite.status !== 'used';
+                    return (
+                      <tr key={invite.id} className="border-b border-app-border last:border-b-0">
+                        <td className="px-3 py-2 text-sm font-bold text-app-text">
+                          {invite.invitedEmail}
+                        </td>
+                        <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
+                          {invite.tokenPreview}
+                        </td>
+                        <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
+                          {formatOptionalDate(invite.createdAt)}
+                        </td>
+                        <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
+                          {formatOptionalDate(invite.expiresAt)}
+                        </td>
+                        <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
+                          {formatOptionalDate(invite.lastSentAt)}
+                        </td>
+                        <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
+                          {t(`admin.inviteStatus.${invite.status}` as never)}
+                        </td>
+                        <td className="px-3 py-2">
+                          <CTAButton
+                            type="button"
+                            variant="secondary"
+                            disabled={!canResend || resendingInviteId === invite.id}
+                            onClick={() => void resendInvite(invite.id)}
+                          >
+                            {resendingInviteId === invite.id
+                              ? t('admin.sendingInvite')
+                              : t('admin.resendInvite')}
+                          </CTAButton>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
 
         {status ? (

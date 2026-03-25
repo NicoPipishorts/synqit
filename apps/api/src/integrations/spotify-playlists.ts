@@ -150,8 +150,9 @@ const spotifyUserPlaylistsResponseSchema = z.object({
       tracks: z.object({ total: z.number().int().nonnegative() }).nullable().optional(),
       images: z
         .array(z.object({ url: z.string() }))
+        .nullable()
         .optional()
-        .default([]),
+        .transform((value) => value ?? []),
     }),
   ),
   next: z.string().nullable().optional(),

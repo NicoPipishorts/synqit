@@ -15,6 +15,7 @@ import { CTAButton } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
+import { isDisplayableAnalyticsPath } from '../lib/analytics-display';
 import { callApi, toApiError } from '../lib/api';
 import { clearAuth, loadAuth } from '../lib/auth';
 
@@ -37,19 +38,6 @@ const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> => ({
 
 const providerLabel = (provider: 'spotify' | 'apple'): string =>
   provider === 'spotify' ? 'Spotify' : 'Apple Music';
-
-const APP_ROUTE_PREFIXES = [
-  '/',
-  '/auth',
-  '/dashboard',
-  '/profile',
-  '/providers',
-  '/playlists',
-  '/playlist',
-  '/synced-lists',
-  '/events',
-  '/event',
-] as const;
 
 const getUserTitle = (user: AnalyticsUserDetail): string => {
   const displayName = user.personalInfo.displayName?.trim();
@@ -297,11 +285,7 @@ export const AdminUserDetailsPage = () => {
     }
 
     return userDetail.pageViewsByPath.filter((row) =>
-      APP_ROUTE_PREFIXES.some((prefix) =>
-        prefix === '/'
-          ? row.path === '/'
-          : row.path === prefix || row.path.startsWith(`${prefix}/`),
-      ),
+      isDisplayableAnalyticsPath(row.path, { appOnly: true }),
     );
   }, [userDetail]);
 
@@ -399,17 +383,18 @@ export const AdminUserDetailsPage = () => {
 
   return (
     <section className="grid content-start gap-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
           <CTAButton
             type="button"
             variant="secondary"
             onClick={() => void navigate({ to: '/users' })}
+            className="w-full justify-center sm:w-auto"
           >
             <ArrowLeft size={14} aria-hidden="true" />
             {t('admin.analyticsDetailClose')}
           </CTAButton>
-          <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white">
+          <h1 className="min-w-0 truncate text-2xl font-black tracking-tight text-brand-dark sm:text-3xl dark:text-brand-white">
             {getUserTitle(userDetail)}
           </h1>
         </div>
@@ -418,16 +403,17 @@ export const AdminUserDetailsPage = () => {
             type="button"
             variant={userDetail.isBlocked ? 'secondary' : 'danger'}
             onClick={() => setIsBlockModalOpen(true)}
+            className="w-full justify-center sm:w-auto"
           >
             {blockActionLabel}
           </CTAButton>
         ) : null}
       </div>
 
-      <article className="grid gap-6 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+      <article className="grid gap-6 rounded-3xl border border-app-border bg-app-elevated p-4 shadow-soft-lift sm:p-5 dark:bg-app-card">
         <div className="grid gap-4">
           <AdminDetailCard title="User / roles">
-            <div className="grid grid-cols-2 gap-6 text-sm text-app-text-secondary">
+            <div className="grid gap-6 text-sm text-app-text-secondary md:grid-cols-2">
               <div className="grid content-start gap-2">
                 <div className="flex items-center justify-between gap-3">
                   <span>{t('auth.email')}</span>
@@ -471,11 +457,11 @@ export const AdminUserDetailsPage = () => {
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span>{t('admin.analyticsMetricEventPlaylists')}</span>
+                  <span>{t('admin.analyticsMetricEventsShort')}</span>
                   <span className="font-black text-app-text">{userDetail.eventPlaylistsCount}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span>{t('admin.analyticsMetricSharedPlaylists')}</span>
+                  <span>{t('admin.analyticsMetricSharedShort')}</span>
                   <span className="font-black text-app-text">
                     {userDetail.sharedPlaylistsCount}
                   </span>
@@ -492,8 +478,8 @@ export const AdminUserDetailsPage = () => {
 
           <AdminDetailCard title={t('admin.accessEditorTitle')}>
             {accessEditor ? (
-              <div className="grid grid-cols-2 gap-6">
-                <div className="col-span-2 flex items-center justify-between gap-4 rounded-lg border border-app-border bg-app-bg px-4 py-3 text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+              <div className="grid gap-6">
+                <div className="flex flex-col gap-4 rounded-lg border border-app-border bg-app-bg px-4 py-3 text-xs font-semibold uppercase tracking-wide text-app-text-secondary lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-3">
                     <span>{t('admin.roleLabel')}</span>
                     {isSavingAccess ? (
@@ -532,11 +518,11 @@ export const AdminUserDetailsPage = () => {
                   </div>
                 </div>
 
-                <div className="col-span-2 grid grid-cols-2 gap-2">
+                <div className="grid gap-2 xl:grid-cols-2">
                   {scopes.map((scope) => (
                     <div
                       key={scope}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-app-border bg-app-bg px-3 py-3"
+                      className="flex flex-col gap-3 rounded-lg border border-app-border bg-app-bg px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                     >
                       <span className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
                         {scope}
@@ -572,7 +558,7 @@ export const AdminUserDetailsPage = () => {
             {userDetail.events.length === 0 ? (
               <p className="text-sm text-app-text-secondary">{t('admin.analyticsUserNoEvents')}</p>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 lg:grid-cols-2">
                 {userDetail.events.map((event) => (
                   <div
                     key={event.eventId}
@@ -588,9 +574,9 @@ export const AdminUserDetailsPage = () => {
                         {event.status}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-app-text-secondary">
+                    <div className="grid gap-x-3 gap-y-1 text-app-text-secondary sm:grid-cols-2">
                       <span>{providerLabel(event.provider)}</span>
-                      <span className="text-right">
+                      <span className="sm:text-right">
                         {t('admin.analyticsColTracks')}: {event.tracksCount}
                       </span>
                       <span>
@@ -599,7 +585,7 @@ export const AdminUserDetailsPage = () => {
                           ? t('admin.analyticsSharedYes')
                           : t('admin.analyticsSharedNo')}
                       </span>
-                      <span className="text-right">{normalizeDate(event.updatedAt)}</span>
+                      <span className="sm:text-right">{normalizeDate(event.updatedAt)}</span>
                     </div>
                   </div>
                 ))}
@@ -613,11 +599,11 @@ export const AdminUserDetailsPage = () => {
                 {t('admin.analyticsUserNoPageViews')}
               </p>
             ) : (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-3 lg:grid-cols-2">
                 {appPageViews.map((row) => (
                   <div
                     key={row.path}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm"
+                    className="flex flex-col gap-2 rounded-lg border border-app-border bg-app-bg px-3 py-3 text-sm sm:flex-row sm:items-center sm:justify-between"
                   >
                     <span className="truncate text-app-text-secondary">{row.path}</span>
                     <span className="shrink-0 font-black text-app-text">{row.views}</span>
@@ -646,12 +632,13 @@ export const AdminUserDetailsPage = () => {
       >
         <div className="grid gap-5">
           <p className="text-sm text-app-text-secondary">{blockModalMessage}</p>
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <CTAButton
               type="button"
               variant="secondary"
               onClick={() => setIsBlockModalOpen(false)}
               disabled={isUpdatingBlockedState}
+              className="w-full justify-center sm:w-auto"
             >
               Cancel
             </CTAButton>
@@ -660,6 +647,7 @@ export const AdminUserDetailsPage = () => {
               variant={userDetail.isBlocked ? 'primary' : 'danger'}
               onClick={() => void toggleBlockedState()}
               disabled={isUpdatingBlockedState}
+              className="w-full justify-center sm:w-auto"
             >
               {isUpdatingBlockedState ? 'Working...' : blockActionLabel}
             </CTAButton>

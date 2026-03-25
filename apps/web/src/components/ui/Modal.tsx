@@ -12,9 +12,10 @@ type ModalProps = {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  panelClassName?: string;
 };
 
-export const Modal = ({ open, title, onClose, children }: ModalProps) => {
+export const Modal = ({ open, title, onClose, children, panelClassName }: ModalProps) => {
   const { t } = useI18n();
   const [isDesktop, setIsDesktop] = useState(() => {
     if (typeof window === 'undefined') {
@@ -91,7 +92,12 @@ export const Modal = ({ open, title, onClose, children }: ModalProps) => {
             animate={panelAnimate}
             exit={panelExit}
             transition={panelTransition}
-            className="relative z-10 max-h-[85svh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-app-border bg-app-elevated p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_30px_80px_-24px_rgba(0,0,0,0.55)] dark:bg-app-card sm:max-h-[90svh] sm:rounded-3xl sm:p-7"
+            className={[
+              'relative z-10 max-h-[85svh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-app-border bg-app-elevated p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-[0_30px_80px_-24px_rgba(0,0,0,0.55)] dark:bg-app-card sm:max-h-[90svh] sm:rounded-3xl sm:p-7',
+              panelClassName,
+            ]
+              .filter(Boolean)
+              .join(' ')}
           >
             <div className="mb-4 flex items-center justify-between gap-3">
               <h3 className="text-xl font-bold text-brand-dark dark:text-brand-white">{title}</h3>

@@ -461,7 +461,7 @@ export const DashboardPage = () => {
               {/* Owned */}
               {ownedCards.length > 0 ? (
                 <>
-                  <p className="border-b border-app-border px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-app-text-secondary">
+                  <p className="border-b border-brand-lime bg-brand-lime/22 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-brand-dark dark:text-brand-white ">
                     {t('dashboard.overviewOwnedTitle')}
                   </p>
                   {ownedCards.map((card) => (
@@ -474,7 +474,7 @@ export const DashboardPage = () => {
               {joinedCards.length > 0 ? (
                 <>
                   <p
-                    className={`border-b border-app-border px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-app-text-secondary ${ownedCards.length > 0 ? 'border-t' : ''}`}
+                    className={`border-b border-brand-lime bg-brand-lime/22  px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-brand-dark dark:text-brand-white `}
                   >
                     {t('dashboard.overviewJoinedTitle')}
                   </p>

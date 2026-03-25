@@ -9,6 +9,7 @@ import { authStore } from './auth/store';
 import { closeDatabase } from './db';
 import { prisma } from './db/prisma';
 import { buildServer } from './index';
+import { syncsStore } from './syncs/store';
 
 const TEST_EMAIL_PREFIX = 'regression+';
 const TEST_PASSWORD = 'Password123!';
@@ -690,6 +691,15 @@ describe('API regression', () => {
     const adminEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
     await registerUser(app, adminEmail);
 
+    await syncsStore.createSync({
+      senderUserId: hostUser.user.id,
+      provider: 'spotify',
+      providerPlaylistId: `analytics-shared-${randomUUID()}`,
+      name: 'Analytics Shared Sync',
+      trackCount: 8,
+      syncMode: 'host_only',
+    });
+
     const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
     process.env.ADMIN_BOOTSTRAP_KEY = 'regression-bootstrap-key';
     try {
@@ -759,12 +769,14 @@ describe('API regression', () => {
         totals: {
           usersCount: number;
           eventPlaylistsCount: number;
+          sharedPlaylistsCount: number;
           pageViewsCount: number;
         };
         pageViewsByPath: Array<{ path: string; views: number }>;
       };
       assert.ok(overviewBody.totals.usersCount >= 1);
       assert.ok(overviewBody.totals.eventPlaylistsCount >= 1);
+      assert.ok(overviewBody.totals.sharedPlaylistsCount >= 1);
       assert.ok(overviewBody.totals.pageViewsCount >= 1);
       assert.ok(overviewBody.pageViewsByPath.length >= 1);
 
@@ -2011,5 +2023,245 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
       process.env.APPLE_PRIVATE_KEY_P8 = previousApplePrivateKey;
       process.env.APPLE_STOREFRONT = previousAppleStorefront;
     }
+  });
+
+  it('dashboard: subscribed sync summary serializes latest activity timestamps', async () => {
+    const ownerEmail = `${TEST_EMAIL_PREFIX}dashboard-owner-${randomUUID()}@synqit.test`;
+    const subscriberEmail = `${TEST_EMAIL_PREFIX}dashboard-subscriber-${randomUUID()}@synqit.test`;
+
+    const owner = await registerUser(app, ownerEmail);
+    const subscriber = await registerUser(app, subscriberEmail);
+
+    const sync = await syncsStore.createSync({
+      senderUserId: owner.user.id,
+      provider: 'spotify',
+      providerPlaylistId: 'dashboard-summary-playlist',
+      name: 'Dashboard Summary Sync',
+      trackCount: 12,
+      syncMode: 'host_only',
+    });
+
+    const lastSyncedAt = new Date();
+
+    await syncsStore.upsertImport({
+      syncId: sync.id,
+      recipientUserId: subscriber.user.id,
+      recipientProvider: 'apple',
+      recipientProviderPlaylistId: 'subscriber-copy-playlist',
+      status: 'active',
+      matchedCount: 12,
+      skippedCount: 0,
+      lastSyncedAt,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/dashboard/summary',
+      headers: authHeader(subscriber.tokens.accessToken),
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = parseBody(response.body) as {
+      subscriberSyncActivity: Array<{
+        syncId: string;
+        latestActivityAt: string | null;
+      }>;
+    };
+
+    assert.equal(body.subscriberSyncActivity.length, 1);
+    assert.equal(body.subscriberSyncActivity[0]?.syncId, sync.id);
+    assert.equal(body.subscriberSyncActivity[0]?.latestActivityAt, lastSyncedAt.toISOString());
+  });
+
+  it('syncs: create resolves missing track count before persisting', async () => {
+    const email = `${TEST_EMAIL_PREFIX}sync-owner-${randomUUID()}@synqit.test`;
+    const user = await registerUser(app, email);
+
+    await connectProvider(app, {
+      provider: 'spotify',
+      accessToken: user.tokens.accessToken,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/syncs',
+      headers: authHeader(user.tokens.accessToken),
+      payload: {
+        provider: 'spotify',
+        providerPlaylistId: 'mock-playlist-1',
+        name: 'Mock Shared Playlist',
+        trackCount: null,
+        syncMode: 'host_only',
+      },
+    });
+
+    assert.equal(response.statusCode, 201);
+    const body = parseBody(response.body) as {
+      sync: { providerPlaylistId: string; trackCount: number | null };
+      magicLinkUrl: string;
+    };
+
+    assert.equal(body.sync.providerPlaylistId, 'mock-playlist-1');
+    assert.equal(body.sync.trackCount, 24);
+    assert.match(body.magicLinkUrl, /\/sync\//);
+  });
+
+  it('dashboard: subscriber sync activity dedupes historical track rows by provider track id', async () => {
+    const ownerEmail = `${TEST_EMAIL_PREFIX}dedupe-owner-${randomUUID()}@synqit.test`;
+    const subscriberEmail = `${TEST_EMAIL_PREFIX}dedupe-subscriber-${randomUUID()}@synqit.test`;
+
+    const owner = await registerUser(app, ownerEmail);
+    const subscriber = await registerUser(app, subscriberEmail);
+
+    const sync = await syncsStore.createSync({
+      senderUserId: owner.user.id,
+      provider: 'spotify',
+      providerPlaylistId: 'dedupe-dashboard-playlist',
+      name: 'Dedupe Dashboard Sync',
+      trackCount: 2,
+      syncMode: 'host_only',
+    });
+
+    await syncsStore.upsertImport({
+      syncId: sync.id,
+      recipientUserId: subscriber.user.id,
+      recipientProvider: 'apple',
+      recipientProviderPlaylistId: 'subscriber-copy-playlist',
+      status: 'active',
+      matchedCount: 2,
+      skippedCount: 0,
+      lastSyncedAt: new Date(),
+    });
+
+    const seenAt = new Date();
+    await prisma.playlist_sync_track_activity.createMany({
+      data: [
+        {
+          id: randomUUID(),
+          sync_id: sync.id,
+          track_fingerprint: 'run around|blues traveler|0',
+          provider_track_id: 'run around|blues traveler|0',
+          name: 'Run-Around',
+          artist: 'Blues Traveler',
+          album: 'Four',
+          artwork_url: null,
+          first_seen_at: seenAt,
+          created_at: seenAt,
+          updated_at: seenAt,
+        },
+        {
+          id: randomUUID(),
+          sync_id: sync.id,
+          track_fingerprint: 'run around|blues traveler|140',
+          provider_track_id: 'spotify-track-run-around',
+          name: 'Run-Around',
+          artist: 'Blues Traveler',
+          album: 'Four',
+          artwork_url: null,
+          first_seen_at: seenAt,
+          created_at: seenAt,
+          updated_at: seenAt,
+        },
+        {
+          id: randomUUID(),
+          sync_id: sync.id,
+          track_fingerprint: 'hook|blues traveler|0',
+          provider_track_id: 'hook|blues traveler|0',
+          name: 'Hook',
+          artist: 'Blues Traveler',
+          album: 'Four',
+          artwork_url: null,
+          first_seen_at: seenAt,
+          created_at: seenAt,
+          updated_at: seenAt,
+        },
+        {
+          id: randomUUID(),
+          sync_id: sync.id,
+          track_fingerprint: 'hook|blues traveler|145',
+          provider_track_id: 'spotify-track-hook',
+          name: 'Hook',
+          artist: 'Blues Traveler',
+          album: 'Four',
+          artwork_url: null,
+          first_seen_at: seenAt,
+          created_at: seenAt,
+          updated_at: seenAt,
+        },
+      ],
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/dashboard/summary',
+      headers: authHeader(subscriber.tokens.accessToken),
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = parseBody(response.body) as {
+      subscriberSyncActivity: Array<{
+        syncId: string;
+        addedTrackCount7d: number;
+      }>;
+    };
+
+    assert.equal(body.subscriberSyncActivity.length, 1);
+    assert.equal(body.subscriberSyncActivity[0]?.syncId, sync.id);
+    assert.equal(body.subscriberSyncActivity[0]?.addedTrackCount7d, 2);
+  });
+
+  it('syncs: track activity recording dedupes repeated provider tracks across metadata changes', async () => {
+    const ownerEmail = `${TEST_EMAIL_PREFIX}activity-owner-${randomUUID()}@synqit.test`;
+    const owner = await registerUser(app, ownerEmail);
+
+    const sync = await syncsStore.createSync({
+      senderUserId: owner.user.id,
+      provider: 'apple',
+      providerPlaylistId: 'dedupe-apple-playlist',
+      name: 'Apple Dedupe Sync',
+      trackCount: 1,
+      syncMode: 'host_only',
+    });
+
+    const firstSeenAt = new Date();
+    await syncsStore.recordTrackActivity({
+      syncId: sync.id,
+      seenAt: firstSeenAt,
+      bootstrapSeenAt: firstSeenAt,
+      tracks: [
+        {
+          providerTrackId: 'apple-track-1',
+          name: 'Song A',
+          artist: 'Artist A',
+          album: 'Album A',
+          durationMs: 0,
+          artworkUrl: null,
+        },
+      ],
+    });
+
+    await syncsStore.recordTrackActivity({
+      syncId: sync.id,
+      seenAt: new Date(firstSeenAt.getTime() + 60_000),
+      tracks: [
+        {
+          providerTrackId: 'apple-track-1',
+          name: 'Song A',
+          artist: 'Artist A',
+          album: 'Album A',
+          durationMs: 182000,
+          artworkUrl: null,
+        },
+      ],
+    });
+
+    const activityRows = await prisma.playlist_sync_track_activity.findMany({
+      where: {
+        sync_id: sync.id,
+      },
+    });
+
+    assert.equal(activityRows.length, 1);
+    assert.equal(activityRows[0]?.provider_track_id, 'apple-track-1');
   });
 });

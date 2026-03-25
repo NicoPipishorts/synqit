@@ -27,10 +27,10 @@ export const AppPageHeader = ({
 }: AppPageHeaderProps) => (
   <article className={className}>
     <div className="sm:px-2 sm:pb-8">
-      <div className="flex items-start gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         {backTo ? <CircleChevronBackButton to={backTo} label={backLabel ?? title} /> : null}
-        <div className="grid flex-1 gap-3">
-          <div className="flex items-start justify-between gap-3">
+        <div className={`grid flex-1 gap-3${backTo ? ' ml-12 sm:ml-14' : ''}`}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ">
             <div className="grid gap-1">
               {eyebrow ? (
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary">

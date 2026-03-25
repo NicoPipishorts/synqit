@@ -156,7 +156,7 @@ export const AdminEmailsPage = () => {
         description={t('admin.portalSubtitle')}
       />
 
-      <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+      <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-4 shadow-soft-lift sm:p-5 dark:bg-app-card">
         <h2 className="text-lg font-black text-app-text">{t('admin.emailPreviewTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
           <input
@@ -179,6 +179,7 @@ export const AdminEmailsPage = () => {
             variant="secondary"
             onClick={() => void sendPreview()}
             disabled={isSendingPreview}
+            className="w-full justify-center sm:w-auto"
           >
             {isSendingPreview ? t('admin.sendingPreview') : t('admin.sendPreview')}
           </CTAButton>
@@ -190,7 +191,7 @@ export const AdminEmailsPage = () => {
         ) : null}
       </article>
 
-      <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+      <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-4 shadow-soft-lift sm:p-5 dark:bg-app-card">
         <h2 className="text-lg font-black text-app-text">{t('admin.passwordResetPreviewTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
           <input
@@ -213,6 +214,7 @@ export const AdminEmailsPage = () => {
             variant="secondary"
             onClick={() => void sendResetPreview()}
             disabled={isSendingResetPreview}
+            className="w-full justify-center sm:w-auto"
           >
             {isSendingResetPreview ? t('admin.sendingResetPreview') : t('admin.sendResetPreview')}
           </CTAButton>
@@ -224,7 +226,7 @@ export const AdminEmailsPage = () => {
         ) : null}
       </article>
 
-      <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
+      <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-4 shadow-soft-lift sm:p-5 dark:bg-app-card">
         <h2 className="text-lg font-black text-app-text">{t('admin.inviteEmailPreviewTitle')}</h2>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
           <input
@@ -247,6 +249,7 @@ export const AdminEmailsPage = () => {
             variant="secondary"
             onClick={() => void sendInvitePreview()}
             disabled={isSendingInvitePreview}
+            className="w-full justify-center sm:w-auto"
           >
             {isSendingInvitePreview
               ? t('admin.sendingInvitePreview')
