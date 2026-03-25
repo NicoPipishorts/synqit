@@ -35,6 +35,55 @@ export const AdminInvitesPage = () => {
     [locale],
   );
 
+  const groupedInvites = useMemo(() => {
+    const groups = new Map<
+      string,
+      {
+        email: string;
+        invites: AdminRegistrationInviteTokenSummary[];
+      }
+    >();
+
+    for (const invite of invites) {
+      const key = invite.invitedEmail.trim().toLowerCase();
+      const current = groups.get(key);
+      if (current) {
+        current.invites.push(invite);
+        continue;
+      }
+
+      groups.set(key, {
+        email: invite.invitedEmail,
+        invites: [invite],
+      });
+    }
+
+    const byNewest = (
+      left: AdminRegistrationInviteTokenSummary,
+      right: AdminRegistrationInviteTokenSummary,
+    ) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+
+    return Array.from(groups.values())
+      .map((group) => {
+        const sortedInvites = [...group.invites].sort(byNewest);
+        const latestInvite = sortedInvites[0] ?? null;
+        const resendInviteRecord =
+          sortedInvites.find((invite) => invite.status !== 'used') ?? latestInvite;
+
+        return {
+          email: group.email,
+          invites: sortedInvites,
+          latestInvite,
+          resendInviteRecord,
+        };
+      })
+      .sort((left, right) => {
+        const leftTime = left.latestInvite ? new Date(left.latestInvite.createdAt).getTime() : 0;
+        const rightTime = right.latestInvite ? new Date(right.latestInvite.createdAt).getTime() : 0;
+        return rightTime - leftTime;
+      });
+  }, [invites]);
+
   const formatOptionalDate = useCallback(
     (value: string | null): string => {
       if (!value) return '—';
@@ -199,60 +248,65 @@ export const AdminInvitesPage = () => {
 
         {isLoading ? (
           <p className="text-sm text-app-text-secondary">{t('admin.loadingInviteTokens')}</p>
-        ) : invites.length === 0 ? (
+        ) : groupedInvites.length === 0 ? (
           <p className="text-sm text-app-text-secondary">{t('admin.noInviteTokens')}</p>
         ) : (
           <>
             <div className="grid gap-3 md:hidden">
-              {invites.map((invite) => {
-                const canResend = invite.status !== 'used';
+              {groupedInvites.map((group) => {
+                const latestInvite = group.latestInvite;
+                const resendInviteRecord = group.resendInviteRecord;
+                const canResend = Boolean(latestInvite && latestInvite.status !== 'used');
+
+                if (!latestInvite || !resendInviteRecord) {
+                  return null;
+                }
+
                 return (
                   <div
-                    key={invite.id}
+                    key={group.email}
                     className="grid gap-3 rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card"
                   >
                     <div className="grid gap-1">
-                      <p className="truncate text-sm font-black text-app-text">
-                        {invite.invitedEmail}
-                      </p>
-                      <p className="text-xs font-semibold text-app-text-secondary">
-                        {invite.tokenPreview}
-                      </p>
+                      <p className="truncate text-sm font-black text-app-text">{group.email}</p>
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs font-semibold text-app-text-secondary">
                       <div className="grid gap-1">
                         <span>{t('admin.inviteTokenCreatedAt')}</span>
                         <span className="text-app-text">
-                          {formatOptionalDate(invite.createdAt)}
+                          {formatOptionalDate(latestInvite.createdAt)}
                         </span>
                       </div>
                       <div className="grid gap-1">
                         <span>{t('admin.inviteTokenExpiresAt')}</span>
                         <span className="text-app-text">
-                          {formatOptionalDate(invite.expiresAt)}
+                          {formatOptionalDate(latestInvite.expiresAt)}
                         </span>
                       </div>
                       <div className="grid gap-1">
                         <span>{t('admin.inviteTokenLastSentAt')}</span>
                         <span className="text-app-text">
-                          {formatOptionalDate(invite.lastSentAt)}
+                          {formatOptionalDate(latestInvite.lastSentAt)}
                         </span>
                       </div>
                       <div className="grid gap-1">
                         <span>{t('admin.inviteTokenStatus')}</span>
-                        <span className="text-app-text">
-                          {t(`admin.inviteStatus.${invite.status}` as never)}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2 text-app-text">
+                          <span className="text-app-text-secondary">
+                            {t('admin.inviteCount', { count: group.invites.length })}
+                          </span>
+                          <span>{t(`admin.inviteStatus.${latestInvite.status}` as never)}</span>
+                        </div>
                       </div>
                     </div>
                     <CTAButton
                       type="button"
                       variant="secondary"
-                      disabled={!canResend || resendingInviteId === invite.id}
-                      onClick={() => void resendInvite(invite.id)}
+                      disabled={!canResend || resendingInviteId === resendInviteRecord.id}
+                      onClick={() => void resendInvite(resendInviteRecord.id)}
                       className="w-full justify-center"
                     >
-                      {resendingInviteId === invite.id
+                      {resendingInviteId === resendInviteRecord.id
                         ? t('admin.sendingInvite')
                         : t('admin.resendInvite')}
                     </CTAButton>
@@ -266,7 +320,6 @@ export const AdminInvitesPage = () => {
                 <thead className="bg-app-surface dark:bg-app-card">
                   <tr className="border-b border-app-border text-[11px] uppercase tracking-wide text-app-text-secondary">
                     <th className="px-3 py-2 font-black">{t('auth.email')}</th>
-                    <th className="px-3 py-2 font-black">{t('admin.inviteTokenPreview')}</th>
                     <th className="px-3 py-2 font-black">{t('admin.inviteTokenCreatedAt')}</th>
                     <th className="px-3 py-2 font-black">{t('admin.inviteTokenExpiresAt')}</th>
                     <th className="px-3 py-2 font-black">{t('admin.inviteTokenLastSentAt')}</th>
@@ -275,36 +328,41 @@ export const AdminInvitesPage = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {invites.map((invite) => {
-                    const canResend = invite.status !== 'used';
+                  {groupedInvites.map((group) => {
+                    const latestInvite = group.latestInvite;
+                    const resendInviteRecord = group.resendInviteRecord;
+                    const canResend = Boolean(latestInvite && latestInvite.status !== 'used');
+
+                    if (!latestInvite || !resendInviteRecord) {
+                      return null;
+                    }
+
                     return (
-                      <tr key={invite.id} className="border-b border-app-border last:border-b-0">
-                        <td className="px-3 py-2 text-sm font-bold text-app-text">
-                          {invite.invitedEmail}
+                      <tr key={group.email} className="border-b border-app-border last:border-b-0">
+                        <td className="px-3 py-2 text-sm font-bold text-app-text">{group.email}</td>
+                        <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
+                          {formatOptionalDate(latestInvite.createdAt)}
                         </td>
                         <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                          {invite.tokenPreview}
+                          {formatOptionalDate(latestInvite.expiresAt)}
                         </td>
                         <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                          {formatOptionalDate(invite.createdAt)}
+                          {formatOptionalDate(latestInvite.lastSentAt)}
                         </td>
                         <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                          {formatOptionalDate(invite.expiresAt)}
-                        </td>
-                        <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                          {formatOptionalDate(invite.lastSentAt)}
-                        </td>
-                        <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                          {t(`admin.inviteStatus.${invite.status}` as never)}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{t('admin.inviteCount', { count: group.invites.length })}</span>
+                            <span>{t(`admin.inviteStatus.${latestInvite.status}` as never)}</span>
+                          </div>
                         </td>
                         <td className="px-3 py-2">
                           <CTAButton
                             type="button"
                             variant="secondary"
-                            disabled={!canResend || resendingInviteId === invite.id}
-                            onClick={() => void resendInvite(invite.id)}
+                            disabled={!canResend || resendingInviteId === resendInviteRecord.id}
+                            onClick={() => void resendInvite(resendInviteRecord.id)}
                           >
-                            {resendingInviteId === invite.id
+                            {resendingInviteId === resendInviteRecord.id
                               ? t('admin.sendingInvite')
                               : t('admin.resendInvite')}
                           </CTAButton>

@@ -104,6 +104,8 @@
     "inviteTokenExpiresAt": "Expires",
     "inviteTokenLastSentAt": "Last sent",
     "inviteTokenStatus": "Status",
+    "inviteCount_one": "{{count}} invite",
+    "inviteCount_other": "{{count}} invites",
     "inviteActions": "Actions",
     "inviteTokenActive": "Active",
     "inviteTokenUsed": "Used",
