@@ -1,6 +1,7 @@
 type SyncTrackLike = {
   name: string;
   artist: string;
+  album?: string | null;
   durationMs?: number;
 };
 
@@ -17,4 +18,11 @@ export const buildTrackFingerprint = (track: SyncTrackLike): string => {
   const artist = normalizeTrackPart(track.artist.split(',')[0] ?? track.artist);
   const durationBucket = Math.round((track.durationMs ?? 0) / 2000);
   return `${name}|${artist}|${durationBucket}`;
+};
+
+export const buildTrackIdentityKey = (track: Pick<SyncTrackLike, 'name' | 'artist' | 'album'>) => {
+  const name = normalizeTrackPart(track.name);
+  const artist = normalizeTrackPart(track.artist.split(',')[0] ?? track.artist);
+  const album = normalizeTrackPart(track.album ?? '');
+  return `${name}|${artist}|${album}`;
 };

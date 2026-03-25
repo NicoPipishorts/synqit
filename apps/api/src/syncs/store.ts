@@ -1,7 +1,7 @@
 import { Provider, providerSchema, syncModeSchema, type SyncMode } from '@synqit/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { buildTrackFingerprint } from './track-fingerprint';
+import { buildTrackFingerprint, buildTrackIdentityKey } from './track-fingerprint';
 import { prisma } from '../db/prisma';
 import type { Prisma } from '../generated/prisma/client';
 
@@ -685,17 +685,38 @@ export const syncsStore = {
       return;
     }
 
-    const byFingerprint = new Map<string, SyncTrackActivityTrack>();
+    const byActivityKey = new Map<
+      string,
+      { trackFingerprint: string; providerTrackId: string; track: SyncTrackActivityTrack }
+    >();
     for (const track of params.tracks) {
       const fingerprint = buildTrackFingerprint(track);
-      if (!byFingerprint.has(fingerprint)) {
-        byFingerprint.set(fingerprint, track);
+      const providerTrackId = track.providerTrackId?.trim() || fingerprint;
+      if (!byActivityKey.has(providerTrackId)) {
+        byActivityKey.set(providerTrackId, {
+          trackFingerprint: fingerprint,
+          providerTrackId,
+          track,
+        });
       }
     }
 
-    if (byFingerprint.size === 0) {
+    if (byActivityKey.size === 0) {
       return;
     }
+
+    const existingActivityRows = await prisma.playlist_sync_track_activity.findMany({
+      where: {
+        sync_id: params.syncId,
+        provider_track_id: { in: Array.from(byActivityKey.keys()) },
+      },
+      select: {
+        provider_track_id: true,
+      },
+    });
+    const existingProviderTrackIds = new Set(
+      existingActivityRows.map((row) => row.provider_track_id),
+    );
 
     const existingCount = await prisma.playlist_sync_track_activity.count({
       where: { sync_id: params.syncId },
@@ -703,13 +724,20 @@ export const syncsStore = {
     const firstSeenAt =
       existingCount === 0 ? (params.bootstrapSeenAt ?? params.seenAt) : params.seenAt;
     const now = new Date();
+    const newRows = Array.from(byActivityKey.values()).filter(
+      (entry) => !existingProviderTrackIds.has(entry.providerTrackId),
+    );
+
+    if (newRows.length === 0) {
+      return;
+    }
 
     await prisma.playlist_sync_track_activity.createMany({
-      data: Array.from(byFingerprint.entries()).map(([trackFingerprint, track]) => ({
+      data: newRows.map(({ trackFingerprint, providerTrackId, track }) => ({
         id: randomUUID(),
         sync_id: params.syncId,
         track_fingerprint: trackFingerprint,
-        provider_track_id: track.providerTrackId ?? trackFingerprint,
+        provider_track_id: providerTrackId,
         name: track.name,
         artist: track.artist,
         album: track.album ?? '',
@@ -730,18 +758,39 @@ export const syncsStore = {
       return new Map();
     }
 
-    const rows = await prisma.playlist_sync_track_activity.groupBy({
-      by: ['sync_id'],
+    const rows = await prisma.playlist_sync_track_activity.findMany({
       where: {
         sync_id: { in: params.syncIds },
         first_seen_at: { gte: params.since },
       },
-      _count: {
-        _all: true,
+      select: {
+        sync_id: true,
+        provider_track_id: true,
+        track_fingerprint: true,
+        name: true,
+        artist: true,
+        album: true,
       },
     });
 
-    return new Map(rows.map((row) => [row.sync_id, row._count._all]));
+    const distinctActivityKeysBySyncId = new Map<string, Set<string>>();
+    for (const row of rows) {
+      const current = distinctActivityKeysBySyncId.get(row.sync_id) ?? new Set<string>();
+      const activityKey = `track:${buildTrackIdentityKey({
+        name: row.name,
+        artist: row.artist,
+        album: row.album,
+      })}`;
+      current.add(activityKey);
+      distinctActivityKeysBySyncId.set(row.sync_id, current);
+    }
+
+    const counts = new Map<string, number>();
+    for (const [syncId, activityKeys] of distinctActivityKeysBySyncId.entries()) {
+      counts.set(syncId, activityKeys.size);
+    }
+
+    return counts;
   },
 
   async listRecentTrackActivityBySyncId(params: {

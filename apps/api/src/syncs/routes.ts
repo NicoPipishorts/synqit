@@ -462,8 +462,14 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
       : null;
 
     // Fetch source tracks to show on the public page
-    let tracks: Array<{ name: string; artist: string; album: string; artworkUrl: string | null }> =
-      [];
+    let activityTracks: Array<{
+      providerTrackId: string;
+      name: string;
+      artist: string;
+      album: string;
+      artworkUrl: string | null;
+      durationMs: number;
+    }> = [];
     if (!sync.magicLinkRevokedAt) {
       try {
         if (sync.provider === 'spotify' && isSpotifyOauthLiveMode()) {
@@ -475,11 +481,13 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
                 providerPlaylistId: sync.providerPlaylistId,
               }),
           });
-          tracks = result.map((t) => ({
+          activityTracks = result.map((t) => ({
+            providerTrackId: t.providerTrackId,
             name: t.name,
             artist: t.artist,
             album: t.album ?? '',
             artworkUrl: t.artworkUrl ?? null,
+            durationMs: t.durationMs,
           }));
         } else if (sync.provider === 'apple') {
           const rawTracks = await withAppleMusicUserToken({
@@ -487,11 +495,13 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
             run: (ctx) =>
               listApplePlaylistTracks({ ...ctx, providerPlaylistId: sync.providerPlaylistId }),
           });
-          tracks = rawTracks.map((t) => ({
+          activityTracks = rawTracks.map((t) => ({
+            providerTrackId: t.providerTrackId,
             name: t.name,
             artist: t.artist,
             album: t.album ?? '',
             artworkUrl: t.artworkUrl ?? null,
+            durationMs: t.durationMs,
           }));
         }
       } catch {
@@ -499,10 +509,10 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
       }
     }
 
-    if (tracks.length > 0) {
+    if (activityTracks.length > 0) {
       await syncsStore.recordTrackActivity({
         syncId: sync.id,
-        tracks,
+        tracks: activityTracks,
         seenAt: new Date(),
         bootstrapSeenAt: sync.lastSyncedAt ?? sync.createdAt,
       });
@@ -515,12 +525,17 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
           provider: sync.provider,
           syncMode: sync.syncMode,
           name: sync.name,
-          trackCount: sync.trackCount ?? tracks.length,
+          trackCount: sync.trackCount ?? activityTracks.length,
           isRevoked: sync.magicLinkRevokedAt !== null,
           isOwner: currentUserId === sync.senderUserId,
           isSubscribed: existingImport !== null,
           subscriberCount,
-          tracks,
+          tracks: activityTracks.map((track) => ({
+            name: track.name,
+            artist: track.artist,
+            album: track.album,
+            artworkUrl: track.artworkUrl,
+          })),
         },
       }),
     );

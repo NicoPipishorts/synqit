@@ -66,6 +66,7 @@ export const queryKeys = {
   integrations: {
     all: () => ['integrations'] as const,
     list: () => ['integrations', 'list'] as const,
+    snapshot: () => ['integrations', 'snapshot'] as const,
   },
   preferences: {
     all: () => ['preferences'] as const,
