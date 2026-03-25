@@ -26,16 +26,40 @@ const PROVIDER_META: Record<Provider, { label: string; iconPath: string }> = {
   apple: { label: 'Apple Music', iconPath: '/assets/logos/Providers/AppleMusic.png' },
 };
 
+const snapshotFetchOptions = {
+  queryKey: queryKeys.integrations.snapshot(),
+  queryFn: fetchIntegrationsSnapshot,
+} as const;
+
 export const ProviderConnections = () => {
-  const search = useRouterState({
-    select: (state) => state.location.searchStr,
-  });
+  const search = useRouterState({ select: (s) => s.location.searchStr });
   const { t, locale } = useI18n();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
-  const [activeActionByProvider, setActiveActionByProvider] = useState<
-    Partial<Record<Provider, ProviderAction>>
-  >({});
+  const [busyProviders, setBusyProviders] = useState<Partial<Record<Provider, ProviderAction>>>({});
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  const setBusy = useCallback((provider: Provider, action: ProviderAction) => {
+    setBusyProviders((prev) => ({ ...prev, [provider]: action }));
+  }, []);
+
+  const clearBusy = useCallback((provider: Provider) => {
+    setBusyProviders((prev) => {
+      const next = { ...prev };
+      delete next[provider];
+      return next;
+    });
+  }, []);
+
+  const refreshSnapshot = useCallback(async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() }),
+      queryClient.fetchQuery(snapshotFetchOptions),
+    ]);
+  }, [queryClient]);
 
   const formatDateTime = useCallback(
     (value: string | null): string | null => {
@@ -51,21 +75,14 @@ export const ProviderConnections = () => {
   );
 
   const redirectTo = useMemo(() => {
-    const rawValue = new URLSearchParams(search).get('redirectTo')?.trim();
-    if (!rawValue || !rawValue.startsWith('/') || rawValue.startsWith('//')) {
-      return null;
-    }
-    if (rawValue.startsWith('/auth/') || rawValue === '/profile/platforms') {
-      return null;
-    }
-    return rawValue;
+    const raw = new URLSearchParams(search).get('redirectTo')?.trim();
+    if (!raw || !raw.startsWith('/') || raw.startsWith('//')) return null;
+    if (raw.startsWith('/auth/') || raw === '/profile/platforms') return null;
+    return raw;
   }, [search]);
 
   const redirectAfterConnect = useCallback(() => {
-    if (!redirectTo || typeof window === 'undefined') {
-      return;
-    }
-    window.location.assign(redirectTo);
+    if (redirectTo) window.location.assign(redirectTo);
   }, [redirectTo]);
 
   // ---------------------------------------------------------------------------
@@ -73,39 +90,25 @@ export const ProviderConnections = () => {
   // ---------------------------------------------------------------------------
 
   const snapshotQuery = useQuery({
-    queryKey: queryKeys.integrations.snapshot(),
-    queryFn: fetchIntegrationsSnapshot,
+    ...snapshotFetchOptions,
     staleTime: 0,
-    select: (data): IntegrationsSnapshot => {
-      trackAnalyticsEvent({
-        eventName: 'providers_snapshot_loaded',
-        target: 'providers',
-        properties: {
-          connectedCount: Object.values(data.byProvider).filter((i) => i.status === 'connected')
-            .length,
-          totalProviders: providerSchema.options.length,
-        },
-      });
-      return data;
-    },
   });
 
-  const integrationByProvider = useMemo(
-    () =>
-      snapshotQuery.data?.byProvider ?? {
-        spotify: { status: 'not_connected', connectedAt: null, expiresAt: null },
-        apple: { status: 'not_connected', connectedAt: null, expiresAt: null },
+  useEffect(() => {
+    if (!snapshotQuery.data) return;
+    trackAnalyticsEvent({
+      eventName: 'providers_snapshot_loaded',
+      target: 'providers',
+      properties: {
+        connectedCount: Object.values(snapshotQuery.data.byProvider).filter(
+          (i) => i.status === 'connected',
+        ).length,
+        totalProviders: providerSchema.options.length,
       },
-    [snapshotQuery.data],
-  );
-  const eventCountByProvider = useMemo(
-    () =>
-      snapshotQuery.data?.eventCountByProvider ?? {
-        spotify: 0,
-        apple: 0,
-      },
-    [snapshotQuery.data],
-  );
+    });
+  }, [snapshotQuery.data]);
+
+  const snapshot = snapshotQuery.data;
 
   // ---------------------------------------------------------------------------
   // Disconnect mutation
@@ -113,14 +116,9 @@ export const ProviderConnections = () => {
 
   const disconnectMutation = useMutation({
     mutationFn: (provider: Provider) => disconnectProvider(provider),
+    onMutate: (provider) => setBusy(provider, 'disconnect'),
     onSuccess: async (_data, provider) => {
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() }),
-        queryClient.fetchQuery({
-          queryKey: queryKeys.integrations.snapshot(),
-          queryFn: fetchIntegrationsSnapshot,
-        }),
-      ]);
+      await refreshSnapshot();
       showToast(t('profile.connectionRemoved', { provider: PROVIDER_META[provider].label }), {
         variant: 'success',
       });
@@ -141,28 +139,16 @@ export const ProviderConnections = () => {
         properties: { provider, code: apiError.code },
       });
     },
-    onSettled: (_data, _error, provider) => {
-      setActiveActionByProvider((current) => {
-        const next = { ...current };
-        delete next[provider];
-        return next;
-      });
-    },
+    onSettled: (_data, _error, provider) => clearBusy(provider),
   });
 
   // ---------------------------------------------------------------------------
-  // Connect action (Apple Music + Spotify OAuth popup)
+  // Connect / refresh action
   // ---------------------------------------------------------------------------
 
-  const runProviderAction = useCallback(
-    async (provider: Provider, action: ProviderAction) => {
-      setActiveActionByProvider((current) => ({ ...current, [provider]: action }));
-
-      if (action === 'disconnect') {
-        disconnectMutation.mutate(provider);
-        return;
-      }
-
+  const runConnectAction = useCallback(
+    async (provider: Provider, action: 'connect' | 'refresh') => {
+      setBusy(provider, action);
       trackAnalyticsEvent({
         eventName: 'provider_connect_started',
         target: 'providers',
@@ -184,13 +170,11 @@ export const ProviderConnections = () => {
           });
         }
 
-        await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
-        const snapshot = await queryClient.fetchQuery({
-          queryKey: queryKeys.integrations.snapshot(),
-          queryFn: fetchIntegrationsSnapshot,
-        });
+        const fresh = await refreshSnapshot().then(() =>
+          queryClient.getQueryData<IntegrationsSnapshot>(snapshotFetchOptions.queryKey),
+        );
         const isConnected =
-          snapshot?.byProvider[provider].status === 'connected' || popupResult === 'connected';
+          fresh?.byProvider[provider].status === 'connected' || popupResult === 'connected';
 
         if (isConnected) {
           showToast(t('profile.connectionConnected', { provider: PROVIDER_META[provider].label }), {
@@ -232,17 +216,16 @@ export const ProviderConnections = () => {
           });
         }
       } finally {
-        setActiveActionByProvider((current) => {
-          const next = { ...current };
-          delete next[provider];
-          return next;
-        });
+        clearBusy(provider);
       }
     },
-    [disconnectMutation, queryClient, redirectAfterConnect, showToast, t],
+    [clearBusy, queryClient, redirectAfterConnect, refreshSnapshot, setBusy, showToast, t],
   );
 
-  // Handle provider/status query params written by the OAuth callback page
+  // ---------------------------------------------------------------------------
+  // OAuth callback query params (written by the callback page)
+  // ---------------------------------------------------------------------------
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const providerParam = params.get('provider');
@@ -261,11 +244,7 @@ export const ProviderConnections = () => {
           variant: 'error',
         });
       }
-      void queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
-      void queryClient.fetchQuery({
-        queryKey: queryKeys.integrations.snapshot(),
-        queryFn: fetchIntegrationsSnapshot,
-      });
+      void refreshSnapshot();
     }
 
     params.delete('provider');
@@ -276,7 +255,7 @@ export const ProviderConnections = () => {
       '',
       `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`,
     );
-  }, [queryClient, redirectAfterConnect, showToast, t]);
+  }, [queryClient, redirectAfterConnect, refreshSnapshot, showToast, t]);
 
   // ---------------------------------------------------------------------------
   // Derived
@@ -285,27 +264,26 @@ export const ProviderConnections = () => {
   const providerCards = useMemo(
     () =>
       providerSchema.options.map((provider) => {
-        const integration = integrationByProvider[provider];
+        const integration = snapshot?.byProvider[provider] ?? {
+          status: 'not_connected' as const,
+          connectedAt: null,
+          expiresAt: null,
+        };
         return {
           provider,
-          providerMeta: PROVIDER_META[provider],
+          meta: PROVIDER_META[provider],
           isConnected: integration.status === 'connected',
-          isBusy: Boolean(activeActionByProvider[provider]),
+          isBusy: Boolean(busyProviders[provider]),
           connectedAt: formatDateTime(integration.connectedAt),
           expiresAt: formatDateTime(integration.expiresAt),
-          eventsLinked: eventCountByProvider[provider] ?? 0,
+          eventsLinked: snapshot?.eventCountByProvider[provider] ?? 0,
         };
       }),
-    [activeActionByProvider, eventCountByProvider, formatDateTime, integrationByProvider],
+    [busyProviders, formatDateTime, snapshot],
   );
 
-  const connectedProviderCards = useMemo(
-    () => providerCards.filter((card) => card.isConnected),
-    [providerCards],
-  );
-
-  const hasConnectedProvider = connectedProviderCards.length > 0;
-
+  const hasConnectedProvider = providerCards.some((c) => c.isConnected);
+  const connectedCards = providerCards.filter((c) => c.isConnected);
   const isRefreshing = snapshotQuery.isFetching;
 
   // ---------------------------------------------------------------------------
@@ -321,15 +299,7 @@ export const ProviderConnections = () => {
           </h2>
           <CTAButton
             type="button"
-            onClick={() =>
-              void Promise.all([
-                queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() }),
-                queryClient.fetchQuery({
-                  queryKey: queryKeys.integrations.snapshot(),
-                  queryFn: fetchIntegrationsSnapshot,
-                }),
-              ])
-            }
+            onClick={() => void refreshSnapshot()}
             disabled={isRefreshing}
             variant="secondary"
             aria-label={t('profile.connectionsReload')}
@@ -354,28 +324,26 @@ export const ProviderConnections = () => {
         <div className="mt-4 flex flex-wrap gap-3">
           {providerCards
             .filter(({ isConnected }) => !hasConnectedProvider || isConnected)
-            .map(({ provider, providerMeta, isConnected, isBusy }) => (
+            .map(({ provider, meta, isConnected, isBusy }) => (
               <button
                 key={provider}
                 type="button"
                 disabled={isConnected || isBusy}
                 onClick={() => {
-                  if (!isConnected) {
-                    void runProviderAction(provider, 'connect');
-                  }
+                  if (!isConnected) void runConnectAction(provider, 'connect');
                 }}
-                className={`grid min-w-38 sm:min-w-40 gap-1 rounded-xl border border-app-border bg-app-elevated px-4 py-3 text-left shadow-soft-lift transition dark:bg-app-card ${
+                className={`grid min-w-38 gap-1 rounded-xl border border-app-border bg-app-elevated px-4 py-3 text-left shadow-soft-lift transition sm:min-w-40 dark:bg-app-card ${
                   isConnected
                     ? 'cursor-default grayscale'
-                    : 'hover:border-brand-lime hover:shadow-glow-lime cursor-pointer'
+                    : 'cursor-pointer hover:border-brand-lime hover:shadow-glow-lime'
                 } ${isBusy ? 'opacity-60' : ''}`}
               >
                 <img
-                  src={providerMeta.iconPath}
-                  alt={providerMeta.label}
+                  src={meta.iconPath}
+                  alt={meta.label}
                   className="h-10 w-10 rounded-full object-cover"
                 />
-                <p className="text-sm font-semibold text-app-text">{providerMeta.label}</p>
+                <p className="text-sm font-semibold text-app-text">{meta.label}</p>
                 <p className="text-xs text-app-text-secondary">
                   {isConnected
                     ? t('profile.connectionConnectedTag')
@@ -386,10 +354,10 @@ export const ProviderConnections = () => {
         </div>
       </article>
 
-      {connectedProviderCards.length > 0 ? (
+      {connectedCards.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
-          {connectedProviderCards.map(
-            ({ provider, providerMeta, isBusy, connectedAt, expiresAt, eventsLinked }) => (
+          {connectedCards.map(
+            ({ provider, meta, isBusy, connectedAt, expiresAt, eventsLinked }) => (
               <article
                 key={provider}
                 className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card"
@@ -397,12 +365,12 @@ export const ProviderConnections = () => {
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <img
-                      src={providerMeta.iconPath}
-                      alt={providerMeta.label}
+                      src={meta.iconPath}
+                      alt={meta.label}
                       className="h-12 w-12 rounded-full object-cover"
                     />
                     <h3 className="text-lg font-bold text-brand-dark dark:text-brand-white">
-                      {providerMeta.label}
+                      {meta.label}
                     </h3>
                   </div>
                   <span className="rounded-full border border-brand-lime/40 bg-brand-lime/15 px-2.5 py-1 text-xs font-semibold text-[#6d9600] dark:text-[#d5ff5c]">
@@ -428,7 +396,7 @@ export const ProviderConnections = () => {
                   <CTAButton
                     type="button"
                     disabled={isBusy}
-                    onClick={() => void runProviderAction(provider, 'refresh')}
+                    onClick={() => void runConnectAction(provider, 'refresh')}
                     variant="secondary"
                     aria-label={t('profile.connectionRefresh')}
                   >
@@ -440,7 +408,7 @@ export const ProviderConnections = () => {
                   <CTAButton
                     type="button"
                     disabled={isBusy}
-                    onClick={() => void runProviderAction(provider, 'disconnect')}
+                    onClick={() => disconnectMutation.mutate(provider)}
                     variant="dangerSoft"
                     aria-label={t('profile.connectionRemove')}
                   >

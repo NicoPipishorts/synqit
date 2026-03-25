@@ -1,14 +1,17 @@
 import { eventTracksResponseSchema, type EventTrack } from '@synqit/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, RefreshCcw } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import {
   DashboardActivityFeed,
   type ActivityFeedItem,
 } from '../components/dashboard/DashboardActivityFeed';
-import { DashboardPlaylistCard } from '../components/dashboard/DashboardPlaylistCard';
+import {
+  DashboardPlaylistCard,
+  type PlaylistCardRole,
+} from '../components/dashboard/DashboardPlaylistCard';
 import { PwaInstallPrompt } from '../components/dashboard/PwaInstallPrompt';
 import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { CTALink } from '../components/ui/cta';
@@ -27,30 +30,99 @@ import {
   syncQueryKeys,
 } from '../lib/queries';
 
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
 type GuestEventActivity = {
   magicLinkToken: string;
   name: string;
-  tracks: EventTrack[];
   recentAddedCount: number;
   latestActivityAt: string | null;
 };
+
+type PlaylistCardItem = {
+  id: string;
+  playlistName: string;
+  href: string;
+  role: PlaylistCardRole;
+  roleLabel: string;
+  signal: string | null;
+  signalActive: boolean;
+  sortAt: number;
+};
+
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const toTimestamp = (value: string | null | undefined): number => {
   if (!value) return 0;
-  const timestamp = Date.parse(value);
-  return Number.isNaN(timestamp) ? 0 : timestamp;
+  const ts = Date.parse(value);
+  return Number.isNaN(ts) ? 0 : ts;
 };
 
-const RECENT_GUEST_WINDOW_MS = DAY_MS;
+const formatTimeAgo = (value: string | null, locale: string): string | null => {
+  if (!value) return null;
+  try {
+    const diff = Date.now() - Date.parse(value);
+    const mins = Math.floor(diff / 60_000);
+    const hours = Math.floor(diff / 3_600_000);
+    const days = Math.floor(diff / DAY_MS);
+    const fr = locale === 'fr';
+    if (mins < 1) return fr ? "À l'instant" : 'Just now';
+    if (mins < 60) return fr ? `Il y a ${mins} min` : `${mins}m ago`;
+    if (hours < 24) return fr ? `Il y a ${hours} h` : `${hours}h ago`;
+    return fr ? `Il y a ${days} j` : `${days}d ago`;
+  } catch {
+    return value;
+  }
+};
+
+const fetchGuestActivities = async (
+  history: DashboardGuestEventHistoryItem[],
+): Promise<GuestEventActivity[]> => {
+  const since = Date.now() - DAY_MS;
+  const responses = await Promise.allSettled(
+    history.map(async (item) => {
+      const result = await callApi(
+        `/v1/playlists/link/${encodeURIComponent(item.magicLinkToken)}/tracks`,
+        { method: 'GET' },
+        (payload) => eventTracksResponseSchema.parse(payload) as { tracks: EventTrack[] },
+      );
+      const recentTracks = result.tracks.filter((t) => toTimestamp(t.addedAt) >= since);
+      return {
+        magicLinkToken: item.magicLinkToken,
+        name: item.name,
+        recentAddedCount: recentTracks.length,
+        latestActivityAt: recentTracks[0]?.addedAt ?? result.tracks[0]?.addedAt ?? null,
+      };
+    }),
+  );
+
+  const fulfilled: GuestEventActivity[] = [];
+  for (const r of responses) {
+    if (r.status === 'fulfilled') fulfilled.push(r.value);
+  }
+  return fulfilled.sort(
+    (a, b) => toTimestamp(b.latestActivityAt) - toTimestamp(a.latestActivityAt),
+  );
+};
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export const DashboardPage = () => {
   const { t, locale } = useI18n();
   const { showToast } = useToast();
-  const [guestHistory] = useState<DashboardGuestEventHistoryItem[]>(() =>
-    readDashboardGuestEvents(),
-  );
+  const [guestHistory] = useState<DashboardGuestEventHistoryItem[]>(readDashboardGuestEvents);
+
+  // ---------------------------------------------------------------------------
+  // Queries
+  // ---------------------------------------------------------------------------
 
   const draftsQuery = useQuery({
     queryKey: queryKeys.drafts.list(),
@@ -71,108 +143,32 @@ export const DashboardPage = () => {
   });
 
   const guestActivityQuery = useQuery({
-    queryKey: ['dashboard', 'guest-events', guestHistory.map((item) => item.magicLinkToken)],
+    queryKey: ['dashboard', 'guest-events', guestHistory.map((i) => i.magicLinkToken)],
     enabled: guestHistory.length > 0,
     staleTime: 120_000,
-    queryFn: async (): Promise<GuestEventActivity[]> => {
-      const since = Date.now() - RECENT_GUEST_WINDOW_MS;
-      const responses = await Promise.allSettled(
-        guestHistory.map(async (item) => {
-          const result = await callApi(
-            `/v1/playlists/link/${encodeURIComponent(item.magicLinkToken)}/tracks`,
-            { method: 'GET' },
-            (payload) => eventTracksResponseSchema.parse(payload),
-          );
-          const recentTracks = result.tracks.filter((track) => toTimestamp(track.addedAt) >= since);
-          return {
-            magicLinkToken: item.magicLinkToken,
-            name: item.name,
-            tracks: result.tracks,
-            recentAddedCount: recentTracks.length,
-            latestActivityAt: recentTracks[0]?.addedAt ?? result.tracks[0]?.addedAt ?? null,
-          };
-        }),
-      );
-
-      const items: GuestEventActivity[] = [];
-      for (const response of responses) {
-        if (response.status === 'fulfilled') items.push(response.value);
-      }
-      return items.sort(
-        (a, b) => toTimestamp(b.latestActivityAt) - toTimestamp(a.latestActivityAt),
-      );
-    },
+    queryFn: () => fetchGuestActivities(guestHistory),
   });
 
+  // ---------------------------------------------------------------------------
+  // Derived data
+  // ---------------------------------------------------------------------------
+
   const activeDraft = draftsQuery.data?.[0] ?? null;
-  const subscribedSyncs = syncsQuery.data?.subscribedSyncs ?? [];
-  const dashboardSummary = dashboardSummaryQuery.data;
+  const summary = dashboardSummaryQuery.data;
   const guestActivities = guestActivityQuery.data ?? [];
 
   const subscribedSyncMap = useMemo(
-    () => new Map(subscribedSyncs.map((sync) => [sync.id, sync])),
-    [subscribedSyncs],
+    () => new Map((syncsQuery.data?.subscribedSyncs ?? []).map((s) => [s.id, s])),
+    [syncsQuery.data?.subscribedSyncs],
   );
 
-  const formatTimeAgo = useCallback(
-    (value: string | null) => {
-      if (!value) return null;
-      try {
-        const diff = Date.now() - Date.parse(value);
-        const mins = Math.floor(diff / 60_000);
-        const hours = Math.floor(diff / 3_600_000);
-        const days = Math.floor(diff / DAY_MS);
-        if (mins < 1) return locale === 'fr' ? "À l'instant" : 'Just now';
-        if (mins < 60) return locale === 'fr' ? `Il y a ${mins} min` : `${mins}m ago`;
-        if (hours < 24) return locale === 'fr' ? `Il y a ${hours} h` : `${hours}h ago`;
-        return locale === 'fr' ? `Il y a ${days} j` : `${days}d ago`;
-      } catch {
-        return value;
-      }
-    },
-    [locale],
-  );
+  const ownerEventActivity = summary?.ownerEventActivity ?? [];
+  const ownerSyncActivity = summary?.ownerSyncActivity ?? [];
+  const subscriberSyncActivity = summary?.subscriberSyncActivity ?? [];
 
-  useEffect(() => {
-    const error =
-      (syncsQuery.isError && syncsQuery.error) ||
-      (dashboardSummaryQuery.isError && dashboardSummaryQuery.error);
-    if (!error) return;
-    showToast(t('dashboard.error', { message: (error as Error).message }), { variant: 'error' });
-  }, [
-    dashboardSummaryQuery.error,
-    dashboardSummaryQuery.isError,
-    showToast,
-    syncsQuery.error,
-    syncsQuery.isError,
-    t,
-  ]);
-
-  const ownerEventActivity = useMemo(
-    () => dashboardSummary?.ownerEventActivity ?? [],
-    [dashboardSummary?.ownerEventActivity],
-  );
-  const ownerSyncActivity = useMemo(
-    () => dashboardSummary?.ownerSyncActivity ?? [],
-    [dashboardSummary?.ownerSyncActivity],
-  );
-  const subscriberSyncActivity = useMemo(
-    () => dashboardSummary?.subscriberSyncActivity ?? [],
-    [dashboardSummary?.subscriberSyncActivity],
-  );
-
-  // --- Playlist cards ---
-
-  type PlaylistCardItem = {
-    id: string;
-    playlistName: string;
-    href: string;
-    role: 'owner' | 'guest' | 'subscriber';
-    roleLabel: string;
-    signal: string | null;
-    signalActive: boolean;
-    sortAt: number;
-  };
+  // ---------------------------------------------------------------------------
+  // Playlist cards
+  // ---------------------------------------------------------------------------
 
   const ownedCards = useMemo<PlaylistCardItem[]>(() => {
     const eventCards = ownerEventActivity.map((item) => ({
@@ -238,7 +234,9 @@ export const DashboardPage = () => {
     return [...guestCards, ...subscriberCards].sort((a, b) => b.sortAt - a.sortAt);
   }, [guestActivities, subscribedSyncMap, subscriberSyncActivity, t]);
 
-  // --- Activity feed ---
+  // ---------------------------------------------------------------------------
+  // Activity feed
+  // ---------------------------------------------------------------------------
 
   const activityItems = useMemo<ActivityFeedItem[]>(() => {
     const ownerEventRows = ownerEventActivity
@@ -248,19 +246,19 @@ export const DashboardPage = () => {
         playlistName: item.name,
         href: `/playlists/${item.eventId}#tracks`,
         description: t('dashboard.activityOwnerEventSongs', { count: item.addedTrackCount24h }),
-        timeLabel: formatTimeAgo(item.latestActivityAt),
+        timeLabel: formatTimeAgo(item.latestActivityAt, locale),
         sortAt: toTimestamp(item.latestActivityAt),
       }));
 
     const ownerSyncRows = ownerSyncActivity.flatMap((item) => {
       if (item.recentSubscribers.length > 0) {
-        return item.recentSubscribers.map((subscriber) => ({
-          id: `activity-owner-sync-${item.syncId}-${subscriber.userId}-${subscriber.subscribedAt}`,
+        return item.recentSubscribers.map((sub) => ({
+          id: `activity-owner-sync-${item.syncId}-${sub.userId}-${sub.subscribedAt}`,
           playlistName: item.name,
           href: `/synced-lists/${item.syncId}`,
-          description: t('dashboard.activityOwnerSyncSubscriber', { name: subscriber.name }),
-          timeLabel: formatTimeAgo(subscriber.subscribedAt),
-          sortAt: toTimestamp(subscriber.subscribedAt),
+          description: t('dashboard.activityOwnerSyncSubscriber', { name: sub.name }),
+          timeLabel: formatTimeAgo(sub.subscribedAt, locale),
+          sortAt: toTimestamp(sub.subscribedAt),
         }));
       }
       if (item.newSubscriberCount24h > 0) {
@@ -272,7 +270,7 @@ export const DashboardPage = () => {
             description: t('dashboard.activityOwnerSyncSubscribers', {
               count: item.newSubscriberCount24h,
             }),
-            timeLabel: formatTimeAgo(item.latestActivityAt),
+            timeLabel: formatTimeAgo(item.latestActivityAt, locale),
             sortAt: toTimestamp(item.latestActivityAt),
           },
         ];
@@ -287,7 +285,7 @@ export const DashboardPage = () => {
         playlistName: item.name,
         href: `/playlist/${item.magicLinkToken}`,
         description: t('dashboard.activityGuestSongs', { count: item.recentAddedCount }),
-        timeLabel: formatTimeAgo(item.latestActivityAt),
+        timeLabel: formatTimeAgo(item.latestActivityAt, locale),
         sortAt: toTimestamp(item.latestActivityAt),
       }));
 
@@ -300,7 +298,7 @@ export const DashboardPage = () => {
           playlistName: sync?.name ?? item.name,
           href: sync ? `/sync/${sync.magicLinkToken}` : '#',
           description: t('dashboard.activitySubscriberSongs', { count: item.addedTrackCount7d }),
-          timeLabel: formatTimeAgo(item.latestActivityAt),
+          timeLabel: formatTimeAgo(item.latestActivityAt, locale),
           sortAt: toTimestamp(item.latestActivityAt),
         };
       });
@@ -309,8 +307,8 @@ export const DashboardPage = () => {
       (a, b) => b.sortAt - a.sortAt,
     );
   }, [
-    formatTimeAgo,
     guestActivities,
+    locale,
     ownerEventActivity,
     ownerSyncActivity,
     subscribedSyncMap,
@@ -318,12 +316,39 @@ export const DashboardPage = () => {
     t,
   ]);
 
+  // ---------------------------------------------------------------------------
+  // Error toasts — depend on the error object, not the boolean flag,
+  // so the toast fires once on transition rather than on every render
+  // ---------------------------------------------------------------------------
+
+  useEffect(() => {
+    if (syncsQuery.error) {
+      showToast(t('dashboard.error', { message: (syncsQuery.error as Error).message }), {
+        variant: 'error',
+      });
+    }
+  }, [syncsQuery.error, showToast, t]);
+
+  useEffect(() => {
+    if (dashboardSummaryQuery.error) {
+      showToast(t('dashboard.error', { message: (dashboardSummaryQuery.error as Error).message }), {
+        variant: 'error',
+      });
+    }
+  }, [dashboardSummaryQuery.error, showToast, t]);
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   const hasDashboardContent =
     ownedCards.length > 0 || joinedCards.length > 0 || guestHistory.length > 0;
   const isInitialLoad = syncsQuery.isLoading || dashboardSummaryQuery.isLoading;
   const isFetching =
     syncsQuery.isFetching || dashboardSummaryQuery.isFetching || guestActivityQuery.isFetching;
-  const showCreatePlaylistCta = ownedCards.length === 0;
+  const showCreateCta = ownedCards.length === 0;
+  const newEventTo = activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new';
+  const newEventLabel = activeDraft ? t('dashboard.ctaResumeDraft') : t('dashboard.ctaCreateEvent');
 
   return (
     <AppPageLayout
@@ -366,25 +391,16 @@ export const DashboardPage = () => {
                 {t('dashboard.ctaCreateFirst')}
               </h2>
               <div className="flex w-72 flex-col items-stretch gap-4">
-                {activeDraft ? (
-                  <CTALink
-                    to={`/playlists/new?draftId=${activeDraft.id}`}
-                    variant="primary"
-                    size="lg"
-                    className="w-full justify-center"
-                  >
-                    {t('dashboard.ctaResumeDraft')}
-                  </CTALink>
-                ) : (
-                  <CTALink
-                    to="/playlists/new"
-                    variant="primary"
-                    size="lg"
-                    className="w-full justify-center"
-                  >
-                    {t('dashboard.ctaCreateEventPlaylist')}
-                  </CTALink>
-                )}
+                <CTALink
+                  to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
+                  variant="primary"
+                  size="lg"
+                  className="w-full justify-center"
+                >
+                  {activeDraft
+                    ? t('dashboard.ctaResumeDraft')
+                    : t('dashboard.ctaCreateEventPlaylist')}
+                </CTALink>
                 <CTALink
                   to="/synced-lists/new"
                   variant="secondary"
@@ -409,35 +425,27 @@ export const DashboardPage = () => {
                 {t('dashboard.title')}
               </h1>
             </div>
-            {showCreatePlaylistCta ? (
+            {showCreateCta ? (
               <div className="hidden shrink-0 items-center gap-3 sm:flex">
                 <CTALink to="/synced-lists/new" variant="secondary" size="lg">
                   {t('dashboard.ctaCreateSyncedPlaylist')}
                 </CTALink>
-                <CTALink
-                  to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
-                  variant="primary"
-                  size="lg"
-                >
+                <CTALink to={newEventTo} variant="primary" size="lg">
                   <Plus size={16} aria-hidden="true" />
-                  {activeDraft ? t('dashboard.ctaResumeDraft') : t('dashboard.ctaCreateEvent')}
+                  {newEventLabel}
                 </CTALink>
               </div>
             ) : null}
           </header>
 
-          {showCreatePlaylistCta ? (
+          {showCreateCta ? (
             <div className="grid gap-3 sm:hidden">
               <CTALink to="/synced-lists/new" variant="secondary" className="w-full justify-center">
                 {t('dashboard.ctaCreateSyncedPlaylist')}
               </CTALink>
-              <CTALink
-                to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
-                variant="primary"
-                className="w-full justify-center"
-              >
+              <CTALink to={newEventTo} variant="primary" className="w-full justify-center">
                 <Plus size={16} aria-hidden="true" />
-                {activeDraft ? t('dashboard.ctaResumeDraft') : t('dashboard.ctaCreateEvent')}
+                {newEventLabel}
               </CTALink>
             </div>
           ) : null}
@@ -458,10 +466,9 @@ export const DashboardPage = () => {
             </div>
 
             <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
-              {/* Owned */}
               {ownedCards.length > 0 ? (
                 <>
-                  <p className="border-b border-brand-lime bg-brand-lime/22 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-brand-dark dark:text-brand-white ">
+                  <p className="border-b border-brand-lime bg-brand-lime/22 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-brand-dark dark:text-brand-white">
                     {t('dashboard.overviewOwnedTitle')}
                   </p>
                   {ownedCards.map((card) => (
@@ -470,12 +477,9 @@ export const DashboardPage = () => {
                 </>
               ) : null}
 
-              {/* Joined */}
               {joinedCards.length > 0 ? (
                 <>
-                  <p
-                    className={`border-b border-brand-lime bg-brand-lime/22  px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-brand-dark dark:text-brand-white `}
-                  >
+                  <p className="border-b border-brand-lime bg-brand-lime/22 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-brand-dark dark:text-brand-white">
                     {t('dashboard.overviewJoinedTitle')}
                   </p>
                   {joinedCards.map((card) => (
@@ -497,7 +501,6 @@ export const DashboardPage = () => {
             <h2 className="px-1 text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
               {t('dashboard.activityTitle')}
             </h2>
-
             <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
               <DashboardActivityFeed
                 items={activityItems}

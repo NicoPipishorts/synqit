@@ -24,7 +24,6 @@ import {
   searchAppleCatalogTracks,
   createAppleLibraryPlaylist,
   addAppleTrackToPlaylist,
-  getAppleUserStorefront,
 } from '../integrations/apple-music';
 import { mapProviderApiError } from '../integrations/provider-errors';
 import { isSpotifyOauthLiveMode } from '../integrations/spotify';
@@ -634,6 +633,14 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     const skippedTracks: string[] = [];
 
     for (const track of sourceTracks) {
+      if (recipientProvider === sync.provider && track.providerTrackId) {
+        matchedTracks.push({
+          recipientTrackId: track.providerTrackId,
+          sourceTrackFingerprint: buildTrackFingerprint(track),
+        });
+        continue;
+      }
+
       const query = `${track.name} ${track.artist}`;
       try {
         if (recipientProvider === 'spotify') {
@@ -728,7 +735,6 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
         await withAppleMusicUserToken({
           userId,
           run: async (ctx) => {
-            const storefront = await getAppleUserStorefront(ctx);
             const created = await createAppleLibraryPlaylist({
               ...ctx,
               name: playlistName,
@@ -736,18 +742,10 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
             });
             recipientProviderPlaylistId = created.providerPlaylistId;
             for (const track of matchedTracks) {
-              // Resolve catalog ID via search first
-              const results = await searchAppleCatalogTracks({
-                developerToken: ctx.developerToken,
-                storefront,
-                query: track.recipientTrackId,
-                limit: 1,
-              }).catch(() => []);
-              const catalogId = results[0]?.providerTrackId ?? track.recipientTrackId;
               await addAppleTrackToPlaylist({
                 ...ctx,
                 providerPlaylistId: created.providerPlaylistId,
-                providerTrackId: catalogId,
+                providerTrackId: track.recipientTrackId,
               })
                 .then(() => {
                   syncedSourceTrackFingerprints.push(track.sourceTrackFingerprint);

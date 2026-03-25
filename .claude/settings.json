@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/nicolaspisar/Sites/_Personal/synqit/apps -type f \\\\\\(-name *.fixture.* -o -name *fixture* -o -name *helper* -o -name *page* -o -name *pageobject* \\\\\\))"
+    ]
+  }
+}

@@ -2106,6 +2106,164 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
     assert.match(body.magicLinkUrl, /\/sync\//);
   });
 
+  it('syncs: apple-to-apple import reuses source track ids instead of searching', async () => {
+    const previousAppleTeamId = process.env.APPLE_TEAM_ID;
+    const previousAppleKeyId = process.env.APPLE_KEY_ID;
+    const previousAppleMusicKitIdentifier = process.env.APPLE_MUSICKIT_IDENTIFIER;
+    const previousApplePrivateKey = process.env.APPLE_PRIVATE_KEY_P8;
+    const originalFetch = globalThis.fetch;
+    const sourcePlaylistId = `apple-source-sync-${randomUUID()}`;
+    const recipientPlaylistId = `apple-recipient-sync-${randomUUID()}`;
+    const addedTrackIds: string[] = [];
+
+    process.env.APPLE_TEAM_ID = 'regression-apple-team';
+    process.env.APPLE_KEY_ID = 'regression-apple-key';
+    process.env.APPLE_MUSICKIT_IDENTIFIER = 'regression.apple.musickit';
+    process.env.APPLE_PRIVATE_KEY_P8 = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgcmlwtQ8qUxntutB5
+lgguoZvlw7ncEM42tKbuZJWm7r6hRANCAATakZ0Vb/rR6MNtqGzEuoAOJUtOJrTn
+oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
+-----END PRIVATE KEY-----`;
+
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const requestUrl = typeof input === 'string' ? input : input.toString();
+      const method = (init?.method ?? 'GET').toUpperCase();
+
+      if (
+        requestUrl ===
+          `https://api.music.apple.com/v1/me/library/playlists/${encodeURIComponent(sourcePlaylistId)}/tracks?limit=100` &&
+        method === 'GET'
+      ) {
+        return new Response(
+          JSON.stringify({
+            data: Array.from({ length: 9 }, (_, index) => ({
+              id: `library-song-${index + 1}`,
+              attributes: {
+                name: `Track ${index + 1}`,
+                artistName: `Artist ${index + 1}`,
+                albumName: 'Source Album',
+                durationInMillis: 180000 + index,
+                playParams: {
+                  catalogId: `catalog-song-${index + 1}`,
+                },
+              },
+            })),
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      }
+
+      if (
+        requestUrl === 'https://api.music.apple.com/v1/me/library/playlists' &&
+        method === 'POST'
+      ) {
+        return new Response(
+          JSON.stringify({
+            data: [{ id: recipientPlaylistId }],
+          }),
+          {
+            status: 201,
+            headers: {
+              'content-type': 'application/json',
+            },
+          },
+        );
+      }
+
+      if (
+        requestUrl ===
+          `https://api.music.apple.com/v1/me/library/playlists/${encodeURIComponent(recipientPlaylistId)}/tracks` &&
+        method === 'POST'
+      ) {
+        const rawBody = typeof init?.body === 'string' ? init.body : '';
+        const body = JSON.parse(rawBody) as {
+          data?: Array<{ id?: string }>;
+        };
+        const trackId = body.data?.[0]?.id;
+        assert.ok(trackId);
+        addedTrackIds.push(trackId);
+        return new Response(null, { status: 204 });
+      }
+
+      if (requestUrl.includes('/v1/catalog/')) {
+        throw new Error(
+          `Unexpected Apple catalog search during same-provider import: ${requestUrl}`,
+        );
+      }
+
+      throw new Error(`Unexpected provider request in regression test: ${method} ${requestUrl}`);
+    }) as typeof fetch;
+
+    try {
+      const ownerEmail = `${TEST_EMAIL_PREFIX}apple-sync-owner-${randomUUID()}@synqit.test`;
+      const subscriberEmail = `${TEST_EMAIL_PREFIX}apple-sync-subscriber-${randomUUID()}@synqit.test`;
+
+      const owner = await registerUser(app, ownerEmail);
+      const subscriber = await registerUser(app, subscriberEmail);
+
+      const ownerConnectResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/apple/connect',
+        headers: authHeader(owner.tokens.accessToken),
+        payload: {
+          musicUserToken: 'mock-owner-apple-user-token',
+        },
+      });
+      assert.equal(ownerConnectResponse.statusCode, 200);
+
+      const subscriberConnectResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/apple/connect',
+        headers: authHeader(subscriber.tokens.accessToken),
+        payload: {
+          musicUserToken: 'mock-subscriber-apple-user-token',
+        },
+      });
+      assert.equal(subscriberConnectResponse.statusCode, 200);
+
+      const sync = await syncsStore.createSync({
+        senderUserId: owner.user.id,
+        provider: 'apple',
+        providerPlaylistId: sourcePlaylistId,
+        name: 'Apple Direct Import Sync',
+        trackCount: 9,
+        syncMode: 'host_only',
+      });
+
+      const importResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/syncs/link/${sync.magicLinkToken}/import`,
+        headers: authHeader(subscriber.tokens.accessToken),
+        payload: {
+          recipientProvider: 'apple',
+        },
+      });
+
+      assert.equal(importResponse.statusCode, 200);
+      const importBody = parseBody(importResponse.body) as {
+        matchedCount: number;
+        skippedCount: number;
+      };
+      assert.equal(importBody.matchedCount, 9);
+      assert.equal(importBody.skippedCount, 0);
+      assert.deepEqual(
+        addedTrackIds,
+        Array.from({ length: 9 }, (_, index) => `catalog-song-${index + 1}`),
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+      process.env.APPLE_TEAM_ID = previousAppleTeamId;
+      process.env.APPLE_KEY_ID = previousAppleKeyId;
+      process.env.APPLE_MUSICKIT_IDENTIFIER = previousAppleMusicKitIdentifier;
+      process.env.APPLE_PRIVATE_KEY_P8 = previousApplePrivateKey;
+    }
+  });
+
   it('dashboard: subscriber sync activity dedupes historical track rows by provider track id', async () => {
     const ownerEmail = `${TEST_EMAIL_PREFIX}dedupe-owner-${randomUUID()}@synqit.test`;
     const subscriberEmail = `${TEST_EMAIL_PREFIX}dedupe-subscriber-${randomUUID()}@synqit.test`;
