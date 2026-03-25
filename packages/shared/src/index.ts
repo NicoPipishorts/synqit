@@ -825,6 +825,47 @@ export const importSyncResponseSchema = z.object({
 });
 export type ImportSyncResponse = z.infer<typeof importSyncResponseSchema>;
 
+export const dashboardOwnerEventActivitySchema = z.object({
+  eventId: z.string(),
+  name: z.string(),
+  addedTrackCount24h: z.number().int().nonnegative(),
+  latestActivityAt: z.string().nullable(),
+});
+export type DashboardOwnerEventActivity = z.infer<typeof dashboardOwnerEventActivitySchema>;
+
+export const dashboardRecentSubscriberSchema = z.object({
+  userId: z.string(),
+  name: z.string(),
+  subscribedAt: z.string(),
+});
+export type DashboardRecentSubscriber = z.infer<typeof dashboardRecentSubscriberSchema>;
+
+export const dashboardOwnerSyncActivitySchema = z.object({
+  syncId: z.string(),
+  name: z.string(),
+  totalSubscriberCount: z.number().int().nonnegative(),
+  newSubscriberCount24h: z.number().int().nonnegative(),
+  recentSubscribers: z.array(dashboardRecentSubscriberSchema),
+  latestActivityAt: z.string().nullable(),
+});
+export type DashboardOwnerSyncActivity = z.infer<typeof dashboardOwnerSyncActivitySchema>;
+
+export const dashboardSubscriberSyncActivitySchema = z.object({
+  syncId: z.string(),
+  name: z.string(),
+  addedTrackCount7d: z.number().int().nonnegative(),
+  ownerAddedTracks7d: z.boolean(),
+  latestActivityAt: z.string().nullable(),
+});
+export type DashboardSubscriberSyncActivity = z.infer<typeof dashboardSubscriberSyncActivitySchema>;
+
+export const dashboardSummaryResponseSchema = z.object({
+  ownerEventActivity: z.array(dashboardOwnerEventActivitySchema),
+  ownerSyncActivity: z.array(dashboardOwnerSyncActivitySchema),
+  subscriberSyncActivity: z.array(dashboardSubscriberSyncActivitySchema),
+});
+export type DashboardSummaryResponse = z.infer<typeof dashboardSummaryResponseSchema>;
+
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   service: z.string(),

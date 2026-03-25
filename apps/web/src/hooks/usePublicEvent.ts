@@ -11,6 +11,7 @@ import { useToast } from './useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { toApiAssetUrl } from '../lib/apiAssetUrl';
+import { recordDashboardGuestEvent } from '../lib/dashboard-guest-events';
 import {
   EventCloseReason,
   EventProvider,
@@ -137,6 +138,10 @@ export const usePublicEvent = (magicLinkToken: string) => {
           connectionStatus: eventResult.event.providerConnectionStatus,
           provider: eventResult.event.provider,
           coverImageUrl: toApiAssetUrl(eventResult.event.coverImageUrl),
+        });
+        recordDashboardGuestEvent({
+          magicLinkToken,
+          name: eventResult.event.name,
         });
         setTracks(tracksResult.tracks);
         setVisibleAddedTracksCount(ADDED_TRACKS_PAGE_SIZE);

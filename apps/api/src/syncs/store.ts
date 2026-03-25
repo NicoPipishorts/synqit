@@ -1,6 +1,7 @@
 import { Provider, providerSchema, syncModeSchema, type SyncMode } from '@synqit/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 
+import { buildTrackFingerprint } from './track-fingerprint';
 import { prisma } from '../db/prisma';
 import type { Prisma } from '../generated/prisma/client';
 
@@ -46,6 +47,36 @@ export type SyncImportRecord = {
 
 export type SyncWithImportsRecord = SyncRecord & {
   imports: SyncImportRecord[];
+};
+
+export type SyncTrackActivityRecord = {
+  id: string;
+  syncId: string;
+  trackFingerprint: string;
+  providerTrackId: string;
+  name: string;
+  artist: string;
+  album: string;
+  artworkUrl: string | null;
+  firstSeenAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type RecentSyncSubscriberRecord = {
+  syncId: string;
+  recipientUserId: string;
+  name: string;
+  subscribedAt: Date;
+};
+
+type SyncTrackActivityTrack = {
+  providerTrackId?: string | null;
+  name: string;
+  artist: string;
+  album?: string | null;
+  artworkUrl?: string | null;
+  durationMs?: number;
 };
 
 type SyncRow = {
@@ -96,6 +127,20 @@ type ImportWithSyncRow = SyncImportRow & {
   playlist_syncs: SyncRow;
 };
 
+type SyncTrackActivityRow = {
+  id: string;
+  sync_id: string;
+  track_fingerprint: string;
+  provider_track_id: string;
+  name: string;
+  artist: string;
+  album: string;
+  artwork_url: string | null;
+  first_seen_at: Date;
+  created_at: Date;
+  updated_at: Date;
+};
+
 const mapSyncRow = (row: SyncRow): SyncRecord => ({
   id: row.id,
   senderUserId: row.sender_user_id,
@@ -135,6 +180,39 @@ const mapSyncImportRow = (row: SyncImportRow): SyncImportRecord => ({
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
+
+const mapSyncTrackActivityRow = (row: SyncTrackActivityRow): SyncTrackActivityRecord => ({
+  id: row.id,
+  syncId: row.sync_id,
+  trackFingerprint: row.track_fingerprint,
+  providerTrackId: row.provider_track_id,
+  name: row.name,
+  artist: row.artist,
+  album: row.album,
+  artworkUrl: row.artwork_url,
+  firstSeenAt: row.first_seen_at,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
+
+const buildUserDisplayName = (params: {
+  email: string;
+  displayName?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+}): string => {
+  const fullName = [params.firstName?.trim(), params.lastName?.trim()].filter(Boolean).join(' ');
+  if (fullName) {
+    return fullName;
+  }
+
+  const displayName = params.displayName?.trim();
+  if (displayName) {
+    return displayName;
+  }
+
+  return params.email;
+};
 
 export const syncsStore = {
   async createSync(params: {
@@ -501,5 +579,185 @@ export const syncsStore = {
 
   async countImports(syncId: string): Promise<number> {
     return prisma.playlist_sync_imports.count({ where: { sync_id: syncId } });
+  },
+
+  async countRecentImportsBySyncIds(params: {
+    syncIds: string[];
+    since: Date;
+  }): Promise<Map<string, number>> {
+    if (params.syncIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await prisma.playlist_sync_imports.groupBy({
+      by: ['sync_id'],
+      where: {
+        sync_id: { in: params.syncIds },
+        created_at: { gte: params.since },
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    return new Map(rows.map((row) => [row.sync_id, row._count._all]));
+  },
+
+  async countImportsBySyncIds(syncIds: string[]): Promise<Map<string, number>> {
+    if (syncIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await prisma.playlist_sync_imports.groupBy({
+      by: ['sync_id'],
+      where: {
+        sync_id: { in: syncIds },
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    return new Map(rows.map((row) => [row.sync_id, row._count._all]));
+  },
+
+  async listRecentSubscribersBySyncIds(params: {
+    syncIds: string[];
+    since: Date;
+  }): Promise<Map<string, RecentSyncSubscriberRecord[]>> {
+    if (params.syncIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await prisma.playlist_sync_imports.findMany({
+      where: {
+        sync_id: { in: params.syncIds },
+        created_at: { gte: params.since },
+      },
+      orderBy: [{ created_at: 'desc' }],
+      select: {
+        sync_id: true,
+        recipient_user_id: true,
+        created_at: true,
+        users: {
+          select: {
+            email: true,
+            user_profile: {
+              select: {
+                display_name: true,
+                first_name: true,
+                last_name: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const bySyncId = new Map<string, RecentSyncSubscriberRecord[]>();
+
+    for (const row of rows) {
+      const current = bySyncId.get(row.sync_id) ?? [];
+      current.push({
+        syncId: row.sync_id,
+        recipientUserId: row.recipient_user_id,
+        name: buildUserDisplayName({
+          email: row.users.email,
+          displayName: row.users.user_profile?.display_name ?? null,
+          firstName: row.users.user_profile?.first_name ?? null,
+          lastName: row.users.user_profile?.last_name ?? null,
+        }),
+        subscribedAt: row.created_at,
+      });
+      bySyncId.set(row.sync_id, current);
+    }
+
+    return bySyncId;
+  },
+
+  async recordTrackActivity(params: {
+    syncId: string;
+    tracks: SyncTrackActivityTrack[];
+    seenAt: Date;
+    bootstrapSeenAt?: Date;
+  }): Promise<void> {
+    if (params.tracks.length === 0) {
+      return;
+    }
+
+    const byFingerprint = new Map<string, SyncTrackActivityTrack>();
+    for (const track of params.tracks) {
+      const fingerprint = buildTrackFingerprint(track);
+      if (!byFingerprint.has(fingerprint)) {
+        byFingerprint.set(fingerprint, track);
+      }
+    }
+
+    if (byFingerprint.size === 0) {
+      return;
+    }
+
+    const existingCount = await prisma.playlist_sync_track_activity.count({
+      where: { sync_id: params.syncId },
+    });
+    const firstSeenAt =
+      existingCount === 0 ? (params.bootstrapSeenAt ?? params.seenAt) : params.seenAt;
+    const now = new Date();
+
+    await prisma.playlist_sync_track_activity.createMany({
+      data: Array.from(byFingerprint.entries()).map(([trackFingerprint, track]) => ({
+        id: randomUUID(),
+        sync_id: params.syncId,
+        track_fingerprint: trackFingerprint,
+        provider_track_id: track.providerTrackId ?? trackFingerprint,
+        name: track.name,
+        artist: track.artist,
+        album: track.album ?? '',
+        artwork_url: track.artworkUrl ?? null,
+        first_seen_at: firstSeenAt,
+        created_at: now,
+        updated_at: now,
+      })),
+      skipDuplicates: true,
+    });
+  },
+
+  async countRecentTrackActivityBySyncIds(params: {
+    syncIds: string[];
+    since: Date;
+  }): Promise<Map<string, number>> {
+    if (params.syncIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await prisma.playlist_sync_track_activity.groupBy({
+      by: ['sync_id'],
+      where: {
+        sync_id: { in: params.syncIds },
+        first_seen_at: { gte: params.since },
+      },
+      _count: {
+        _all: true,
+      },
+    });
+
+    return new Map(rows.map((row) => [row.sync_id, row._count._all]));
+  },
+
+  async listRecentTrackActivityBySyncId(params: {
+    syncId: string;
+    since: Date;
+    limit?: number;
+  }): Promise<SyncTrackActivityRecord[]> {
+    const rows = await prisma.playlist_sync_track_activity.findMany({
+      where: {
+        sync_id: params.syncId,
+        first_seen_at: { gte: params.since },
+      },
+      orderBy: [{ first_seen_at: 'desc' }, { created_at: 'desc' }],
+      take: params.limit ?? 50,
+    });
+
+    return rows.map((row) => mapSyncTrackActivityRow(row as SyncTrackActivityRow));
   },
 };

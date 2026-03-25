@@ -1,67 +1,80 @@
-import { eventTracksResponseSchema } from '@synqit/shared';
+import { eventTracksResponseSchema, type EventTrack } from '@synqit/shared';
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, Music2, Plus, RefreshCcw, Rss, Users } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
+import { ArrowUpRight, Plus, RefreshCcw } from 'lucide-react';
+import { KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { PwaInstallPrompt } from '../components/dashboard/PwaInstallPrompt';
-import { EventStatusIndicator } from '../components/events/EventStatusIndicator';
 import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
-import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
+import { CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { callApi } from '../lib/api';
-import { toApiAssetUrl } from '../lib/apiAssetUrl';
-import { getAccessToken } from '../lib/auth';
 import {
+  readDashboardGuestEvents,
+  type DashboardGuestEventHistoryItem,
+} from '../lib/dashboard-guest-events';
+import {
+  fetchDashboardSummary,
   fetchDrafts,
-  fetchEvents,
   fetchSyncCollections,
-  queryKeys,
   syncQueryKeys,
+  queryKeys,
 } from '../lib/queries';
 
-type RecentTrackActivity = {
-  eventId: string;
-  eventName: string;
-  trackName: string;
-  artist: string;
-  addedBy: string;
-  addedAt: string;
-};
-type ActivityPageTransition = {
-  from: number;
-  to: number;
-  direction: 1 | -1;
+type GuestEventActivity = {
+  magicLinkToken: string;
+  name: string;
+  tracks: EventTrack[];
+  recentAddedCount: number;
+  latestActivityAt: string | null;
 };
 
-const ACTIVITY_PAGE_SIZE = 15;
-const ACTIVITY_MAX_ITEMS = 50;
+type OverviewRow = {
+  id: string;
+  playlistName: string;
+  href: string;
+  roleLabel: string;
+  metrics: {
+    primary: string;
+    secondary?: string | null;
+    badge?: string | null;
+    status?: string | null;
+    pills?: string[];
+  };
+  sortAt: number;
+};
 
-const toTimestamp = (value: string): number => {
+type ActivityRow = {
+  id: string;
+  playlistName: string;
+  href: string;
+  roleTypeLabel: string;
+  description: string;
+  timeLabel: string | null;
+  sortAt: number;
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const toTimestamp = (value: string | null | undefined): number => {
+  if (!value) {
+    return 0;
+  }
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? 0 : timestamp;
 };
 
+const RECENT_GUEST_WINDOW_MS = DAY_MS;
+
 export const DashboardPage = () => {
   const { t, locale } = useI18n();
   const { showToast } = useToast();
-
-  const [activityPageIndex, setActivityPageIndex] = useState(0);
-  const [activityPageTransition, setActivityPageTransition] =
-    useState<ActivityPageTransition | null>(null);
-  const activityTouchStartRef = useRef<{ x: number; y: number } | null>(null);
-
-  // ---------------------------------------------------------------------------
-  // Queries
-  // ---------------------------------------------------------------------------
-
-  const eventsQuery = useQuery({
-    queryKey: queryKeys.events.list(),
-    queryFn: fetchEvents,
-    staleTime: 120_000,
-  });
+  const navigate = useNavigate();
+  const [guestHistory] = useState<DashboardGuestEventHistoryItem[]>(() =>
+    readDashboardGuestEvents(),
+  );
 
   const draftsQuery = useQuery({
     queryKey: queryKeys.drafts.list(),
@@ -75,97 +88,72 @@ export const DashboardPage = () => {
     staleTime: 120_000,
   });
 
-  const events = useMemo(() => eventsQuery.data ?? [], [eventsQuery.data]);
-  const activeDraft = draftsQuery.data?.[0] ?? null;
-  const ownedSyncs = syncsQuery.data?.ownedSyncs ?? [];
-  const subscribedSyncs = syncsQuery.data?.subscribedSyncs ?? [];
-
-  const trackQueries = useQuery({
-    queryKey: ['dashboard', 'activity-tracks', events.map((e) => e.id)],
-    queryFn: async () => {
-      const token = getAccessToken();
-      if (!token || events.length === 0) return [];
-
-      const responses = await Promise.allSettled(
-        events.map((event) =>
-          callApi(
-            `/v1/playlists/${encodeURIComponent(event.id)}/tracks`,
-            { method: 'GET', headers: { authorization: `Bearer ${token}` } },
-            (payload) => eventTracksResponseSchema.parse(payload),
-          ).then((response) => ({
-            eventId: event.id,
-            eventName: event.name,
-            tracks: response.tracks,
-          })),
-        ),
-      );
-
-      const activity: RecentTrackActivity[] = [];
-      for (const result of responses) {
-        if (result.status !== 'fulfilled') continue;
-        for (const track of result.value.tracks) {
-          activity.push({
-            eventId: result.value.eventId,
-            eventName: result.value.eventName,
-            trackName: track.name,
-            artist: track.artist,
-            addedBy: track.addedBy,
-            addedAt: track.addedAt,
-          });
-        }
-      }
-      return activity
-        .sort((a, b) => toTimestamp(b.addedAt) - toTimestamp(a.addedAt))
-        .slice(0, ACTIVITY_MAX_ITEMS);
-    },
-    enabled: eventsQuery.isSuccess && events.length > 0,
+  const dashboardSummaryQuery = useQuery({
+    queryKey: ['dashboard', 'summary'],
+    queryFn: fetchDashboardSummary,
     staleTime: 120_000,
   });
 
-  const recentTrackActivity = useMemo(() => trackQueries.data ?? [], [trackQueries.data]);
-  const isLoadingRecentTracks = eventsQuery.isFetching || trackQueries.isFetching;
+  const guestActivityQuery = useQuery({
+    queryKey: ['dashboard', 'guest-events', guestHistory.map((item) => item.magicLinkToken)],
+    enabled: guestHistory.length > 0,
+    staleTime: 120_000,
+    queryFn: async (): Promise<GuestEventActivity[]> => {
+      const since = Date.now() - RECENT_GUEST_WINDOW_MS;
+      const responses = await Promise.allSettled(
+        guestHistory.map(async (item) => {
+          const result = await callApi(
+            `/v1/playlists/link/${encodeURIComponent(item.magicLinkToken)}/tracks`,
+            { method: 'GET' },
+            (payload) => eventTracksResponseSchema.parse(payload),
+          );
 
-  useEffect(() => {
-    if (eventsQuery.isError) {
-      showToast(t('dashboard.error', { message: (eventsQuery.error as Error).message }), {
-        variant: 'error',
-      });
-    }
-  }, [eventsQuery.isError, eventsQuery.error, showToast, t]);
+          const recentTracks = result.tracks.filter((track) => toTimestamp(track.addedAt) >= since);
 
-  useEffect(() => {
-    if (trackQueries.isError) {
-      showToast(t('dashboard.error', { message: (trackQueries.error as Error).message }), {
-        variant: 'error',
-      });
-    }
-  }, [trackQueries.isError, trackQueries.error, showToast, t]);
+          return {
+            magicLinkToken: item.magicLinkToken,
+            name: item.name,
+            tracks: result.tracks,
+            recentAddedCount: recentTracks.length,
+            latestActivityAt: recentTracks[0]?.addedAt ?? result.tracks[0]?.addedAt ?? null,
+          };
+        }),
+      );
 
-  // ---------------------------------------------------------------------------
-  // Derived data
-  // ---------------------------------------------------------------------------
-
-  const formatDateTime = useCallback(
-    (value: string) => {
-      try {
-        return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
-          dateStyle: 'medium',
-          timeStyle: 'short',
-        }).format(new Date(value));
-      } catch {
-        return value;
+      const items: GuestEventActivity[] = [];
+      for (const response of responses) {
+        if (response.status === 'fulfilled') {
+          items.push(response.value);
+        }
       }
+
+      return items.sort(
+        (a, b) => toTimestamp(b.latestActivityAt) - toTimestamp(a.latestActivityAt),
+      );
     },
-    [locale],
+  });
+
+  const activeDraft = draftsQuery.data?.[0] ?? null;
+  const subscribedSyncs = syncsQuery.data?.subscribedSyncs ?? [];
+  const dashboardSummary = dashboardSummaryQuery.data;
+  const guestActivities = guestActivityQuery.data ?? [];
+
+  const subscribedSyncMap = useMemo(
+    () => new Map(subscribedSyncs.map((sync) => [sync.id, sync])),
+    [subscribedSyncs],
   );
 
   const formatTimeAgo = useCallback(
-    (value: string) => {
+    (value: string | null) => {
+      if (!value) {
+        return null;
+      }
+
       try {
         const diff = Date.now() - Date.parse(value);
         const mins = Math.floor(diff / 60_000);
         const hours = Math.floor(diff / 3_600_000);
-        const days = Math.floor(diff / 86_400_000);
+        const days = Math.floor(diff / DAY_MS);
         if (mins < 1) return locale === 'fr' ? "À l'instant" : 'Just now';
         if (mins < 60) return locale === 'fr' ? `Il y a ${mins} min` : `${mins}m ago`;
         if (hours < 24) return locale === 'fr' ? `Il y a ${hours} h` : `${hours}h ago`;
@@ -177,143 +165,385 @@ export const DashboardPage = () => {
     [locale],
   );
 
-  const currentEvents = useMemo(
-    () =>
-      events
-        .filter((event) => event.status === 'open')
-        .sort((a, b) => toTimestamp(b.updatedAt) - toTimestamp(a.updatedAt)),
-    [events],
-  );
-
-  const activityPageCount = useMemo(
-    () => Math.max(1, Math.ceil(recentTrackActivity.length / ACTIVITY_PAGE_SIZE)),
-    [recentTrackActivity.length],
-  );
-
-  const getActivityRowsForPage = useCallback(
-    (pageIndex: number) => {
-      const start = pageIndex * ACTIVITY_PAGE_SIZE;
-      return recentTrackActivity.slice(start, start + ACTIVITY_PAGE_SIZE);
-    },
-    [recentTrackActivity],
-  );
-
-  const currentActivityRows = useMemo(
-    () => getActivityRowsForPage(activityPageIndex),
-    [activityPageIndex, getActivityRowsForPage],
-  );
-
   useEffect(() => {
-    setActivityPageIndex((current) => {
-      if (current < activityPageCount) return current;
-      return Math.max(0, activityPageCount - 1);
-    });
-  }, [activityPageCount]);
-
-  useEffect(() => {
-    if (!activityPageTransition) return;
-    if (
-      activityPageTransition.from >= activityPageCount ||
-      activityPageTransition.to >= activityPageCount
-    ) {
-      setActivityPageTransition(null);
-    }
-  }, [activityPageCount, activityPageTransition]);
-
-  // ---------------------------------------------------------------------------
-  // Pagination
-  // ---------------------------------------------------------------------------
-
-  const slideToActivityPage = (direction: 1 | -1) => {
-    if (activityPageTransition) return;
-    const nextPage = activityPageIndex + direction;
-    if (nextPage < 0 || nextPage >= activityPageCount) return;
-    setActivityPageTransition({ from: activityPageIndex, to: nextPage, direction });
-  };
-
-  const onActivityTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (event.touches.length !== 1) {
-      activityTouchStartRef.current = null;
+    const error =
+      (syncsQuery.isError && syncsQuery.error) ||
+      (dashboardSummaryQuery.isError && dashboardSummaryQuery.error);
+    if (!error) {
       return;
     }
-    const touch = event.touches[0];
-    activityTouchStartRef.current = { x: touch.clientX, y: touch.clientY };
-  };
 
-  const onActivityTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    const start = activityTouchStartRef.current;
-    activityTouchStartRef.current = null;
-    if (!start || activityPageTransition) return;
-    const touch = event.changedTouches[0];
-    const deltaX = touch.clientX - start.x;
-    const deltaY = touch.clientY - start.y;
-    const isHorizontalSwipe = Math.abs(deltaX) >= 48 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2;
-    if (!isHorizontalSwipe) return;
-    event.preventDefault();
-    slideToActivityPage(deltaX < 0 ? 1 : -1);
-  };
+    showToast(t('dashboard.error', { message: (error as Error).message }), {
+      variant: 'error',
+    });
+  }, [
+    dashboardSummaryQuery.error,
+    dashboardSummaryQuery.isError,
+    showToast,
+    syncsQuery.error,
+    syncsQuery.isError,
+    t,
+  ]);
 
-  const renderActivityRows = (rows: RecentTrackActivity[]) =>
-    rows.map((activity) => {
-      const isGuest = activity.addedBy === 'guest';
-      // Future: when synced playlists are added, derive playlistType from activity
-      const SourceIcon = isGuest ? Users : Rss;
-      const sourceLabel = isGuest
-        ? t('dashboard.activityAddedByGuest')
-        : t('dashboard.activityAddedByProviderSync');
-      return (
-        <li key={`${activity.eventId}-${activity.trackName}-${activity.addedAt}`}>
-          <CTALink
-            to={`/playlists/${activity.eventId}#tracks`}
-            variant="secondary"
-            className="flex min-w-0 w-full items-center gap-3 rounded-2xl border border-app-border bg-app-elevated px-4 py-3 shadow-none transition-all duration-150 hover:-translate-y-0.5 hover:border-brand-lime/50 dark:bg-app-card"
-          >
-            <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-app-bg text-app-text-secondary dark:bg-app-elevated">
-              <Music2 size={14} aria-hidden="true" />
-              <span className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand-lime text-brand-dark">
-                <Plus size={8} strokeWidth={3} aria-hidden="true" />
-              </span>
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
-                {activity.trackName}
-              </p>
-              <div className="flex min-w-0 items-center gap-1.5">
-                <p className="truncate text-xs text-app-text-secondary">{activity.eventName}</p>
-              </div>
-            </div>
-            <div className="flex shrink-0 flex-col items-end gap-1">
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                  isGuest
-                    ? 'bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
-                    : 'bg-sky-400/15 text-sky-700 dark:text-sky-300'
-                }`}
-              >
-                <SourceIcon size={9} aria-hidden="true" />
-                {sourceLabel}
-              </span>
-              <p className="text-[10px] text-app-text-secondary">
-                {formatTimeAgo(activity.addedAt)}
-              </p>
-            </div>
-          </CTALink>
-        </li>
-      );
+  const ownerEventActivity = useMemo(
+    () => dashboardSummary?.ownerEventActivity ?? [],
+    [dashboardSummary?.ownerEventActivity],
+  );
+  const ownerSyncActivity = useMemo(
+    () => dashboardSummary?.ownerSyncActivity ?? [],
+    [dashboardSummary?.ownerSyncActivity],
+  );
+  const subscriberSyncActivity = useMemo(
+    () => dashboardSummary?.subscriberSyncActivity ?? [],
+    [dashboardSummary?.subscriberSyncActivity],
+  );
+
+  const ownedOverviewRows = useMemo<OverviewRow[]>(() => {
+    const eventRows = ownerEventActivity.map((item) => ({
+      id: `owned-event-${item.eventId}`,
+      playlistName: item.name,
+      href: `/playlists/${item.eventId}`,
+      roleLabel: t('dashboard.roleOwner'),
+      metrics: {
+        primary: t('dashboard.metricSongsAdded24h', { count: item.addedTrackCount24h }),
+        badge:
+          item.addedTrackCount24h > 0
+            ? t('dashboard.badgeSongs24h', { count: item.addedTrackCount24h })
+            : null,
+      },
+      sortAt: toTimestamp(item.latestActivityAt),
+    }));
+
+    const syncRows = ownerSyncActivity.map((item) => ({
+      id: `owned-sync-${item.syncId}`,
+      playlistName: item.name,
+      href: `/synced-lists/${item.syncId}`,
+      roleLabel: t('dashboard.roleOwner'),
+      metrics: {
+        primary: t('dashboard.metricTotalSubscribers', { count: item.totalSubscriberCount }),
+        pills: [
+          t('dashboard.badgeGrowth24hAbbrev', { count: item.newSubscriberCount24h }),
+          t('dashboard.metricTotalCount', { count: item.totalSubscriberCount }),
+        ],
+      },
+      sortAt: toTimestamp(item.latestActivityAt),
+    }));
+
+    return [...syncRows, ...eventRows].sort((a, b) => b.sortAt - a.sortAt);
+  }, [ownerEventActivity, ownerSyncActivity, t]);
+
+  const partOfOverviewRows = useMemo<OverviewRow[]>(() => {
+    const guestRows = guestActivities.map((item) => ({
+      id: `guest-event-${item.magicLinkToken}`,
+      playlistName: item.name,
+      href: `/playlist/${item.magicLinkToken}`,
+      roleLabel: t('dashboard.roleGuest'),
+      metrics: {
+        primary: t('dashboard.metricRecentSongs', { count: item.recentAddedCount }),
+      },
+      sortAt: toTimestamp(item.latestActivityAt),
+    }));
+
+    const subscriberRows = subscriberSyncActivity.map((item) => {
+      const sync = subscribedSyncMap.get(item.syncId);
+      return {
+        id: `subscriber-sync-${item.syncId}`,
+        playlistName: sync?.name ?? item.name,
+        href: sync ? `/sync/${sync.magicLinkToken}` : '#',
+        roleLabel: t('dashboard.roleSubscriber'),
+        metrics: {
+          primary: t('dashboard.metricSongsAdded7d', { count: item.addedTrackCount7d }),
+          status: item.ownerAddedTracks7d
+            ? t('dashboard.subscriberOwnerActive')
+            : t('dashboard.subscriberOwnerInactive'),
+        },
+        sortAt: toTimestamp(item.latestActivityAt),
+      };
     });
 
-  // ---------------------------------------------------------------------------
-  // Render
-  // ---------------------------------------------------------------------------
+    return [...guestRows, ...subscriberRows].sort((a, b) => b.sortAt - a.sortAt);
+  }, [guestActivities, subscribedSyncMap, subscriberSyncActivity, t]);
 
-  const hasCreatedPlaylist =
-    events.length > 0 || ownedSyncs.length > 0 || subscribedSyncs.length > 0;
-  const isInitialLoad = eventsQuery.isLoading;
-  const showCreatePlaylistCta = !hasCreatedPlaylist;
+  const activityRows = useMemo<ActivityRow[]>(() => {
+    const ownerEventRows = ownerEventActivity
+      .filter((item) => item.addedTrackCount24h > 0)
+      .map((item) => ({
+        id: `activity-owner-event-${item.eventId}`,
+        playlistName: item.name,
+        href: `/playlists/${item.eventId}#tracks`,
+        roleTypeLabel: t('dashboard.roleTypeOwnerEvent'),
+        description: t('dashboard.activityOwnerEventSongs', { count: item.addedTrackCount24h }),
+        timeLabel: formatTimeAgo(item.latestActivityAt),
+        sortAt: toTimestamp(item.latestActivityAt),
+      }));
+
+    const ownerSyncRows = ownerSyncActivity.flatMap((item) => {
+      if (item.recentSubscribers.length > 0) {
+        return item.recentSubscribers.map((subscriber) => ({
+          id: `activity-owner-sync-${item.syncId}-${subscriber.userId}-${subscriber.subscribedAt}`,
+          playlistName: item.name,
+          href: `/synced-lists/${item.syncId}`,
+          roleTypeLabel: t('dashboard.roleTypeOwnerSync'),
+          description: t('dashboard.activityOwnerSyncSubscriber', {
+            name: subscriber.name,
+          }),
+          timeLabel: formatTimeAgo(subscriber.subscribedAt),
+          sortAt: toTimestamp(subscriber.subscribedAt),
+        }));
+      }
+
+      if (item.newSubscriberCount24h > 0) {
+        return [
+          {
+            id: `activity-owner-sync-${item.syncId}`,
+            playlistName: item.name,
+            href: `/synced-lists/${item.syncId}`,
+            roleTypeLabel: t('dashboard.roleTypeOwnerSync'),
+            description: t('dashboard.activityOwnerSyncSubscribers', {
+              count: item.newSubscriberCount24h,
+            }),
+            timeLabel: formatTimeAgo(item.latestActivityAt),
+            sortAt: toTimestamp(item.latestActivityAt),
+          },
+        ];
+      }
+
+      return [];
+    });
+
+    const guestRows = guestActivities
+      .filter((item) => item.recentAddedCount > 0)
+      .map((item) => ({
+        id: `activity-guest-event-${item.magicLinkToken}`,
+        playlistName: item.name,
+        href: `/playlist/${item.magicLinkToken}`,
+        roleTypeLabel: t('dashboard.roleTypeGuestEvent'),
+        description: t('dashboard.activityGuestSongs', { count: item.recentAddedCount }),
+        timeLabel: formatTimeAgo(item.latestActivityAt),
+        sortAt: toTimestamp(item.latestActivityAt),
+      }));
+
+    const subscriberRows = subscriberSyncActivity
+      .filter((item) => item.addedTrackCount7d > 0)
+      .map((item) => {
+        const sync = subscribedSyncMap.get(item.syncId);
+        return {
+          id: `activity-subscriber-sync-${item.syncId}`,
+          playlistName: sync?.name ?? item.name,
+          href: sync ? `/sync/${sync.magicLinkToken}` : '#',
+          roleTypeLabel: t('dashboard.roleTypeSubscriberSync'),
+          description: t('dashboard.activitySubscriberSongs', {
+            count: item.addedTrackCount7d,
+          }),
+          timeLabel: formatTimeAgo(item.latestActivityAt),
+          sortAt: toTimestamp(item.latestActivityAt),
+        };
+      });
+
+    return [...ownerSyncRows, ...ownerEventRows, ...guestRows, ...subscriberRows].sort(
+      (a, b) => b.sortAt - a.sortAt,
+    );
+  }, [
+    formatTimeAgo,
+    guestActivities,
+    ownerEventActivity,
+    ownerSyncActivity,
+    subscribedSyncMap,
+    subscriberSyncActivity,
+    t,
+  ]);
+
+  const hasDashboardContent =
+    ownedOverviewRows.length > 0 || partOfOverviewRows.length > 0 || guestHistory.length > 0;
+  const isInitialLoad = syncsQuery.isLoading || dashboardSummaryQuery.isLoading;
+  const showCreatePlaylistCta = ownedOverviewRows.length === 0;
+
+  const activateRow = useCallback(
+    (href: string) => {
+      void navigate({ to: href as never });
+    },
+    [navigate],
+  );
+
+  const onRowKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTableRowElement>, href: string) => {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+
+      event.preventDefault();
+      activateRow(href);
+    },
+    [activateRow],
+  );
+
+  const renderOverviewTable = (
+    rows: OverviewRow[],
+    emptyKey: string,
+    metricsHeaderKey = 'dashboard.tableMetrics',
+  ) =>
+    rows.length === 0 ? (
+      <p className="px-4 py-5 text-sm text-app-text-secondary">{t(emptyKey)}</p>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="min-w-full table-fixed">
+          <thead>
+            <tr className="border-b border-app-border">
+              <th className="w-[35%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+                {t('dashboard.tablePlaylist')}
+              </th>
+              <th className="w-[20%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+                {t('dashboard.tableRole')}
+              </th>
+              <th className="w-[37%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+                {t(metricsHeaderKey)}
+              </th>
+              <th className="w-[8%] px-4 py-3 text-right text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+                <span className="sr-only">{t('dashboard.tableOpen')}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.id}
+                role="link"
+                tabIndex={0}
+                onClick={() => activateRow(row.href)}
+                onKeyDown={(event) => onRowKeyDown(event, row.href)}
+                className="group cursor-pointer border-b border-app-border transition-colors hover:bg-brand-pink/5 focus:bg-brand-pink/5 focus:outline-none last:border-b-0"
+              >
+                <td className="px-4 py-4 align-middle">
+                  <span className="block truncate text-sm font-black text-brand-dark transition-colors group-hover:text-brand-pink group-focus:text-brand-pink dark:text-brand-white dark:group-hover:text-brand-pink dark:group-focus:text-brand-pink">
+                    {row.playlistName}
+                  </span>
+                </td>
+                <td className="px-4 py-4 align-middle">
+                  <span className="inline-flex rounded-full bg-brand-lime/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#6d9600] dark:text-[#d5ff5c]">
+                    {row.roleLabel}
+                  </span>
+                </td>
+                <td className="px-4 py-4 align-middle">
+                  <div className="grid gap-2">
+                    {row.metrics.pills && row.metrics.pills.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {row.metrics.pills.map((pill) => (
+                          <span
+                            key={pill}
+                            className="inline-flex w-fit rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300"
+                          >
+                            {pill}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-sm font-semibold text-brand-dark dark:text-brand-white">
+                        {row.metrics.primary}
+                      </p>
+                    )}
+                    {row.metrics.secondary ? (
+                      <p className="text-xs text-app-text-secondary">{row.metrics.secondary}</p>
+                    ) : null}
+                    {row.metrics.badge && (!row.metrics.pills || row.metrics.pills.length === 0) ? (
+                      <span className="inline-flex w-fit rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                        {row.metrics.badge}
+                      </span>
+                    ) : null}
+                    {row.metrics.status ? (
+                      <span
+                        className={`inline-flex w-fit rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
+                          row.metrics.status === t('dashboard.subscriberOwnerActive')
+                            ? 'bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
+                            : 'bg-app-border text-app-text-secondary'
+                        }`}
+                      >
+                        {row.metrics.status}
+                      </span>
+                    ) : null}
+                  </div>
+                </td>
+                <td className="px-4 py-4 align-middle text-right">
+                  <ArrowUpRight
+                    size={14}
+                    aria-hidden="true"
+                    className="ml-auto shrink-0 text-app-text-secondary transition duration-150 ease-out group-hover:text-brand-pink group-focus:text-brand-pink motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5 motion-safe:group-focus:translate-x-0.5 motion-safe:group-focus:-translate-y-0.5"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+
+  const renderActivityTable = (rows: ActivityRow[]) =>
+    rows.length === 0 ? (
+      <p className="px-4 py-5 text-sm text-app-text-secondary">{t('dashboard.activityEmpty')}</p>
+    ) : (
+      <div className="overflow-x-auto">
+        <table className="min-w-full table-fixed">
+          <thead>
+            <tr className="border-b border-app-border">
+              <th className="w-[27%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+                {t('dashboard.tablePlaylist')}
+              </th>
+              <th className="w-[26%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+                {t('dashboard.activityTableRoleType')}
+              </th>
+              <th className="w-[24%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+                {t('dashboard.activityTableDescription')}
+              </th>
+              <th className="w-[15%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+                {t('dashboard.activityTableTime')}
+              </th>
+              <th className="w-[8%] px-4 py-3 text-right text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+                <span className="sr-only">{t('dashboard.tableOpen')}</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={row.id}
+                role="link"
+                tabIndex={0}
+                onClick={() => activateRow(row.href)}
+                onKeyDown={(event) => onRowKeyDown(event, row.href)}
+                className="group cursor-pointer border-b border-app-border transition-colors hover:bg-brand-pink/5 focus:bg-brand-pink/5 focus:outline-none last:border-b-0"
+              >
+                <td className="px-4 py-4 align-middle">
+                  <span className="block truncate text-sm font-black text-brand-dark transition-colors group-hover:text-brand-pink group-focus:text-brand-pink dark:text-brand-white dark:group-hover:text-brand-pink dark:group-focus:text-brand-pink">
+                    {row.playlistName}
+                  </span>
+                </td>
+                <td className="px-4 py-4 align-middle">
+                  <span className="inline-flex rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                    {row.roleTypeLabel}
+                  </span>
+                </td>
+                <td className="px-4 py-4 align-middle text-sm text-brand-dark dark:text-brand-white">
+                  {row.description}
+                </td>
+                <td className="px-4 py-4 align-middle text-xs text-app-text-secondary">
+                  {row.timeLabel ?? t('dashboard.activityTimeUnknown')}
+                </td>
+                <td className="px-4 py-4 align-middle text-right">
+                  <ArrowUpRight
+                    size={14}
+                    aria-hidden="true"
+                    className="ml-auto shrink-0 text-app-text-secondary transition duration-150 ease-out group-hover:text-brand-pink group-focus:text-brand-pink motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5 motion-safe:group-focus:translate-x-0.5 motion-safe:group-focus:-translate-y-0.5"
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
 
   return (
     <AppPageLayout
-      bodyClassName="gap-10"
+      bodyClassName="gap-8"
       backdrop={
         <BlurSpotLayer
           filterId="dashboard-blur"
@@ -328,8 +558,7 @@ export const DashboardPage = () => {
     >
       <PwaInstallPrompt />
 
-      {!hasCreatedPlaylist && !isInitialLoad ? (
-        /* ── Empty state ── */
+      {!hasDashboardContent && !isInitialLoad ? (
         <div className="flex min-h-[60vh] flex-col items-center justify-center">
           <div className="relative w-85 p-6 sm:w-[35vw] sm:p-10">
             <span
@@ -386,8 +615,7 @@ export const DashboardPage = () => {
         </div>
       ) : (
         <>
-          {/* ── Page header ── */}
-          <header className="flex items-start justify-between gap-4 sm:pb-4 sm:px-2">
+          <header className="flex items-start justify-between gap-4 sm:px-2 sm:pb-2">
             <div className="grid gap-1">
               <p className="text-xs font-bold uppercase tracking-widest text-app-text-secondary">
                 {t('dashboard.pill')}
@@ -395,7 +623,7 @@ export const DashboardPage = () => {
               <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
                 {t('dashboard.title')}
               </h1>
-              <p className="mt-1 max-w-xl text-sm text-app-text-secondary sm:text-base">
+              <p className="mt-1 max-w-2xl text-sm text-app-text-secondary sm:text-base">
                 {t('dashboard.description')}
               </p>
             </div>
@@ -416,7 +644,6 @@ export const DashboardPage = () => {
             ) : null}
           </header>
 
-          {/* Mobile CTA */}
           {showCreatePlaylistCta ? (
             <div className="grid gap-3 sm:hidden">
               <CTALink to="/synced-lists/new" variant="secondary" className="w-full justify-center">
@@ -433,193 +660,76 @@ export const DashboardPage = () => {
             </div>
           ) : null}
 
-          {/* ── Active playlists ── */}
           <section className="grid gap-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
-                {t('dashboard.activePlaylistsTitle')}
-              </h2>
-              <span className="text-xs font-semibold text-app-text-secondary">
-                {t('dashboard.currentEventsCount', { count: currentEvents.length })}
-              </span>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
+                  {t('dashboard.overviewTitle')}
+                </h2>
+                <p className="mt-1 text-sm text-app-text-secondary">
+                  {t('dashboard.overviewDescription')}
+                </p>
+              </div>
+              {isInitialLoad || dashboardSummaryQuery.isFetching ? (
+                <RefreshCcw
+                  size={14}
+                  className="animate-spin text-app-text-secondary"
+                  aria-hidden="true"
+                />
+              ) : null}
             </div>
 
-            {isInitialLoad ? (
-              <ul className="grid gap-3 sm:grid-cols-2">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <li key={i} className="h-20 animate-pulse rounded-2xl bg-app-border" />
-                ))}
-              </ul>
-            ) : currentEvents.length === 0 ? (
-              <p className="rounded-2xl border border-app-border bg-app-elevated/60 px-4 py-4 text-sm text-app-text-secondary dark:bg-app-card/60">
-                {t('dashboard.currentEventsEmpty')}
-              </p>
-            ) : (
-              <ul className="grid gap-3 sm:grid-cols-2">
-                {currentEvents.map((event) => {
-                  const hasIssue = event.providerConnectionStatus === 'not_connected';
-                  const coverUrl = toApiAssetUrl(event.coverImageUrl);
-                  return (
-                    <li key={event.id}>
-                      <CTALink
-                        to={`/playlists/${event.id}`}
-                        variant="secondary"
-                        className={`flex min-w-0 w-full items-center gap-3 rounded-2xl border px-4 py-3.5 shadow-none transition-all duration-150 hover:-translate-y-0.5 hover:shadow-soft-lift ${
-                          hasIssue
-                            ? 'border-[#DC5C48]/40 bg-[#DC5C48]/8 hover:border-[#DC5C48]/60 dark:bg-[#DC5C48]/12'
-                            : 'border-app-border bg-app-elevated hover:border-brand-lime/40 dark:bg-app-card'
-                        }`}
-                      >
-                        {coverUrl ? (
-                          <img
-                            src={coverUrl}
-                            alt=""
-                            className="h-11 w-11 shrink-0 rounded-xl object-cover"
-                          />
-                        ) : (
-                          <div className="h-11 w-11 shrink-0 rounded-xl border border-dashed border-app-border bg-app-bg dark:bg-app-elevated" />
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-black text-brand-dark dark:text-brand-white">
-                            {event.name}
-                          </p>
-                          <p className="truncate text-xs text-app-text-secondary">
-                            {formatDateTime(event.updatedAt)}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 flex-col items-end gap-1.5">
-                          <EventStatusIndicator
-                            status={event.status}
-                            closeReason={event.closeReason}
-                            connectionStatus={event.providerConnectionStatus}
-                            mode="pill"
-                          />
-                        </div>
-                      </CTALink>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+            <article className="overflow-hidden rounded-3xl border border-app-border bg-app-elevated dark:bg-app-card">
+              <div className="border-b border-app-border px-4 py-4">
+                <h3 className="text-sm font-black text-brand-dark dark:text-brand-white">
+                  {t('dashboard.overviewOwnedTitle')}
+                </h3>
+                <p className="mt-1 text-xs text-app-text-secondary">
+                  {t('dashboard.overviewOwnedBody')}
+                </p>
+              </div>
+              {renderOverviewTable(
+                ownedOverviewRows,
+                'dashboard.overviewOwnedEmpty',
+                'dashboard.tableSubscribers',
+              )}
+            </article>
+
+            <article className="overflow-hidden rounded-3xl border border-app-border bg-app-elevated dark:bg-app-card">
+              <div className="border-b border-app-border px-4 py-4">
+                <h3 className="text-sm font-black text-brand-dark dark:text-brand-white">
+                  {t('dashboard.overviewJoinedTitle')}
+                </h3>
+                <p className="mt-1 text-xs text-app-text-secondary">
+                  {t('dashboard.overviewJoinedBody')}
+                </p>
+              </div>
+              {renderOverviewTable(partOfOverviewRows, 'dashboard.overviewJoinedEmpty')}
+            </article>
           </section>
 
-          {/* ── Recent activity ── */}
           <section className="grid gap-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
-                {t('dashboard.latestActivityTitle')}
-              </h2>
-              <div className="flex items-center gap-2">
-                {isLoadingRecentTracks ? (
-                  <RefreshCcw
-                    size={12}
-                    className="animate-spin text-app-text-secondary"
-                    aria-hidden="true"
-                  />
-                ) : null}
-                <span className="text-xs font-semibold text-app-text-secondary">
-                  {t('dashboard.latestActivityCount', { count: recentTrackActivity.length })}
-                </span>
+              <div>
+                <h2 className="text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
+                  {t('dashboard.activityTitle')}
+                </h2>
+                <p className="mt-1 text-sm text-app-text-secondary">
+                  {t('dashboard.activityDescription')}
+                </p>
               </div>
+              {dashboardSummaryQuery.isFetching || guestActivityQuery.isFetching ? (
+                <RefreshCcw
+                  size={14}
+                  className="animate-spin text-app-text-secondary"
+                  aria-hidden="true"
+                />
+              ) : null}
             </div>
 
-            {isLoadingRecentTracks && recentTrackActivity.length === 0 ? (
-              <ul className="grid gap-2 sm:grid-cols-2">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <li key={i} className="h-16 animate-pulse rounded-2xl bg-app-border" />
-                ))}
-              </ul>
-            ) : recentTrackActivity.length === 0 ? (
-              <p className="rounded-2xl border border-app-border bg-app-elevated/60 px-4 py-4 text-sm text-app-text-secondary dark:bg-app-card/60">
-                {t('dashboard.latestActivityEmpty')}
-              </p>
-            ) : (
-              <div className="grid gap-3">
-                <div
-                  className="overflow-visible"
-                  onTouchStart={onActivityTouchStart}
-                  onTouchEnd={onActivityTouchEnd}
-                >
-                  {activityPageTransition ? (
-                    <motion.div
-                      key={`${activityPageTransition.from}-${activityPageTransition.to}`}
-                      initial={{ x: activityPageTransition.direction === 1 ? '0%' : '-100%' }}
-                      animate={{ x: activityPageTransition.direction === 1 ? '-100%' : '0%' }}
-                      transition={{ duration: 0.4, ease: [0.22, 0.61, 0.36, 1] }}
-                      onAnimationComplete={() => {
-                        setActivityPageIndex(activityPageTransition.to);
-                        setActivityPageTransition(null);
-                      }}
-                      className="flex w-full"
-                    >
-                      {activityPageTransition.direction === 1 ? (
-                        <>
-                          <ul className="grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2">
-                            {renderActivityRows(
-                              getActivityRowsForPage(activityPageTransition.from),
-                            )}
-                          </ul>
-                          <ul className="grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2">
-                            {renderActivityRows(getActivityRowsForPage(activityPageTransition.to))}
-                          </ul>
-                        </>
-                      ) : (
-                        <>
-                          <ul className="grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2">
-                            {renderActivityRows(getActivityRowsForPage(activityPageTransition.to))}
-                          </ul>
-                          <ul className="grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2">
-                            {renderActivityRows(
-                              getActivityRowsForPage(activityPageTransition.from),
-                            )}
-                          </ul>
-                        </>
-                      )}
-                    </motion.div>
-                  ) : (
-                    <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                      {renderActivityRows(currentActivityRows)}
-                    </ul>
-                  )}
-                </div>
-
-                {activityPageCount > 1 ? (
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    <CTAButton
-                      type="button"
-                      variant="secondary"
-                      disabled={activityPageIndex === 0 || activityPageTransition !== null}
-                      onClick={() => slideToActivityPage(-1)}
-                    >
-                      <CTAMobileIconLabel
-                        icon={<ChevronLeft size={14} />}
-                        label={t('dashboard.latestActivityPrev')}
-                      />
-                    </CTAButton>
-                    <p className="text-xs font-semibold text-app-text-secondary">
-                      {t('dashboard.latestActivityPageLabel', {
-                        current: activityPageIndex + 1,
-                        total: activityPageCount,
-                      })}
-                    </p>
-                    <CTAButton
-                      type="button"
-                      variant="secondary"
-                      disabled={
-                        activityPageIndex >= activityPageCount - 1 ||
-                        activityPageTransition !== null
-                      }
-                      onClick={() => slideToActivityPage(1)}
-                    >
-                      <CTAMobileIconLabel
-                        icon={<ChevronRight size={14} />}
-                        label={t('dashboard.latestActivityNext')}
-                      />
-                    </CTAButton>
-                  </div>
-                ) : null}
-              </div>
-            )}
+            <div className="overflow-hidden rounded-3xl border border-app-border bg-app-elevated dark:bg-app-card">
+              {renderActivityTable(activityRows)}
+            </div>
           </section>
         </>
       )}

@@ -217,6 +217,7 @@ model playlist_syncs {
   updated_at            DateTime                @db.Timestamptz(6)
   users                 users                   @relation(fields: [sender_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   playlist_sync_imports playlist_sync_imports[]
+  playlist_sync_track_activity playlist_sync_track_activity[]
 
   @@index([sender_user_id], map: "idx_playlist_syncs_sender_user_id")
 }
@@ -243,6 +244,25 @@ model playlist_sync_imports {
   @@unique([sync_id, recipient_user_id])
   @@index([sync_id], map: "idx_playlist_sync_imports_sync_id")
   @@index([recipient_user_id], map: "idx_playlist_sync_imports_recipient_user_id")
+}
+
+model playlist_sync_track_activity {
+  id               String         @id
+  sync_id          String
+  track_fingerprint String
+  provider_track_id String
+  name             String
+  artist           String
+  album            String
+  artwork_url      String?
+  first_seen_at    DateTime       @db.Timestamptz(6)
+  created_at       DateTime       @db.Timestamptz(6)
+  updated_at       DateTime       @db.Timestamptz(6)
+  playlist_syncs   playlist_syncs @relation(fields: [sync_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([sync_id, track_fingerprint])
+  @@index([sync_id], map: "idx_playlist_sync_track_activity_sync_id")
+  @@index([sync_id, first_seen_at], map: "idx_playlist_sync_track_activity_sync_id_first_seen_at")
 }
 
 model user_admin_permissions {

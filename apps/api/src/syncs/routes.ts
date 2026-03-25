@@ -322,6 +322,15 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
       throw err;
     }
 
+    if (tracks.length > 0) {
+      await syncsStore.recordTrackActivity({
+        syncId: sync.id,
+        tracks,
+        seenAt: new Date(),
+        bootstrapSeenAt: sync.lastSyncedAt ?? sync.createdAt,
+      });
+    }
+
     const subscriberCounts = new Map<'spotify' | 'apple', number>([
       ['spotify', 0],
       ['apple', 0],
@@ -451,6 +460,15 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
       }
     }
 
+    if (tracks.length > 0) {
+      await syncsStore.recordTrackActivity({
+        syncId: sync.id,
+        tracks,
+        seenAt: new Date(),
+        bootstrapSeenAt: sync.lastSyncedAt ?? sync.createdAt,
+      });
+    }
+
     return reply.send(
       syncPublicResponseSchema.parse({
         sync: {
@@ -549,6 +567,15 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     // -----------------------------------------------------------------------
     // 2. Match tracks in recipient's provider and collect matched IDs
     // -----------------------------------------------------------------------
+    if (sourceTracks.length > 0) {
+      await syncsStore.recordTrackActivity({
+        syncId: sync.id,
+        tracks: sourceTracks,
+        seenAt: new Date(),
+        bootstrapSeenAt: sync.lastSyncedAt ?? sync.createdAt,
+      });
+    }
+
     const matchedTracks: Array<{ recipientTrackId: string; sourceTrackFingerprint: string }> = [];
     const skippedTracks: string[] = [];
 
