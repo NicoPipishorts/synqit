@@ -19,8 +19,8 @@ import {
   fetchDashboardSummary,
   fetchDrafts,
   fetchSyncCollections,
-  syncQueryKeys,
   queryKeys,
+  syncQueryKeys,
 } from '../lib/queries';
 
 type GuestEventActivity = {
@@ -386,19 +386,19 @@ export const DashboardPage = () => {
       <p className="px-4 py-5 text-sm text-app-text-secondary">{t(emptyKey)}</p>
     ) : (
       <div className="overflow-x-auto">
-        <table className="min-w-full table-fixed">
+        <table className="min-w-full table-auto sm:table-fixed">
           <thead>
             <tr className="border-b border-app-border">
-              <th className="w-[35%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+              <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary sm:w-[35%]">
                 {t('dashboard.tablePlaylist')}
               </th>
-              <th className="w-[20%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+              <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary sm:w-[20%]">
                 {t('dashboard.tableRole')}
               </th>
-              <th className="w-[37%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+              <th className="w-px whitespace-nowrap px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary sm:w-[37%] sm:whitespace-normal">
                 {t(metricsHeaderKey)}
               </th>
-              <th className="w-[8%] px-4 py-3 text-right text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
+              <th className="w-px px-3 py-3 text-right text-[11px] font-black uppercase tracking-wide text-app-text-secondary sm:w-[8%] sm:px-4">
                 <span className="sr-only">{t('dashboard.tableOpen')}</span>
               </th>
             </tr>
@@ -423,14 +423,14 @@ export const DashboardPage = () => {
                     {row.roleLabel}
                   </span>
                 </td>
-                <td className="px-4 py-4 align-middle">
-                  <div className="grid gap-2">
+                <td className="w-px whitespace-nowrap px-4 py-4 align-middle sm:w-auto sm:whitespace-normal">
+                  <div className="inline-grid min-w-max gap-2 sm:min-w-0">
                     {row.metrics.pills && row.metrics.pills.length > 0 ? (
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex min-w-max flex-nowrap items-center gap-2">
                         {row.metrics.pills.map((pill) => (
                           <span
                             key={pill}
-                            className="inline-flex w-fit rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300"
+                            className="inline-flex shrink-0 rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300"
                           >
                             {pill}
                           </span>
@@ -462,7 +462,7 @@ export const DashboardPage = () => {
                     ) : null}
                   </div>
                 </td>
-                <td className="px-4 py-4 align-middle text-right">
+                <td className="w-px px-3 py-4 align-middle text-right sm:px-4">
                   <ArrowUpRight
                     size={14}
                     aria-hidden="true"
@@ -661,7 +661,7 @@ export const DashboardPage = () => {
           ) : null}
 
           <section className="grid gap-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between px-4">
               <div>
                 <h2 className="text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
                   {t('dashboard.overviewTitle')}
@@ -679,7 +679,7 @@ export const DashboardPage = () => {
               ) : null}
             </div>
 
-            <article className="overflow-hidden rounded-3xl border border-app-border bg-app-elevated dark:bg-app-card">
+            <article className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
               <div className="border-b border-app-border px-4 py-4">
                 <h3 className="text-sm font-black text-brand-dark dark:text-brand-white">
                   {t('dashboard.overviewOwnedTitle')}
@@ -695,7 +695,7 @@ export const DashboardPage = () => {
               )}
             </article>
 
-            <article className="overflow-hidden rounded-3xl border border-app-border bg-app-elevated dark:bg-app-card">
+            <article className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
               <div className="border-b border-app-border px-4 py-4">
                 <h3 className="text-sm font-black text-brand-dark dark:text-brand-white">
                   {t('dashboard.overviewJoinedTitle')}
@@ -709,7 +709,7 @@ export const DashboardPage = () => {
           </section>
 
           <section className="grid gap-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between px-4">
               <div>
                 <h2 className="text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
                   {t('dashboard.activityTitle')}
@@ -727,7 +727,7 @@ export const DashboardPage = () => {
               ) : null}
             </div>
 
-            <div className="overflow-hidden rounded-3xl border border-app-border bg-app-elevated dark:bg-app-card">
+            <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
               {renderActivityTable(activityRows)}
             </div>
           </section>

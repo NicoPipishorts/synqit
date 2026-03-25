@@ -20,6 +20,17 @@ import {
 
 type ManageTab = 'edit' | 'tracks' | 'share';
 
+const SYNC_PROVIDER_META = {
+  spotify: {
+    label: 'Spotify',
+    iconPath: '/assets/logos/Providers/Spotify.png',
+  },
+  apple: {
+    label: 'Apple Music',
+    iconPath: '/assets/logos/Providers/AppleMusic.png',
+  },
+} as const;
+
 const formatSyncTimestamp = (value: string | null): string | null => {
   if (!value) {
     return null;
@@ -257,52 +268,46 @@ export const SyncDetailsPage = () => {
                         </p>
                       </div>
 
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-elevated">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-text-secondary">
-                            {t('syncedListsPage.totalSubscribers')}
-                          </p>
-                          <p className="pt-2 text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white">
-                            {sync.subscriberCount}
-                          </p>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="min-w-0 rounded-2xl border border-app-border bg-app-surface p-3 sm:p-4 dark:bg-app-elevated">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-app-text-secondary sm:text-xs">
+                              {t('syncedListsPage.totalSubscribers')}
+                            </p>
+                            <p className="text-2xl font-black tracking-tight text-brand-dark sm:text-3xl dark:text-brand-white">
+                              {sync.subscriberCount}
+                            </p>
+                          </div>
                         </div>
-                        <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-elevated">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-text-secondary">
-                            Spotify
-                          </p>
-                          <p className="pt-2 text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white">
-                            {spotifyCount}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-elevated">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-text-secondary">
-                            Apple Music
-                          </p>
-                          <p className="pt-2 text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white">
-                            {appleCount}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-elevated">
-                        <div className="flex items-center gap-2">
-                          <Users size={16} className="text-app-text-secondary" aria-hidden="true" />
-                          <p className="text-sm font-semibold text-brand-dark dark:text-brand-white">
-                            {t('syncedListsPage.subscriberBreakdown')}
-                          </p>
-                        </div>
-                        <div className="mt-3 grid gap-2">
-                          {sync.subscriberPlatformStats.map((stat) => (
-                            <div
-                              key={stat.provider}
-                              className="flex items-center justify-between rounded-xl border border-app-border px-3 py-2 text-sm dark:bg-app-card"
-                            >
-                              <span className="font-semibold text-brand-dark dark:text-brand-white">
-                                {stat.provider === 'spotify' ? 'Spotify' : 'Apple Music'}
-                              </span>
-                              <span className="text-app-text-secondary">{stat.count}</span>
+                        <div className="rounded-2xl border border-app-border bg-app-surface p-3 sm:p-4 dark:bg-app-elevated p-">
+                          <div className="flex items-center gap-2">
+                            <Users
+                              size={16}
+                              className="text-app-text-secondary"
+                              aria-hidden="true"
+                            />
+                            <p className="text-sm font-semibold text-brand-dark dark:text-brand-white">
+                              {t('syncedListsPage.subscriberBreakdown')}
+                            </p>
+                          </div>
+                          <div className="mt-4 grid gap-4">
+                            <div className="flex items-center justify-between gap-3 text-sm px-1">
+                              <img
+                                src={SYNC_PROVIDER_META.spotify.iconPath}
+                                alt={SYNC_PROVIDER_META.spotify.label}
+                                className="h-5 w-auto object-contain"
+                              />
+                              <span className="text-app-text-secondary">{spotifyCount}</span>
                             </div>
-                          ))}
+                            <div className="flex items-center justify-between gap-3 text-sm px-1">
+                              <img
+                                src={SYNC_PROVIDER_META.apple.iconPath}
+                                alt={SYNC_PROVIDER_META.apple.label}
+                                className="h-5 w-auto object-contain"
+                              />
+                              <span className="text-app-text-secondary">{appleCount}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </AppSurfaceCard>
