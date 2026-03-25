@@ -107,12 +107,12 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   return (
     <AuthPageLayout
       title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
-      description={isLogin ? t('auth.inviteOnlyNotice') : t('auth.registerLeadInviteOnly')}
+      description={isLogin ? undefined : t('auth.registerLeadInviteOnly')}
     >
       <form
         onSubmit={onSubmit}
         autoComplete="on"
-        className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 shadow-soft-lift dark:bg-app-card sm:p-8"
+        className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl py-0  p-6 shadow-soft-lift  sm:p-8"
       >
         <label htmlFor="auth-email" className="grid gap-2 text-sm font-medium">
           <span>{t('auth.email')}</span>
@@ -173,7 +173,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
           <div className="flex justify-end">
             <Link
               to="/auth/forgot-password"
-              className="text-xs font-semibold text-brand-pink hover:text-[#d12074]"
+              className="text-xs text-base font-bold text-brand-pink hover:text-[#d12074]"
             >
               {t('auth.forgotPassword')}
             </Link>
@@ -193,12 +193,6 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
             }`}
           >
             {status}
-          </p>
-        ) : null}
-
-        {isLogin ? (
-          <p className="rounded-lg border border-app-border bg-app-surface px-3 py-2 text-xs font-semibold text-app-text-secondary">
-            {t('auth.inviteOnlyNotice')}
           </p>
         ) : null}
 

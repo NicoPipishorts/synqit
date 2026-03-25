@@ -172,8 +172,8 @@ export const ProfilePage = () => {
           </div>
 
           <div className="relative">
-            <div className="rounded-full bg-brand-gradient p-[2px]">
-              <div className="h-24 w-24 overflow-hidden rounded-full border border-app-border bg-app-bg sm:h-28 sm:w-28 lg:h-32 lg:w-32">
+            <div className="h-24 w-24 rounded-full bg-brand-gradient p-0.5 sm:h-28 sm:w-28 lg:h-32 lg:w-32">
+              <div className="h-full w-full overflow-hidden rounded-full bg-app-bg">
                 {avatarSrc ? (
                   <img
                     src={avatarSrc}

@@ -694,6 +694,15 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
         '[api][poll] automatic sync polled',
       );
 
+      if (sourceTracks.length > 0) {
+        await syncsStore.recordTrackActivity({
+          syncId: sync.id,
+          tracks: sourceTracks,
+          seenAt: polledAt,
+          bootstrapSeenAt: sync.lastSyncedAt ?? sync.createdAt,
+        });
+      }
+
       if (!shouldProcessImports) {
         logger.info({ syncId: sync.id }, '[api][poll] automatic sync skipped');
         continue;
@@ -905,6 +914,15 @@ export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
         hadError: Boolean(syncLastError),
         now: polledAt,
       });
+
+      if (sourceTracks.length > 0) {
+        await syncsStore.recordTrackActivity({
+          syncId: sync.id,
+          tracks: sourceTracks,
+          seenAt: polledAt,
+          bootstrapSeenAt: sync.lastSyncedAt ?? sync.createdAt,
+        });
+      }
 
       await syncsStore.updateSyncAutoState({
         syncId: sync.id,

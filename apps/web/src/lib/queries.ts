@@ -10,6 +10,7 @@
 
 import {
   createSyncRequestSchema,
+  dashboardSummaryResponseSchema,
   deleteEventDraftResponseSchema,
   eventDraftListResponseSchema,
   eventDraftResponseSchema,
@@ -31,6 +32,7 @@ import {
   updateSyncRequestSchema,
   userPreferencesResponseSchema,
   type ImportSyncResponse,
+  type DashboardSummaryResponse,
   type ProviderPlaylistItem,
   type SyncDetailItem,
   type SyncItem,
@@ -543,6 +545,15 @@ export const fetchSyncPublic = async (magicLinkToken: string): Promise<SyncPubli
     (payload) => syncPublicResponseSchema.parse(payload),
   );
   return result.sync;
+};
+
+export const fetchDashboardSummary = async (): Promise<DashboardSummaryResponse> => {
+  const token = requireToken();
+  return callApi(
+    '/v1/dashboard/summary',
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => dashboardSummaryResponseSchema.parse(payload),
+  );
 };
 
 export const fetchProviderPlaylists = async (params: {

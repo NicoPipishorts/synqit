@@ -64,7 +64,7 @@ export const ForgotPasswordPage = () => {
       <form
         onSubmit={onSubmit}
         autoComplete="on"
-        className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 shadow-soft-lift dark:bg-app-card sm:p-8"
+        className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl p-6 py-0 sm:p-8"
       >
         {statusType === 'success' ? (
           <>
@@ -72,7 +72,10 @@ export const ForgotPasswordPage = () => {
               {t('auth.forgotPasswordSent')}
             </p>
             <p className="text-center text-sm text-app-text-secondary">
-              <Link to="/auth/login" className="font-semibold text-brand-pink hover:text-[#d12074]">
+              <Link
+                to="/auth/login"
+                className="text-base font-bold text-brand-pink hover:text-[#d12074]"
+              >
                 {t('auth.backToLogin')}
               </Link>
             </p>
@@ -109,7 +112,10 @@ export const ForgotPasswordPage = () => {
             ) : null}
 
             <p className="text-center text-sm text-app-text-secondary">
-              <Link to="/auth/login" className="font-semibold text-brand-pink hover:text-[#d12074]">
+              <Link
+                to="/auth/login"
+                className="text-base font-bold text-brand-pink hover:text-[#d12074]"
+              >
                 {t('auth.backToLogin')}
               </Link>
             </p>

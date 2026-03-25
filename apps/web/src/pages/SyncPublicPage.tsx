@@ -257,7 +257,7 @@ export const SyncPublicPage = () => {
       importSuccessTimeoutRef.current = window.setTimeout(() => {
         setShowImportSuccessOverlay(false);
         importSuccessTimeoutRef.current = null;
-      }, 4400);
+      }, 4_000);
       showToast(t('syncPublicPage.subscribeSuccess'), { variant: 'success' });
       void queryClient.invalidateQueries({ queryKey: syncQueryKeys.public(token) });
       void queryClient.invalidateQueries({ queryKey: syncQueryKeys.all() });
@@ -347,7 +347,7 @@ export const SyncPublicPage = () => {
             setShowImportSuccessOverlay(false);
             setIsImportPreviewActive(false);
             importSuccessTimeoutRef.current = null;
-          }, 4400);
+          }, 4_000);
           return;
         }
 
@@ -544,12 +544,14 @@ export const SyncPublicPage = () => {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }}
                           transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                          className="relative w-full overflow-hidden"
+                          className={`relative w-full ${
+                            showImportSuccessOverlay ? 'min-h-[9.5rem] sm:min-h-[10rem]' : ''
+                          }`}
                         >
                           <p
                             className={`text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary transition-opacity duration-150 ${
                               showImportSuccessOverlay
-                                ? 'invisible opacity-1000'
+                                ? 'invisible opacity-0'
                                 : 'visible opacity-100'
                             }`}
                           >
@@ -558,7 +560,7 @@ export const SyncPublicPage = () => {
                           <div
                             className={`mt-2 grid gap-2.5 transition-opacity duration-150 ${
                               showImportSuccessOverlay
-                                ? 'invisible opacity-100'
+                                ? 'invisible opacity-0'
                                 : 'visible opacity-100'
                             }`}
                           >
@@ -616,9 +618,9 @@ export const SyncPublicPage = () => {
                                   duration: 0.32,
                                   ease: [0.22, 1, 0.36, 1],
                                 }}
-                                className="absolute inset-0 z-10 flex items-center justify-center rounded-[inherit] px-6 text-center"
+                                className="absolute inset-0 z-10 grid place-items-center rounded-[inherit] px-6 py-4 text-center"
                               >
-                                <div className="grid min-h-[7.75rem] justify-items-center gap-2 sm:min-h-18">
+                                <div className="flex w-full flex-col items-center justify-center gap-3">
                                   <motion.div
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{
@@ -707,12 +709,12 @@ export const SyncPublicPage = () => {
                                       duration: 0.22,
                                       ease: [0.22, 1, 0.36, 1],
                                     }}
-                                    className="grid gap-1"
+                                    className="grid max-w-xs gap-1"
                                   >
-                                    <p className="text-base font-black text-brand-dark dark:text-brand-white">
+                                    <p className="text-base font-black leading-none text-brand-dark dark:text-brand-white">
                                       {t('syncPublicPage.importSuccessTitle')}
                                     </p>
-                                    <p className="text-sm font-medium text-brand-dark/80 dark:text-brand-white/80">
+                                    <p className="text-sm font-medium leading-tight text-brand-dark/80 dark:text-brand-white/80">
                                       {t('syncPublicPage.importSuccessBody')}
                                     </p>
                                   </motion.div>

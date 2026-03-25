@@ -54,6 +54,19 @@ const interpolate = (template: string, vars?: Record<string, string | number>): 
   }, template);
 };
 
+const resolvePluralPath = (
+  messages: MessageDictionary | null,
+  key: string,
+  vars?: Record<string, string | number>,
+): string | null => {
+  if (!messages || typeof vars?.count !== 'number') {
+    return null;
+  }
+
+  const pluralKey = vars.count === 1 ? `${key}_one` : `${key}_other`;
+  return resolvePath(messages, pluralKey);
+};
+
 export const I18nProvider = ({ children }: { children: ReactNode }) => {
   const [locale, setLocaleState] = useState<Locale>(() => detectInitialLocale());
   const [activeMessages, setActiveMessages] = useState<MessageDictionary | null>(null);
@@ -116,12 +129,16 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
 
   const value = useMemo<I18nContextValue>(() => {
     const t = (key: string, vars?: Record<string, string | number>): string => {
-      const localized = activeMessages ? resolvePath(activeMessages, key) : null;
+      const localized =
+        (activeMessages ? resolvePath(activeMessages, key) : null) ??
+        resolvePluralPath(activeMessages, key, vars);
       if (localized) {
         return interpolate(localized, vars);
       }
 
-      const fallback = fallbackMessages ? resolvePath(fallbackMessages, key) : null;
+      const fallback =
+        (fallbackMessages ? resolvePath(fallbackMessages, key) : null) ??
+        resolvePluralPath(fallbackMessages, key, vars);
       if (fallback) {
         return interpolate(fallback, vars);
       }

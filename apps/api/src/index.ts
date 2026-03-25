@@ -11,6 +11,7 @@ import { resolve } from 'node:path';
 import { registerAdminRoutes } from './admin/routes';
 import { registerAnalyticsRoutes } from './analytics/routes';
 import { registerAuthRoutes } from './auth/routes';
+import { registerDashboardRoutes } from './dashboard/routes';
 import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
@@ -141,6 +142,7 @@ export const buildServer = async () => {
       await registerAuthRoutes(v1);
       await registerAdminRoutes(v1);
       await registerAnalyticsRoutes(v1);
+      await registerDashboardRoutes(v1);
       await registerIntegrationRoutes(v1);
       await registerEventRoutes(v1);
       await registerSyncRoutes(v1);
