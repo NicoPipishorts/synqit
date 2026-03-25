@@ -451,15 +451,17 @@ const syncSourceToImport = async (params: {
     }
 
     const matchedRecipientTrackId =
-      params.importRecord.recipientProvider === 'spotify'
-        ? await findSpotifyMatch({
-            userId: params.importRecord.recipientUserId,
-            track: sourceTrack,
-          })
-        : await findAppleMatch({
-            userId: params.importRecord.recipientUserId,
-            track: sourceTrack,
-          });
+      params.importRecord.recipientProvider === params.sync.provider
+        ? sourceTrack.providerTrackId
+        : params.importRecord.recipientProvider === 'spotify'
+          ? await findSpotifyMatch({
+              userId: params.importRecord.recipientUserId,
+              track: sourceTrack,
+            })
+          : await findAppleMatch({
+              userId: params.importRecord.recipientUserId,
+              track: sourceTrack,
+            });
 
     if (!matchedRecipientTrackId) {
       continue;
@@ -549,11 +551,14 @@ const syncImportBackToSource = async (params: {
       continue;
     }
 
-    const matchedSourceTrackId = await findProviderMatch({
-      provider: params.sync.provider,
-      userId: params.sync.senderUserId,
-      track: recipientTrack,
-    });
+    const matchedSourceTrackId =
+      params.importRecord.recipientProvider === params.sync.provider
+        ? recipientTrack.providerTrackId
+        : await findProviderMatch({
+            provider: params.sync.provider,
+            userId: params.sync.senderUserId,
+            track: recipientTrack,
+          });
 
     if (!matchedSourceTrackId) {
       continue;
