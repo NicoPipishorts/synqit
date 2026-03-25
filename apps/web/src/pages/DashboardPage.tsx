@@ -1,10 +1,14 @@
 import { eventTracksResponseSchema, type EventTrack } from '@synqit/shared';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
-import { ArrowUpRight, Plus, RefreshCcw } from 'lucide-react';
-import { KeyboardEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus, RefreshCcw } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
+import {
+  DashboardActivityFeed,
+  type ActivityFeedItem,
+} from '../components/dashboard/DashboardActivityFeed';
+import { DashboardPlaylistCard } from '../components/dashboard/DashboardPlaylistCard';
 import { PwaInstallPrompt } from '../components/dashboard/PwaInstallPrompt';
 import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { CTALink } from '../components/ui/cta';
@@ -31,37 +35,10 @@ type GuestEventActivity = {
   latestActivityAt: string | null;
 };
 
-type OverviewRow = {
-  id: string;
-  playlistName: string;
-  href: string;
-  roleLabel: string;
-  metrics: {
-    primary: string;
-    secondary?: string | null;
-    badge?: string | null;
-    status?: string | null;
-    pills?: string[];
-  };
-  sortAt: number;
-};
-
-type ActivityRow = {
-  id: string;
-  playlistName: string;
-  href: string;
-  roleTypeLabel: string;
-  description: string;
-  timeLabel: string | null;
-  sortAt: number;
-};
-
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const toTimestamp = (value: string | null | undefined): number => {
-  if (!value) {
-    return 0;
-  }
+  if (!value) return 0;
   const timestamp = Date.parse(value);
   return Number.isNaN(timestamp) ? 0 : timestamp;
 };
@@ -71,7 +48,6 @@ const RECENT_GUEST_WINDOW_MS = DAY_MS;
 export const DashboardPage = () => {
   const { t, locale } = useI18n();
   const { showToast } = useToast();
-  const navigate = useNavigate();
   const [guestHistory] = useState<DashboardGuestEventHistoryItem[]>(() =>
     readDashboardGuestEvents(),
   );
@@ -107,9 +83,7 @@ export const DashboardPage = () => {
             { method: 'GET' },
             (payload) => eventTracksResponseSchema.parse(payload),
           );
-
           const recentTracks = result.tracks.filter((track) => toTimestamp(track.addedAt) >= since);
-
           return {
             magicLinkToken: item.magicLinkToken,
             name: item.name,
@@ -122,11 +96,8 @@ export const DashboardPage = () => {
 
       const items: GuestEventActivity[] = [];
       for (const response of responses) {
-        if (response.status === 'fulfilled') {
-          items.push(response.value);
-        }
+        if (response.status === 'fulfilled') items.push(response.value);
       }
-
       return items.sort(
         (a, b) => toTimestamp(b.latestActivityAt) - toTimestamp(a.latestActivityAt),
       );
@@ -145,10 +116,7 @@ export const DashboardPage = () => {
 
   const formatTimeAgo = useCallback(
     (value: string | null) => {
-      if (!value) {
-        return null;
-      }
-
+      if (!value) return null;
       try {
         const diff = Date.now() - Date.parse(value);
         const mins = Math.floor(diff / 60_000);
@@ -169,13 +137,8 @@ export const DashboardPage = () => {
     const error =
       (syncsQuery.isError && syncsQuery.error) ||
       (dashboardSummaryQuery.isError && dashboardSummaryQuery.error);
-    if (!error) {
-      return;
-    }
-
-    showToast(t('dashboard.error', { message: (error as Error).message }), {
-      variant: 'error',
-    });
+    if (!error) return;
+    showToast(t('dashboard.error', { message: (error as Error).message }), { variant: 'error' });
   }, [
     dashboardSummaryQuery.error,
     dashboardSummaryQuery.isError,
@@ -198,80 +161,92 @@ export const DashboardPage = () => {
     [dashboardSummary?.subscriberSyncActivity],
   );
 
-  const ownedOverviewRows = useMemo<OverviewRow[]>(() => {
-    const eventRows = ownerEventActivity.map((item) => ({
+  // --- Playlist cards ---
+
+  type PlaylistCardItem = {
+    id: string;
+    playlistName: string;
+    href: string;
+    role: 'owner' | 'guest' | 'subscriber';
+    roleLabel: string;
+    signal: string | null;
+    signalActive: boolean;
+    sortAt: number;
+  };
+
+  const ownedCards = useMemo<PlaylistCardItem[]>(() => {
+    const eventCards = ownerEventActivity.map((item) => ({
       id: `owned-event-${item.eventId}`,
       playlistName: item.name,
       href: `/playlists/${item.eventId}`,
+      role: 'owner' as const,
       roleLabel: t('dashboard.roleOwner'),
-      metrics: {
-        primary: t('dashboard.metricSongsAdded24h', { count: item.addedTrackCount24h }),
-        badge:
-          item.addedTrackCount24h > 0
-            ? t('dashboard.badgeSongs24h', { count: item.addedTrackCount24h })
-            : null,
-      },
+      signal:
+        item.addedTrackCount24h > 0
+          ? t('dashboard.metricSongsAdded24h', { count: item.addedTrackCount24h })
+          : null,
+      signalActive: item.addedTrackCount24h > 0,
       sortAt: toTimestamp(item.latestActivityAt),
     }));
 
-    const syncRows = ownerSyncActivity.map((item) => ({
+    const syncCards = ownerSyncActivity.map((item) => ({
       id: `owned-sync-${item.syncId}`,
       playlistName: item.name,
       href: `/synced-lists/${item.syncId}`,
+      role: 'owner' as const,
       roleLabel: t('dashboard.roleOwner'),
-      metrics: {
-        primary: t('dashboard.metricTotalSubscribers', { count: item.totalSubscriberCount }),
-        pills: [
-          t('dashboard.badgeGrowth24hAbbrev', { count: item.newSubscriberCount24h }),
-          t('dashboard.metricTotalCount', { count: item.totalSubscriberCount }),
-        ],
-      },
+      signal: t('dashboard.metricTotalSubscribers', { count: item.totalSubscriberCount }),
+      signalActive: item.newSubscriberCount24h > 0,
       sortAt: toTimestamp(item.latestActivityAt),
     }));
 
-    return [...syncRows, ...eventRows].sort((a, b) => b.sortAt - a.sortAt);
+    return [...syncCards, ...eventCards].sort((a, b) => b.sortAt - a.sortAt);
   }, [ownerEventActivity, ownerSyncActivity, t]);
 
-  const partOfOverviewRows = useMemo<OverviewRow[]>(() => {
-    const guestRows = guestActivities.map((item) => ({
+  const joinedCards = useMemo<PlaylistCardItem[]>(() => {
+    const guestCards = guestActivities.map((item) => ({
       id: `guest-event-${item.magicLinkToken}`,
       playlistName: item.name,
       href: `/playlist/${item.magicLinkToken}`,
+      role: 'guest' as const,
       roleLabel: t('dashboard.roleGuest'),
-      metrics: {
-        primary: t('dashboard.metricRecentSongs', { count: item.recentAddedCount }),
-      },
+      signal:
+        item.recentAddedCount > 0
+          ? t('dashboard.metricRecentSongs', { count: item.recentAddedCount })
+          : null,
+      signalActive: item.recentAddedCount > 0,
       sortAt: toTimestamp(item.latestActivityAt),
     }));
 
-    const subscriberRows = subscriberSyncActivity.map((item) => {
+    const subscriberCards = subscriberSyncActivity.map((item) => {
       const sync = subscribedSyncMap.get(item.syncId);
       return {
         id: `subscriber-sync-${item.syncId}`,
         playlistName: sync?.name ?? item.name,
         href: sync ? `/sync/${sync.magicLinkToken}` : '#',
+        role: 'subscriber' as const,
         roleLabel: t('dashboard.roleSubscriber'),
-        metrics: {
-          primary: t('dashboard.metricSongsAdded7d', { count: item.addedTrackCount7d }),
-          status: item.ownerAddedTracks7d
-            ? t('dashboard.subscriberOwnerActive')
-            : t('dashboard.subscriberOwnerInactive'),
-        },
+        signal:
+          item.addedTrackCount7d > 0
+            ? t('dashboard.metricSongsAdded7d', { count: item.addedTrackCount7d })
+            : null,
+        signalActive: item.ownerAddedTracks7d,
         sortAt: toTimestamp(item.latestActivityAt),
       };
     });
 
-    return [...guestRows, ...subscriberRows].sort((a, b) => b.sortAt - a.sortAt);
+    return [...guestCards, ...subscriberCards].sort((a, b) => b.sortAt - a.sortAt);
   }, [guestActivities, subscribedSyncMap, subscriberSyncActivity, t]);
 
-  const activityRows = useMemo<ActivityRow[]>(() => {
+  // --- Activity feed ---
+
+  const activityItems = useMemo<ActivityFeedItem[]>(() => {
     const ownerEventRows = ownerEventActivity
       .filter((item) => item.addedTrackCount24h > 0)
       .map((item) => ({
         id: `activity-owner-event-${item.eventId}`,
         playlistName: item.name,
         href: `/playlists/${item.eventId}#tracks`,
-        roleTypeLabel: t('dashboard.roleTypeOwnerEvent'),
         description: t('dashboard.activityOwnerEventSongs', { count: item.addedTrackCount24h }),
         timeLabel: formatTimeAgo(item.latestActivityAt),
         sortAt: toTimestamp(item.latestActivityAt),
@@ -283,22 +258,17 @@ export const DashboardPage = () => {
           id: `activity-owner-sync-${item.syncId}-${subscriber.userId}-${subscriber.subscribedAt}`,
           playlistName: item.name,
           href: `/synced-lists/${item.syncId}`,
-          roleTypeLabel: t('dashboard.roleTypeOwnerSync'),
-          description: t('dashboard.activityOwnerSyncSubscriber', {
-            name: subscriber.name,
-          }),
+          description: t('dashboard.activityOwnerSyncSubscriber', { name: subscriber.name }),
           timeLabel: formatTimeAgo(subscriber.subscribedAt),
           sortAt: toTimestamp(subscriber.subscribedAt),
         }));
       }
-
       if (item.newSubscriberCount24h > 0) {
         return [
           {
             id: `activity-owner-sync-${item.syncId}`,
             playlistName: item.name,
             href: `/synced-lists/${item.syncId}`,
-            roleTypeLabel: t('dashboard.roleTypeOwnerSync'),
             description: t('dashboard.activityOwnerSyncSubscribers', {
               count: item.newSubscriberCount24h,
             }),
@@ -307,7 +277,6 @@ export const DashboardPage = () => {
           },
         ];
       }
-
       return [];
     });
 
@@ -317,7 +286,6 @@ export const DashboardPage = () => {
         id: `activity-guest-event-${item.magicLinkToken}`,
         playlistName: item.name,
         href: `/playlist/${item.magicLinkToken}`,
-        roleTypeLabel: t('dashboard.roleTypeGuestEvent'),
         description: t('dashboard.activityGuestSongs', { count: item.recentAddedCount }),
         timeLabel: formatTimeAgo(item.latestActivityAt),
         sortAt: toTimestamp(item.latestActivityAt),
@@ -331,10 +299,7 @@ export const DashboardPage = () => {
           id: `activity-subscriber-sync-${item.syncId}`,
           playlistName: sync?.name ?? item.name,
           href: sync ? `/sync/${sync.magicLinkToken}` : '#',
-          roleTypeLabel: t('dashboard.roleTypeSubscriberSync'),
-          description: t('dashboard.activitySubscriberSongs', {
-            count: item.addedTrackCount7d,
-          }),
+          description: t('dashboard.activitySubscriberSongs', { count: item.addedTrackCount7d }),
           timeLabel: formatTimeAgo(item.latestActivityAt),
           sortAt: toTimestamp(item.latestActivityAt),
         };
@@ -354,192 +319,11 @@ export const DashboardPage = () => {
   ]);
 
   const hasDashboardContent =
-    ownedOverviewRows.length > 0 || partOfOverviewRows.length > 0 || guestHistory.length > 0;
+    ownedCards.length > 0 || joinedCards.length > 0 || guestHistory.length > 0;
   const isInitialLoad = syncsQuery.isLoading || dashboardSummaryQuery.isLoading;
-  const showCreatePlaylistCta = ownedOverviewRows.length === 0;
-
-  const activateRow = useCallback(
-    (href: string) => {
-      void navigate({ to: href as never });
-    },
-    [navigate],
-  );
-
-  const onRowKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLTableRowElement>, href: string) => {
-      if (event.key !== 'Enter' && event.key !== ' ') {
-        return;
-      }
-
-      event.preventDefault();
-      activateRow(href);
-    },
-    [activateRow],
-  );
-
-  const renderOverviewTable = (
-    rows: OverviewRow[],
-    emptyKey: string,
-    metricsHeaderKey = 'dashboard.tableMetrics',
-  ) =>
-    rows.length === 0 ? (
-      <p className="px-4 py-5 text-sm text-app-text-secondary">{t(emptyKey)}</p>
-    ) : (
-      <div className="overflow-x-auto">
-        <table className="min-w-full table-auto sm:table-fixed">
-          <thead>
-            <tr className="border-b border-app-border">
-              <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary sm:w-[35%]">
-                {t('dashboard.tablePlaylist')}
-              </th>
-              <th className="px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary sm:w-[20%]">
-                {t('dashboard.tableRole')}
-              </th>
-              <th className="w-px whitespace-nowrap px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary sm:w-[37%] sm:whitespace-normal">
-                {t(metricsHeaderKey)}
-              </th>
-              <th className="w-px px-3 py-3 text-right text-[11px] font-black uppercase tracking-wide text-app-text-secondary sm:w-[8%] sm:px-4">
-                <span className="sr-only">{t('dashboard.tableOpen')}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.id}
-                role="link"
-                tabIndex={0}
-                onClick={() => activateRow(row.href)}
-                onKeyDown={(event) => onRowKeyDown(event, row.href)}
-                className="group cursor-pointer border-b border-app-border transition-colors hover:bg-brand-pink/5 focus:bg-brand-pink/5 focus:outline-none last:border-b-0"
-              >
-                <td className="px-4 py-4 align-middle">
-                  <span className="block truncate text-sm font-black text-brand-dark transition-colors group-hover:text-brand-pink group-focus:text-brand-pink dark:text-brand-white dark:group-hover:text-brand-pink dark:group-focus:text-brand-pink">
-                    {row.playlistName}
-                  </span>
-                </td>
-                <td className="px-4 py-4 align-middle">
-                  <span className="inline-flex rounded-full bg-brand-lime/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#6d9600] dark:text-[#d5ff5c]">
-                    {row.roleLabel}
-                  </span>
-                </td>
-                <td className="w-px whitespace-nowrap px-4 py-4 align-middle sm:w-auto sm:whitespace-normal">
-                  <div className="inline-grid min-w-max gap-2 sm:min-w-0">
-                    {row.metrics.pills && row.metrics.pills.length > 0 ? (
-                      <div className="flex min-w-max flex-nowrap items-center gap-2">
-                        {row.metrics.pills.map((pill) => (
-                          <span
-                            key={pill}
-                            className="inline-flex shrink-0 rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300"
-                          >
-                            {pill}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm font-semibold text-brand-dark dark:text-brand-white">
-                        {row.metrics.primary}
-                      </p>
-                    )}
-                    {row.metrics.secondary ? (
-                      <p className="text-xs text-app-text-secondary">{row.metrics.secondary}</p>
-                    ) : null}
-                    {row.metrics.badge && (!row.metrics.pills || row.metrics.pills.length === 0) ? (
-                      <span className="inline-flex w-fit rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
-                        {row.metrics.badge}
-                      </span>
-                    ) : null}
-                    {row.metrics.status ? (
-                      <span
-                        className={`inline-flex w-fit rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                          row.metrics.status === t('dashboard.subscriberOwnerActive')
-                            ? 'bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
-                            : 'bg-app-border text-app-text-secondary'
-                        }`}
-                      >
-                        {row.metrics.status}
-                      </span>
-                    ) : null}
-                  </div>
-                </td>
-                <td className="w-px px-3 py-4 align-middle text-right sm:px-4">
-                  <ArrowUpRight
-                    size={14}
-                    aria-hidden="true"
-                    className="ml-auto shrink-0 text-app-text-secondary transition duration-150 ease-out group-hover:text-brand-pink group-focus:text-brand-pink motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5 motion-safe:group-focus:translate-x-0.5 motion-safe:group-focus:-translate-y-0.5"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
-
-  const renderActivityTable = (rows: ActivityRow[]) =>
-    rows.length === 0 ? (
-      <p className="px-4 py-5 text-sm text-app-text-secondary">{t('dashboard.activityEmpty')}</p>
-    ) : (
-      <div className="overflow-x-auto">
-        <table className="min-w-full table-fixed">
-          <thead>
-            <tr className="border-b border-app-border">
-              <th className="w-[27%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
-                {t('dashboard.tablePlaylist')}
-              </th>
-              <th className="w-[26%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
-                {t('dashboard.activityTableRoleType')}
-              </th>
-              <th className="w-[24%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
-                {t('dashboard.activityTableDescription')}
-              </th>
-              <th className="w-[15%] px-4 py-3 text-left text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
-                {t('dashboard.activityTableTime')}
-              </th>
-              <th className="w-[8%] px-4 py-3 text-right text-[11px] font-black uppercase tracking-wide text-app-text-secondary">
-                <span className="sr-only">{t('dashboard.tableOpen')}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.id}
-                role="link"
-                tabIndex={0}
-                onClick={() => activateRow(row.href)}
-                onKeyDown={(event) => onRowKeyDown(event, row.href)}
-                className="group cursor-pointer border-b border-app-border transition-colors hover:bg-brand-pink/5 focus:bg-brand-pink/5 focus:outline-none last:border-b-0"
-              >
-                <td className="px-4 py-4 align-middle">
-                  <span className="block truncate text-sm font-black text-brand-dark transition-colors group-hover:text-brand-pink group-focus:text-brand-pink dark:text-brand-white dark:group-hover:text-brand-pink dark:group-focus:text-brand-pink">
-                    {row.playlistName}
-                  </span>
-                </td>
-                <td className="px-4 py-4 align-middle">
-                  <span className="inline-flex rounded-full bg-sky-400/15 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
-                    {row.roleTypeLabel}
-                  </span>
-                </td>
-                <td className="px-4 py-4 align-middle text-sm text-brand-dark dark:text-brand-white">
-                  {row.description}
-                </td>
-                <td className="px-4 py-4 align-middle text-xs text-app-text-secondary">
-                  {row.timeLabel ?? t('dashboard.activityTimeUnknown')}
-                </td>
-                <td className="px-4 py-4 align-middle text-right">
-                  <ArrowUpRight
-                    size={14}
-                    aria-hidden="true"
-                    className="ml-auto shrink-0 text-app-text-secondary transition duration-150 ease-out group-hover:text-brand-pink group-focus:text-brand-pink motion-safe:group-hover:translate-x-0.5 motion-safe:group-hover:-translate-y-0.5 motion-safe:group-focus:translate-x-0.5 motion-safe:group-focus:-translate-y-0.5"
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    );
+  const isFetching =
+    syncsQuery.isFetching || dashboardSummaryQuery.isFetching || guestActivityQuery.isFetching;
+  const showCreatePlaylistCta = ownedCards.length === 0;
 
   return (
     <AppPageLayout
@@ -615,6 +399,7 @@ export const DashboardPage = () => {
         </div>
       ) : (
         <>
+          {/* Page header */}
           <header className="flex items-start justify-between gap-4 sm:px-2 sm:pb-2">
             <div className="grid gap-1">
               <p className="text-xs font-bold uppercase tracking-widest text-app-text-secondary">
@@ -623,9 +408,6 @@ export const DashboardPage = () => {
               <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
                 {t('dashboard.title')}
               </h1>
-              <p className="mt-1 max-w-2xl text-sm text-app-text-secondary sm:text-base">
-                {t('dashboard.description')}
-              </p>
             </div>
             {showCreatePlaylistCta ? (
               <div className="hidden shrink-0 items-center gap-3 sm:flex">
@@ -660,67 +442,15 @@ export const DashboardPage = () => {
             </div>
           ) : null}
 
+          {/* Playlists */}
           <section className="grid gap-4">
-            <div className="flex items-center justify-between px-4">
-              <div>
-                <h2 className="text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
-                  {t('dashboard.overviewTitle')}
-                </h2>
-                <p className="mt-1 text-sm text-app-text-secondary">
-                  {t('dashboard.overviewDescription')}
-                </p>
-              </div>
-              {isInitialLoad || dashboardSummaryQuery.isFetching ? (
+            <div className="flex items-center justify-between px-1">
+              <h2 className="text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
+                {t('dashboard.overviewTitle')}
+              </h2>
+              {isFetching ? (
                 <RefreshCcw
-                  size={14}
-                  className="animate-spin text-app-text-secondary"
-                  aria-hidden="true"
-                />
-              ) : null}
-            </div>
-
-            <article className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
-              <div className="border-b border-app-border px-4 py-4">
-                <h3 className="text-sm font-black text-brand-dark dark:text-brand-white">
-                  {t('dashboard.overviewOwnedTitle')}
-                </h3>
-                <p className="mt-1 text-xs text-app-text-secondary">
-                  {t('dashboard.overviewOwnedBody')}
-                </p>
-              </div>
-              {renderOverviewTable(
-                ownedOverviewRows,
-                'dashboard.overviewOwnedEmpty',
-                'dashboard.tableSubscribers',
-              )}
-            </article>
-
-            <article className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
-              <div className="border-b border-app-border px-4 py-4">
-                <h3 className="text-sm font-black text-brand-dark dark:text-brand-white">
-                  {t('dashboard.overviewJoinedTitle')}
-                </h3>
-                <p className="mt-1 text-xs text-app-text-secondary">
-                  {t('dashboard.overviewJoinedBody')}
-                </p>
-              </div>
-              {renderOverviewTable(partOfOverviewRows, 'dashboard.overviewJoinedEmpty')}
-            </article>
-          </section>
-
-          <section className="grid gap-4">
-            <div className="flex items-center justify-between px-4">
-              <div>
-                <h2 className="text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
-                  {t('dashboard.activityTitle')}
-                </h2>
-                <p className="mt-1 text-sm text-app-text-secondary">
-                  {t('dashboard.activityDescription')}
-                </p>
-              </div>
-              {dashboardSummaryQuery.isFetching || guestActivityQuery.isFetching ? (
-                <RefreshCcw
-                  size={14}
+                  size={13}
                   className="animate-spin text-app-text-secondary"
                   aria-hidden="true"
                 />
@@ -728,7 +458,52 @@ export const DashboardPage = () => {
             </div>
 
             <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
-              {renderActivityTable(activityRows)}
+              {/* Owned */}
+              {ownedCards.length > 0 ? (
+                <>
+                  <p className="border-b border-app-border px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-app-text-secondary">
+                    {t('dashboard.overviewOwnedTitle')}
+                  </p>
+                  {ownedCards.map((card) => (
+                    <DashboardPlaylistCard key={card.id} {...card} />
+                  ))}
+                </>
+              ) : null}
+
+              {/* Joined */}
+              {joinedCards.length > 0 ? (
+                <>
+                  <p
+                    className={`border-b border-app-border px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-app-text-secondary ${ownedCards.length > 0 ? 'border-t' : ''}`}
+                  >
+                    {t('dashboard.overviewJoinedTitle')}
+                  </p>
+                  {joinedCards.map((card) => (
+                    <DashboardPlaylistCard key={card.id} {...card} />
+                  ))}
+                </>
+              ) : null}
+
+              {ownedCards.length === 0 && joinedCards.length === 0 ? (
+                <p className="px-4 py-5 text-sm text-app-text-secondary">
+                  {t('dashboard.overviewOwnedEmpty')}
+                </p>
+              ) : null}
+            </div>
+          </section>
+
+          {/* Activity */}
+          <section className="grid gap-4">
+            <h2 className="px-1 text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
+              {t('dashboard.activityTitle')}
+            </h2>
+
+            <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
+              <DashboardActivityFeed
+                items={activityItems}
+                emptyLabel={t('dashboard.activityEmpty')}
+                unknownTimeLabel={t('dashboard.activityTimeUnknown')}
+              />
             </div>
           </section>
         </>
