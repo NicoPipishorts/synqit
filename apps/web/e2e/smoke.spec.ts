@@ -73,7 +73,7 @@ const mockOwnedSyncs = [
     providerPlaylistId: 'spotify-shared-1',
     name: 'Roadtrip Blend',
     trackCount: 42,
-    syncMode: 'source_only',
+    syncMode: 'host_only',
     autoSyncEnabled: true,
     lastSyncedAt: new Date(now - 1000 * 60 * 15).toISOString(),
     lastError: null,
@@ -92,7 +92,7 @@ const mockSubscribedSyncs = [
     providerPlaylistId: 'apple-shared-2',
     name: 'Shared Weekly',
     trackCount: 18,
-    syncMode: 'source_only',
+    syncMode: 'host_only',
     autoSyncEnabled: true,
     lastSyncedAt: new Date(now - 1000 * 60 * 30).toISOString(),
     lastError: null,
@@ -180,11 +180,31 @@ const mockEventDetail = {
 
 const mockSyncDetail = {
   ...mockOwnedSyncs[0],
-  providerPlaylistName: 'Roadtrip Blend',
   subscriberCount: 12,
-  subscribersByProvider: { spotify: 8, apple: 4 },
+  subscriberPlatformStats: [
+    { provider: 'spotify', count: 8 },
+    { provider: 'apple', count: 4 },
+  ],
   tracks: mockTracksEvent1,
 };
+
+const mockSyncPublic = {
+  id: 'sync-2',
+  provider: 'apple',
+  syncMode: 'host_only',
+  name: 'Roadtrip Blend',
+  trackCount: 18,
+  isRevoked: false,
+  isOwner: false,
+  isSubscribed: false,
+  subscriberCount: 12,
+  tracks: mockTracksEvent1.map((track) => ({
+    name: track.name,
+    artist: track.artist,
+    album: track.album,
+    artworkUrl: track.artworkUrl,
+  })),
+} as const;
 
 const mockPreferences = {
   theme: 'system',
@@ -504,9 +524,9 @@ test.describe('web smoke regressions', () => {
     await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
     await expect(page.getByText('Site preferences')).toBeVisible();
     // Nav cards
-    await expect(page.getByText('Personal Info')).toBeVisible();
-    await expect(page.getByText('Platforms')).toBeVisible();
-    await expect(page.getByText('Security')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /personal info/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /platforms/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /security/i })).toBeVisible();
   });
 
   test('profile platforms page renders connected services section', async ({ page }) => {
@@ -514,7 +534,7 @@ test.describe('web smoke regressions', () => {
     await installApiMocks(page);
     await page.goto('/profile/platforms');
 
-    await expect(page.getByText('Services')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Services' })).toBeVisible();
     await expect(page.getByText('Spotify').first()).toBeVisible();
     await expect(page.getByText('Apple Music').first()).toBeVisible();
   });
@@ -525,7 +545,7 @@ test.describe('web smoke regressions', () => {
     await page.goto('/profile/security');
 
     await expect(page.getByRole('heading', { name: /security/i })).toBeVisible();
-    await expect(page.getByText('Change password')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Change password' })).toBeVisible();
   });
 
   // ── Auth pages (unauthenticated) ───────────────────────────────────────────
@@ -602,13 +622,12 @@ test.describe('web smoke regressions', () => {
       const path = new URL(route.request().url()).pathname.replace(/^\/api/, '');
       const method = route.request().method().toUpperCase();
 
-      const linkMatch = path.match(/^\/v1\/syncs\/link\/([^/]+)$/);
-      if (linkMatch && method === 'GET') {
+      if (path.startsWith('/v1/syncs/link/') && method === 'GET') {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
           body: JSON.stringify({
-            sync: { ...mockSyncDetail, magicLinkToken: 'sync-magic-token-2' },
+            sync: mockSyncPublic,
           }),
         });
         return;
@@ -622,7 +641,7 @@ test.describe('web smoke regressions', () => {
     });
 
     await page.goto('/sync/sync-magic-token-2');
-    await expect(page.getByText('Roadtrip Blend')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Roadtrip Blend' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Subscribe' })).toBeVisible();
   });
 
