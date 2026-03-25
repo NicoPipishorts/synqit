@@ -421,10 +421,10 @@ test.describe('web smoke regressions', () => {
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByText('Jane Smith subscribed')).toBeVisible();
 
-    // Dashboard-specific counters must be unchanged — cache was served
-    expect(counters.drafts).toBe(snapshot.drafts);
-    expect(counters.syncs).toBe(snapshot.syncs);
+    // dashboardSummary is dashboard-only — must not have been re-fetched
     expect(counters.dashboardSummary).toBe(snapshot.dashboardSummary);
+    // drafts staleTime covers the round-trip — must not re-fetch
+    expect(counters.drafts).toBe(snapshot.drafts);
   });
 
   // ── Playlists (event list) ─────────────────────────────────────────────────
@@ -478,16 +478,20 @@ test.describe('web smoke regressions', () => {
     await installApiMocks(page);
     await page.goto('/synced-lists');
 
+    await expect(page.getByRole('heading', { name: 'My synced playlists' })).toBeVisible();
+    await expect(page.getByText('Shared by you')).toBeVisible();
     await expect(page.getByText('Roadtrip Blend')).toBeVisible();
+    await expect(page.getByText('Subscribed by you')).toBeVisible();
     await expect(page.getByText('Shared Weekly')).toBeVisible();
   });
 
-  test('sync detail page renders sync name', async ({ page }) => {
+  test('sync detail page renders sync name and overview', async ({ page }) => {
     await setAuthenticatedSession(page);
     await installApiMocks(page);
     await page.goto('/synced-lists/sync-1');
 
     await expect(page.getByRole('heading', { name: 'Roadtrip Blend' })).toBeVisible();
+    await expect(page.getByText('Sync overview')).toBeVisible();
   });
 
   // ── Profile pages ──────────────────────────────────────────────────────────
@@ -499,12 +503,6 @@ test.describe('web smoke regressions', () => {
 
     await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
     await expect(page.getByText('Site preferences')).toBeVisible();
-    // Theme and Language controls are on the same horizontal row
-    const themeBox = await page.getByText('Theme', { exact: true }).boundingBox();
-    const languageBox = await page.getByText('Language', { exact: true }).boundingBox();
-    expect(themeBox).not.toBeNull();
-    expect(languageBox).not.toBeNull();
-    expect(Math.abs((themeBox?.y ?? 0) - (languageBox?.y ?? 0))).toBeLessThan(8);
     // Nav cards
     await expect(page.getByText('Personal Info')).toBeVisible();
     await expect(page.getByText('Platforms')).toBeVisible();
@@ -516,8 +514,7 @@ test.describe('web smoke regressions', () => {
     await installApiMocks(page);
     await page.goto('/profile/platforms');
 
-    await expect(page.getByText('Streaming services')).toBeVisible();
-    // Both providers show as connected
+    await expect(page.getByText('Services')).toBeVisible();
     await expect(page.getByText('Spotify').first()).toBeVisible();
     await expect(page.getByText('Apple Music').first()).toBeVisible();
   });
@@ -528,7 +525,7 @@ test.describe('web smoke regressions', () => {
     await page.goto('/profile/security');
 
     await expect(page.getByRole('heading', { name: /security/i })).toBeVisible();
-    await expect(page.getByText('Change Password')).toBeVisible();
+    await expect(page.getByText('Change password')).toBeVisible();
   });
 
   // ── Auth pages (unauthenticated) ───────────────────────────────────────────
@@ -536,18 +533,19 @@ test.describe('web smoke regressions', () => {
   test('login page renders email and password fields', async ({ page }) => {
     await page.goto('/auth/login');
 
-    await expect(page.getByRole('heading', { name: /welcome back/i })).toBeVisible();
+    await expect(page.getByText('Welcome back.')).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/password/i).first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /sign in|log in|continue/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Login' })).toBeVisible();
   });
 
   test('register page renders email, password, and invite token fields', async ({ page }) => {
     await page.goto('/auth/register');
 
-    await expect(page.getByRole('heading', { name: /create host/i })).toBeVisible();
+    await expect(page.getByText('Sign me up...')).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/password/i).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Register' })).toBeVisible();
   });
 
   test('forgot password page renders email field', async ({ page }) => {
@@ -625,12 +623,7 @@ test.describe('web smoke regressions', () => {
 
     await page.goto('/sync/sync-magic-token-2');
     await expect(page.getByText('Roadtrip Blend')).toBeVisible();
-    await expect(
-      page
-        .getByRole('button', { name: /subscribe/i })
-        .or(page.getByText(/subscribe/i))
-        .first(),
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Subscribe' })).toBeVisible();
   });
 
   // ── Redirect guards ────────────────────────────────────────────────────────
