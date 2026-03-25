@@ -19,6 +19,7 @@ import { AccordionSection } from '../components/ui/AccordionSection';
 import { CTAButton } from '../components/ui/cta';
 import { SlideOverPanel } from '../components/ui/SlideOverPanel';
 import { useI18n } from '../hooks/useI18n';
+import { isDisplayableAnalyticsPath } from '../lib/analytics-display';
 import { callApi, toApiError } from '../lib/api';
 import { clearAuth } from '../lib/auth';
 
@@ -289,28 +290,27 @@ export const AdminAnalyticsPage = () => {
     '';
 
   const topUsersByPlaylists = useMemo(
-    () => [...users].sort((a, b) => b.eventPlaylistsCount - a.eventPlaylistsCount).slice(0, 6),
+    () =>
+      [...users]
+        .sort(
+          (a, b) =>
+            b.eventPlaylistsCount +
+            b.sharedPlaylistsCount -
+            (a.eventPlaylistsCount + a.sharedPlaylistsCount),
+        )
+        .slice(0, 6),
     [users],
   );
-  const maxTopCount = topUsersByPlaylists[0]?.eventPlaylistsCount ?? 1;
   const summaryPageViews = useMemo(
-    () =>
-      (overview?.pageViewsByPath ?? []).filter((row) => {
-        if (row.path.startsWith('/admin')) {
-          return false;
-        }
-        if (row.path.startsWith('/playlists/link/')) {
-          return false;
-        }
-        if (row.path.startsWith('/playlist/')) {
-          return false;
-        }
-        if (row.path.startsWith('/playlists/') && row.path !== '/playlists/new') {
-          return false;
-        }
-        return true;
-      }),
+    () => (overview?.pageViewsByPath ?? []).filter((row) => isDisplayableAnalyticsPath(row.path)),
     [overview],
+  );
+  const selectedUserPageViews = useMemo(
+    () =>
+      (selectedUserDetail?.pageViewsByPath ?? []).filter((row) =>
+        isDisplayableAnalyticsPath(row.path, { appOnly: true }),
+      ),
+    [selectedUserDetail],
   );
   const maxPathViews = summaryPageViews.reduce((max, row) => Math.max(max, row.views), 0) || 1;
   const maxDayViews =
@@ -368,32 +368,13 @@ export const AdminAnalyticsPage = () => {
           <p className="text-sm text-app-text-secondary">{t('admin.analyticsLoading')}</p>
         ) : (
           <>
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
                 <p className="text-xs font-semibold text-app-text-secondary">
-                  {t('admin.analyticsMetricUsers')}
+                  {t('admin.analyticsMetricNewUsers')}
                 </p>
                 <p className="text-2xl font-black text-app-text">{overview.totals.usersCount}</p>
               </div>
-              <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
-                <p className="text-xs font-semibold text-app-text-secondary">
-                  {t('admin.analyticsMetricEventPlaylists')}
-                </p>
-                <p className="text-2xl font-black text-app-text">
-                  {overview.totals.eventPlaylistsCount}
-                </p>
-              </div>
-              <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
-                <p className="text-xs font-semibold text-app-text-secondary">
-                  {t('admin.analyticsMetricSharedPlaylists')}
-                </p>
-                <p className="text-2xl font-black text-app-text">
-                  {overview.totals.sharedPlaylistsCount}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
                 <p className="text-xs font-semibold text-app-text-secondary">
                   {t('admin.analyticsMetricPageViews')}
@@ -503,29 +484,24 @@ export const AdminAnalyticsPage = () => {
               ) : (
                 <div className="grid gap-2">
                   {topUsersByPlaylists.map((user) => {
-                    const width = Math.max(
-                      6,
-                      Math.round((user.eventPlaylistsCount / maxTopCount) * 100),
-                    );
                     return (
                       <button
                         key={user.userId}
                         type="button"
                         onClick={() => void openUserDetails(user.userId)}
-                        className="grid cursor-pointer gap-1 rounded-lg border border-app-border bg-app-bg p-2 text-left"
+                        className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-app-border bg-app-bg p-2 text-left"
                       >
-                        <div className="flex items-center justify-between gap-2 text-xs font-semibold text-app-text-secondary">
-                          <span className="truncate">{user.email}</span>
-                          <span className="font-black text-app-text">
-                            {user.eventPlaylistsCount}
+                        <span className="min-w-0 truncate text-xs font-semibold text-app-text-secondary">
+                          {user.email}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold text-app-text-secondary">
+                          <span>
+                            {user.eventPlaylistsCount} {t('admin.analyticsMetricEventsShort')}
+                          </span>
+                          <span>
+                            {user.sharedPlaylistsCount} {t('admin.analyticsMetricSharedShort')}
                           </span>
                         </div>
-                        <span className="h-2 rounded-full bg-brand-lime/25">
-                          <span
-                            className="block h-2 rounded-full bg-brand-lime"
-                            style={{ width: `${width}%` }}
-                          />
-                        </span>
                       </button>
                     );
                   })}
@@ -568,13 +544,13 @@ export const AdminAnalyticsPage = () => {
                 <span className="font-black text-app-text">{selectedUserDetail.role}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span>{t('admin.analyticsMetricEventPlaylists')}</span>
+                <span>{t('admin.analyticsMetricEventsShort')}</span>
                 <span className="font-black text-app-text">
                   {selectedUserDetail.eventPlaylistsCount}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-2">
-                <span>{t('admin.analyticsMetricSharedPlaylists')}</span>
+                <span>{t('admin.analyticsMetricSharedShort')}</span>
                 <span className="font-black text-app-text">
                   {selectedUserDetail.sharedPlaylistsCount}
                 </span>
@@ -667,13 +643,13 @@ export const AdminAnalyticsPage = () => {
             ) : null}
 
             <AccordionSection title={t('admin.analyticsUserPageViewsTitle')}>
-              {selectedUserDetail.pageViewsByPath.length === 0 ? (
+              {selectedUserPageViews.length === 0 ? (
                 <p className="text-xs font-semibold text-app-text-secondary">
                   {t('admin.analyticsUserNoPageViews')}
                 </p>
               ) : (
                 <div className="grid gap-2">
-                  {selectedUserDetail.pageViewsByPath.map((row) => (
+                  {selectedUserPageViews.map((row) => (
                     <div
                       key={row.path}
                       className="flex items-center justify-between gap-2 rounded-lg border border-app-border bg-app-bg px-2.5 py-2 text-xs"

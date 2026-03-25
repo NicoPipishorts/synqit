@@ -9,6 +9,7 @@ import { authStore } from './auth/store';
 import { closeDatabase } from './db';
 import { prisma } from './db/prisma';
 import { buildServer } from './index';
+import { syncsStore } from './syncs/store';
 
 const TEST_EMAIL_PREFIX = 'regression+';
 const TEST_PASSWORD = 'Password123!';
@@ -690,6 +691,15 @@ describe('API regression', () => {
     const adminEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
     await registerUser(app, adminEmail);
 
+    await syncsStore.createSync({
+      senderUserId: hostUser.user.id,
+      provider: 'spotify',
+      providerPlaylistId: `analytics-shared-${randomUUID()}`,
+      name: 'Analytics Shared Sync',
+      trackCount: 8,
+      syncMode: 'host_only',
+    });
+
     const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
     process.env.ADMIN_BOOTSTRAP_KEY = 'regression-bootstrap-key';
     try {
@@ -759,12 +769,14 @@ describe('API regression', () => {
         totals: {
           usersCount: number;
           eventPlaylistsCount: number;
+          sharedPlaylistsCount: number;
           pageViewsCount: number;
         };
         pageViewsByPath: Array<{ path: string; views: number }>;
       };
       assert.ok(overviewBody.totals.usersCount >= 1);
       assert.ok(overviewBody.totals.eventPlaylistsCount >= 1);
+      assert.ok(overviewBody.totals.sharedPlaylistsCount >= 1);
       assert.ok(overviewBody.totals.pageViewsCount >= 1);
       assert.ok(overviewBody.pageViewsByPath.length >= 1);
 
@@ -2011,5 +2023,53 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
       process.env.APPLE_PRIVATE_KEY_P8 = previousApplePrivateKey;
       process.env.APPLE_STOREFRONT = previousAppleStorefront;
     }
+  });
+
+  it('dashboard: subscribed sync summary serializes latest activity timestamps', async () => {
+    const ownerEmail = `${TEST_EMAIL_PREFIX}dashboard-owner-${randomUUID()}@synqit.test`;
+    const subscriberEmail = `${TEST_EMAIL_PREFIX}dashboard-subscriber-${randomUUID()}@synqit.test`;
+
+    const owner = await registerUser(app, ownerEmail);
+    const subscriber = await registerUser(app, subscriberEmail);
+
+    const sync = await syncsStore.createSync({
+      senderUserId: owner.user.id,
+      provider: 'spotify',
+      providerPlaylistId: 'dashboard-summary-playlist',
+      name: 'Dashboard Summary Sync',
+      trackCount: 12,
+      syncMode: 'host_only',
+    });
+
+    const lastSyncedAt = new Date();
+
+    await syncsStore.upsertImport({
+      syncId: sync.id,
+      recipientUserId: subscriber.user.id,
+      recipientProvider: 'apple',
+      recipientProviderPlaylistId: 'subscriber-copy-playlist',
+      status: 'active',
+      matchedCount: 12,
+      skippedCount: 0,
+      lastSyncedAt,
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/dashboard/summary',
+      headers: authHeader(subscriber.tokens.accessToken),
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = parseBody(response.body) as {
+      subscriberSyncActivity: Array<{
+        syncId: string;
+        latestActivityAt: string | null;
+      }>;
+    };
+
+    assert.equal(body.subscriberSyncActivity.length, 1);
+    assert.equal(body.subscriberSyncActivity[0]?.syncId, sync.id);
+    assert.equal(body.subscriberSyncActivity[0]?.latestActivityAt, lastSyncedAt.toISOString());
   });
 });

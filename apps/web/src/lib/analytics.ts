@@ -23,6 +23,9 @@ const parseBoolean = (value: string | undefined, fallback: boolean): boolean => 
 };
 
 const isAnalyticsEnabled = parseBoolean(import.meta.env.VITE_ANALYTICS_ENABLED, true);
+const isLocalAnalyticsAllowed = parseBoolean(import.meta.env.VITE_ANALYTICS_ALLOW_LOCAL, false);
+
+let inMemorySessionId: string | null = null;
 
 const createSessionId = (): string => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -30,6 +33,21 @@ const createSessionId = (): string => {
   }
 
   return `anon-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+};
+
+const isLocalOrigin = (): boolean => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const hostname = window.location.hostname.trim().toLowerCase();
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '0.0.0.0' ||
+    hostname === '::1' ||
+    hostname.endsWith('.local')
+  );
 };
 
 const getSessionId = (): string | null => {
@@ -47,7 +65,10 @@ const getSessionId = (): string | null => {
     window.sessionStorage.setItem(ANALYTICS_SESSION_STORAGE_KEY, generated);
     return generated;
   } catch {
-    return createSessionId();
+    if (!inMemorySessionId) {
+      inMemorySessionId = createSessionId();
+    }
+    return inMemorySessionId;
   }
 };
 
@@ -106,6 +127,9 @@ export const trackAnalyticsEvent = (params: {
   pathOverride?: string;
 }): void => {
   if (!isAnalyticsEnabled || typeof window === 'undefined') {
+    return;
+  }
+  if (isLocalOrigin() && !isLocalAnalyticsAllowed) {
     return;
   }
 

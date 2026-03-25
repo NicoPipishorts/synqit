@@ -658,7 +658,7 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
     const hasSince = Boolean(since);
     const usersSinceClause = hasSince ? 'WHERE created_at >= $1' : '';
     const eventsSinceClause = hasSince ? 'WHERE created_at >= $1' : '';
-    const sharedTracksSinceClause = hasSince ? 'AND t.added_at >= $1' : '';
+    const syncsSinceClause = hasSince ? 'WHERE created_at >= $1' : '';
     const analyticsSinceClause = hasSince ? 'AND created_at >= $1' : '';
     const analyticsWhereSinceClause = hasSince ? 'WHERE created_at >= $1' : '';
     const pageViewsByDayLimit = (() => {
@@ -684,13 +684,7 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       SELECT
         (SELECT COUNT(*)::int FROM "users" ${usersSinceClause}) AS users_count,
         (SELECT COUNT(*)::int FROM "playlists" ${eventsSinceClause}) AS event_playlists_count,
-        (
-          SELECT COUNT(DISTINCT e.id)::int
-          FROM "playlists" e
-          JOIN "playlist_tracks" t ON t.event_id = e.id
-          WHERE t.added_by = 'guest'
-            ${sharedTracksSinceClause}
-        ) AS shared_playlists_count,
+        (SELECT COUNT(*)::int FROM "playlist_syncs" ${syncsSinceClause}) AS shared_playlists_count,
         (
           SELECT COUNT(*)::int
           FROM "analytics_events"
@@ -820,12 +814,19 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         u.is_blocked,
         u.blocked_at,
         u.created_at,
-        COUNT(DISTINCT e.id)::int AS event_playlists_count,
-        COUNT(DISTINCT CASE WHEN tg.id IS NOT NULL THEN e.id END)::int AS shared_playlists_count
+        COALESCE(event_stats.event_playlists_count, 0)::int AS event_playlists_count,
+        COALESCE(sync_stats.shared_playlists_count, 0)::int AS shared_playlists_count
       FROM "users" u
-      LEFT JOIN "playlists" e ON e.host_user_id = u.id
-      LEFT JOIN "playlist_tracks" tg ON tg.event_id = e.id AND tg.added_by = 'guest'
-      GROUP BY u.id, u.email, u.role, u.is_blocked, u.blocked_at, u.created_at
+      LEFT JOIN (
+        SELECT host_user_id, COUNT(*)::int AS event_playlists_count
+        FROM "playlists"
+        GROUP BY host_user_id
+      ) AS event_stats ON event_stats.host_user_id = u.id
+      LEFT JOIN (
+        SELECT sender_user_id, COUNT(*)::int AS shared_playlists_count
+        FROM "playlist_syncs"
+        GROUP BY sender_user_id
+      ) AS sync_stats ON sync_stats.sender_user_id = u.id
       ORDER BY u.created_at DESC
       LIMIT 300
     `;
@@ -879,13 +880,18 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       }>
     >`
       SELECT
-        COUNT(DISTINCT e.id)::int AS event_playlists_count,
-        COUNT(DISTINCT CASE WHEN tg.id IS NOT NULL THEN e.id END)::int AS shared_playlists_count
+        (
+          SELECT COUNT(*)::int
+          FROM "playlists" e
+          WHERE e.host_user_id = u.id
+        ) AS event_playlists_count,
+        (
+          SELECT COUNT(*)::int
+          FROM "playlist_syncs" s
+          WHERE s.sender_user_id = u.id
+        ) AS shared_playlists_count
       FROM "users" u
-      LEFT JOIN "playlists" e ON e.host_user_id = u.id
-      LEFT JOIN "playlist_tracks" tg ON tg.event_id = e.id AND tg.added_by = 'guest'
       WHERE u.id = ${params.data.userId}
-      GROUP BY u.id
       LIMIT 1
     `;
 

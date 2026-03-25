@@ -15,6 +15,7 @@ import { CTAButton } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
+import { isDisplayableAnalyticsPath } from '../lib/analytics-display';
 import { callApi, toApiError } from '../lib/api';
 import { clearAuth, loadAuth } from '../lib/auth';
 
@@ -37,19 +38,6 @@ const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> => ({
 
 const providerLabel = (provider: 'spotify' | 'apple'): string =>
   provider === 'spotify' ? 'Spotify' : 'Apple Music';
-
-const APP_ROUTE_PREFIXES = [
-  '/',
-  '/auth',
-  '/dashboard',
-  '/profile',
-  '/providers',
-  '/playlists',
-  '/playlist',
-  '/synced-lists',
-  '/events',
-  '/event',
-] as const;
 
 const getUserTitle = (user: AnalyticsUserDetail): string => {
   const displayName = user.personalInfo.displayName?.trim();
@@ -297,11 +285,7 @@ export const AdminUserDetailsPage = () => {
     }
 
     return userDetail.pageViewsByPath.filter((row) =>
-      APP_ROUTE_PREFIXES.some((prefix) =>
-        prefix === '/'
-          ? row.path === '/'
-          : row.path === prefix || row.path.startsWith(`${prefix}/`),
-      ),
+      isDisplayableAnalyticsPath(row.path, { appOnly: true }),
     );
   }, [userDetail]);
 
@@ -471,11 +455,11 @@ export const AdminUserDetailsPage = () => {
                   </span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span>{t('admin.analyticsMetricEventPlaylists')}</span>
+                  <span>{t('admin.analyticsMetricEventsShort')}</span>
                   <span className="font-black text-app-text">{userDetail.eventPlaylistsCount}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3">
-                  <span>{t('admin.analyticsMetricSharedPlaylists')}</span>
+                  <span>{t('admin.analyticsMetricSharedShort')}</span>
                   <span className="font-black text-app-text">
                     {userDetail.sharedPlaylistsCount}
                   </span>

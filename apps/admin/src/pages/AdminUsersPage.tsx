@@ -120,12 +120,8 @@ export const AdminUsersPage = () => {
                   <th className="px-3 py-2 font-black">{t('auth.email')}</th>
                   <th className="px-3 py-2 font-black">{t('admin.roleLabel')}</th>
                   <th className="px-3 py-2 font-black">{t('admin.analyticsColCreated')}</th>
-                  <th className="px-3 py-2 font-black">
-                    {t('admin.analyticsMetricEventPlaylists')}
-                  </th>
-                  <th className="px-3 py-2 font-black">
-                    {t('admin.analyticsMetricSharedPlaylists')}
-                  </th>
+                  <th className="px-3 py-2 font-black">{t('admin.analyticsMetricEventsShort')}</th>
+                  <th className="px-3 py-2 font-black">{t('admin.analyticsMetricSharedShort')}</th>
                 </tr>
               </thead>
               <tbody>
