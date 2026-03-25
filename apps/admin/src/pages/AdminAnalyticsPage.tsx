@@ -323,11 +323,19 @@ export const AdminAnalyticsPage = () => {
         description={t('admin.portalSubtitle')}
       />
 
-      <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card">
-        <div className="flex items-center justify-between gap-3">
+      <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-4 shadow-soft-lift sm:p-5 dark:bg-app-card">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-black text-app-text">{t('admin.analyticsOverviewTitle')}</h2>
-          <div ref={rangeMenuRef} className="relative flex items-center gap-2">
-            <CTAButton type="button" variant="secondary" onClick={() => void refreshData()}>
+          <div
+            ref={rangeMenuRef}
+            className="relative flex flex-col gap-2 sm:flex-row sm:items-center"
+          >
+            <CTAButton
+              type="button"
+              variant="secondary"
+              onClick={() => void refreshData()}
+              className="w-full justify-center sm:w-auto"
+            >
               {t('admin.analyticsRefresh')}
             </CTAButton>
             <CTAButton
@@ -336,11 +344,12 @@ export const AdminAnalyticsPage = () => {
               onClick={() => setIsRangeMenuOpen((current) => !current)}
               aria-expanded={isRangeMenuOpen}
               aria-haspopup="menu"
+              className="w-full justify-center sm:w-auto"
             >
               {t('admin.analyticsFilterButton')}: {selectedOverviewRangeLabel}
             </CTAButton>
             {isRangeMenuOpen ? (
-              <div className="absolute right-0 top-full z-20 mt-2 grid min-w-52 gap-1 rounded-xl border border-app-border bg-app-elevated p-1.5 shadow-soft-lift dark:bg-app-card">
+              <div className="absolute inset-x-0 top-full z-20 mt-2 grid gap-1 rounded-xl border border-app-border bg-app-elevated p-1.5 shadow-soft-lift sm:left-auto sm:right-0 sm:min-w-52 dark:bg-app-card">
                 {overviewRangeOptions.map((option) => (
                   <button
                     key={option.value}
@@ -368,7 +377,7 @@ export const AdminAnalyticsPage = () => {
           <p className="text-sm text-app-text-secondary">{t('admin.analyticsLoading')}</p>
         ) : (
           <>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
                 <p className="text-xs font-semibold text-app-text-secondary">
                   {t('admin.analyticsMetricNewUsers')}
@@ -489,12 +498,12 @@ export const AdminAnalyticsPage = () => {
                         key={user.userId}
                         type="button"
                         onClick={() => void openUserDetails(user.userId)}
-                        className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-app-border bg-app-bg p-2 text-left"
+                        className="flex flex-col items-start gap-2 rounded-lg border border-app-border bg-app-bg p-3 text-left sm:flex-row sm:items-center sm:justify-between"
                       >
                         <span className="min-w-0 truncate text-xs font-semibold text-app-text-secondary">
                           {user.email}
                         </span>
-                        <div className="flex shrink-0 items-center gap-2 text-[11px] font-semibold text-app-text-secondary">
+                        <div className="flex shrink-0 flex-wrap items-center gap-2 text-[11px] font-semibold text-app-text-secondary">
                           <span>
                             {user.eventPlaylistsCount} {t('admin.analyticsMetricEventsShort')}
                           </span>
@@ -559,7 +568,7 @@ export const AdminAnalyticsPage = () => {
 
             {accessEditor ? (
               <AccordionSection title={t('admin.accessEditorTitle')}>
-                <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+                <div className="flex flex-col gap-3 text-xs font-semibold uppercase tracking-wide text-app-text-secondary sm:flex-row sm:items-center sm:justify-between">
                   <span>{t('admin.roleLabel')}</span>
                   <div className="inline-grid grid-cols-2 rounded-lg border border-app-border bg-app-bg p-1">
                     <button

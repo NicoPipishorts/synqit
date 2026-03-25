@@ -112,7 +112,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
       <form
         onSubmit={onSubmit}
         autoComplete="on"
-        className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl py-0  p-6 shadow-soft-lift  sm:p-8"
+        className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 py-0 shadow-soft-lift dark:bg-app-card sm:p-8"
       >
         <label htmlFor="auth-email" className="grid gap-2 text-sm font-medium">
           <span>{t('auth.email')}</span>

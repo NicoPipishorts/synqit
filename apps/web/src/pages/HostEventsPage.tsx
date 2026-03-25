@@ -99,6 +99,7 @@ export const HostEventsPage = () => {
   );
 
   const hasAny = activeItems.length > 0 || closedItems.length > 0;
+  const activeDraft = drafts[0] ?? null;
 
   const isDeleting = deleteDraftMutation.isPending;
 
@@ -127,12 +128,12 @@ export const HostEventsPage = () => {
           description={t('eventsPage.description')}
           actions={
             <CTALink
-              to="/playlists/new"
+              to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
               variant="primary"
               className="w-full justify-center gap-2 px-4 py-2.5 text-sm font-black sm:w-auto"
             >
               <Plus size={14} aria-hidden="true" />
-              {t('eventsPage.create')}
+              {activeDraft ? t('dashboard.ctaResumeDraft') : t('eventsPage.create')}
             </CTALink>
           }
         />
@@ -168,8 +169,12 @@ export const HostEventsPage = () => {
                   {t('eventsPage.emptyBody')}
                 </p>
               </div>
-              <CTALink to="/playlists/new" variant="primary" size="lg">
-                {t('eventsPage.create')}
+              <CTALink
+                to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
+                variant="primary"
+                size="lg"
+              >
+                {activeDraft ? t('dashboard.ctaResumeDraft') : t('eventsPage.create')}
               </CTALink>
             </div>
           </div>

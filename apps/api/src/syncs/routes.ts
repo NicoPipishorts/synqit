@@ -66,6 +66,45 @@ const buildSyncMagicLinkUrl = (magicLinkToken: string): string => {
   return new URL(`/sync/${magicLinkToken}`, base).toString();
 };
 
+const resolveProviderPlaylistTrackCount = async (params: {
+  userId: string;
+  provider: 'spotify' | 'apple';
+  providerPlaylistId: string;
+}): Promise<number | null> => {
+  if (params.provider === 'spotify') {
+    if (!isSpotifyOauthLiveMode()) {
+      const mockPlaylist = MOCK_PLAYLISTS.find(
+        (playlist) => playlist.providerPlaylistId === params.providerPlaylistId,
+      );
+      return mockPlaylist?.trackCount ?? null;
+    }
+
+    const { result } = await withSpotifyAccessTokenRetry({
+      userId: params.userId,
+      run: async (accessToken) => {
+        const tracks = await listSpotifyPlaylistTracks({
+          accessToken,
+          providerPlaylistId: params.providerPlaylistId,
+        });
+        return tracks.length;
+      },
+    });
+    return result;
+  }
+
+  const result = await withAppleMusicUserToken({
+    userId: params.userId,
+    run: async (ctx) => {
+      const tracks = await listApplePlaylistTracks({
+        ...ctx,
+        providerPlaylistId: params.providerPlaylistId,
+      });
+      return tracks.length;
+    },
+  });
+  return result;
+};
+
 const toSyncItem = (sync: Awaited<ReturnType<typeof syncsStore.createSync>>) => ({
   ...sync,
   lastSyncedAt: sync.lastSyncedAt?.toISOString() ?? null,
@@ -153,38 +192,19 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     const provider = providerResult.data;
 
     if (provider === 'spotify') {
-      if (!isSpotifyOauthLiveMode()) {
-        const mockPlaylist = MOCK_PLAYLISTS.find(
-          (playlist) => playlist.providerPlaylistId === providerPlaylistId,
-        );
-        if (!mockPlaylist) {
+      try {
+        const trackCount = await resolveProviderPlaylistTrackCount({
+          userId,
+          provider,
+          providerPlaylistId,
+        });
+        if (trackCount === null) {
           return reply.status(404).send({
             code: 'provider_resource_not_found',
             message: 'Spotify resource was not found.',
           });
         }
-
-        return reply.send(
-          providerPlaylistTrackCountResponseSchema.parse({
-            trackCount: mockPlaylist.trackCount,
-          }),
-        );
-      }
-
-      try {
-        const { result } = await withSpotifyAccessTokenRetry({
-          userId,
-          run: async (accessToken) => {
-            const tracks = await listSpotifyPlaylistTracks({
-              accessToken,
-              providerPlaylistId,
-            });
-            return providerPlaylistTrackCountResponseSchema.parse({
-              trackCount: tracks.length,
-            });
-          },
-        });
-        return reply.send(result);
+        return reply.send(providerPlaylistTrackCountResponseSchema.parse({ trackCount }));
       } catch (err) {
         if (err instanceof IntegrationError) {
           return reply.status(400).send({ code: err.code, message: err.message });
@@ -198,19 +218,18 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     }
 
     try {
-      const result = await withAppleMusicUserToken({
+      const trackCount = await resolveProviderPlaylistTrackCount({
         userId,
-        run: async (ctx) => {
-          const tracks = await listApplePlaylistTracks({
-            ...ctx,
-            providerPlaylistId,
-          });
-          return providerPlaylistTrackCountResponseSchema.parse({
-            trackCount: tracks.length,
-          });
-        },
+        provider,
+        providerPlaylistId,
       });
-      return reply.send(result);
+      if (trackCount === null) {
+        return reply.status(404).send({
+          code: 'provider_resource_not_found',
+          message: 'Apple Music resource was not found.',
+        });
+      }
+      return reply.send(providerPlaylistTrackCountResponseSchema.parse({ trackCount }));
     } catch (err) {
       if (err instanceof IntegrationError) {
         return reply.status(400).send({ code: err.code, message: err.message });
@@ -243,12 +262,32 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
         .send({ code: 'provider_not_connected', message: 'Provider not connected.' });
     }
 
+    let trackCount = body.data.trackCount;
+    if (trackCount === null) {
+      try {
+        trackCount = await resolveProviderPlaylistTrackCount({
+          userId,
+          provider: body.data.provider,
+          providerPlaylistId: body.data.providerPlaylistId,
+        });
+      } catch (err) {
+        if (err instanceof IntegrationError) {
+          return reply.status(400).send({ code: err.code, message: err.message });
+        }
+        if (err instanceof ProviderApiError) {
+          const mapped = mapProviderApiError(err);
+          return reply.status(err.statusCode).send(mapped);
+        }
+        throw err;
+      }
+    }
+
     const sync = await syncsStore.createSync({
       senderUserId: userId,
       provider: body.data.provider,
       providerPlaylistId: body.data.providerPlaylistId,
       name: body.data.name,
-      trackCount: body.data.trackCount,
+      trackCount,
       syncMode: body.data.syncMode,
     });
 

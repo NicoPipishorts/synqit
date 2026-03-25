@@ -2072,4 +2072,37 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
     assert.equal(body.subscriberSyncActivity[0]?.syncId, sync.id);
     assert.equal(body.subscriberSyncActivity[0]?.latestActivityAt, lastSyncedAt.toISOString());
   });
+
+  it('syncs: create resolves missing track count before persisting', async () => {
+    const email = `${TEST_EMAIL_PREFIX}sync-owner-${randomUUID()}@synqit.test`;
+    const user = await registerUser(app, email);
+
+    await connectProvider(app, {
+      provider: 'spotify',
+      accessToken: user.tokens.accessToken,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/syncs',
+      headers: authHeader(user.tokens.accessToken),
+      payload: {
+        provider: 'spotify',
+        providerPlaylistId: 'mock-playlist-1',
+        name: 'Mock Shared Playlist',
+        trackCount: null,
+        syncMode: 'host_only',
+      },
+    });
+
+    assert.equal(response.statusCode, 201);
+    const body = parseBody(response.body) as {
+      sync: { providerPlaylistId: string; trackCount: number | null };
+      magicLinkUrl: string;
+    };
+
+    assert.equal(body.sync.providerPlaylistId, 'mock-playlist-1');
+    assert.equal(body.sync.trackCount, 24);
+    assert.match(body.magicLinkUrl, /\/sync\//);
+  });
 });
