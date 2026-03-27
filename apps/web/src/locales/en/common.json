@@ -30,8 +30,8 @@
   "auth": {
     "loginTitle": "Login",
     "registerTitle": "Register",
-    "welcomeBack": "Welcome back.",
-    "createHost": "Sign me up !",
+    "welcomeBack": "Welcome back",
+    "createHost": "Sign me up",
     "loginLead": "Sign in to create playlists, manage guest links, and moderate live tracks.",
     "registerLead": "Register once, connect your provider, and launch your first collaborative playlist.",
     "registerLeadInviteOnly": "Account creation is by invitation only.",
@@ -763,60 +763,62 @@
   },
   "home": {
     "hero": {
-      "pillMvp": "Shared Playlist MVP",
-      "pillMagicLink": "Magic Link Guest Flow",
-      "title": "Collaborative playlists, without forcing guests to sign up.",
-      "description": "Synqit gives hosts a shareable link. Guests open it, search songs, and contribute in seconds while tracks land directly in the host provider playlist.",
-      "ctaStart": "Share a playlist",
-      "ctaLogin": "Sign in",
-      "helper": "Built for fast guest contribution on mobile, tablet, and desktop."
+      "worksWith": "Works with",
+      "title": "One link. Every playlist.",
+      "description": "Synqit lets you build collaborative event playlists and share personal playlists across streaming platforms — all through a single magic link.",
+      "ctaEvent": "Start an event playlist",
+      "ctaSync": "Share a playlist",
+      "ctaLogin": "Sign in"
     },
-    "metrics": {
-      "quickShare": "Quick share",
-      "quickShareValue": "Magic link",
-      "friction": "Guest friction",
-      "frictionValue": "Zero login",
-      "routing": "Track routing",
-      "routingValue": "Host provider",
-      "setup": "Setup time",
-      "setupValue": "< 1 minute"
+    "offer": {
+      "tabEvent": "Event playlist",
+      "tabSync": "Synced playlist",
+      "eventTitle": "Crowd-source your event soundtrack",
+      "eventDescription": "Create a playlist, generate a magic link, and let guests add tracks directly from their phone — no app download, no account required.",
+      "syncTitle": "Share playlists across platforms",
+      "syncDescription": "Pick a playlist from your library and share it. Anyone with a Synqit account can subscribe and always get the latest tracks — even if they're on a different streaming service.",
+      "eventStep1": "Connect your streaming service",
+      "eventStep2": "Create the event playlist",
+      "eventStep3": "Share the magic link",
+      "eventStep4": "Guests add tracks & you moderate",
+      "syncStep1": "Connect your streaming service",
+      "syncStep2": "Pick a playlist to share",
+      "syncStep3": "Subscribers sign in & stay in sync"
+    },
+    "features": {
+      "pill": "Built-in features",
+      "title": "Everything you need, nothing you don't",
+      "nativeTitle": "Manage from your native app",
+      "nativeBody": "All changes sync automatically. Moderate tracks, reorder, or close an event directly in Spotify or Apple Music — Synqit keeps everything in step.",
+      "magicLinkTitle": "Magic link guest pages",
+      "magicLinkBody": "Guests land on a clean, mobile-first page. They search your catalog, pick a track, and it appears in your playlist in seconds — zero friction.",
+      "crossPlatformTitle": "Cross-platform from day one",
+      "crossPlatformBody": "Works with Spotify and Apple Music. Host on one, guests join from the other. Tracks route seamlessly to your provider.",
+      "moderationTitle": "Host-only moderation",
+      "moderationBody": "You decide what stays. Review every suggestion, remove tracks, and close the event when you're done — all without leaving the app."
     },
     "why": {
-      "title": "Why hosts choose Synqit for playlists",
-      "description": "Structured for clarity and speed: create, share, collect tracks, moderate.",
-      "stat1Value": "1 link",
-      "stat1Label": "Guest entry point",
-      "stat2Value": "< 30s",
-      "stat2Label": "Typical guest add flow",
-      "stat3Value": "2 providers",
-      "stat3Label": "Spotify + Apple Music",
-      "stat4Value": "Host control",
-      "stat4Label": "Edit, revoke, close"
-    },
-    "how": {
-      "title": "How it works",
-      "pill": "Mobile-first flow",
-      "step1": "Host sets up playlist",
-      "step1Body": "Connect provider, create the playlist playlist, and generate a magic link.",
-      "step2": "Guests add tracks",
-      "step2Body": "Guests open the link and contribute songs from the host provider catalog.",
-      "step3": "Host curates live",
-      "step3Body": "Host reviews tracks, removes items, and closes the playlist when ready."
-    },
-    "cards": {
-      "hostTitle": "Host-first setup",
-      "hostBody": "Connect provider, create playlist, copy the magic link in under a minute.",
-      "guestTitle": "Guest-friendly",
-      "guestBody": "Guests open the link, search tracks, and contribute without account creation.",
-      "providerTitle": "Provider aligned",
-      "providerBody": "Tracks are searched against and added to the host provider account directly."
+      "pill": "Why Synqit",
+      "title": "Less friction. More music.",
+      "reason1Title": "Zero friction for event guests",
+      "reason1Body": "For event playlists, guests contribute in seconds via the magic link — no Synqit account, no app install.",
+      "reason2Title": "Works across platforms",
+      "reason2Body": "Spotify and Apple Music supported. Share with anyone, regardless of their service.",
+      "reason3Title": "Native app sync",
+      "reason3Body": "Your playlist lives in your streaming app. Synqit syncs changes automatically.",
+      "reason4Title": "Full host control",
+      "reason4Body": "Approve, remove, and close at any time. Your event, your rules."
     },
     "finalCta": {
-      "pill": "Ready to share your first playlist?",
-      "title": "Launch a collaborative playlist and start collecting tracks today.",
-      "description": "Connect your streaming provider, create a playlist, and share one magic link with your guests.",
-      "create": "Share a playlist now",
-      "login": "I'm already a host"
+      "pill": "Ready to start?",
+      "title": "Launch your first collaborative playlist today.",
+      "eventCtaTitle": "Event playlist",
+      "eventCtaBody": "Let guests add tracks via magic link — no signup required.",
+      "eventCtaAction": "Start an event playlist",
+      "syncCtaTitle": "Synced playlist",
+      "syncCtaBody": "Share your playlist across platforms. Subscribers need a free Synqit account to follow.",
+      "syncCtaAction": "Share a playlist",
+      "login": "I already have an account"
     }
   },
   "modal": {
@@ -828,7 +830,7 @@
     "platform": "Platform",
     "home": "Home",
     "start": "Share a playlist",
-    "login": "Login",
+    "login": "Sign in",
     "events": "Playlists",
     "connections": "Connections",
     "createEvent": "Create playlist",
