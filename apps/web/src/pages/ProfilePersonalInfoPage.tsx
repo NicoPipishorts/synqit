@@ -1,4 +1,5 @@
 import { personalInfoResponseSchema } from '@synqit/shared';
+import { useQueryClient } from '@tanstack/react-query';
 import countries from 'i18n-iso-countries';
 import enCountryNames from 'i18n-iso-countries/langs/en.json';
 import frCountryNames from 'i18n-iso-countries/langs/fr.json';
@@ -8,10 +9,13 @@ import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { CTAButton, CTALink } from '../components/ui/cta';
+import { NotificationDot } from '../components/ui/NotificationDot';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
+import { isPersonalInfoIdentityComplete } from '../lib/personal-info';
+import { queryKeys } from '../lib/queries';
 
 countries.registerLocale(enCountryNames);
 countries.registerLocale(frCountryNames);
@@ -108,9 +112,10 @@ export const ProfilePersonalInfoPage = () => {
   const { t, locale } = useI18n();
   const { auth } = useAuthSession();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
   const initialDraft = useMemo(() => toDraft({}), []);
   const [draft, setDraft] = useState<PersonalInfoDraft>(initialDraft);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(Boolean(auth));
   const [isSaving, setIsSaving] = useState(false);
   const [isCountryMenuOpen, setIsCountryMenuOpen] = useState(false);
 
@@ -134,13 +139,14 @@ export const ProfilePersonalInfoPage = () => {
       );
       const nextDraft = toDraft(response.personalInfo);
       setDraft(nextDraft);
+      queryClient.setQueryData(queryKeys.personalInfo.detail(), response.personalInfo);
     } catch (error) {
       const apiError = toApiError(error);
       showToast(t('profile.error', { message: apiError.message }), { variant: 'error' });
     } finally {
       setIsLoading(false);
     }
-  }, [auth, initialDraft, showToast, t]);
+  }, [auth, initialDraft, queryClient, showToast, t]);
 
   useEffect(() => {
     void fetchPersonalInfo();
@@ -222,6 +228,7 @@ export const ProfilePersonalInfoPage = () => {
 
       const nextDraft = toDraft(response.personalInfo);
       setDraft(nextDraft);
+      queryClient.setQueryData(queryKeys.personalInfo.detail(), response.personalInfo);
       showToast(t('profile.personalInfoSaved'), { variant: 'success' });
     } catch (error) {
       const apiError = toApiError(error);
@@ -230,6 +237,14 @@ export const ProfilePersonalInfoPage = () => {
       setIsSaving(false);
     }
   };
+
+  const showCompletionPrompt =
+    !isLoading &&
+    !isPersonalInfoIdentityComplete({
+      displayName: draft.displayName,
+      firstName: draft.firstName,
+      lastName: draft.lastName,
+    });
 
   return (
     <AppPageLayout>
@@ -240,7 +255,20 @@ export const ProfilePersonalInfoPage = () => {
         description={t('profile.personalInfoDescription')}
       />
 
-      <AppSurfaceCard className="w-full">
+      <AppSurfaceCard
+        className={`w-full ${showCompletionPrompt ? 'border-brand-pink/45 bg-brand-pink/5 dark:bg-brand-pink/10' : ''}`}
+      >
+        {showCompletionPrompt ? (
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-brand-pink/40 bg-brand-pink/10 px-4 py-3 text-sm text-app-text">
+            <NotificationDot className="mt-0.5 h-3 w-3 shrink-0 ring-0" />
+            <div className="grid gap-1">
+              <p className="font-semibold text-[#b41563] dark:text-[#ff8ac0]">
+                {t('profile.personalInfoIncompleteTitle')}
+              </p>
+              <p className="text-app-text-secondary">{t('profile.personalInfoIncompleteBody')}</p>
+            </div>
+          </div>
+        ) : null}
         <form onSubmit={savePersonalInfo} className="grid gap-4 md:grid-cols-2">
           <label className="grid gap-1 text-sm">
             <span>{t('profile.displayNameLabel')}</span>
@@ -254,11 +282,10 @@ export const ProfilePersonalInfoPage = () => {
           </label>
           <label className="grid gap-1 text-sm">
             <span>{t('profile.emailLabel')}</span>
-            <input
-              value={auth?.userEmail ?? ''}
-              readOnly
-              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text-secondary outline-none dark:bg-app-elevated"
-            />
+            <div className="rounded-xl border border-app-border bg-app-elevated px-3 py-2 text-app-text-secondary dark:bg-app-card">
+              {auth?.userEmail ?? ''}
+            </div>
+            <p className="text-xs text-app-text-secondary">{t('profile.emailLockedHint')}</p>
           </label>
           <label className="grid gap-1 text-sm">
             <span>{t('profile.firstNameLabel')}</span>

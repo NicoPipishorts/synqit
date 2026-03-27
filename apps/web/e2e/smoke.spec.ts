@@ -211,6 +211,14 @@ const mockPreferences = {
   locale: 'en',
 };
 
+const mockPersonalInfo = {
+  displayName: null,
+  firstName: null,
+  lastName: null,
+  birthDate: null,
+  country: null,
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -223,6 +231,7 @@ type ApiCounters = {
   dashboardSummary: number;
   tracks: number;
   preferences: number;
+  personalInfo: number;
 };
 
 const setAuthenticatedSession = async (page: Page) => {
@@ -234,7 +243,10 @@ const setAuthenticatedSession = async (page: Page) => {
   );
 };
 
-const installApiMocks = async (page: Page, options?: { trackDelayMs?: number }) => {
+const installApiMocks = async (
+  page: Page,
+  options?: { trackDelayMs?: number; personalInfo?: typeof mockPersonalInfo },
+) => {
   const counters: ApiCounters = {
     integrations: 0,
     events: 0,
@@ -243,6 +255,7 @@ const installApiMocks = async (page: Page, options?: { trackDelayMs?: number }) 
     dashboardSummary: 0,
     tracks: 0,
     preferences: 0,
+    personalInfo: 0,
   };
 
   await page.route('**/v1/**', async (route) => {
@@ -257,6 +270,31 @@ const installApiMocks = async (page: Page, options?: { trackDelayMs?: number }) 
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({ preferences: mockPreferences }),
+      });
+      return;
+    }
+
+    if (path === '/v1/auth/personal-info' && method === 'GET') {
+      counters.personalInfo += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ personalInfo: options?.personalInfo ?? mockPersonalInfo }),
+      });
+      return;
+    }
+
+    if (path === '/v1/auth/personal-info' && method === 'PUT') {
+      const requestBody = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          personalInfo: {
+            ...mockPersonalInfo,
+            ...requestBody,
+          },
+        }),
       });
       return;
     }
@@ -523,10 +561,14 @@ test.describe('web smoke regressions', () => {
 
     await expect(page.getByRole('heading', { name: 'Profile' })).toBeVisible();
     await expect(page.getByText('Site preferences')).toBeVisible();
+    await expect(page.getByRole('link', { name: /complete personal info/i })).toBeVisible();
     // Nav cards
     await expect(page.getByRole('heading', { name: /personal info/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /platforms/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /security/i })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Open account menu' }).click();
+    await expect(page.getByRole('link', { name: /profile incomplete/i })).toBeVisible();
   });
 
   test('profile platforms page renders connected services section', async ({ page }) => {
@@ -546,6 +588,17 @@ test.describe('web smoke regressions', () => {
 
     await expect(page.getByRole('heading', { name: /security/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Change password' })).toBeVisible();
+  });
+
+  test('personal info page shows completion prompt and locked email', async ({ page }) => {
+    await setAuthenticatedSession(page);
+    await installApiMocks(page);
+    await page.goto('/profile/personal-info');
+
+    await expect(page.getByText('Finish your profile')).toBeVisible();
+    await expect(
+      page.getByText('Email is managed from your sign-in account and cannot be edited here.'),
+    ).toBeVisible();
   });
 
   // ── Auth pages (unauthenticated) ───────────────────────────────────────────

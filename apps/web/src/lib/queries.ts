@@ -22,6 +22,7 @@ import {
   integrationDisconnectResponseSchema,
   integrationListResponseSchema,
   oauthCallbackResponseSchema,
+  personalInfoResponseSchema,
   providerPlaylistListResponseSchema,
   providerPlaylistTrackCountResponseSchema,
   syncDetailResponseSchema,
@@ -34,6 +35,7 @@ import {
   type ImportSyncResponse,
   type DashboardSummaryResponse,
   type ProviderPlaylistItem,
+  type PersonalInfo,
   type SyncDetailItem,
   type SyncItem,
   type SyncPublicItem,
@@ -71,6 +73,10 @@ export const queryKeys = {
   preferences: {
     all: () => ['preferences'] as const,
     detail: () => ['preferences', 'detail'] as const,
+  },
+  personalInfo: {
+    all: () => ['personalInfo'] as const,
+    detail: () => ['personalInfo', 'detail'] as const,
   },
 } as const;
 
@@ -207,6 +213,16 @@ export const fetchIntegrations = async (): Promise<IntegrationMap> => {
     map[integration.provider] = integration.status;
   }
   return map;
+};
+
+export const fetchPersonalInfo = async (): Promise<PersonalInfo> => {
+  const token = requireToken();
+  const result = await callApi(
+    '/v1/auth/personal-info',
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => personalInfoResponseSchema.parse(payload),
+  );
+  return result.personalInfo;
 };
 
 export const fetchIntegrationsSnapshot = async (): Promise<IntegrationsSnapshot> => {

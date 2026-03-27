@@ -8,9 +8,11 @@ import { CircularImage } from '../components/ui/CircularImage';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { Modal } from '../components/ui/Modal';
+import { NotificationDot } from '../components/ui/NotificationDot';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
+import { useProfileCompletion } from '../hooks/useProfileCompletion';
 import { useProfileSettings } from '../hooks/useProfileSettings';
 import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
@@ -23,6 +25,7 @@ export const ProfilePage = () => {
   const { auth, setAuth } = useAuthSession();
   const { settings, updateSettings } = useProfileSettings();
   const { showToast } = useToast();
+  const { showPersonalInfoPrompt } = useProfileCompletion(auth);
 
   const [isAvatarModalOpen, setIsAvatarModalOpen] = useState(false);
   const [isAvatarDragActive, setIsAvatarDragActive] = useState(false);
@@ -229,15 +232,36 @@ export const ProfilePage = () => {
       </AppSurfaceCard>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <AppSurfaceCard className="flex flex-col">
-          <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
-            {t('profile.personalInfoCardTitle')}
-          </h2>
-          <p className="mt-2 text-sm text-app-text-secondary">
-            {t('profile.personalInfoCardBody')}
-          </p>
+        <AppSurfaceCard
+          className={`flex flex-col ${showPersonalInfoPrompt ? 'border-brand-pink/45 bg-brand-pink/5 dark:bg-brand-pink/10' : ''}`}
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="grid gap-2">
+              <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
+                {t('profile.personalInfoCardTitle')}
+              </h2>
+              <p className="text-sm text-app-text-secondary">
+                {t(
+                  showPersonalInfoPrompt
+                    ? 'profile.personalInfoCardBodyIncomplete'
+                    : 'profile.personalInfoCardBody',
+                )}
+              </p>
+            </div>
+            {showPersonalInfoPrompt ? (
+              <span className="inline-flex items-center gap-2 rounded-full border border-brand-pink/40 bg-brand-pink/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-[#b41563] dark:text-[#ff8ac0]">
+                <NotificationDot className="h-2.5 w-2.5 ring-0" />
+                {t('profile.personalInfoIncompleteBadge')}
+              </span>
+            ) : null}
+          </div>
           <CTALink to="/profile/personal-info" variant="secondary" className="mt-auto self-end">
-            {t('profile.personalInfoCardCta')}
+            {showPersonalInfoPrompt ? <NotificationDot className="h-2.5 w-2.5 ring-0" /> : null}
+            {t(
+              showPersonalInfoPrompt
+                ? 'profile.personalInfoCardCtaIncomplete'
+                : 'profile.personalInfoCardCta',
+            )}
           </CTALink>
         </AppSurfaceCard>
 
