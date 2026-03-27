@@ -28,7 +28,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   );
   const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState('');
-  const [inviteToken, setInviteToken] = useState(prefilledInviteToken);
+  const [inviteToken] = useState(prefilledInviteToken);
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<'error' | 'success' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -109,11 +109,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
       title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
       description={isLogin ? undefined : t('auth.registerLeadInviteOnly')}
     >
-      <form
-        onSubmit={onSubmit}
-        autoComplete="on"
-        className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 py-0 shadow-soft-lift dark:bg-app-card sm:p-8"
-      >
+      <form onSubmit={onSubmit} autoComplete="on" className="mx-auto grid w-full max-w-xl gap-5">
         <label htmlFor="auth-email" className="grid gap-2 text-sm font-medium">
           <span>{t('auth.email')}</span>
           <input
@@ -128,7 +124,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
             spellCheck={false}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text outline-none transition focus:border-brand-lime"
+            className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text shadow-soft-lift outline-none transition focus:border-brand-lime"
             placeholder={t('auth.emailPlaceholder')}
           />
         </label>
@@ -143,32 +139,12 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
             autoComplete={isLogin ? 'current-password' : 'new-password'}
             value={password}
             onChange={setPassword}
-            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text outline-none transition focus:border-brand-pink"
+            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text shadow-soft-lift outline-none transition focus:border-brand-pink"
             placeholder={t('auth.passwordPlaceholder')}
           />
           {!isLogin ? <PasswordStrengthMeter password={password} showTooltip /> : null}
         </label>
-        {!isLogin ? (
-          <label htmlFor="auth-invite-token" className="grid gap-2 text-sm font-medium">
-            <span>{t('auth.inviteToken')}</span>
-            <input
-              id="auth-invite-token"
-              name="inviteToken"
-              required
-              type="text"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              value={inviteToken}
-              onChange={(event) => setInviteToken(event.target.value)}
-              className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text outline-none transition focus:border-brand-lime"
-              placeholder={t('auth.inviteTokenPlaceholder')}
-            />
-            <p className="text-xs font-medium text-app-text-secondary">
-              {t('auth.inviteTokenHint')}
-            </p>
-          </label>
-        ) : null}
+        {!isLogin ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
         {isLogin ? (
           <div className="flex justify-end">
             <Link

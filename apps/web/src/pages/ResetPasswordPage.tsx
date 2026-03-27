@@ -113,11 +113,7 @@ export const ResetPasswordPage = () => {
       title={t('auth.resetPasswordTitle')}
       description={t('auth.resetPasswordDescription')}
     >
-      <form
-        onSubmit={onSubmit}
-        autoComplete="on"
-        className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 py-0 shadow-soft-lift dark:bg-app-card sm:p-8"
-      >
+      <form onSubmit={onSubmit} autoComplete="on" className="mx-auto grid w-full max-w-xl gap-5">
         {statusType === 'success' ? (
           <>
             <p className="rounded-lg border border-brand-lime/35 bg-brand-lime/10 px-3 py-2 text-center text-sm text-[#6d9600] dark:text-[#d5ff5c]">
@@ -142,7 +138,7 @@ export const ResetPasswordPage = () => {
                 value={newPassword}
                 onChange={setNewPassword}
                 placeholder={t('auth.passwordPlaceholder')}
-                inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text outline-none transition focus:border-brand-pink"
+                inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text shadow-soft-lift outline-none transition focus:border-brand-pink"
               />
               <PasswordStrengthMeter password={newPassword} showTooltip />
             </label>
@@ -158,7 +154,7 @@ export const ResetPasswordPage = () => {
                 value={confirmPassword}
                 onChange={setConfirmPassword}
                 placeholder={t('profile.confirmPassword')}
-                inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text outline-none transition focus:border-brand-pink"
+                inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text shadow-soft-lift outline-none transition focus:border-brand-pink"
               />
             </label>
 
