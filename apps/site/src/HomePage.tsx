@@ -32,7 +32,21 @@ const FADE_UP: Variants = {
 
 type OfferTab = 'event' | 'sync';
 
-const PLACEHOLDER = '/assets/presentation/Placeholder-Screenhot.png';
+const EVENT_IMAGES = [
+  '/assets/presentation/Events-step-1.png',
+  '/assets/presentation/Events-step-2-1.png',
+  '/assets/presentation/Events-step-2-2.png',
+  '/assets/presentation/Events-step-3.png',
+  '/assets/presentation/Events-step-4-1.png',
+  '/assets/presentation/Events-step-4-2.png',
+];
+
+const SYNC_IMAGES = [
+  '/assets/presentation/Sync-step-1.png',
+  '/assets/presentation/Sync-step-2-1.png',
+  '/assets/presentation/Sync-step-2-2.png',
+  '/assets/presentation/Sync-step-3.png',
+];
 
 // ─── Why reason card ───────────────────────────────────────────────────────────
 
@@ -110,12 +124,15 @@ export const HomePage = () => {
   const eventSteps = [
     t('home.offer.eventStep1'),
     t('home.offer.eventStep2'),
+    t('home.offer.eventStep2'),
     t('home.offer.eventStep3'),
     t('home.offer.eventStep4'),
+    t('home.offer.eventStep5'),
   ];
 
   const syncSteps = [
     t('home.offer.syncStep1'),
+    t('home.offer.syncStep2'),
     t('home.offer.syncStep2'),
     t('home.offer.syncStep3'),
   ];
@@ -269,9 +286,9 @@ export const HomePage = () => {
                   style={{ willChange: 'transform, opacity' }}
                 >
                   {activeTab === 'event' ? (
-                    <ScreenshotCarousel steps={eventSteps} imageSrc={PLACEHOLDER} accent="lime" />
+                    <ScreenshotCarousel steps={eventSteps} images={EVENT_IMAGES} accent="lime" />
                   ) : (
-                    <ScreenshotCarousel steps={syncSteps} imageSrc={PLACEHOLDER} accent="pink" />
+                    <ScreenshotCarousel steps={syncSteps} images={SYNC_IMAGES} accent="pink" />
                   )}
                 </motion.div>
               </AnimatePresence>

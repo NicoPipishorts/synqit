@@ -1,9 +1,10 @@
 import { AnimatePresence, motion, type PanInfo } from 'framer-motion';
+// AnimatePresence kept for future use; motion used for card transitions
 import { useState } from 'react';
 
 type ScreenshotCarouselProps = {
   steps: string[];
-  imageSrc: string;
+  images: string[];
   accent: 'lime' | 'pink';
 };
 
@@ -27,7 +28,7 @@ const ACCENT = {
 const SWIPE_THRESHOLD = 50;
 const SWIPE_VELOCITY = 400;
 
-export const ScreenshotCarousel = ({ steps, imageSrc, accent }: ScreenshotCarouselProps) => {
+export const ScreenshotCarousel = ({ steps, images, accent }: ScreenshotCarouselProps) => {
   const [active, setActive] = useState(0);
   const [dir, setDir] = useState<1 | -1>(1);
   const c = ACCENT[accent];
@@ -54,6 +55,11 @@ export const ScreenshotCarousel = ({ steps, imageSrc, accent }: ScreenshotCarous
 
   return (
     <div className="flex flex-col items-center gap-6">
+      {/* preload all images in this carousel */}
+      {images.map((src) => (
+        <link key={src} rel="preload" as="image" href={src} />
+      ))}
+
       {/* wrapper — no overflow-hidden so card slides outside bounds */}
       <div className="relative w-70" style={{ aspectRatio: '9 / 19.5' }}>
         {/* faded logo always underneath */}
@@ -90,25 +96,11 @@ export const ScreenshotCarousel = ({ steps, imageSrc, accent }: ScreenshotCarous
             className={`absolute inset-0 cursor-grab overflow-hidden rounded-[2.2rem] border-2 active:cursor-grabbing ${c.activeBorder} ${c.glow} bg-app-elevated dark:bg-app-card`}
           >
             <img
-              src={imageSrc}
+              src={images[active]}
               alt={steps[active]}
               className="pointer-events-none h-full w-full object-cover"
               draggable={false}
             />
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-              <AnimatePresence mode="wait">
-                <motion.span
-                  key={active}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.2 }}
-                  className={`rounded-full px-3 py-1 text-[10px] font-bold tracking-wide ${c.label}`}
-                >
-                  {steps[active]}
-                </motion.span>
-              </AnimatePresence>
-            </div>
           </motion.div>
         </AnimatePresence>
       </div>
