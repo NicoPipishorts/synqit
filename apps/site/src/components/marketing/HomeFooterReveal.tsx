@@ -9,13 +9,19 @@ export const HomeFooterReveal = () => {
   const { t } = useI18n();
 
   return (
-    <footer className="fixed inset-x-0 bottom-0 z-0 h-[28rem] bg-brand-dark text-brand-white dark:bg-brand-white dark:text-brand-dark sm:h-[24rem] lg:h-[26rem]">
+    <footer className="fixed inset-x-0 bottom-0 z-0 bg-brand-dark text-brand-white dark:bg-brand-white dark:text-brand-dark sm:h-96 lg:h-104">
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col justify-between px-4 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
         <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_1.2fr] lg:gap-10">
           <div className="grid content-start gap-3">
-            <a href="/" className="w-fit">
-              <BrandLogo className="h-10 w-auto" />
-            </a>
+            <div className="flex items-center justify-between">
+              <a href="/" className="w-fit">
+                <BrandLogo className="h-10 w-auto" />
+              </a>
+              <div className="flex items-center gap-2 sm:hidden">
+                <LanguageToggle />
+                <ThemeToggle />
+              </div>
+            </div>
             <p className="max-w-sm text-sm text-brand-white/80 dark:text-brand-dark/75 sm:text-base">
               {t('footer.description')}
             </p>
@@ -84,7 +90,7 @@ export const HomeFooterReveal = () => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-brand-white/20 pt-3 dark:border-brand-dark/20">
+        <div className="flex items-center justify-between sm:border-t border-brand-white/20 pt-3 dark:border-brand-dark/20">
           <p className="text-xs text-brand-white/55 dark:text-brand-dark/55">
             {t('footer.copyright', { year: new Date().getFullYear() })}
           </p>

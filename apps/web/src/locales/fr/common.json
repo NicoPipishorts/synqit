@@ -30,8 +30,8 @@
   "auth": {
     "loginTitle": "Connexion",
     "registerTitle": "Inscription",
-    "welcomeBack": "Bon retour.",
-    "createHost": "Je m'inscris !",
+    "welcomeBack": "Bon retour",
+    "createHost": "Je m'inscris",
     "loginLead": "Connectez-vous pour créer des playlists, gérer les liens invités et modérer les titres en direct.",
     "registerLead": "Inscrivez-vous, connectez votre plateforme et lancez votre première playlist collaborative.",
     "registerLeadInviteOnly": "La création de compte se fait sur invitation uniquement.",
@@ -763,60 +763,63 @@
   },
   "home": {
     "hero": {
-      "pillMvp": "MVP Playlist Partagée",
-      "pillMagicLink": "Flux invité via lien magique",
-      "title": "Des playlists collaboratives, sans imposer une inscription aux invités.",
-      "description": "Synqit permet aux hôtes de partager un lien. Les invités ouvrent le lien, recherchent des titres et contribuent en quelques secondes, directement dans la playlist de l’hôte.",
-      "ctaStart": "Partage une playlist",
-      "ctaLogin": "Se connecter",
-      "helper": "Pensé mobile-first pour une contribution rapide sur mobile, tablette et desktop."
+      "worksWith": "Compatible avec",
+      "title": "Un lien. \n Toutes tes playlists.",
+      "description": "Synqit te permet de créer des playlists d’événement collaboratives et de partager tes playlists entre plateformes — le tout via un lien magique.",
+      "ctaEvent": "Lancer un événement",
+      "ctaSync": "Partager une playlist",
+      "ctaLogin": "Se connecter"
     },
-    "metrics": {
-      "quickShare": "Partage rapide",
-      "quickShareValue": "Lien magique",
-      "friction": "Friction invité",
-      "frictionValue": "Sans compte",
-      "routing": "Routage des titres",
-      "routingValue": "Plateforme hôte",
-      "setup": "Temps de configuration",
-      "setupValue": "< 1 minute"
+    "offer": {
+      "tabEvent": "Playlist d’événement",
+      "tabSync": "Playlist synchronisée",
+      "eventTitle": "Laisse tes invités composer la playlist",
+      "eventDescription": "Crée une playlist, génère un lien magique, et laisse les invités ajouter des titres depuis leur téléphone — sans téléchargement, sans compte.",
+      "syncTitle": "Partage tes playlists entre plateformes",
+      "syncDescription": "Choisis une playlist depuis ta bibliothèque et partage-la. Toute personne avec un compte Synqit peut s’abonner et recevoir automatiquement les nouveaux titres — même sur une autre plateforme.",
+      "eventStep1": "Connecte ton service de streaming",
+      "eventStep2": "Crée la playlist d’événement",
+      "eventStep3": "Partage le lien magique",
+      "eventStep4": "Les invités ajoutent des titres & tu modères",
+      "eventStep5": "Clôturer l'événement",
+      "syncStep1": "Connecte ton service de streaming",
+      "syncStep2": "Choisis une playlist à partager",
+      "syncStep3": "Les abonnés se connectent à Synqit & restent synchronisés"
+    },
+    "features": {
+      "pill": "Fonctionnalités",
+      "title": "Tout ce qu’il faut, rien de superflu",
+      "nativeTitle": "Gère depuis ton appli native",
+      "nativeBody": "Toutes les modifications se synchronisent automatiquement. Modère les titres, réordonne ou clôture un événement directement dans Spotify ou Apple Music — Synqit garde tout à jour.",
+      "magicLinkTitle": "Pages invité via lien magique",
+      "magicLinkBody": "Les invités arrivent sur une page épurée, optimisée mobile. Ils recherchent un titre dans ton catalogue, le sélectionnent, et il apparaît dans ta playlist en quelques secondes.",
+      "crossPlatformTitle": "Multi-plateforme dès le départ",
+      "crossPlatformBody": "Compatible Spotify et Apple Music. Héberge sur l’un, les invités rejoignent depuis l’autre. Les titres sont routés vers ton service.",
+      "moderationTitle": "Modération réservée à l’hôte",
+      "moderationBody": "Tu décides ce qui reste. Consulte chaque suggestion, supprime des titres et clôture l’événement quand tu es prêt — sans quitter l’appli."
     },
     "why": {
-      "title": "Pourquoi les hôtes choisissent Synqit",
-      "description": "Un flux clair et rapide : créer, partager, collecter et modérer.",
-      "stat1Value": "1 lien",
-      "stat1Label": "Point d’entrée invité",
-      "stat2Value": "< 30s",
-      "stat2Label": "Ajout invité typique",
-      "stat3Value": "2 plateformes",
-      "stat3Label": "Spotify + Apple Music",
-      "stat4Value": "Contrôle hôte",
-      "stat4Label": "Éditer, révoquer, fermer"
-    },
-    "how": {
-      "title": "Comment ça marche",
-      "pill": "Flux mobile-first",
-      "step1": "L’hôte configure l’événement",
-      "step1Body": "Connectez la plateforme, créez la playlist et générez un lien magique.",
-      "step2": "Les invités ajoutent des titres",
-      "step2Body": "Les invités ouvrent le lien et contribuent depuis le catalogue de l’hôte.",
-      "step3": "L’hôte modère en direct",
-      "step3Body": "L’hôte révise les titres, supprime si besoin, puis ferme l’événement."
-    },
-    "cards": {
-      "hostTitle": "Configuration hôte",
-      "hostBody": "Connectez une plateforme, créez l’événement et copiez le lien en moins d’une minute.",
-      "guestTitle": "Expérience invité",
-      "guestBody": "Les invités ouvrent le lien, recherchent des titres et contribuent sans créer de compte.",
-      "providerTitle": "Aligné plateforme",
-      "providerBody": "Les titres sont recherchés et ajoutés directement sur le compte hôte."
+      "pill": "Pourquoi Synqit",
+      "title": "Moins de friction. Plus de musique.",
+      "reason1Title": "Zéro friction pour les invités d'un événement",
+      "reason1Body": "Pour les playlists d'événement, les invités contribuent en quelques secondes via le lien magique — aucun compte Synqit, aucune installation.",
+      "reason2Title": "Multi plateformes",
+      "reason2Body": "Spotify et Apple Music pris en charge. Partage avec n’importe qui, peu importe son service.",
+      "reason3Title": "Synchronisation native",
+      "reason3Body": "Ta playlist reste dans ton appli de streaming. Synqit synchronise les modifications automatiquement.",
+      "reason4Title": "Contrôle total pour l’hôte",
+      "reason4Body": "Approuve, supprime et clôture à tout moment. Ton événement, tes règles."
     },
     "finalCta": {
-      "pill": "Prêt à partager ta première playlist ?",
-      "title": "Lancez une playlist collaborative et collectez des titres dès aujourd’hui.",
-      "description": "Connecte ton service de streaming, crée une playlist et partage un lien magique avec tes invités.",
-      "create": "Partage une playlist maintenant",
-      "login": "Je suis déjà hôte"
+      "pill": "Prêt à commencer ?",
+      "title": "Lance ta première playlist collaborative dès aujourd’hui.",
+      "eventCtaTitle": "Playlist d’événement",
+      "eventCtaBody": "Laisse les invités ajouter des titres via lien magique — sans inscription.",
+      "eventCtaAction": "Lancer un événement",
+      "syncCtaTitle": "Playlist synchronisée",
+      "syncCtaBody": "Partage ta playlist entre plateformes. Les abonnés ont besoin d'un compte Synqit gratuit pour suivre.",
+      "syncCtaAction": "Partager une playlist",
+      "login": "J’ai déjà un compte"
     }
   },
   "modal": {
@@ -828,7 +831,7 @@
     "platform": "Plateforme",
     "home": "Accueil",
     "start": "Partage une playlist",
-    "login": "Connexion",
+    "login": "Se connecter",
     "events": "Playlists",
     "connections": "Connexions",
     "createEvent": "Créer une playlist",
