@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 
 import { CTAButton, CTALink } from './cta';
 import { HeroCtaLink } from './HeroCtaLink';
+import { NotificationDot } from './NotificationDot';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
+import { useProfileCompletion } from '../../hooks/useProfileCompletion';
 import { useProfileSettings } from '../../hooks/useProfileSettings';
 import { callApi } from '../../lib/api';
 import { clearAuth, getInitials } from '../../lib/auth';
@@ -14,6 +16,7 @@ export const AccountMenu = () => {
   const { auth, setAuth } = useAuthSession();
   const { t } = useI18n();
   const { settings } = useProfileSettings();
+  const { showPersonalInfoPrompt } = useProfileCompletion(auth);
   const [isOpen, setIsOpen] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -76,7 +79,7 @@ export const AccountMenu = () => {
       <button
         type="button"
         onClick={() => setIsOpen((previousValue) => !previousValue)}
-        className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated text-sm font-bold text-brand-dark shadow-soft-lift transition hover:border-brand-pink dark:border-app-border dark:bg-app-elevated dark:text-brand-white dark:shadow-glow-pink sm:h-16 sm:w-16 lg:h-[4.5rem] lg:w-[4.5rem]"
+        className="relative flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated text-sm font-bold text-brand-dark shadow-soft-lift transition hover:border-brand-pink dark:border-app-border dark:bg-app-elevated dark:text-brand-white dark:shadow-glow-pink sm:h-16 sm:w-16 lg:h-[4.5rem] lg:w-[4.5rem]"
         aria-label={t('accountMenu.ariaOpen')}
       >
         {(auth?.avatarUrl ?? settings.avatarDataUrl) ? (
@@ -90,6 +93,12 @@ export const AccountMenu = () => {
         ) : (
           <UserRound size={20} aria-hidden="true" />
         )}
+        {showPersonalInfoPrompt ? (
+          <>
+            <NotificationDot className="absolute right-1 top-1 h-3.5 w-3.5 sm:right-1.5 sm:top-1.5" />
+            <span className="sr-only">{t('profile.personalInfoIncompleteBadge')}</span>
+          </>
+        ) : null}
       </button>
       {isOpen ? (
         <div className="absolute right-0 z-30 mt-2 w-64 rounded-2xl border border-app-border bg-app-elevated p-3 shadow-xl dark:border-app-border dark:bg-app-card">
@@ -120,9 +129,15 @@ export const AccountMenu = () => {
                 <Link
                   to="/profile"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
                 >
-                  {t('accountMenu.profile')}
+                  <span>{t('accountMenu.profile')}</span>
+                  {showPersonalInfoPrompt ? (
+                    <span className="inline-flex items-center gap-2">
+                      <NotificationDot className="h-2.5 w-2.5 ring-0" />
+                      <span className="sr-only">{t('profile.personalInfoIncompleteBadge')}</span>
+                    </span>
+                  ) : null}
                 </Link>
                 <CTAButton
                   type="button"
