@@ -52,12 +52,18 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
 
   const value = useMemo<I18nContextValue>(() => {
     const t = (key: string, vars?: Record<string, string | number>): string => {
-      const localized = resolvePath(messages[locale], key);
+      const pluralSuffix =
+        typeof vars?.count === 'number' ? (vars.count === 1 ? '_one' : '_other') : '';
+      const localized =
+        (pluralSuffix ? resolvePath(messages[locale], `${key}${pluralSuffix}`) : null) ??
+        resolvePath(messages[locale], key);
       if (localized) {
         return interpolate(localized, vars);
       }
 
-      const fallback = resolvePath(messages.en, key);
+      const fallback =
+        (pluralSuffix ? resolvePath(messages.en, `${key}${pluralSuffix}`) : null) ??
+        resolvePath(messages.en, key);
       if (fallback) {
         return interpolate(fallback, vars);
       }

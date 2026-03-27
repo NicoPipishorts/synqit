@@ -559,10 +559,10 @@ test.describe('web smoke regressions', () => {
     await expect(page.getByRole('button', { name: 'Login' })).toBeVisible();
   });
 
-  test('register page renders email, password, and invite token fields', async ({ page }) => {
+  test('register page renders email and password fields', async ({ page }) => {
     await page.goto('/auth/register');
 
-    await expect(page.getByText('Sign me up...')).toBeVisible();
+    await expect(page.getByText('Sign me up !')).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/password/i).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Register' })).toBeVisible();

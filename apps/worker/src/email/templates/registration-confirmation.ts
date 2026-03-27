@@ -14,8 +14,13 @@ export const renderRegistrationConfirmationTemplate = (params: {
   recipientEmail: string;
 }) => {
   const normalizedAppUrl = params.webAppUrl.replace(/\/+$/, '');
+  const normalizedSiteUrl = (
+    process.env.SITE_URL ??
+    process.env.PUBLIC_SITE_URL ??
+    params.webAppUrl
+  ).replace(/\/+$/, '');
   const safeEmail = escapeHtml(params.recipientEmail);
-  const safeAppUrl = escapeHtml(normalizedAppUrl);
+  const safeSiteUrl = escapeHtml(normalizedSiteUrl);
   const safeLogoUrl = escapeHtml(`${normalizedAppUrl}/assets/logos/logo-full.png`);
 
   const renderHtml = (content: {
@@ -33,7 +38,7 @@ export const renderRegistrationConfirmationTemplate = (params: {
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px; background:#ffffff; border:1px solid #d8dee4; border-radius:16px; overflow:hidden;">
                 <tr>
                   <td align="center" style="padding:24px 24px 10px 24px;">
-                    <a href="${safeAppUrl}" style="display:inline-block; text-decoration:none;">
+                    <a href="${safeSiteUrl}" style="display:inline-block; text-decoration:none;">
                       <img src="${safeLogoUrl}" alt="Synqit" width="170" style="display:block; width:170px; max-width:100%; height:auto; border:0;" />
                     </a>
                   </td>
@@ -45,7 +50,7 @@ export const renderRegistrationConfirmationTemplate = (params: {
                     <p style="margin:0 0 20px 0; font-size:15px;">${content.body}</p>
                     <p style="margin:0 0 24px 0; text-align:center;">
                       <a
-                        href="${safeAppUrl}"
+                        href="${escapeHtml(normalizedAppUrl)}"
                         style="display:inline-block; background:#91f034; border:1px solid #7ecb2d; color:#111827; text-decoration:none; font-weight:800; font-size:14px; padding:11px 16px; border-radius:10px;"
                       >
                         ${content.cta}
@@ -104,8 +109,13 @@ export const renderRegistrationInviteTemplate = (params: {
   inviteUrl: string;
 }) => {
   const normalizedAppUrl = params.webAppUrl.replace(/\/+$/, '');
+  const normalizedSiteUrl = (
+    process.env.SITE_URL ??
+    process.env.PUBLIC_SITE_URL ??
+    params.webAppUrl
+  ).replace(/\/+$/, '');
   const safeEmail = escapeHtml(params.recipientEmail);
-  const safeAppUrl = escapeHtml(normalizedAppUrl);
+  const safeSiteUrl = escapeHtml(normalizedSiteUrl);
   const safeInviteUrl = escapeHtml(params.inviteUrl);
   const safeLogoUrl = escapeHtml(`${normalizedAppUrl}/assets/logos/logo-full.png`);
 
@@ -124,7 +134,7 @@ export const renderRegistrationInviteTemplate = (params: {
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px; background:#ffffff; border:1px solid #d8dee4; border-radius:16px; overflow:hidden;">
                 <tr>
                   <td align="center" style="padding:24px 24px 10px 24px;">
-                    <a href="${safeAppUrl}" style="display:inline-block; text-decoration:none;">
+                    <a href="${safeSiteUrl}" style="display:inline-block; text-decoration:none;">
                       <img src="${safeLogoUrl}" alt="Synqit" width="170" style="display:block; width:170px; max-width:100%; height:auto; border:0;" />
                     </a>
                   </td>

@@ -61,11 +61,7 @@ export const ForgotPasswordPage = () => {
       title={t('auth.forgotPasswordTitle')}
       description={t('auth.forgotPasswordDescription')}
     >
-      <form
-        onSubmit={onSubmit}
-        autoComplete="on"
-        className="mx-auto grid w-full max-w-xl gap-5 rounded-3xl border border-app-border bg-app-elevated p-6 py-0 shadow-soft-lift dark:bg-app-card sm:p-8"
-      >
+      <form onSubmit={onSubmit} autoComplete="on" className="mx-auto grid w-full max-w-xl gap-5">
         {statusType === 'success' ? (
           <>
             <p className="rounded-lg border border-brand-lime/35 bg-brand-lime/10 px-3 py-2 text-center text-sm text-[#6d9600] dark:text-[#d5ff5c]">
@@ -96,7 +92,7 @@ export const ForgotPasswordPage = () => {
                 spellCheck={false}
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text outline-none transition focus:border-brand-lime"
+                className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text shadow-soft-lift outline-none transition focus:border-brand-lime"
                 placeholder={t('auth.emailPlaceholder')}
               />
             </label>

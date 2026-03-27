@@ -15,8 +15,13 @@ export const renderPasswordResetTemplate = (params: {
   resetToken: string;
 }) => {
   const normalizedAppUrl = params.webAppUrl.replace(/\/+$/, '');
+  const normalizedSiteUrl = (
+    process.env.SITE_URL ??
+    process.env.PUBLIC_SITE_URL ??
+    params.webAppUrl
+  ).replace(/\/+$/, '');
   const safeEmail = escapeHtml(params.recipientEmail);
-  const safeAppUrl = escapeHtml(normalizedAppUrl);
+  const safeSiteUrl = escapeHtml(normalizedSiteUrl);
   const safeLogoUrl = escapeHtml(`${normalizedAppUrl}/assets/logos/logo-full.png`);
   const resetUrl = `${normalizedAppUrl}/auth/reset-password?token=${encodeURIComponent(params.resetToken)}`;
   const safeResetUrl = escapeHtml(resetUrl);
@@ -36,7 +41,7 @@ export const renderPasswordResetTemplate = (params: {
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px; background:#ffffff; border:1px solid #d8dee4; border-radius:16px; overflow:hidden;">
                 <tr>
                   <td align="center" style="padding:24px 24px 10px 24px;">
-                    <a href="${safeAppUrl}" style="display:inline-block; text-decoration:none;">
+                    <a href="${safeSiteUrl}" style="display:inline-block; text-decoration:none;">
                       <img src="${safeLogoUrl}" alt="Synqit" width="170" style="display:block; width:170px; max-width:100%; height:auto; border:0;" />
                     </a>
                   </td>
