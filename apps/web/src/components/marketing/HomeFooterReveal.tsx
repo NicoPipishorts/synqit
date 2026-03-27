@@ -85,7 +85,7 @@ export const HomeFooterReveal = () => {
           </div>
         </div>
 
-        <div className="flex items-center justify-between border-t border-brand-white/20 pt-3 dark:border-brand-dark/20">
+        <div className="flex items-center justify-between sm:border-t border-brand-white/20 pt-3 dark:border-brand-dark/20">
           <p className="text-xs text-brand-white/55 dark:text-brand-dark/55">
             {t('footer.copyright', { year: new Date().getFullYear() })}
           </p>

@@ -1,9 +1,13 @@
-import { motion, type Variants } from 'framer-motion';
+import { AnimatePresence, motion, type Variants } from 'framer-motion';
+import { useState } from 'react';
 
-import { AppAuthActions } from './components/marketing/AppAuthActions';
 import { HomeFooterReveal } from './components/marketing/HomeFooterReveal';
 import { RevealSection } from './components/marketing/RevealSection';
+import { ScreenshotCarousel } from './components/marketing/ScreenshotCarousel';
+import { SurfaceCard } from './components/marketing/SurfaceCard';
+import { HeroLink } from './components/ui/HeroLink';
 import { HeroPill } from './components/ui/HeroPill';
+import { buildAppUrl } from './lib/app-url';
 import { useI18n } from './lib/i18n';
 
 // ─── Animation variants ────────────────────────────────────────────────────────
@@ -13,149 +17,101 @@ const STAGGER: Variants = {
   visible: { transition: { staggerChildren: 0.1, delayChildren: 0.08 } },
 };
 
+const TAB_SLIDE: Variants = {
+  enter: (d: number) => ({ x: `${d * 40}%`, opacity: 0 }),
+  center: { x: '0%', opacity: 1 },
+  exit: (d: number) => ({ x: `${d * -40}%`, opacity: 0 }),
+};
+
 const FADE_UP: Variants = {
   hidden: { opacity: 0, y: 22 },
   visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } },
 };
 
-// ─── Phone mockup ──────────────────────────────────────────────────────────────
+// ─── Offer tabs ────────────────────────────────────────────────────────────────
 
-type PhoneAccent = 'lime' | 'pink';
+type OfferTab = 'event' | 'sync';
 
-const PHONE_ACCENT: Record<
-  PhoneAccent,
-  { border: string; glow: string; dot: string; bar: string; track: string; btnActive: string }
-> = {
-  lime: {
-    border: 'border-brand-lime/30',
-    glow: 'shadow-[0_0_48px_-8px_rgba(198,255,0,0.25)]',
-    dot: 'bg-brand-lime',
-    bar: 'bg-brand-lime/60',
-    track: 'bg-brand-lime/20',
-    btnActive: 'bg-brand-lime',
-  },
-  pink: {
-    border: 'border-brand-pink/30',
-    glow: 'shadow-[0_0_48px_-8px_rgba(255,46,139,0.25)]',
-    dot: 'bg-brand-pink',
-    bar: 'bg-brand-pink/60',
-    track: 'bg-brand-pink/20',
-    btnActive: 'bg-brand-pink',
-  },
-};
+const EVENT_IMAGES = [
+  '/assets/presentation/Events-step-1.png',
+  '/assets/presentation/Events-step-2-1.png',
+  '/assets/presentation/Events-step-2-2.png',
+  '/assets/presentation/Events-step-3.png',
+  '/assets/presentation/Events-step-4-1.png',
+  '/assets/presentation/Events-step-4-2.png',
+];
 
-type PhoneMockupProps = {
-  accent?: PhoneAccent;
-  label: string;
-  rows?: number;
-  showSearch?: boolean;
-};
+const SYNC_IMAGES = [
+  '/assets/presentation/Sync-step-1.png',
+  '/assets/presentation/Sync-step-2-1.png',
+  '/assets/presentation/Sync-step-2-2.png',
+  '/assets/presentation/Sync-step-3.png',
+];
 
-const PhoneMockup = ({
-  accent = 'lime',
-  label,
-  rows = 4,
-  showSearch = false,
-}: PhoneMockupProps) => {
-  const c = PHONE_ACCENT[accent];
-  return (
-    <div
-      aria-hidden="true"
-      className={`relative flex w-[200px] flex-col overflow-hidden rounded-[2.2rem] border-2 bg-app-elevated dark:bg-app-card ${c.border} ${c.glow}`}
-      style={{ height: 400 }}
-    >
-      {/* notch */}
-      <div className="mx-auto mt-3.5 h-4 w-20 rounded-full bg-app-surface/80" />
-      {/* status bar */}
-      <div className="mt-2.5 flex items-center justify-between px-5">
-        <div className={`h-1.5 w-8 rounded-full ${c.bar}`} />
-        <div className="flex items-center gap-1">
-          <div className={`h-1.5 w-1.5 rounded-full ${c.dot}`} />
-          <div className={`h-1.5 w-1.5 rounded-full ${c.dot} opacity-50`} />
-          <div className={`h-1.5 w-1.5 rounded-full ${c.dot} opacity-20`} />
-        </div>
-      </div>
-      {/* body */}
-      <div className="mt-4 flex flex-1 flex-col gap-2.5 overflow-hidden px-4">
-        <div className="h-3.5 w-2/3 rounded-md bg-app-text/20" />
-        {showSearch && (
-          <div className="mt-1 flex h-8 items-center gap-2 rounded-xl border border-app-border bg-app-surface/70 px-3">
-            <div className="h-2 w-2 rounded-full bg-app-text/20" />
-            <div className="h-2 w-3/4 rounded bg-app-text/15" />
-          </div>
-        )}
-        <div className="mt-1 flex flex-col gap-2">
-          {Array.from({ length: rows }).map((_, i) => (
-            <div
-              key={i}
-              className="flex items-center gap-2.5 rounded-xl bg-app-surface/60 px-3 py-2"
-            >
-              <div className={`h-7 w-7 shrink-0 rounded-lg ${c.track}`} />
-              <div className="flex flex-1 flex-col gap-1">
-                <div className="h-2 w-3/4 rounded-sm bg-app-text/20" />
-                <div className="h-1.5 w-1/2 rounded-sm bg-app-text/[0.12]" />
-              </div>
-              <div
-                className={`h-6 w-6 shrink-0 rounded-full ${i === 0 ? c.btnActive : 'bg-app-border/60'}`}
-              />
-            </div>
-          ))}
-        </div>
-      </div>
-      {/* label badge */}
-      <div className="mb-4 flex justify-center">
-        <span
-          className={`rounded-full px-3 py-1 text-[10px] font-bold tracking-wide ${
-            accent === 'lime'
-              ? 'bg-brand-lime/15 text-[#7aa300] dark:text-brand-lime'
-              : 'bg-brand-pink/15 text-[#b41563] dark:text-brand-pink'
-          }`}
-        >
-          {label}
-        </span>
-      </div>
-    </div>
-  );
-};
+// ─── Why reason card ───────────────────────────────────────────────────────────
 
-// ─── Stat badge ────────────────────────────────────────────────────────────────
-
-const StatBadge = ({ value, label }: { value: string; label: string }) => (
-  <div className="flex flex-col gap-0.5 rounded-2xl border border-app-border bg-app-elevated/80 px-4 py-3 shadow-soft-lift backdrop-blur-sm dark:bg-app-card/80">
-    <span className="text-xl font-black tracking-tight text-brand-dark dark:text-brand-white">
-      {value}
-    </span>
-    <span className="text-xs text-app-text-muted">{label}</span>
-  </div>
-);
-
-// ─── Step row ──────────────────────────────────────────────────────────────────
-
-const StepRow = ({
+const ReasonCard = ({
   number,
   title,
   body,
-  accent = 'lime',
+  accent,
 }: {
   number: string;
   title: string;
   body: string;
-  accent?: PhoneAccent;
+  accent: 'lime' | 'pink';
 }) => (
-  <div className="flex gap-4">
-    <div
-      className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-black ${
+  <SurfaceCard className="flex flex-col gap-3 p-6">
+    <span
+      className={`text-xs font-black tracking-widest uppercase ${
         accent === 'lime'
-          ? 'bg-brand-lime/15 text-[#7aa300] dark:text-brand-lime'
-          : 'bg-brand-pink/15 text-[#b41563] dark:text-brand-pink'
+          ? 'text-[#7aa300] dark:text-brand-lime'
+          : 'text-[#b41563] dark:text-brand-pink'
       }`}
     >
       {number}
-    </div>
-    <div className="flex flex-col gap-0.5 pt-0.5">
+    </span>
+    <p className="font-black text-brand-dark dark:text-brand-white">{title}</p>
+    <p className="text-sm leading-relaxed text-app-text-secondary">{body}</p>
+  </SurfaceCard>
+);
+
+// ─── Feature card ──────────────────────────────────────────────────────────────
+
+const FeatureCard = ({ title, body }: { title: string; body: string }) => (
+  <SurfaceCard className="flex flex-col gap-2 p-5">
+    <p className="font-black text-brand-dark dark:text-brand-white">{title}</p>
+    <p className="text-sm leading-relaxed text-app-text-secondary">{body}</p>
+  </SurfaceCard>
+);
+
+// ─── CTA offer card ────────────────────────────────────────────────────────────
+
+const CtaOfferCard = ({
+  accent,
+  title,
+  body,
+  action,
+}: {
+  accent: 'lime' | 'pink';
+  title: string;
+  body: string;
+  action: string;
+}) => (
+  <div
+    className={`flex flex-col items-center gap-4 rounded-2xl border p-6 text-center ${
+      accent === 'lime'
+        ? 'border-brand-lime/30 bg-brand-lime/5'
+        : 'border-brand-pink/30 bg-brand-pink/5'
+    }`}
+  >
+    <div className="flex flex-col gap-1">
       <p className="font-black text-brand-dark dark:text-brand-white">{title}</p>
       <p className="text-sm leading-relaxed text-app-text-secondary">{body}</p>
     </div>
+    <HeroLink href={buildAppUrl('/auth/register')} variant={accent} size="sm">
+      {action}
+    </HeroLink>
   </div>
 );
 
@@ -163,6 +119,23 @@ const StepRow = ({
 
 export const HomePage = () => {
   const { t } = useI18n();
+  const [activeTab, setActiveTab] = useState<OfferTab>('event');
+
+  const eventSteps = [
+    t('home.offer.eventStep1'),
+    t('home.offer.eventStep2'),
+    t('home.offer.eventStep2'),
+    t('home.offer.eventStep3'),
+    t('home.offer.eventStep4'),
+    t('home.offer.eventStep5'),
+  ];
+
+  const syncSteps = [
+    t('home.offer.syncStep1'),
+    t('home.offer.syncStep2'),
+    t('home.offer.syncStep2'),
+    t('home.offer.syncStep3'),
+  ];
 
   return (
     <div className="relative bg-brand-dark dark:bg-brand-white">
@@ -174,9 +147,9 @@ export const HomePage = () => {
           {/* ── Hero ──────────────────────────────────────────────────────── */}
           <RevealSection
             revealOnScroll={false}
-            className="relative flex min-h-[calc(100svh-7rem)] flex-col items-center justify-center overflow-hidden px-2 pb-20 pt-36 sm:pb-24 sm:pt-44"
+            className="relative flex min-h-svh flex-col items-center justify-center overflow-hidden px-2 pb-20 pt-36 sm:min-h-[calc(100svh-7rem)] sm:pb-24 sm:pt-44"
           >
-            {/* radial glow behind hero */}
+            {/* radial glow */}
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden"
@@ -197,210 +170,197 @@ export const HomePage = () => {
             >
               <motion.h1
                 variants={FADE_UP}
-                className="text-4xl font-black leading-[1.08] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl lg:text-6xl"
+                className="whitespace-pre-line text-4xl font-black leading-[1.06] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl lg:text-7xl"
               >
                 {t('home.hero.title')}
               </motion.h1>
 
               <motion.p
                 variants={FADE_UP}
-                className="max-w-xl text-base leading-relaxed text-app-text-secondary sm:text-lg"
+                className="max-w-lg text-base leading-relaxed text-app-text-secondary sm:text-lg"
               >
                 {t('home.hero.description')}
               </motion.p>
 
-              <motion.div variants={FADE_UP}>
-                <AppAuthActions
-                  primaryLabel={t('home.hero.ctaStart')}
-                  secondaryLabel={t('home.hero.ctaLogin')}
-                />
-              </motion.div>
-
-              <motion.p variants={FADE_UP} className="text-xs text-app-text-muted sm:text-sm">
-                {t('home.hero.helper')}
-              </motion.p>
-            </motion.div>
-
-            {/* phone trio */}
-            <motion.div
-              initial={{ opacity: 0, y: 44 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.55, ease: [0.22, 1, 0.36, 1] }}
-              className="relative mt-16 flex items-end justify-center gap-4 sm:gap-6"
-            >
-              <div className="hidden translate-y-8 opacity-70 sm:block">
-                <PhoneMockup accent="lime" label={t('home.how.step1')} rows={3} />
-              </div>
-              <PhoneMockup accent="pink" label={t('home.how.step2')} rows={4} showSearch />
-              <div className="hidden translate-y-8 opacity-70 sm:block">
-                <PhoneMockup accent="lime" label={t('home.how.step3')} rows={3} />
-              </div>
-            </motion.div>
-          </RevealSection>
-
-          {/* ── Stats ─────────────────────────────────────────────────────── */}
-          <RevealSection className="py-14 sm:py-16">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatBadge
-                value={t('home.metrics.quickShareValue')}
-                label={t('home.metrics.quickShare')}
-              />
-              <StatBadge
-                value={t('home.metrics.frictionValue')}
-                label={t('home.metrics.friction')}
-              />
-              <StatBadge value={t('home.metrics.routingValue')} label={t('home.metrics.routing')} />
-              <StatBadge value={t('home.metrics.setupValue')} label={t('home.metrics.setup')} />
-            </div>
-          </RevealSection>
-
-          {/* ── How it works — steps left / phone right ────────────────────── */}
-          <RevealSection className="py-16 sm:py-24">
-            <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-              <div className="flex flex-col gap-8">
-                <div className="flex flex-col gap-3">
-                  <HeroPill variant="lime">{t('home.how.pill')}</HeroPill>
-                  <h2 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
-                    {t('home.how.title')}
-                  </h2>
-                </div>
-                <div className="flex flex-col gap-6">
-                  <StepRow
-                    number="01"
-                    title={t('home.how.step1')}
-                    body={t('home.how.step1Body')}
-                    accent="lime"
-                  />
-                  <StepRow
-                    number="02"
-                    title={t('home.how.step2')}
-                    body={t('home.how.step2Body')}
-                    accent="pink"
-                  />
-                  <StepRow
-                    number="03"
-                    title={t('home.how.step3')}
-                    body={t('home.how.step3Body')}
-                    accent="lime"
-                  />
-                </div>
-                <div className="hidden sm:block">
-                  <AppAuthActions
-                    primaryLabel={t('home.hero.ctaStart')}
-                    secondaryLabel={t('home.hero.ctaLogin')}
+              <motion.div variants={FADE_UP} className="flex flex-col items-center gap-4">
+                <div className="flex items-center justify-center gap-2 sm:gap-3">
+                  <HeroLink
+                    href={buildAppUrl('/auth/register')}
+                    variant="lime"
                     size="sm"
+                    className="sm:min-h-11 sm:px-5 sm:py-3 sm:text-base"
+                  >
+                    {t('home.hero.ctaEvent')}
+                  </HeroLink>
+                  <HeroLink
+                    href={buildAppUrl('/auth/register')}
+                    variant="pink"
+                    size="sm"
+                    className="sm:min-h-11 sm:px-5 sm:py-3 sm:text-base"
+                  >
+                    {t('home.hero.ctaSync')}
+                  </HeroLink>
+                </div>
+                {/* platform compatibility */}
+                <div className="flex items-center gap-3 sm:mt-6 opacity-50">
+                  <span className="text-xs text-app-text-muted">{t('home.hero.worksWith')}</span>
+                  <img
+                    src="/assets/logos/Providers/Spotify.png"
+                    alt="Spotify"
+                    className="h-7 w-7 sm:w-10 sm:h-10 rounded-xl object-contain"
+                  />
+                  <img
+                    src="/assets/logos/Providers/AppleMusic.png"
+                    alt="Apple Music"
+                    className="h-7 w-7 sm:w-10 sm:h-10 rounded-xl object-contain"
                   />
                 </div>
-              </div>
-
-              <div className="flex justify-center lg:justify-end">
-                <div className="relative">
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -inset-10 rounded-full blur-3xl"
-                    style={{
-                      background:
-                        'radial-gradient(circle, rgba(255,46,139,0.18) 0%, transparent 70%)',
-                    }}
-                  />
-                  <PhoneMockup accent="pink" label={t('home.how.step2')} rows={5} showSearch />
-                </div>
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
           </RevealSection>
 
-          {/* ── Why — phone left / stats right ────────────────────────────── */}
+          {/* ── Offer tabs + screenshots ───────────────────────────────────── */}
           <RevealSection className="py-16 sm:py-24">
-            <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
-              <div className="flex justify-center lg:justify-start">
-                <div className="relative">
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -inset-10 rounded-full blur-3xl"
-                    style={{
-                      background:
-                        'radial-gradient(circle, rgba(198,255,0,0.18) 0%, transparent 70%)',
-                    }}
-                  />
-                  <PhoneMockup accent="lime" label={t('home.how.step1')} rows={4} />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-8">
-                <div className="flex flex-col gap-3">
-                  <h2 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
-                    {t('home.why.title')}
-                  </h2>
-                  <p className="max-w-md text-sm leading-relaxed text-app-text-secondary sm:text-base">
-                    {t('home.why.description')}
-                  </p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { value: t('home.why.stat1Value'), label: t('home.why.stat1Label') },
-                    { value: t('home.why.stat2Value'), label: t('home.why.stat2Label') },
-                    { value: t('home.why.stat3Value'), label: t('home.why.stat3Label') },
-                    { value: t('home.why.stat4Value'), label: t('home.why.stat4Label') },
-                  ].map((s) => (
-                    <div
-                      key={s.label}
-                      className="flex flex-col gap-1 rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card"
-                    >
-                      <span className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white">
-                        {s.value}
-                      </span>
-                      <span className="text-xs text-app-text-muted">{s.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </RevealSection>
-
-          {/* ── Feature cards ──────────────────────────────────────────────── */}
-          <RevealSection className="py-16 sm:py-20">
-            <motion.div
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, amount: 0.2 }}
-              variants={STAGGER}
-              className="grid gap-4 sm:grid-cols-3 sm:gap-5"
-            >
-              {[
-                { title: t('home.cards.hostTitle'), body: t('home.cards.hostBody'), accent: true },
-                {
-                  title: t('home.cards.guestTitle'),
-                  body: t('home.cards.guestBody'),
-                  accent: false,
-                },
-                {
-                  title: t('home.cards.providerTitle'),
-                  body: t('home.cards.providerBody'),
-                  accent: false,
-                },
-              ].map((card) => (
-                <motion.article
-                  key={card.title}
-                  variants={FADE_UP}
-                  className={`rounded-2xl border p-6 shadow-soft-lift ${
-                    card.accent
-                      ? 'border-brand-lime/25 bg-brand-lime/5 dark:bg-brand-lime/[0.04]'
-                      : 'border-app-border bg-app-elevated dark:bg-app-card'
-                  }`}
-                >
-                  <h3
-                    className={`mb-2 font-black ${
-                      card.accent
-                        ? 'text-[#7aa300] dark:text-brand-lime'
-                        : 'text-brand-dark dark:text-brand-white'
+            <div className="mb-12 flex flex-col items-center gap-6">
+              {/* tab switcher with sliding pill */}
+              <div className="relative flex rounded-full border border-app-border bg-app-elevated p-1 shadow-soft-lift dark:bg-app-card">
+                {/* sliding background pill */}
+                <motion.div
+                  layout
+                  layoutId="tab-pill"
+                  transition={{ type: 'spring', stiffness: 500, damping: 40 }}
+                  className={`absolute inset-y-1 rounded-full ${activeTab === 'event' ? 'bg-brand-lime' : 'bg-brand-pink'}`}
+                  style={{
+                    left: activeTab === 'event' ? '4px' : '50%',
+                    right: activeTab === 'event' ? '50%' : '4px',
+                  }}
+                />
+                {(['event', 'sync'] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`relative z-10 rounded-full px-5 py-2 text-sm font-black tracking-tight transition-colors duration-200 focus-visible:outline-none ${
+                      activeTab === tab
+                        ? tab === 'event'
+                          ? 'text-brand-dark'
+                          : 'text-brand-white'
+                        : 'text-app-text-muted hover:text-app-text'
                     }`}
                   >
-                    {card.title}
-                  </h3>
-                  <p className="text-sm leading-relaxed text-app-text-secondary">{card.body}</p>
-                </motion.article>
-              ))}
-            </motion.div>
+                    {t(`home.offer.tab${tab === 'event' ? 'Event' : 'Sync'}`)}
+                  </button>
+                ))}
+              </div>
+
+              {/* tab description */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22 }}
+                  className="max-w-lg text-center"
+                >
+                  <h2 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl">
+                    {t(`home.offer.${activeTab}Title`)}
+                  </h2>
+                  <p className="mt-3 text-sm leading-relaxed text-app-text-secondary sm:text-base">
+                    {t(`home.offer.${activeTab}Description`)}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* screenshot carousel — slides in from left (event) or right (sync) */}
+            <div className="flex justify-center overflow-hidden">
+              <AnimatePresence mode="popLayout" custom={activeTab === 'event' ? -1 : 1}>
+                <motion.div
+                  key={activeTab}
+                  custom={activeTab === 'event' ? -1 : 1}
+                  variants={TAB_SLIDE}
+                  initial="enter"
+                  animate="center"
+                  exit="exit"
+                  transition={{ duration: 0.25, ease: [0.25, 0, 0, 1] }}
+                  style={{ willChange: 'transform, opacity' }}
+                >
+                  {activeTab === 'event' ? (
+                    <ScreenshotCarousel steps={eventSteps} images={EVENT_IMAGES} accent="lime" />
+                  ) : (
+                    <ScreenshotCarousel steps={syncSteps} images={SYNC_IMAGES} accent="pink" />
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          </RevealSection>
+
+          {/* ── Features ──────────────────────────────────────────────────── */}
+          <RevealSection className="py-16 sm:py-24">
+            <div className="flex flex-col gap-10">
+              <div className="flex flex-col gap-3">
+                <HeroPill variant="lime">{t('home.features.pill')}</HeroPill>
+                <h2 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
+                  {t('home.features.title')}
+                </h2>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <FeatureCard
+                  title={t('home.features.nativeTitle')}
+                  body={t('home.features.nativeBody')}
+                />
+                <FeatureCard
+                  title={t('home.features.magicLinkTitle')}
+                  body={t('home.features.magicLinkBody')}
+                />
+                <FeatureCard
+                  title={t('home.features.crossPlatformTitle')}
+                  body={t('home.features.crossPlatformBody')}
+                />
+                <FeatureCard
+                  title={t('home.features.moderationTitle')}
+                  body={t('home.features.moderationBody')}
+                />
+              </div>
+            </div>
+          </RevealSection>
+
+          {/* ── Why Synqit ────────────────────────────────────────────────── */}
+          <RevealSection className="py-16 sm:py-24">
+            <div className="flex flex-col gap-10">
+              <div className="flex flex-col gap-3">
+                <HeroPill variant="pink">{t('home.why.pill')}</HeroPill>
+                <h2 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
+                  {t('home.why.title')}
+                </h2>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <ReasonCard
+                  number="01"
+                  accent="lime"
+                  title={t('home.why.reason1Title')}
+                  body={t('home.why.reason1Body')}
+                />
+                <ReasonCard
+                  number="02"
+                  accent="pink"
+                  title={t('home.why.reason2Title')}
+                  body={t('home.why.reason2Body')}
+                />
+                <ReasonCard
+                  number="03"
+                  accent="lime"
+                  title={t('home.why.reason3Title')}
+                  body={t('home.why.reason3Body')}
+                />
+                <ReasonCard
+                  number="04"
+                  accent="pink"
+                  title={t('home.why.reason4Title')}
+                  body={t('home.why.reason4Body')}
+                />
+              </div>
+            </div>
           </RevealSection>
 
           {/* ── Final CTA ──────────────────────────────────────────────────── */}
@@ -415,21 +375,30 @@ export const HomePage = () => {
                       'radial-gradient(ellipse at center, rgba(198,255,0,0.07) 0%, transparent 65%)',
                   }}
                 />
-                <div className="relative grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
-                  <div className="grid gap-4">
+                <div className="relative flex flex-col items-center gap-8 text-center">
+                  <div className="flex flex-col gap-3">
                     <HeroPill variant="pink">{t('home.finalCta.pill')}</HeroPill>
                     <h2 className="text-2xl font-black leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl lg:text-4xl">
                       {t('home.finalCta.title')}
                     </h2>
-                    <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
-                      {t('home.finalCta.description')}
-                    </p>
                   </div>
-                  <AppAuthActions
-                    primaryLabel={t('home.finalCta.create')}
-                    secondaryLabel={t('home.finalCta.login')}
-                    primaryVariant="pink"
-                  />
+                  <div className="grid w-full max-w-2xl gap-4 sm:grid-cols-2">
+                    <CtaOfferCard
+                      accent="lime"
+                      title={t('home.finalCta.eventCtaTitle')}
+                      body={t('home.finalCta.eventCtaBody')}
+                      action={t('home.finalCta.eventCtaAction')}
+                    />
+                    <CtaOfferCard
+                      accent="pink"
+                      title={t('home.finalCta.syncCtaTitle')}
+                      body={t('home.finalCta.syncCtaBody')}
+                      action={t('home.finalCta.syncCtaAction')}
+                    />
+                  </div>
+                  <HeroLink href={buildAppUrl('/auth/login')} variant="outline" size="sm">
+                    {t('home.finalCta.login')}
+                  </HeroLink>
                 </div>
               </div>
             </div>
@@ -438,7 +407,7 @@ export const HomePage = () => {
       </div>
 
       {/* footer reveal spacer */}
-      <div aria-hidden className="h-[28rem] sm:h-[24rem] lg:h-[26rem]" />
+      <div aria-hidden className="h-80 sm:h-96 lg:h-104" />
     </div>
   );
 };

@@ -553,7 +553,7 @@ test.describe('web smoke regressions', () => {
   test('login page renders email and password fields', async ({ page }) => {
     await page.goto('/auth/login');
 
-    await expect(page.getByText('Welcome back.')).toBeVisible();
+    await expect(page.getByText('Welcome back')).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/password/i).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Login' })).toBeVisible();
@@ -562,7 +562,7 @@ test.describe('web smoke regressions', () => {
   test('register page renders email and password fields', async ({ page }) => {
     await page.goto('/auth/register');
 
-    await expect(page.getByText('Sign me up !')).toBeVisible();
+    await expect(page.getByText('Sign me up')).toBeVisible();
     await expect(page.getByLabel(/email/i)).toBeVisible();
     await expect(page.getByLabel(/password/i).first()).toBeVisible();
     await expect(page.getByRole('button', { name: 'Register' })).toBeVisible();
