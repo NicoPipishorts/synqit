@@ -1,5 +1,4 @@
 import { AnimatePresence, motion, type PanInfo } from 'framer-motion';
-// AnimatePresence kept for future use; motion used for card transitions
 import { useState } from 'react';
 
 type ScreenshotCarouselProps = {
@@ -55,11 +54,6 @@ export const ScreenshotCarousel = ({ steps, images, accent }: ScreenshotCarousel
 
   return (
     <div className="flex flex-col items-center gap-6">
-      {/* preload all images in this carousel */}
-      {images.map((src) => (
-        <link key={src} rel="preload" as="image" href={src} />
-      ))}
-
       {/* wrapper — no overflow-hidden so card slides outside bounds */}
       <div className="relative w-70" style={{ aspectRatio: '9 / 19.5' }}>
         {/* faded logo always underneath */}

@@ -1,6 +1,8 @@
 import { motion, type Variants } from 'framer-motion';
 import { type ReactNode } from 'react';
 
+import { isTouchDevice } from '../../lib/motion';
+
 const SECTION_REVEAL_VARIANTS: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
@@ -24,6 +26,10 @@ export const RevealSection = ({
   className,
   revealOnScroll = true,
 }: RevealSectionProps) => {
+  if (isTouchDevice) {
+    return <section className={className}>{children}</section>;
+  }
+
   if (revealOnScroll) {
     return (
       <motion.section
