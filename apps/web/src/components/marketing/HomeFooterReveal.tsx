@@ -18,7 +18,7 @@ export const HomeFooterReveal = () => {
             <p className="max-w-sm text-sm text-brand-white/80 dark:text-brand-dark/75 sm:text-base">
               {t('footer.description')}
             </p>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-3">
               <img
                 src="/assets/logos/Providers/Spotify.png"
                 alt="Spotify"

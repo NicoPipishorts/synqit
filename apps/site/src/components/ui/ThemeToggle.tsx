@@ -1,3 +1,4 @@
+import { Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { SiteTheme, applyTheme, loadTheme, persistTheme } from '../../lib/theme';
@@ -10,13 +11,22 @@ export const ThemeToggle = () => {
     persistTheme(theme);
   }, [theme]);
 
+  const isDark = theme === 'dark';
+
   return (
     <button
       type="button"
-      onClick={() => setTheme((current) => (current === 'dark' ? 'light' : 'dark'))}
-      className="focus-ring-brand inline-flex min-h-9 items-center rounded-full border border-brand-white/20 bg-brand-white/10 px-3 text-xs font-black uppercase tracking-wide text-brand-white transition hover:bg-brand-white/18 dark:border-brand-dark/20 dark:bg-brand-dark/10 dark:text-brand-dark dark:hover:bg-brand-dark/18"
+      onClick={() => setTheme(isDark ? 'light' : 'dark')}
+      aria-label="Toggle light and dark mode"
+      className="group inline-flex h-8 w-14 items-center rounded-full border border-brand-white/20 bg-brand-white/10 px-1 shadow-soft-lift transition hover:border-brand-lime dark:border-brand-dark/20 dark:bg-brand-dark/10"
     >
-      {theme === 'dark' ? 'Light' : 'Dark'}
+      <span
+        className={`flex h-6 w-6 items-center justify-center rounded-full border border-brand-white/20 bg-brand-dark text-brand-white transition-transform dark:border-brand-dark/20 dark:bg-brand-white dark:text-brand-dark ${
+          isDark ? 'translate-x-6' : 'translate-x-0'
+        }`}
+      >
+        {isDark ? <Moon size={14} /> : <Sun size={14} />}
+      </span>
     </button>
   );
 };

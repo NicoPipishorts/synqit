@@ -9,6 +9,7 @@ import { HeroLink } from './components/ui/HeroLink';
 import { HeroPill } from './components/ui/HeroPill';
 import { buildAppUrl } from './lib/app-url';
 import { useI18n } from './lib/i18n';
+import { isTouchDevice } from './lib/motion';
 
 // ─── Animation variants ────────────────────────────────────────────────────────
 
@@ -163,7 +164,7 @@ export const HomePage = () => {
             </div>
 
             <motion.div
-              initial="hidden"
+              initial={isTouchDevice ? false : 'hidden'}
               animate="visible"
               variants={STAGGER}
               className="relative flex max-w-3xl flex-col items-center gap-6 text-center"
@@ -183,7 +184,7 @@ export const HomePage = () => {
               </motion.p>
 
               <motion.div variants={FADE_UP} className="flex flex-col items-center gap-4">
-                <div className="flex items-center justify-center gap-2 sm:gap-3">
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-3">
                   <HeroLink
                     href={buildAppUrl('/auth/register')}
                     variant="lime"
@@ -202,7 +203,7 @@ export const HomePage = () => {
                   </HeroLink>
                 </div>
                 {/* platform compatibility */}
-                <div className="flex items-center gap-3 sm:mt-6 opacity-50">
+                <div className="flex items-center gap-3 mt-4 sm:mt-6 opacity-50">
                   <span className="text-xs text-app-text-muted">{t('home.hero.worksWith')}</span>
                   <img
                     src="/assets/logos/Providers/Spotify.png"
@@ -282,7 +283,7 @@ export const HomePage = () => {
                   initial="enter"
                   animate="center"
                   exit="exit"
-                  transition={{ duration: 0.25, ease: [0.25, 0, 0, 1] }}
+                  transition={{ duration: 0.15, ease: [0.25, 0, 0, 1] }}
                   style={{ willChange: 'transform, opacity' }}
                 >
                   {activeTab === 'event' ? (
@@ -407,7 +408,7 @@ export const HomePage = () => {
       </div>
 
       {/* footer reveal spacer */}
-      <div aria-hidden className="h-80 sm:h-96 lg:h-104" />
+      <div aria-hidden className="h-100 sm:h-96 lg:h-104" />
     </div>
   );
 };

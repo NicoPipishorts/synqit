@@ -772,13 +772,13 @@
       "worksWith": "Compatible avec",
       "title": "Un lien. \n Toutes tes playlists.",
       "description": "Synqit te permet de créer des playlists d’événement collaboratives et de partager tes playlists entre plateformes — le tout via un lien magique.",
-      "ctaEvent": "Lancer un événement",
+      "ctaEvent": "Créer ton événement",
       "ctaSync": "Partager une playlist",
       "ctaLogin": "Se connecter"
     },
     "offer": {
-      "tabEvent": "Playlist d’événement",
-      "tabSync": "Playlist synchronisée",
+      "tabEvent": "Événement",
+      "tabSync": "Synchronisée",
       "eventTitle": "Laisse tes invités composer la playlist",
       "eventDescription": "Crée une playlist, génère un lien magique, et laisse les invités ajouter des titres depuis leur téléphone — sans téléchargement, sans compte.",
       "syncTitle": "Partage tes playlists entre plateformes",
