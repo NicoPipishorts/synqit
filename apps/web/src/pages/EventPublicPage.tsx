@@ -1,4 +1,5 @@
 import { useParams } from '@tanstack/react-router';
+import { Bookmark, BookmarkCheck } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { EventStatusIndicator } from '../components/events/EventStatusIndicator';
@@ -7,7 +8,6 @@ import { TrackSkeletonList } from '../components/events/PublicTrackRow';
 import { PublicTracksPanel } from '../components/events/PublicTracksPanel';
 import { HomeFooterReveal } from '../components/marketing/HomeFooterReveal';
 import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
-import { CTAButton } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useAuthSession } from '../hooks/useAuthSession';
@@ -117,7 +117,35 @@ export const EventPublicPage = () => {
           {isEventReady && event ? (
             <div className="grid gap-3">
               {/* Hero */}
-              <header className="flex flex-col items-center gap-3 pt-4 text-center">
+              <header className="flex flex-col items-center gap-3 pt-4 pb-6 text-center relative ">
+                {auth && !event.isOwner ? (
+                  <div className="absolute top-6 right-3 sm:-top-2 sm:right-1 z-10">
+                    <button
+                      type="button"
+                      aria-label={
+                        isTrackMutationPending
+                          ? t('eventPublicPage.trackingPending')
+                          : event.isTracked
+                            ? t('eventPublicPage.trackedCta')
+                            : t('eventPublicPage.trackCta')
+                      }
+                      aria-pressed={event.isTracked}
+                      disabled={isTrackMutationPending}
+                      onClick={() => void toggleTracked()}
+                      className={`items-center justify-center transition sm:static sm:mx-auto sm:mt-2 ${
+                        event.isTracked
+                          ? 'border-brand-lime text-brand-dark'
+                          : 'border-app-border text-brand-dark hover:border-brand-pink hover:text-brand-pink'
+                      } disabled:opacity-60 dark:bg-app-card dark:text-brand-white`}
+                    >
+                      {event.isTracked ? (
+                        <BookmarkCheck size={26} strokeWidth={2.3} aria-hidden="true" />
+                      ) : (
+                        <Bookmark size={26} strokeWidth={2.3} aria-hidden="true" />
+                      )}
+                    </button>
+                  </div>
+                ) : null}
                 {event.coverImageUrl ? (
                   <img
                     src={event.coverImageUrl}
@@ -125,8 +153,8 @@ export const EventPublicPage = () => {
                     className="h-20 w-20 rounded-full border-4 border-app-border object-cover shadow-lg sm:mb-5 sm:h-36 sm:w-36"
                   />
                 ) : null}
-                <div className="grid gap-1">
-                  <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
+                <div className="grid relative gap-1 pt-[5%] sm:pt-0">
+                  <h1 className="px-8 text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:px-0 sm:text-4xl">
                     {event.name}
                   </h1>
                   {event.description ? (
@@ -141,19 +169,6 @@ export const EventPublicPage = () => {
                   connectionStatus={event.connectionStatus}
                   mode="pill"
                 />
-                {auth && !event.isOwner ? (
-                  <CTAButton
-                    variant={event.isTracked ? 'secondary' : 'primary'}
-                    disabled={isTrackMutationPending}
-                    onClick={() => void toggleTracked()}
-                  >
-                    {isTrackMutationPending
-                      ? t('eventPublicPage.trackingPending')
-                      : event.isTracked
-                        ? t('eventPublicPage.untrackCta')
-                        : t('eventPublicPage.trackCta')}
-                  </CTAButton>
-                ) : null}
               </header>
 
               {/* Tab bar — hidden when closed */}

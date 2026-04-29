@@ -8,6 +8,7 @@ type SpotifyTrackSearchResult = {
   album: string;
   durationMs: number;
   artworkUrl: string | null;
+  previewUrl: string | null;
 };
 
 class ProviderApiError extends Error {
@@ -48,6 +49,7 @@ const spotifySearchResponseSchema = z.object({
             .default([]),
         }),
         duration_ms: z.number().int().nonnegative(),
+        preview_url: z.string().url().nullable().optional(),
       }),
     ),
   }),
@@ -187,6 +189,7 @@ export const searchSpotifyTracks = async (params: {
     album: track.album.name,
     durationMs: track.duration_ms,
     artworkUrl: track.album.images[0]?.url ?? null,
+    previewUrl: track.preview_url ?? null,
   }));
 };
 
@@ -268,6 +271,7 @@ export const listSpotifyPlaylistTracks = async (params: {
         album: track.album?.name ?? 'Unknown album',
         durationMs: track.duration_ms,
         artworkUrl: track.album?.images[0]?.url ?? null,
+        previewUrl: null,
       });
     }
 

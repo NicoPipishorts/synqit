@@ -1,5 +1,5 @@
 import { LoaderCircle, Search, X } from 'lucide-react';
-import { FormEvent } from 'react';
+import { FormEvent, useEffect, useRef, useState } from 'react';
 
 import { SearchTrackRow, TrackSkeletonList } from './PublicTrackRow';
 import { useI18n } from '../../hooks/useI18n';
@@ -42,6 +42,73 @@ export const PublicSearchPanel = ({
   onLoadMore,
 }: Props) => {
   const { t } = useI18n();
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [activePreviewTrackId, setActivePreviewTrackId] = useState<string | null>(null);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [previewProgress, setPreviewProgress] = useState(0);
+
+  useEffect(
+    () => () => {
+      audioRef.current?.pause();
+      audioRef.current = null;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!searchResults.some((track) => track.providerTrackId === activePreviewTrackId)) {
+      audioRef.current?.pause();
+      setActivePreviewTrackId(null);
+      setIsPreviewPlaying(false);
+      setPreviewProgress(0);
+    }
+  }, [activePreviewTrackId, searchResults]);
+
+  const togglePreview = async (track: SearchTrackResult) => {
+    if (!track.previewUrl) {
+      return;
+    }
+
+    const currentAudio = audioRef.current;
+    if (
+      currentAudio &&
+      activePreviewTrackId === track.providerTrackId &&
+      currentAudio.src === track.previewUrl
+    ) {
+      if (currentAudio.paused) {
+        await currentAudio.play();
+      } else {
+        currentAudio.pause();
+      }
+      return;
+    }
+
+    if (currentAudio) {
+      currentAudio.pause();
+    }
+
+    const nextAudio = new Audio(track.previewUrl);
+    nextAudio.addEventListener('timeupdate', () => {
+      const duration = nextAudio.duration || 30;
+      setPreviewProgress(duration > 0 ? nextAudio.currentTime / duration : 0);
+    });
+    nextAudio.addEventListener('ended', () => {
+      setIsPreviewPlaying(false);
+      setPreviewProgress(1);
+    });
+    nextAudio.addEventListener('pause', () => setIsPreviewPlaying(false));
+    nextAudio.addEventListener('play', () => setIsPreviewPlaying(true));
+    audioRef.current = nextAudio;
+    setActivePreviewTrackId(track.providerTrackId);
+    setPreviewProgress(0);
+    try {
+      await nextAudio.play();
+    } catch {
+      setActivePreviewTrackId(null);
+      setIsPreviewPlaying(false);
+      setPreviewProgress(0);
+    }
+  };
 
   return (
     <div className="grid gap-3">
@@ -103,6 +170,15 @@ export const PublicSearchPanel = ({
                 track={track}
                 isAdded={addedTrackIds.has(track.providerTrackId)}
                 isAdding={addingTrackId === track.providerTrackId}
+                canPreview={!!track.previewUrl}
+                isPreviewActive={activePreviewTrackId === track.providerTrackId}
+                isPreviewPlaying={
+                  activePreviewTrackId === track.providerTrackId && isPreviewPlaying
+                }
+                previewProgress={
+                  activePreviewTrackId === track.providerTrackId ? previewProgress : 0
+                }
+                onTogglePreview={() => void togglePreview(track)}
                 onAdd={() => onAddTrack(track)}
               />
             ))}

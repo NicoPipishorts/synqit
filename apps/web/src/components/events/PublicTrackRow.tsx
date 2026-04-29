@@ -1,4 +1,4 @@
-import { Check, LoaderCircle, Plus } from 'lucide-react';
+import { Check, LoaderCircle, Pause, Play, Plus } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
 import { SearchTrackResult } from '../../hooks/usePublicEvent';
@@ -6,50 +6,127 @@ import { EventTrackItem } from '../../lib/events';
 
 type ArtworkProps = { url: string | null; fallbackLabel: string };
 
-const TrackArtwork = ({ url, fallbackLabel }: ArtworkProps) =>
-  url ? (
-    <img
-      src={url}
-      alt=""
-      width={44}
-      height={44}
-      className="h-11 w-11 shrink-0 rounded-md object-cover"
-    />
-  ) : (
-    <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-app-border text-xs text-app-text-secondary">
-      {fallbackLabel}
-    </span>
-  );
-
 type SearchTrackRowProps = {
   track: SearchTrackResult;
   isAdded: boolean;
   isAdding: boolean;
+  isPreviewActive: boolean;
+  isPreviewPlaying: boolean;
+  previewProgress: number;
+  canPreview: boolean;
+  onTogglePreview: () => void;
   onAdd: () => void;
 };
 
-export const SearchTrackRow = ({ track, isAdded, isAdding, onAdd }: SearchTrackRowProps) => {
+const PREVIEW_RING_RADIUS = 18;
+const PREVIEW_RING_CIRCUMFERENCE = 2 * Math.PI * PREVIEW_RING_RADIUS;
+
+const TrackArtwork = ({
+  url,
+  fallbackLabel,
+  canPreview,
+  isPreviewActive,
+  isPreviewPlaying,
+  previewProgress,
+  onTogglePreview,
+}: ArtworkProps & {
+  canPreview: boolean;
+  isPreviewActive: boolean;
+  isPreviewPlaying: boolean;
+  previewProgress: number;
+  onTogglePreview: () => void;
+}) => {
+  const { t } = useI18n();
+  const actionLabel = isPreviewPlaying
+    ? t('eventPublicPage.pausePreview')
+    : t('eventPublicPage.playPreview');
+  const ringOffset = PREVIEW_RING_CIRCUMFERENCE * (1 - Math.min(Math.max(previewProgress, 0), 1));
+
+  return (
+    <div className="relative h-11 w-11 shrink-0">
+      {url ? (
+        <img
+          src={url}
+          alt=""
+          width={44}
+          height={44}
+          className="h-11 w-11 rounded-md object-cover"
+        />
+      ) : (
+        <span className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-app-border text-xs text-app-text-secondary">
+          {fallbackLabel}
+        </span>
+      )}
+      {canPreview ? (
+        <button
+          type="button"
+          aria-label={actionLabel}
+          aria-pressed={isPreviewPlaying}
+          onClick={onTogglePreview}
+          className="absolute inset-0 flex items-center justify-center rounded-md bg-brand-dark/60 text-brand-white transition hover:bg-brand-dark/72"
+        >
+          <svg
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full -rotate-90"
+            viewBox="0 0 44 44"
+          >
+            <circle
+              cx="22"
+              cy="22"
+              r={PREVIEW_RING_RADIUS}
+              fill="none"
+              stroke="rgba(255,255,255,0.28)"
+              strokeWidth="2"
+            />
+            <circle
+              cx="22"
+              cy="22"
+              r={PREVIEW_RING_RADIUS}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeDasharray={PREVIEW_RING_CIRCUMFERENCE}
+              strokeDashoffset={isPreviewActive ? ringOffset : PREVIEW_RING_CIRCUMFERENCE}
+            />
+          </svg>
+          {isPreviewPlaying ? <Pause size={14} /> : <Play size={14} className="ml-0.5" />}
+        </button>
+      ) : null}
+    </div>
+  );
+};
+
+export const SearchTrackRow = ({
+  track,
+  isAdded,
+  isAdding,
+  isPreviewActive,
+  isPreviewPlaying,
+  previewProgress,
+  canPreview,
+  onTogglePreview,
+  onAdd,
+}: SearchTrackRowProps) => {
   const { t } = useI18n();
   return (
     <li className="min-w-0">
-      <button
-        type="button"
-        aria-label={
-          isAdding
-            ? t('eventPublicPage.adding')
-            : isAdded
-              ? t('eventPublicPage.alreadyAdded')
-              : t('eventPublicPage.add')
-        }
-        disabled={isAdding || isAdded}
-        onClick={onAdd}
-        className={`group flex min-w-0 w-full max-w-full cursor-pointer items-center gap-3 rounded-xl border bg-app-bg px-3 py-3 shadow-soft-lift transition duration-150 dark:bg-app-elevated disabled:pointer-events-none ${
+      <div
+        className={`group flex min-w-0 w-full max-w-full items-center gap-3 rounded-xl border bg-app-bg px-3 py-3 shadow-soft-lift transition duration-150 dark:bg-app-elevated ${
           isAdded
             ? 'border-app-border opacity-60'
             : 'border-app-border hover:border-brand-pink hover:bg-app-surface dark:hover:bg-app-card'
         }`}
       >
-        <TrackArtwork url={track.artworkUrl} fallbackLabel={t('eventPublicPage.notAvailable')} />
+        <TrackArtwork
+          url={track.artworkUrl}
+          fallbackLabel={t('eventPublicPage.notAvailable')}
+          canPreview={canPreview}
+          isPreviewActive={isPreviewActive}
+          isPreviewPlaying={isPreviewPlaying}
+          previewProgress={previewProgress}
+          onTogglePreview={onTogglePreview}
+        />
         <div className="min-w-0 flex-1 overflow-hidden text-left">
           <p className="max-w-full truncate text-sm font-bold text-brand-dark dark:text-brand-white">
             {track.name}
@@ -58,27 +135,37 @@ export const SearchTrackRow = ({ track, isAdded, isAdding, onAdd }: SearchTrackR
             {track.artist} · {track.album}
           </p>
         </div>
-        {isAdding ? (
-          <LoaderCircle
-            size={16}
-            className="shrink-0 animate-spin text-app-text-secondary"
-            aria-hidden="true"
-          />
-        ) : isAdded ? (
-          <Check
-            size={18}
-            strokeWidth={3}
-            className="shrink-0 text-brand-dark dark:text-brand-white"
-            aria-hidden="true"
-          />
-        ) : (
-          <Plus
-            size={18}
-            aria-hidden="true"
-            className="shrink-0 text-app-text-secondary transition-transform duration-150 ease-out group-hover:scale-125 group-hover:text-brand-pink active:scale-95"
-          />
-        )}
-      </button>
+        <button
+          type="button"
+          aria-label={
+            isAdding
+              ? t('eventPublicPage.adding')
+              : isAdded
+                ? t('eventPublicPage.alreadyAdded')
+                : t('eventPublicPage.add')
+          }
+          disabled={isAdding || isAdded}
+          onClick={onAdd}
+          className="inline-flex shrink-0 items-center justify-center rounded-full p-1 text-app-text-secondary transition hover:text-brand-pink disabled:pointer-events-none"
+        >
+          {isAdding ? (
+            <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
+          ) : isAdded ? (
+            <Check
+              size={18}
+              strokeWidth={3}
+              className="text-brand-dark dark:text-brand-white"
+              aria-hidden="true"
+            />
+          ) : (
+            <Plus
+              size={18}
+              aria-hidden="true"
+              className="transition-transform duration-150 ease-out active:scale-95"
+            />
+          )}
+        </button>
+      </div>
     </li>
   );
 };

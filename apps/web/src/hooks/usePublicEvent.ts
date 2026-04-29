@@ -28,6 +28,7 @@ export type SearchTrackResult = {
   album: string;
   durationMs: number;
   artworkUrl: string | null;
+  previewUrl: string | null;
 };
 
 type EventData = {

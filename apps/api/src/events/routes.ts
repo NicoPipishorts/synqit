@@ -68,6 +68,7 @@ const MOCK_TRACKS = [
     album: 'City Lights',
     durationMs: 203000,
     artworkUrl: null,
+    previewUrl: null,
   },
   {
     providerTrackId: 'mock-track-2',
@@ -76,6 +77,7 @@ const MOCK_TRACKS = [
     album: 'Sunset Signals',
     durationMs: 187000,
     artworkUrl: null,
+    previewUrl: null,
   },
   {
     providerTrackId: 'mock-track-3',
@@ -84,6 +86,7 @@ const MOCK_TRACKS = [
     album: 'Afterglow',
     durationMs: 221000,
     artworkUrl: null,
+    previewUrl: null,
   },
 ] as const;
 

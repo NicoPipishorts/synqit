@@ -646,6 +646,7 @@ export const eventTrackSearchResultSchema = z.object({
   album: z.string(),
   durationMs: z.number().int().nonnegative(),
   artworkUrl: z.string().url().nullable(),
+  previewUrl: z.string().url().nullable(),
 });
 export type EventTrackSearchResult = z.infer<typeof eventTrackSearchResultSchema>;
 

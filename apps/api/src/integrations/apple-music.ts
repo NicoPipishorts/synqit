@@ -11,6 +11,7 @@ type AppleTrackSearchResult = {
   album: string;
   durationMs: number;
   artworkUrl: string | null;
+  previewUrl: string | null;
 };
 
 type AppleLibraryPlaylist = {
@@ -30,6 +31,14 @@ const appleSearchResponseSchema = z.object({
                 artistName: z.string().min(1),
                 albumName: z.string().min(1),
                 durationInMillis: z.number().int().nonnegative().optional().default(0),
+                previews: z
+                  .array(
+                    z.object({
+                      url: z.string().url(),
+                    }),
+                  )
+                  .optional()
+                  .default([]),
                 artwork: z
                   .object({
                     url: z.string().min(1),
@@ -323,6 +332,7 @@ export const searchAppleCatalogTracks = async (params: {
     album: song.attributes.albumName,
     durationMs: song.attributes.durationInMillis,
     artworkUrl: formatAppleArtworkUrl(song.attributes.artwork?.url),
+    previewUrl: song.attributes.previews[0]?.url ?? null,
   }));
 };
 
@@ -502,6 +512,7 @@ export const listApplePlaylistTracks = async (params: {
         album: track.attributes?.albumName ?? 'Unknown album',
         durationMs: track.attributes?.durationInMillis ?? 0,
         artworkUrl: formatAppleArtworkUrl(track.attributes?.artwork?.url),
+        previewUrl: null,
       });
     }
 
