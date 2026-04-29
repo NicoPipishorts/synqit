@@ -31,7 +31,7 @@ type SearchTrackRowProps = {
 export const SearchTrackRow = ({ track, isAdded, isAdding, onAdd }: SearchTrackRowProps) => {
   const { t } = useI18n();
   return (
-    <li>
+    <li className="min-w-0">
       <button
         type="button"
         aria-label={
@@ -43,18 +43,18 @@ export const SearchTrackRow = ({ track, isAdded, isAdding, onAdd }: SearchTrackR
         }
         disabled={isAdding || isAdded}
         onClick={onAdd}
-        className={`group flex min-w-0 w-full cursor-pointer items-center gap-3 rounded-xl border bg-app-bg px-3 py-3 shadow-soft-lift transition duration-150 dark:bg-app-elevated disabled:pointer-events-none ${
+        className={`group flex min-w-0 w-full max-w-full cursor-pointer items-center gap-3 rounded-xl border bg-app-bg px-3 py-3 shadow-soft-lift transition duration-150 dark:bg-app-elevated disabled:pointer-events-none ${
           isAdded
             ? 'border-app-border opacity-60'
             : 'border-app-border hover:border-brand-pink hover:bg-app-surface dark:hover:bg-app-card'
         }`}
       >
         <TrackArtwork url={track.artworkUrl} fallbackLabel={t('eventPublicPage.notAvailable')} />
-        <div className="min-w-0 flex-1 text-left">
-          <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
+        <div className="min-w-0 flex-1 overflow-hidden text-left">
+          <p className="max-w-full truncate text-sm font-bold text-brand-dark dark:text-brand-white">
             {track.name}
           </p>
-          <p className="truncate text-xs text-app-text-secondary">
+          <p className="max-w-full truncate text-xs text-app-text-secondary">
             {track.artist} · {track.album}
           </p>
         </div>
@@ -86,7 +86,7 @@ export const SearchTrackRow = ({ track, isAdded, isAdding, onAdd }: SearchTrackR
 type AddedTrackRowProps = { track: EventTrackItem };
 
 export const AddedTrackRow = ({ track }: AddedTrackRowProps) => (
-  <li className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-3 shadow-soft-lift dark:bg-app-elevated">
+  <li className="flex min-w-0 max-w-full items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-3 shadow-soft-lift dark:bg-app-elevated">
     {track.artworkUrl ? (
       <img
         src={track.artworkUrl}
@@ -96,11 +96,11 @@ export const AddedTrackRow = ({ track }: AddedTrackRowProps) => (
         className="h-11 w-11 shrink-0 rounded-md object-cover"
       />
     ) : null}
-    <div className="min-w-0 flex-1">
-      <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
+    <div className="min-w-0 flex-1 overflow-hidden">
+      <p className="max-w-full truncate text-sm font-bold text-brand-dark dark:text-brand-white">
         {track.name}
       </p>
-      <p className="truncate text-xs text-app-text-secondary">
+      <p className="max-w-full truncate text-xs text-app-text-secondary">
         {track.artist} · {track.album}
       </p>
     </div>

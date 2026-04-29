@@ -52,6 +52,24 @@ type EventTrackRecord = {
   addedBy: string;
 };
 
+type EventFollowRecord = {
+  id: string;
+  eventId: string;
+  userId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+type TrackedEventRecord = {
+  trackedAt: Date;
+  event: EventRecord;
+};
+
+type VisitedEventRecord = {
+  visitedAt: Date;
+  event: EventRecord;
+};
+
 type EventRow = {
   id: string;
   host_user_id: string;
@@ -91,6 +109,14 @@ type EventTrackRow = {
   added_by: string;
 };
 
+type EventFollowRow = {
+  id: string;
+  event_id: string;
+  user_id: string;
+  created_at: Date;
+  updated_at: Date;
+};
+
 const toEventTrackRecord = (row: EventTrackRow): EventTrackRecord => ({
   providerTrackId: row.provider_track_id,
   name: row.name,
@@ -100,6 +126,14 @@ const toEventTrackRecord = (row: EventTrackRow): EventTrackRecord => ({
   artworkUrl: row.artwork_url,
   addedAt: new Date(row.added_at),
   addedBy: row.added_by,
+});
+
+const toEventFollowRecord = (row: EventFollowRow): EventFollowRecord => ({
+  id: row.id,
+  eventId: row.event_id,
+  userId: row.user_id,
+  createdAt: new Date(row.created_at),
+  updatedAt: new Date(row.updated_at),
 });
 
 const toEventRecord = (row: EventRow): EventRecord => ({
@@ -358,6 +392,157 @@ export const eventsStore = {
     }
 
     return toEventWithTracks(toEventRecord(row));
+  },
+
+  async isTrackedByUser(params: { eventId: string; userId: string }): Promise<boolean> {
+    const row = await prisma.event_follows.findUnique({
+      where: {
+        event_id_user_id: {
+          event_id: params.eventId,
+          user_id: params.userId,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    return Boolean(row);
+  },
+
+  async trackEvent(params: { eventId: string; userId: string }): Promise<EventFollowRecord> {
+    const now = new Date();
+    const row = await prisma.event_follows.upsert({
+      where: {
+        event_id_user_id: {
+          event_id: params.eventId,
+          user_id: params.userId,
+        },
+      },
+      update: {
+        updated_at: now,
+      },
+      create: {
+        id: randomUUID(),
+        event_id: params.eventId,
+        user_id: params.userId,
+        created_at: now,
+        updated_at: now,
+      },
+      select: {
+        id: true,
+        event_id: true,
+        user_id: true,
+        created_at: true,
+        updated_at: true,
+      },
+    });
+
+    return toEventFollowRecord(row);
+  },
+
+  async untrackEvent(params: { eventId: string; userId: string }): Promise<boolean> {
+    const deleted = await prisma.event_follows.deleteMany({
+      where: {
+        event_id: params.eventId,
+        user_id: params.userId,
+      },
+    });
+
+    return deleted.count > 0;
+  },
+
+  async listTrackedEventsByUser(userId: string): Promise<TrackedEventRecord[]> {
+    const rows = await prisma.event_follows.findMany({
+      where: {
+        user_id: userId,
+      },
+      orderBy: {
+        updated_at: 'desc',
+      },
+      select: {
+        updated_at: true,
+        events: {
+          select: {
+            id: true,
+            host_user_id: true,
+            provider: true,
+            provider_playlist_id: true,
+            status: true,
+            close_reason: true,
+            name: true,
+            description: true,
+            cover_image_url: true,
+            magic_link_token: true,
+            magic_link_revoked_at: true,
+            created_at: true,
+            updated_at: true,
+            closed_at: true,
+          },
+        },
+      },
+    });
+
+    return Promise.all(
+      rows.map(async (row) => ({
+        trackedAt: new Date(row.updated_at),
+        event: await toEventWithTracks(toEventRecord(row.events)),
+      })),
+    );
+  },
+
+  async recordEventVisit(params: { eventId: string; userId: string }): Promise<void> {
+    const now = new Date();
+
+    await prisma.event_visits.upsert({
+      where: {
+        event_id_user_id: {
+          event_id: params.eventId,
+          user_id: params.userId,
+        },
+      },
+      update: {
+        updated_at: now,
+      },
+      create: {
+        id: randomUUID(),
+        event_id: params.eventId,
+        user_id: params.userId,
+        created_at: now,
+        updated_at: now,
+      },
+    });
+  },
+
+  async listVisitedEventsByUser(userId: string): Promise<VisitedEventRecord[]> {
+    const visits = await prisma.event_visits.findMany({
+      where: {
+        user_id: userId,
+      },
+      orderBy: {
+        updated_at: 'desc',
+      },
+      select: {
+        event_id: true,
+        updated_at: true,
+      },
+    });
+
+    const events = await Promise.all(
+      visits.map(async (visit) => {
+        const event = await eventsStore.findEventById(visit.event_id);
+        if (!event) {
+          return null;
+        }
+
+        return {
+          visitedAt: new Date(visit.updated_at),
+          event,
+        };
+      }),
+    );
+
+    return events.filter((event): event is VisitedEventRecord => event !== null);
   },
 
   async listTracksByEventId(eventId: string): Promise<EventTrackRecord[]> {

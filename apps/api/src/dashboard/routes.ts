@@ -16,8 +16,10 @@ export const registerDashboardRoutes = async (app: FastifyInstance): Promise<voi
     const since24h = new Date(now.getTime() - DAY_MS);
     const since7d = new Date(now.getTime() - 7 * DAY_MS);
 
-    const [events, ownedSyncs, subscribedSyncs] = await Promise.all([
+    const [events, trackedEvents, visitedEvents, ownedSyncs, subscribedSyncs] = await Promise.all([
       eventsStore.listEventsByHost(userId),
+      eventsStore.listTrackedEventsByUser(userId),
+      eventsStore.listVisitedEventsByUser(userId),
       syncsStore.listSyncsBySender(userId),
       syncsStore.listSyncsByRecipient(userId),
     ]);
@@ -54,6 +56,37 @@ export const registerDashboardRoutes = async (app: FastifyInstance): Promise<voi
               event.tracks.find((track) => track.addedAt >= since24h)?.addedAt.toISOString() ??
               null,
             updatedAt: event.updatedAt.getTime(),
+          }))
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .map(({ updatedAt: _updatedAt, ...item }) => item),
+        trackedEventActivity: trackedEvents
+          .map(({ event, trackedAt }) => ({
+            eventId: event.id,
+            magicLinkToken: event.magicLinkToken,
+            name: event.name,
+            addedTrackCount24h: event.tracks.filter((track) => track.addedAt >= since24h).length,
+            latestActivityAt:
+              event.tracks.find((track) => track.addedAt >= since24h)?.addedAt.toISOString() ??
+              null,
+            updatedAt: Math.max(event.updatedAt.getTime(), trackedAt.getTime()),
+          }))
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+          .map(({ updatedAt: _updatedAt, ...item }) => item),
+        visitedEventActivity: visitedEvents
+          .filter(({ event }) => event.hostUserId !== userId)
+          .filter(
+            ({ event }) =>
+              !trackedEvents.some((trackedEvent) => trackedEvent.event.id === event.id),
+          )
+          .map(({ event, visitedAt }) => ({
+            eventId: event.id,
+            magicLinkToken: event.magicLinkToken,
+            name: event.name,
+            addedTrackCount24h: event.tracks.filter((track) => track.addedAt >= since24h).length,
+            latestActivityAt:
+              event.tracks.find((track) => track.addedAt >= since24h)?.addedAt.toISOString() ??
+              null,
+            updatedAt: Math.max(event.updatedAt.getTime(), visitedAt.getTime()),
           }))
           .sort((a, b) => b.updatedAt - a.updatedAt)
           .map(({ updatedAt: _updatedAt, ...item }) => item),

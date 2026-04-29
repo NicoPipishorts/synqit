@@ -10,6 +10,7 @@ import {
   eventDraftStepSchema,
   eventListResponseSchema,
   eventPublicResponseSchema,
+  eventTrackingResponseSchema,
   eventResponseSchema,
   eventTrackSearchResponseSchema,
   eventTracksResponseSchema,
@@ -29,7 +30,7 @@ import {
 } from './event-image-storage';
 import { requireOwnedDraft, requireOwnedEvent } from './guards';
 import { eventsStore, EventDraftRecord, EventRecord } from './store';
-import { requireAuthenticatedUserId } from '../auth/guards';
+import { requireAuthenticatedUserId, resolveAuthenticatedUserId } from '../auth/guards';
 import { getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
 import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
@@ -729,10 +730,21 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       return;
     }
 
+    const viewerUserId = await resolveAuthenticatedUserId(request);
+
     const providerConnectionStatus = await resolveProviderConnectionStatus({
       hostUserId: event.hostUserId,
       provider: event.provider,
     });
+
+    const isOwner = viewerUserId === event.hostUserId;
+    if (viewerUserId && !isOwner) {
+      await eventsStore.recordEventVisit({ eventId: event.id, userId: viewerUserId });
+    }
+    const isTracked =
+      viewerUserId && !isOwner
+        ? await eventsStore.isTrackedByUser({ eventId: event.id, userId: viewerUserId })
+        : false;
 
     return eventPublicResponseSchema.parse({
       event: {
@@ -745,8 +757,74 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         description: event.description,
         coverImageUrl: buildEventImageUrl(event.coverImageUrl),
         createdAt: event.createdAt.toISOString(),
+        isOwner,
+        isTracked,
       },
     });
+  });
+
+  app.post('/playlists/link/:magicLinkToken/track', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) {
+      return;
+    }
+
+    const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
+    const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
+    if (!event) {
+      return;
+    }
+
+    if (event.hostUserId === userId) {
+      return reply.status(409).send({
+        code: 'owner_cannot_track_event',
+        message: 'Hosts already manage this playlist and cannot track it as a guest.',
+      });
+    }
+
+    const tracked = await eventsStore.trackEvent({
+      eventId: event.id,
+      userId,
+    });
+
+    return reply.send(
+      eventTrackingResponseSchema.parse({
+        ok: true,
+        trackedAt: tracked.updatedAt.toISOString(),
+      }),
+    );
+  });
+
+  app.delete('/playlists/link/:magicLinkToken/track', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) {
+      return;
+    }
+
+    const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
+    const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
+    if (!event) {
+      return;
+    }
+
+    if (event.hostUserId === userId) {
+      return reply.status(409).send({
+        code: 'owner_cannot_track_event',
+        message: 'Hosts already manage this playlist and cannot track it as a guest.',
+      });
+    }
+
+    await eventsStore.untrackEvent({
+      eventId: event.id,
+      userId,
+    });
+
+    return reply.send(
+      eventTrackingResponseSchema.parse({
+        ok: true,
+        trackedAt: null,
+      }),
+    );
   });
 
   app.get('/playlists/link/:magicLinkToken/tracks', async (request, reply) => {

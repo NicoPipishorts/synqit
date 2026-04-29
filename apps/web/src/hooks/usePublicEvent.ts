@@ -4,6 +4,7 @@ import {
   eventTrackSearchResponseSchema,
   eventTracksResponseSchema,
 } from '@synqit/shared';
+import { useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 
 import { useI18n } from './useI18n';
@@ -11,7 +12,6 @@ import { useToast } from './useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { toApiAssetUrl } from '../lib/apiAssetUrl';
-import { recordDashboardGuestEvent } from '../lib/dashboard-guest-events';
 import {
   EventCloseReason,
   EventProvider,
@@ -19,6 +19,7 @@ import {
   EventTrackItem,
   ProviderConnectionStatus,
 } from '../lib/events';
+import { trackEvent as trackPublicEvent, untrackEvent as untrackPublicEvent } from '../lib/queries';
 
 export type SearchTrackResult = {
   providerTrackId: string;
@@ -37,6 +38,8 @@ type EventData = {
   connectionStatus: ProviderConnectionStatus;
   provider: EventProvider;
   coverImageUrl: string | null;
+  isOwner: boolean;
+  isTracked: boolean;
 };
 
 const ADDED_TRACKS_PAGE_SIZE = 12;
@@ -45,9 +48,10 @@ const MAX_SEARCH_RESULTS = 50;
 
 export { ADDED_TRACKS_PAGE_SIZE };
 
-export const usePublicEvent = (magicLinkToken: string) => {
+export const usePublicEvent = (magicLinkToken: string, accessToken?: string | null) => {
   const { t } = useI18n();
   const { showToast } = useToast();
+  const queryClient = useQueryClient();
 
   const [pageError, setPageError] = useState<string | null>(null);
   const [event, setEvent] = useState<EventData | null>(null);
@@ -66,6 +70,7 @@ export const usePublicEvent = (magicLinkToken: string) => {
   const [isLoadingMoreSearchResults, setIsLoadingMoreSearchResults] = useState(false);
   const [addingTrackId, setAddingTrackId] = useState<string | null>(null);
   const [isLoadingTracks, setIsLoadingTracks] = useState(false);
+  const [isTrackMutationPending, setIsTrackMutationPending] = useState(false);
 
   const getPublicErrorMessage = useCallback(
     (code: string, fallbackMessage: string) => {
@@ -121,7 +126,10 @@ export const usePublicEvent = (magicLinkToken: string) => {
         const [eventResult, tracksResult] = await Promise.all([
           callApi(
             `/v1/playlists/link/${encodeURIComponent(magicLinkToken)}`,
-            { method: 'GET' },
+            {
+              method: 'GET',
+              headers: accessToken ? { authorization: `Bearer ${accessToken}` } : undefined,
+            },
             (payload) => eventPublicResponseSchema.parse(payload),
           ),
           callApi(
@@ -138,10 +146,8 @@ export const usePublicEvent = (magicLinkToken: string) => {
           connectionStatus: eventResult.event.providerConnectionStatus,
           provider: eventResult.event.provider,
           coverImageUrl: toApiAssetUrl(eventResult.event.coverImageUrl),
-        });
-        recordDashboardGuestEvent({
-          magicLinkToken,
-          name: eventResult.event.name,
+          isOwner: eventResult.event.isOwner,
+          isTracked: eventResult.event.isTracked,
         });
         setTracks(tracksResult.tracks);
         setVisibleAddedTracksCount(ADDED_TRACKS_PAGE_SIZE);
@@ -161,7 +167,13 @@ export const usePublicEvent = (magicLinkToken: string) => {
       }
     };
     void load();
-  }, [applyProviderPlaylistMissingState, getPublicErrorMessage, magicLinkToken, showToast]);
+  }, [
+    accessToken,
+    applyProviderPlaylistMissingState,
+    getPublicErrorMessage,
+    magicLinkToken,
+    showToast,
+  ]);
 
   const fetchSearchBatch = useCallback(
     async (queryText: string, offset: number): Promise<SearchTrackResult[]> => {
@@ -328,12 +340,40 @@ export const usePublicEvent = (magicLinkToken: string) => {
     setHasMoreSearchResults(false);
   };
 
+  const toggleTracked = async () => {
+    if (!accessToken || !event || event.isOwner || isTrackMutationPending) {
+      return;
+    }
+
+    setIsTrackMutationPending(true);
+    try {
+      if (event.isTracked) {
+        await untrackPublicEvent(magicLinkToken);
+        setEvent((prev) => (prev ? { ...prev, isTracked: false } : prev));
+        showToast(t('eventPublicPage.untrackSuccess'), { variant: 'success' });
+      } else {
+        await trackPublicEvent(magicLinkToken);
+        setEvent((prev) => (prev ? { ...prev, isTracked: true } : prev));
+        showToast(t('eventPublicPage.trackSuccess'), { variant: 'success' });
+      }
+      await queryClient.invalidateQueries({ queryKey: ['dashboard', 'summary'] });
+    } catch (error) {
+      const apiError = toApiError(error);
+      showToast(t('eventPublicPage.trackError', { message: apiError.message }), {
+        variant: 'error',
+      });
+    } finally {
+      setIsTrackMutationPending(false);
+    }
+  };
+
   return {
     // event data
     event,
     pageError,
     tracks,
     isLoading,
+    isTrackMutationPending,
     // tabs
     activeTab,
     setActiveTab,
@@ -351,6 +391,7 @@ export const usePublicEvent = (magicLinkToken: string) => {
     loadMoreSearchResults,
     addTrack,
     clearSearch,
+    toggleTracked,
     // added tracks
     visibleAddedTracksCount,
     setVisibleAddedTracksCount,

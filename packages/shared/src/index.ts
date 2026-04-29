@@ -606,6 +606,8 @@ export const eventPublicSchema = z.object({
   description: z.string(),
   coverImageUrl: z.string().nullable().optional(),
   createdAt: z.string(),
+  isOwner: z.boolean().default(false),
+  isTracked: z.boolean().default(false),
 });
 export type EventPublic = z.infer<typeof eventPublicSchema>;
 
@@ -613,6 +615,12 @@ export const eventPublicResponseSchema = z.object({
   event: eventPublicSchema,
 });
 export type EventPublicResponse = z.infer<typeof eventPublicResponseSchema>;
+
+export const eventTrackingResponseSchema = z.object({
+  ok: z.literal(true),
+  trackedAt: z.string().nullable(),
+});
+export type EventTrackingResponse = z.infer<typeof eventTrackingResponseSchema>;
 
 export const eventTrackSchema = z.object({
   providerTrackId: z.string(),
@@ -833,6 +841,24 @@ export const dashboardOwnerEventActivitySchema = z.object({
 });
 export type DashboardOwnerEventActivity = z.infer<typeof dashboardOwnerEventActivitySchema>;
 
+export const dashboardTrackedEventActivitySchema = z.object({
+  eventId: z.string(),
+  magicLinkToken: z.string(),
+  name: z.string(),
+  addedTrackCount24h: z.number().int().nonnegative(),
+  latestActivityAt: z.string().nullable(),
+});
+export type DashboardTrackedEventActivity = z.infer<typeof dashboardTrackedEventActivitySchema>;
+
+export const dashboardVisitedEventActivitySchema = z.object({
+  eventId: z.string(),
+  magicLinkToken: z.string(),
+  name: z.string(),
+  addedTrackCount24h: z.number().int().nonnegative(),
+  latestActivityAt: z.string().nullable(),
+});
+export type DashboardVisitedEventActivity = z.infer<typeof dashboardVisitedEventActivitySchema>;
+
 export const dashboardRecentSubscriberSchema = z.object({
   userId: z.string(),
   name: z.string(),
@@ -861,6 +887,8 @@ export type DashboardSubscriberSyncActivity = z.infer<typeof dashboardSubscriber
 
 export const dashboardSummaryResponseSchema = z.object({
   ownerEventActivity: z.array(dashboardOwnerEventActivitySchema),
+  trackedEventActivity: z.array(dashboardTrackedEventActivitySchema),
+  visitedEventActivity: z.array(dashboardVisitedEventActivitySchema),
   ownerSyncActivity: z.array(dashboardOwnerSyncActivitySchema),
   subscriberSyncActivity: z.array(dashboardSubscriberSyncActivitySchema),
 });

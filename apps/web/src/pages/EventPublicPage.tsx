@@ -7,14 +7,17 @@ import { TrackSkeletonList } from '../components/events/PublicTrackRow';
 import { PublicTracksPanel } from '../components/events/PublicTracksPanel';
 import { HomeFooterReveal } from '../components/marketing/HomeFooterReveal';
 import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
+import { CTAButton } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
+import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
 import { ADDED_TRACKS_PAGE_SIZE, usePublicEvent } from '../hooks/usePublicEvent';
 
 export const EventPublicPage = () => {
   const params = useParams({ from: '/playlist/$magicLinkToken' });
   const { t } = useI18n();
+  const { auth } = useAuthSession();
 
   const {
     event,
@@ -40,7 +43,9 @@ export const EventPublicPage = () => {
     setVisibleAddedTracksCount,
     isLoadingTracks,
     loadTracks,
-  } = usePublicEvent(params.magicLinkToken);
+    isTrackMutationPending,
+    toggleTracked,
+  } = usePublicEvent(params.magicLinkToken, auth?.accessToken ?? null);
 
   // Prevent indexing of this page
   useEffect(() => {
@@ -136,6 +141,19 @@ export const EventPublicPage = () => {
                   connectionStatus={event.connectionStatus}
                   mode="pill"
                 />
+                {auth && !event.isOwner ? (
+                  <CTAButton
+                    variant={event.isTracked ? 'secondary' : 'primary'}
+                    disabled={isTrackMutationPending}
+                    onClick={() => void toggleTracked()}
+                  >
+                    {isTrackMutationPending
+                      ? t('eventPublicPage.trackingPending')
+                      : event.isTracked
+                        ? t('eventPublicPage.untrackCta')
+                        : t('eventPublicPage.trackCta')}
+                  </CTAButton>
+                ) : null}
               </header>
 
               {/* Tab bar — hidden when closed */}

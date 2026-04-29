@@ -15,6 +15,7 @@ import {
   eventDraftListResponseSchema,
   eventDraftResponseSchema,
   eventListResponseSchema,
+  eventTrackingResponseSchema,
   eventResponseSchema,
   eventTracksResponseSchema,
   importSyncRequestSchema,
@@ -570,6 +571,34 @@ export const fetchDashboardSummary = async (): Promise<DashboardSummaryResponse>
     '/v1/dashboard/summary',
     { method: 'GET', headers: { authorization: `Bearer ${token}` } },
     (payload) => dashboardSummaryResponseSchema.parse(payload),
+  );
+};
+
+export const trackEvent = async (
+  magicLinkToken: string,
+): Promise<{ ok: true; trackedAt: string | null }> => {
+  const token = requireToken();
+  return callApi(
+    `/v1/playlists/link/${encodeURIComponent(magicLinkToken)}/track`,
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+    },
+    (payload) => eventTrackingResponseSchema.parse(payload),
+  );
+};
+
+export const untrackEvent = async (
+  magicLinkToken: string,
+): Promise<{ ok: true; trackedAt: string | null }> => {
+  const token = requireToken();
+  return callApi(
+    `/v1/playlists/link/${encodeURIComponent(magicLinkToken)}/track`,
+    {
+      method: 'DELETE',
+      headers: { authorization: `Bearer ${token}` },
+    },
+    (payload) => eventTrackingResponseSchema.parse(payload),
   );
 };
 

@@ -2,7 +2,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { ArrowUpRight } from 'lucide-react';
 import { type KeyboardEvent } from 'react';
 
-export type PlaylistCardRole = 'owner' | 'guest' | 'subscriber';
+export type PlaylistCardRole = 'owner' | 'visited' | 'tracked' | 'subscriber';
 
 type DashboardPlaylistCardProps = {
   playlistName: string;
@@ -15,7 +15,8 @@ type DashboardPlaylistCardProps = {
 
 const roleStyles: Record<PlaylistCardRole, string> = {
   owner: 'bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]',
-  guest: 'bg-sky-400/15 text-sky-700 dark:text-sky-300',
+  visited: 'bg-sky-400/15 text-sky-700 dark:text-sky-300',
+  tracked: 'bg-teal-400/15 text-teal-700 dark:text-teal-300',
   subscriber: 'bg-purple-400/15 text-purple-700 dark:text-purple-300',
 };
 

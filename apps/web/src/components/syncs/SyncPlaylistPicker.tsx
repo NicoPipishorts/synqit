@@ -1,4 +1,3 @@
-
 import type { ProviderPlaylistItem } from '@synqit/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ListMusic, Music } from 'lucide-react';
@@ -65,6 +64,7 @@ export const SyncPlaylistPicker = ({
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+              className="min-w-0"
             >
               <button
                 type="button"
@@ -97,14 +97,14 @@ export const SyncPlaylistPicker = ({
                     <Music size={10} strokeWidth={2.5} aria-hidden="true" />
                   </span>
                 </div>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 overflow-hidden">
                   <p
-                    className={`truncate text-sm font-bold transition-colors duration-150 ${isSelected ? 'text-brand-pink' : 'text-brand-dark dark:text-brand-white group-hover:text-brand-pink'}`}
+                    className={`max-w-full truncate text-sm font-bold transition-colors duration-150 ${isSelected ? 'text-brand-pink' : 'text-brand-dark dark:text-brand-white group-hover:text-brand-pink'}`}
                   >
                     {playlist.name}
                   </p>
                   {isSelected && playlist.trackCount !== null && (
-                    <p className="text-xs text-app-text-secondary">
+                    <p className="max-w-full truncate text-xs text-app-text-secondary">
                       {t('syncCreatePage.trackCount', { count: playlist.trackCount })}
                     </p>
                   )}

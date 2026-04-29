@@ -4,10 +4,11 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { after, before, beforeEach, describe, it } from 'node:test';
 
-import { hashToken } from './auth/crypto';
+import { createRefreshToken, hashPassword, hashToken } from './auth/crypto';
 import { authStore } from './auth/store';
 import { closeDatabase } from './db';
 import { prisma } from './db/prisma';
+import { eventsStore } from './events/store';
 import { buildServer } from './index';
 import { syncsStore } from './syncs/store';
 
@@ -71,6 +72,36 @@ const registerUser = async (app: FastifyInstance, email: string) => {
   return parseBody(response.body) as {
     user: { id: string; email: string };
     tokens: { accessToken: string; refreshToken: string };
+  };
+};
+
+const createUserAndLogin = async (app: FastifyInstance, email: string) => {
+  const user = await authStore.createUser({
+    email,
+    passwordHash: await hashPassword(TEST_PASSWORD),
+  });
+  assert.ok(user);
+
+  const refreshToken = createRefreshToken();
+  await authStore.createRefreshToken({
+    userId: user.id,
+    tokenHash: hashToken(refreshToken),
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+  });
+  const accessToken = app.jwt.sign(
+    {
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    },
+    {
+      expiresIn: 60 * 15,
+    },
+  );
+
+  return {
+    user: { id: user.id, email: user.email },
+    tokens: { accessToken, refreshToken },
   };
 };
 
@@ -1424,6 +1455,117 @@ describe('API regression', () => {
     assert.equal(deletedEventGetResponse.statusCode, 404);
   });
 
+  it('events: logged-in guests can track a magic-link playlist and see it on the dashboard', async () => {
+    const hostEmail = `${TEST_EMAIL_PREFIX}tracked-host-${randomUUID()}@synqit.test`;
+    const guestEmail = `${TEST_EMAIL_PREFIX}tracked-guest-${randomUUID()}@synqit.test`;
+    const host = await createUserAndLogin(app, hostEmail);
+    const guest = await createUserAndLogin(app, guestEmail);
+
+    await connectProvider(app, {
+      provider: 'spotify',
+      accessToken: host.tokens.accessToken,
+    });
+
+    const event = await eventsStore.createEvent({
+      hostUserId: host.user.id,
+      provider: 'spotify',
+      providerPlaylistId: `tracked-event-${randomUUID()}`,
+      name: 'Tracked Event Playlist',
+      description: 'Dashboard tracking regression test.',
+    });
+
+    await eventsStore.addTrackToEvent({
+      eventId: event.id,
+      providerTrackId: 'tracked-mock-track-1',
+      name: 'Tracked Song',
+      artist: 'Regression Artist',
+      album: 'Dashboard Suite',
+      durationMs: 180000,
+      artworkUrl: null,
+      addedBy: 'guest',
+    });
+
+    const beforeTrackResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/playlists/link/${event.magicLinkToken}`,
+      headers: authHeader(guest.tokens.accessToken),
+    });
+    assert.equal(beforeTrackResponse.statusCode, 200);
+    const beforeTrackBody = parseBody(beforeTrackResponse.body) as {
+      event: { isOwner: boolean; isTracked: boolean };
+    };
+    assert.equal(beforeTrackBody.event.isOwner, false);
+    assert.equal(beforeTrackBody.event.isTracked, false);
+
+    const visitedDashboardResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/dashboard/summary',
+      headers: authHeader(guest.tokens.accessToken),
+    });
+    assert.equal(visitedDashboardResponse.statusCode, 200);
+    const visitedDashboardBody = parseBody(visitedDashboardResponse.body) as {
+      trackedEventActivity: Array<{ eventId: string }>;
+      visitedEventActivity: Array<{
+        eventId: string;
+        magicLinkToken: string;
+        addedTrackCount24h: number;
+      }>;
+    };
+    assert.equal(visitedDashboardBody.trackedEventActivity.length, 0);
+    assert.equal(visitedDashboardBody.visitedEventActivity.length, 1);
+    assert.equal(visitedDashboardBody.visitedEventActivity[0]?.eventId, event.id);
+    assert.equal(
+      visitedDashboardBody.visitedEventActivity[0]?.magicLinkToken,
+      event.magicLinkToken,
+    );
+    assert.equal(visitedDashboardBody.visitedEventActivity[0]?.addedTrackCount24h, 1);
+
+    const trackResponse = await app.inject({
+      method: 'POST',
+      url: `/v1/playlists/link/${event.magicLinkToken}/track`,
+      headers: authHeader(guest.tokens.accessToken),
+    });
+    assert.equal(trackResponse.statusCode, 200);
+
+    const afterTrackResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/playlists/link/${event.magicLinkToken}`,
+      headers: authHeader(guest.tokens.accessToken),
+    });
+    assert.equal(afterTrackResponse.statusCode, 200);
+    const afterTrackBody = parseBody(afterTrackResponse.body) as {
+      event: { isTracked: boolean };
+    };
+    assert.equal(afterTrackBody.event.isTracked, true);
+
+    const dashboardResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/dashboard/summary',
+      headers: authHeader(guest.tokens.accessToken),
+    });
+    assert.equal(dashboardResponse.statusCode, 200);
+    const dashboardBody = parseBody(dashboardResponse.body) as {
+      trackedEventActivity: Array<{
+        eventId: string;
+        magicLinkToken: string;
+        addedTrackCount24h: number;
+      }>;
+      visitedEventActivity: Array<{ eventId: string }>;
+    };
+    assert.equal(dashboardBody.trackedEventActivity.length, 1);
+    assert.equal(dashboardBody.trackedEventActivity[0]?.eventId, event.id);
+    assert.equal(dashboardBody.trackedEventActivity[0]?.magicLinkToken, event.magicLinkToken);
+    assert.equal(dashboardBody.trackedEventActivity[0]?.addedTrackCount24h, 1);
+    assert.equal(dashboardBody.visitedEventActivity.length, 0);
+
+    const untrackResponse = await app.inject({
+      method: 'DELETE',
+      url: `/v1/playlists/link/${event.magicLinkToken}/track`,
+      headers: authHeader(guest.tokens.accessToken),
+    });
+    assert.equal(untrackResponse.statusCode, 200);
+  });
+
   it('events: apple host flow supports guest add/remove with provider selection', async () => {
     const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
     const registerBody = await registerUser(app, email);
@@ -2370,7 +2512,7 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
 
   it('syncs: track activity recording dedupes repeated provider tracks across metadata changes', async () => {
     const ownerEmail = `${TEST_EMAIL_PREFIX}activity-owner-${randomUUID()}@synqit.test`;
-    const owner = await registerUser(app, ownerEmail);
+    const owner = await createUserAndLogin(app, ownerEmail);
 
     const sync = await syncsStore.createSync({
       senderUserId: owner.user.id,
