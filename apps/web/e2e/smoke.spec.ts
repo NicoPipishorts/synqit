@@ -118,6 +118,8 @@ const mockDashboardSummary = {
       latestActivityAt: new Date(now - 1000 * 60 * 5).toISOString(),
     },
   ],
+  trackedEventActivity: [],
+  visitedEventActivity: [],
   ownerSyncActivity: [
     {
       syncId: 'sync-1',
