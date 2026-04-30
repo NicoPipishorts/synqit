@@ -29,6 +29,7 @@ For your target (`~1,000 visitors/day`), this stack is viable on a properly conf
 - [ ] TLS/HTTPS fully enabled at edge (Caddy/Nginx with auto-renew).
 - [ ] Docker services configured with restart policies.
 - [ ] Persistent volumes configured for Postgres and app uploads.
+- [ ] Avatar uploads mounted to persistent host storage (for example `/srv/synqit/data/uploads/avatars:/app/data/uploads/avatars`).
 - [ ] Automated Postgres backups (daily) + restore drill tested.
 - [ ] Time sync enabled (`chrony`/`systemd-timesyncd`).
 - [ ] Disk, CPU, RAM, and DB storage monitored with alerting.

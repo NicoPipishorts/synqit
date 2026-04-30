@@ -45,6 +45,8 @@ services:
       WEB_APP_URL: https://app.synqit.fr
     ports:
       - '127.0.0.1:3001:3001'
+    volumes:
+      - /srv/synqit/data/uploads/avatars:/app/data/uploads/avatars
     depends_on:
       postgres:
         condition: service_healthy
