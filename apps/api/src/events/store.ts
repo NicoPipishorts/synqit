@@ -357,6 +357,22 @@ export const eventsStore = {
     return deleted.count > 0;
   },
 
+  async listDistinctHostUserIds(): Promise<string[]> {
+    const rows = await prisma.events.findMany({
+      distinct: ['host_user_id'],
+      select: { host_user_id: true },
+    });
+    return rows.map((row) => row.host_user_id);
+  },
+
+  async listDistinctFollowerUserIds(): Promise<string[]> {
+    const rows = await prisma.event_follows.findMany({
+      distinct: ['user_id'],
+      select: { user_id: true },
+    });
+    return rows.map((row) => row.user_id);
+  },
+
   async listEventsByHost(hostUserId: string): Promise<EventRecord[]> {
     const rows = await prisma.events.findMany({
       where: {

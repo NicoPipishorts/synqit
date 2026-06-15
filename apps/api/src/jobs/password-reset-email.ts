@@ -1,15 +1,17 @@
 import {
   JOBS,
-  QUEUES,
   passwordResetEmailJobSchema,
   passwordResetEmailPreviewJobSchema,
   type EmailLocale,
 } from '@synqit/shared';
-import { Queue } from 'bullmq';
 import { randomBytes } from 'node:crypto';
 
-const DEFAULT_REDIS_URL = 'redis://localhost:6380';
-const DEFAULT_WEB_APP_URL = 'http://127.0.0.1:5173';
+import {
+  NOTIFICATION_JOB_OPTIONS,
+  NOTIFICATION_PREVIEW_JOB_OPTIONS,
+  enqueueNotificationJob,
+  resolveWebAppUrl,
+} from './notifications-queue';
 
 const parseBoolean = (raw: string | undefined, fallback: boolean): boolean => {
   if (!raw) {
@@ -30,29 +32,6 @@ const parseBoolean = (raw: string | undefined, fallback: boolean): boolean => {
 export const isPasswordResetEmailEnabled = (): boolean =>
   parseBoolean(process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED, true);
 
-const createRedisConnection = () =>
-  ({
-    ...readRedisConnectionConfig(),
-    enableOfflineQueue: false,
-    connectTimeout: 1200,
-    maxRetriesPerRequest: 1,
-  }) as const;
-
-const readRedisConnectionConfig = () => {
-  const redisUrl = new URL(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
-  const db = Number.parseInt(redisUrl.pathname.replace('/', ''), 10);
-  const useTls = redisUrl.protocol === 'rediss:';
-
-  return {
-    host: redisUrl.hostname,
-    port: redisUrl.port ? Number.parseInt(redisUrl.port, 10) : useTls ? 6380 : 6379,
-    username: redisUrl.username ? decodeURIComponent(redisUrl.username) : undefined,
-    password: redisUrl.password ? decodeURIComponent(redisUrl.password) : undefined,
-    db: Number.isFinite(db) ? db : 0,
-    tls: useTls ? {} : undefined,
-  };
-};
-
 export const enqueuePasswordResetEmail = async (params: {
   userId: string;
   toEmail: string;
@@ -64,23 +43,10 @@ export const enqueuePasswordResetEmail = async (params: {
     toEmail: params.toEmail,
     locale: params.locale,
     resetToken: params.resetToken,
-    webAppUrl: process.env.WEB_APP_URL ?? DEFAULT_WEB_APP_URL,
+    webAppUrl: resolveWebAppUrl(),
   });
 
-  const queue = new Queue(QUEUES.notifications, { connection: createRedisConnection() });
-  try {
-    await queue.add(JOBS.sendPasswordResetEmail, payload, {
-      attempts: 5,
-      backoff: {
-        type: 'exponential',
-        delay: 2_000,
-      },
-      removeOnComplete: true,
-      removeOnFail: false,
-    });
-  } finally {
-    await queue.close();
-  }
+  await enqueueNotificationJob(JOBS.sendPasswordResetEmail, payload, NOTIFICATION_JOB_OPTIONS);
 };
 
 export const enqueuePasswordResetEmailPreview = async (params: {
@@ -90,25 +56,14 @@ export const enqueuePasswordResetEmailPreview = async (params: {
   const payload = passwordResetEmailPreviewJobSchema.parse({
     toEmail: params.toEmail,
     locale: params.locale,
-    webAppUrl: process.env.WEB_APP_URL ?? DEFAULT_WEB_APP_URL,
+    webAppUrl: resolveWebAppUrl(),
     resetToken: randomBytes(24).toString('hex'),
     requestedAt: new Date().toISOString(),
   });
 
-  const queue = new Queue(QUEUES.notifications, { connection: createRedisConnection() });
-  try {
-    const job = await queue.add(JOBS.sendPasswordResetEmailPreview, payload, {
-      attempts: 3,
-      backoff: {
-        type: 'exponential',
-        delay: 1_000,
-      },
-      removeOnComplete: false,
-      removeOnFail: false,
-    });
-
-    return job.id;
-  } finally {
-    await queue.close();
-  }
+  return enqueueNotificationJob(
+    JOBS.sendPasswordResetEmailPreview,
+    payload,
+    NOTIFICATION_PREVIEW_JOB_OPTIONS,
+  );
 };

@@ -299,6 +299,17 @@ model playlist_sync_track_activity {
   @@index([sync_id, first_seen_at], map: "idx_playlist_sync_track_activity_sync_id_first_seen_at")
 }
 
+model notification_runs {
+  id         String   @id
+  kind       String
+  period_key String
+  claimed_at DateTime @db.Timestamptz(6)
+  created_at DateTime @db.Timestamptz(6)
+
+  @@unique([kind, period_key])
+  @@index([kind], map: "idx_notification_runs_kind")
+}
+
 model user_admin_permissions {
   user_id      String
   scope        String

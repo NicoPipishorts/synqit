@@ -22,6 +22,10 @@ export const AdminEmailsPage = () => {
   const [invitePreviewLocale, setInvitePreviewLocale] = useState<'en' | 'fr'>('en');
   const [isSendingInvitePreview, setIsSendingInvitePreview] = useState(false);
   const [invitePreviewStatus, setInvitePreviewStatus] = useState<string | null>(null);
+  const [recapPreviewEmail, setRecapPreviewEmail] = useState('');
+  const [recapPreviewLocale, setRecapPreviewLocale] = useState<'en' | 'fr'>('en');
+  const [isSendingRecapPreview, setIsSendingRecapPreview] = useState(false);
+  const [recapPreviewStatus, setRecapPreviewStatus] = useState<string | null>(null);
 
   const sendPreview = async () => {
     if (!previewEmail) {
@@ -149,6 +153,48 @@ export const AdminEmailsPage = () => {
     }
   };
 
+  const sendRecapPreview = async () => {
+    if (!recapPreviewEmail) {
+      return;
+    }
+
+    setIsSendingRecapPreview(true);
+    setRecapPreviewStatus(null);
+    try {
+      const result = await callApi(
+        '/v1/admin/email/preview/weekly-recap',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            toEmail: recapPreviewEmail,
+            locale: recapPreviewLocale,
+          }),
+        },
+        (payload) => payload,
+      );
+      const jobId =
+        result &&
+        typeof result === 'object' &&
+        'jobId' in result &&
+        typeof result.jobId === 'string'
+          ? result.jobId
+          : null;
+      setRecapPreviewStatus(
+        jobId ? t('admin.recapPreviewQueuedWithJob', { jobId }) : t('admin.recapPreviewQueued'),
+      );
+    } catch (error) {
+      const apiError = toApiError(error);
+      if (apiError.code === 'unauthorized' || apiError.code === 'forbidden') {
+        clearAuth();
+        void navigate({ to: '/login' });
+        return;
+      }
+      setRecapPreviewStatus(apiError.message);
+    } finally {
+      setIsSendingRecapPreview(false);
+    }
+  };
+
   return (
     <section className="grid content-start gap-6">
       <AdminSectionHeader
@@ -259,6 +305,41 @@ export const AdminEmailsPage = () => {
         {invitePreviewStatus ? (
           <p className="rounded-lg border border-app-border bg-app-surface px-3 py-2 text-xs font-semibold text-app-text-secondary">
             {invitePreviewStatus}
+          </p>
+        ) : null}
+      </article>
+
+      <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-4 shadow-soft-lift sm:p-5 dark:bg-app-card">
+        <h2 className="text-lg font-black text-app-text">{t('admin.recapPreviewTitle')}</h2>
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
+          <input
+            type="email"
+            value={recapPreviewEmail}
+            onChange={(event) => setRecapPreviewEmail(event.target.value)}
+            placeholder={t('admin.previewEmailPlaceholder')}
+            className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text outline-none transition focus:border-brand-lime"
+          />
+          <select
+            value={recapPreviewLocale}
+            onChange={(event) => setRecapPreviewLocale(event.target.value === 'fr' ? 'fr' : 'en')}
+            className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text"
+          >
+            <option value="en">EN</option>
+            <option value="fr">FR</option>
+          </select>
+          <CTAButton
+            type="button"
+            variant="secondary"
+            onClick={() => void sendRecapPreview()}
+            disabled={isSendingRecapPreview}
+            className="w-full justify-center sm:w-auto"
+          >
+            {isSendingRecapPreview ? t('admin.sendingRecapPreview') : t('admin.sendRecapPreview')}
+          </CTAButton>
+        </div>
+        {recapPreviewStatus ? (
+          <p className="rounded-lg border border-app-border bg-app-surface px-3 py-2 text-xs font-semibold text-app-text-secondary">
+            {recapPreviewStatus}
           </p>
         ) : null}
       </article>

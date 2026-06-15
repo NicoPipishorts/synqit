@@ -24,6 +24,12 @@ type UserRecord = {
   createdAt: Date;
 };
 
+type EmailRecipientRecord = {
+  userId: string;
+  email: string;
+  locale: EmailLocale;
+};
+
 type PasswordIdentityRecord = {
   userId: string;
   providerUserId: string;
@@ -455,6 +461,34 @@ export const authStore = {
       }
       throw error;
     }
+  },
+
+  async listEmailRecipientsByIds(userIds: string[]): Promise<EmailRecipientRecord[]> {
+    if (userIds.length === 0) {
+      return [];
+    }
+
+    const rows = await prisma.users.findMany({
+      where: {
+        id: { in: Array.from(new Set(userIds)) },
+        is_blocked: false,
+      },
+      select: {
+        id: true,
+        email: true,
+        user_preferences: {
+          select: { locale: true },
+        },
+      },
+    });
+
+    return rows.map((row) => ({
+      userId: row.id,
+      email: row.email,
+      locale: emailLocaleSchema.safeParse(row.user_preferences?.locale).success
+        ? (row.user_preferences?.locale as EmailLocale)
+        : 'en',
+    }));
   },
 
   async listUserAdminPermissionsByUserId(userId: string): Promise<AdminPermission[]> {
