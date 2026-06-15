@@ -7,6 +7,8 @@ import {
   registrationInviteEmailPreviewJobSchema,
   registrationConfirmationEmailJobSchema,
   registrationConfirmationEmailPreviewJobSchema,
+  weeklyRecapEmailJobSchema,
+  weeklyRecapEmailPreviewJobSchema,
 } from '@synqit/shared';
 import { Queue, Worker } from 'bullmq';
 import type { ConnectionOptions, Job } from 'bullmq';
@@ -18,6 +20,7 @@ import {
   renderRegistrationConfirmationTemplate,
   renderRegistrationInviteTemplate,
 } from './email/templates/registration-confirmation';
+import { renderWeeklyRecapTemplate } from './email/templates/weekly-recap';
 
 const loadEnvFileIfPresent = (filePath: string): void => {
   try {
@@ -206,6 +209,82 @@ const processNotificationsJob = async (job: Job) => {
         webAppUrl: parsed.data.webAppUrl,
         recipientEmail: parsed.data.toEmail,
         resetToken: parsed.data.resetToken,
+      });
+
+      await sendTransactionalEmail({
+        to: parsed.data.toEmail,
+        subject: `[Preview] ${template.subject}`,
+        html: template.html,
+        text: template.text,
+      });
+
+      return {
+        ok: true,
+        preview: true,
+        toEmail: parsed.data.toEmail,
+        requestedAt: parsed.data.requestedAt,
+      };
+    }
+    case JOBS.sendWeeklyRecapEmail: {
+      const parsed = weeklyRecapEmailJobSchema.safeParse(job.data);
+      if (!parsed.success) {
+        throw new Error(`Invalid weekly recap email payload: ${parsed.error.message}`);
+      }
+
+      const template = renderWeeklyRecapTemplate({
+        locale: parsed.data.locale,
+        webAppUrl: parsed.data.webAppUrl,
+        windowDays: parsed.data.windowDays,
+        totalNewTracks: parsed.data.totalNewTracks,
+        playlists: parsed.data.playlists,
+      });
+
+      await sendTransactionalEmail({
+        to: parsed.data.toEmail,
+        subject: template.subject,
+        html: template.html,
+        text: template.text,
+      });
+
+      return {
+        ok: true,
+        userId: parsed.data.userId,
+        toEmail: parsed.data.toEmail,
+        totalNewTracks: parsed.data.totalNewTracks,
+      };
+    }
+    case JOBS.sendWeeklyRecapEmailPreview: {
+      const parsed = weeklyRecapEmailPreviewJobSchema.safeParse(job.data);
+      if (!parsed.success) {
+        throw new Error(`Invalid weekly recap preview email payload: ${parsed.error.message}`);
+      }
+
+      const baseUrl = parsed.data.webAppUrl.replace(/\/+$/, '');
+      const template = renderWeeklyRecapTemplate({
+        locale: parsed.data.locale,
+        webAppUrl: parsed.data.webAppUrl,
+        windowDays: 7,
+        totalNewTracks: 9,
+        playlists: [
+          {
+            kind: 'owned_sync',
+            name: 'Road Trip Mix',
+            url: `${baseUrl}/sync/preview-owned`,
+            newTrackCount: 4,
+          },
+          {
+            kind: 'subscribed_sync',
+            name: 'Indie Discoveries',
+            url: `${baseUrl}/sync/preview-subscribed`,
+            newTrackCount: 3,
+          },
+          {
+            kind: 'followed_event',
+            name: 'Summer Party',
+            url: `${baseUrl}/playlist/preview-event`,
+            newTrackCount: 2,
+          },
+        ],
       });
 
       await sendTransactionalEmail({

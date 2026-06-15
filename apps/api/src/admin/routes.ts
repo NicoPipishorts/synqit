@@ -37,6 +37,7 @@ import {
   enqueueRegistrationInviteEmailPreview,
   enqueueRegistrationInviteEmail,
 } from '../jobs/registration-email';
+import { enqueueWeeklyRecapEmailPreview } from '../jobs/weekly-recap-email';
 
 const DEFAULT_REDIS_URL = 'redis://localhost:6380';
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
@@ -1427,6 +1428,44 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     } catch (error) {
       request.log.error({ err: error }, 'failed to enqueue preview invite email');
+      return reply.status(500).send({
+        code: 'email_preview_enqueue_failed',
+        message: 'Unable to enqueue preview email at this time.',
+      });
+    }
+  });
+
+  app.post('/admin/email/preview/weekly-recap', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'emails',
+      level: 'write',
+    });
+    if (!access) {
+      return;
+    }
+
+    const parsed = previewEmailRequestSchema.safeParse(request.body);
+    if (!parsed.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Request payload is invalid.',
+        details: parsed.error.flatten(),
+      });
+    }
+
+    try {
+      const jobId = await enqueueWeeklyRecapEmailPreview({
+        toEmail: parsed.data.toEmail,
+        locale: parsed.data.locale,
+      });
+
+      return reply.status(202).send({
+        ok: true,
+        queued: true,
+        jobId: String(jobId),
+      });
+    } catch (error) {
+      request.log.error({ err: error }, 'failed to enqueue preview weekly recap email');
       return reply.status(500).send({
         code: 'email_preview_enqueue_failed',
         message: 'Unable to enqueue preview email at this time.',

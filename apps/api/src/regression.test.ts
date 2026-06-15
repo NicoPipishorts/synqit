@@ -10,6 +10,8 @@ import { closeDatabase } from './db';
 import { prisma } from './db/prisma';
 import { eventsStore } from './events/store';
 import { buildServer } from './index';
+import { notificationRunsStore } from './jobs/notification-runs-store';
+import { buildWeeklyRecapDigests } from './jobs/weekly-recap-digests';
 import { syncsStore } from './syncs/store';
 
 const TEST_EMAIL_PREFIX = 'regression+';
@@ -2563,5 +2565,153 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
 
     assert.equal(activityRows.length, 1);
     assert.equal(activityRows[0]?.provider_track_id, 'apple-track-1');
+  });
+
+  it('recap: aggregates new songs for owners, subscribers, hosts, and followers; skips visitors and stale activity', async () => {
+    const now = new Date();
+    const within7d = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const olderThan7d = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const owner = await createUserAndLogin(
+      app,
+      `${TEST_EMAIL_PREFIX}recap-owner-${randomUUID()}@synqit.test`,
+    );
+    const subscriber = await createUserAndLogin(
+      app,
+      `${TEST_EMAIL_PREFIX}recap-sub-${randomUUID()}@synqit.test`,
+    );
+    const host = await createUserAndLogin(
+      app,
+      `${TEST_EMAIL_PREFIX}recap-host-${randomUUID()}@synqit.test`,
+    );
+    const follower = await createUserAndLogin(
+      app,
+      `${TEST_EMAIL_PREFIX}recap-follower-${randomUUID()}@synqit.test`,
+    );
+    const visitor = await createUserAndLogin(
+      app,
+      `${TEST_EMAIL_PREFIX}recap-visitor-${randomUUID()}@synqit.test`,
+    );
+    const staleOwner = await createUserAndLogin(
+      app,
+      `${TEST_EMAIL_PREFIX}recap-stale-${randomUUID()}@synqit.test`,
+    );
+
+    // Owner has a synced playlist with two new songs in the window; the
+    // subscriber imports it and should see the same activity.
+    const sync = await syncsStore.createSync({
+      senderUserId: owner.user.id,
+      provider: 'apple',
+      providerPlaylistId: `recap-sync-${randomUUID()}`,
+      name: 'Recap Sync',
+      trackCount: 2,
+      syncMode: 'host_only',
+    });
+    await syncsStore.recordTrackActivity({
+      syncId: sync.id,
+      seenAt: within7d,
+      bootstrapSeenAt: within7d,
+      tracks: [
+        { providerTrackId: 'recap-a', name: 'Song A', artist: 'Artist A', album: 'Album A' },
+        { providerTrackId: 'recap-b', name: 'Song B', artist: 'Artist B', album: 'Album B' },
+      ],
+    });
+    await syncsStore.upsertImport({
+      syncId: sync.id,
+      recipientUserId: subscriber.user.id,
+      recipientProvider: 'spotify',
+      recipientProviderPlaylistId: `recap-sub-copy-${randomUUID()}`,
+      status: 'active',
+      matchedCount: 2,
+      skippedCount: 0,
+      lastSyncedAt: within7d,
+    });
+
+    // Host runs an event playlist that gains a guest track; a follower tracks it,
+    // a visitor only views it (and must not be emailed).
+    const event = await eventsStore.createEvent({
+      hostUserId: host.user.id,
+      provider: 'spotify',
+      providerPlaylistId: `recap-event-${randomUUID()}`,
+      name: 'Recap Event',
+      description: 'Recap regression event.',
+    });
+    await eventsStore.addTrackToEvent({
+      eventId: event.id,
+      providerTrackId: 'recap-event-track-1',
+      name: 'Guest Song',
+      artist: 'Guest Artist',
+      album: 'Guest Album',
+      durationMs: 180000,
+      artworkUrl: null,
+      addedBy: 'guest',
+    });
+    await eventsStore.trackEvent({ eventId: event.id, userId: follower.user.id });
+    await eventsStore.recordEventVisit({ eventId: event.id, userId: visitor.user.id });
+
+    // Stale owner's only activity is outside the window -> no recap.
+    const staleSync = await syncsStore.createSync({
+      senderUserId: staleOwner.user.id,
+      provider: 'apple',
+      providerPlaylistId: `recap-stale-sync-${randomUUID()}`,
+      name: 'Stale Sync',
+      trackCount: 1,
+      syncMode: 'host_only',
+    });
+    await syncsStore.recordTrackActivity({
+      syncId: staleSync.id,
+      seenAt: olderThan7d,
+      bootstrapSeenAt: olderThan7d,
+      tracks: [
+        { providerTrackId: 'stale-a', name: 'Old Song', artist: 'Old Artist', album: 'Old Album' },
+      ],
+    });
+
+    const digests = await buildWeeklyRecapDigests({ now, windowDays: 7 });
+    const byUser = new Map(digests.map((digest) => [digest.userId, digest]));
+
+    const ownerDigest = byUser.get(owner.user.id);
+    assert.ok(ownerDigest, 'owner should receive a recap');
+    const ownedEntry = ownerDigest.playlists.find((p) => p.kind === 'owned_sync');
+    assert.ok(ownedEntry);
+    assert.equal(ownedEntry.newTrackCount, 2);
+    assert.match(ownedEntry.url, new RegExp(`/sync/${sync.magicLinkToken}$`));
+
+    const subscriberDigest = byUser.get(subscriber.user.id);
+    assert.ok(subscriberDigest, 'subscriber should receive a recap');
+    const subscribedEntry = subscriberDigest.playlists.find((p) => p.kind === 'subscribed_sync');
+    assert.ok(subscribedEntry);
+    assert.equal(subscribedEntry.newTrackCount, 2);
+
+    const hostDigest = byUser.get(host.user.id);
+    assert.ok(hostDigest, 'host should receive a recap');
+    const hostedEntry = hostDigest.playlists.find((p) => p.kind === 'hosted_event');
+    assert.ok(hostedEntry);
+    assert.equal(hostedEntry.newTrackCount, 1);
+
+    const followerDigest = byUser.get(follower.user.id);
+    assert.ok(followerDigest, 'follower should receive a recap');
+    const followedEntry = followerDigest.playlists.find((p) => p.kind === 'followed_event');
+    assert.ok(followedEntry);
+    assert.equal(followedEntry.newTrackCount, 1);
+
+    // The visitor never followed the event, and the stale owner has no recent
+    // songs, so neither should receive a recap.
+    assert.equal(byUser.has(visitor.user.id), false);
+    assert.equal(byUser.has(staleOwner.user.id), false);
+  });
+
+  it('recap: claims a notification period only once', async () => {
+    const periodKey = `test-${randomUUID()}`;
+    try {
+      const first = await notificationRunsStore.claimPeriod({ kind: 'weekly_recap', periodKey });
+      const second = await notificationRunsStore.claimPeriod({ kind: 'weekly_recap', periodKey });
+      assert.equal(first, true);
+      assert.equal(second, false);
+    } finally {
+      await prisma.notification_runs.deleteMany({
+        where: { kind: 'weekly_recap', period_key: periodKey },
+      });
+    }
   });
 });

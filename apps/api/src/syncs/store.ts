@@ -245,6 +245,23 @@ export const syncsStore = {
     return mapSyncRow(row as SyncRow);
   },
 
+  async listDistinctSenderUserIds(): Promise<string[]> {
+    const rows = await prisma.playlist_syncs.findMany({
+      where: { magic_link_revoked_at: null },
+      distinct: ['sender_user_id'],
+      select: { sender_user_id: true },
+    });
+    return rows.map((row) => row.sender_user_id);
+  },
+
+  async listDistinctRecipientUserIds(): Promise<string[]> {
+    const rows = await prisma.playlist_sync_imports.findMany({
+      distinct: ['recipient_user_id'],
+      select: { recipient_user_id: true },
+    });
+    return rows.map((row) => row.recipient_user_id);
+  },
+
   async listSyncsBySender(senderUserId: string): Promise<SyncRecord[]> {
     const rows = await prisma.playlist_syncs.findMany({
       where: { sender_user_id: senderUserId },

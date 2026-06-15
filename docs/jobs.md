@@ -14,6 +14,22 @@
 - `notifications:sendRegistrationInviteEmailPreview`
 - `notifications:sendPasswordResetEmail`
 - `notifications:sendPasswordResetEmailPreview`
+- `notifications:sendWeeklyRecapEmail`
+- `notifications:sendWeeklyRecapEmailPreview`
+
+## Weekly Recap Email
+
+- An in-API scheduler (`startWeeklyRecapScheduler`) wakes on a short check
+  interval and, once per ISO week (at/after the configured day + hour), claims
+  the period via a unique `notification_runs` row and aggregates per-user new-song
+  counts across owned/subscribed synced playlists and hosted/followed event
+  playlists over a trailing window (default 7 days).
+- One `notifications:sendWeeklyRecapEmail` job is enqueued per user with at least
+  one new song; users with no new activity are skipped.
+- Gated by `WEEKLY_RECAP_ENABLED=true`. Tunable via `WEEKLY_RECAP_CHECK_INTERVAL_MS`,
+  `WEEKLY_RECAP_SEND_DAY`, `WEEKLY_RECAP_SEND_HOUR_UTC`, and `WEEKLY_RECAP_WINDOW_DAYS`.
+- The `notification_runs` claim row makes the run idempotent across API restarts
+  and multiple instances (the unique `(kind, period_key)` insert is the lock).
 
 ## Planned Sync Jobs
 

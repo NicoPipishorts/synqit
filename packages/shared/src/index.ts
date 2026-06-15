@@ -1015,6 +1015,41 @@ export const passwordResetEmailPreviewJobSchema = z.object({
 
 export type PasswordResetEmailPreviewJob = z.infer<typeof passwordResetEmailPreviewJobSchema>;
 
+export const weeklyRecapPlaylistKindSchema = z.enum([
+  'owned_sync',
+  'subscribed_sync',
+  'hosted_event',
+  'followed_event',
+]);
+export type WeeklyRecapPlaylistKind = z.infer<typeof weeklyRecapPlaylistKindSchema>;
+
+export const weeklyRecapPlaylistSchema = z.object({
+  kind: weeklyRecapPlaylistKindSchema,
+  name: z.string().min(1),
+  url: z.string().url(),
+  newTrackCount: z.number().int().positive(),
+});
+export type WeeklyRecapPlaylist = z.infer<typeof weeklyRecapPlaylistSchema>;
+
+export const weeklyRecapEmailJobSchema = z.object({
+  userId: z.string(),
+  toEmail: z.string().email(),
+  locale: emailLocaleSchema,
+  webAppUrl: z.string().url(),
+  windowDays: z.number().int().positive(),
+  totalNewTracks: z.number().int().positive(),
+  playlists: z.array(weeklyRecapPlaylistSchema).min(1),
+});
+export type WeeklyRecapEmailJob = z.infer<typeof weeklyRecapEmailJobSchema>;
+
+export const weeklyRecapEmailPreviewJobSchema = z.object({
+  toEmail: z.string().email(),
+  locale: emailLocaleSchema,
+  webAppUrl: z.string().url(),
+  requestedAt: z.string(),
+});
+export type WeeklyRecapEmailPreviewJob = z.infer<typeof weeklyRecapEmailPreviewJobSchema>;
+
 export const QUEUES = {
   sync: 'sync',
   notifications: 'notifications',
@@ -1029,4 +1064,6 @@ export const JOBS = {
   sendRegistrationInviteEmailPreview: 'notifications:sendRegistrationInviteEmailPreview',
   sendPasswordResetEmail: 'notifications:sendPasswordResetEmail',
   sendPasswordResetEmailPreview: 'notifications:sendPasswordResetEmailPreview',
+  sendWeeklyRecapEmail: 'notifications:sendWeeklyRecapEmail',
+  sendWeeklyRecapEmailPreview: 'notifications:sendWeeklyRecapEmailPreview',
 } as const;

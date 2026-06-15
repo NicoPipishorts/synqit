@@ -15,6 +15,7 @@ import { registerDashboardRoutes } from './dashboard/routes';
 import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
+import { startWeeklyRecapScheduler } from './jobs/weekly-recap';
 import { registerMetricsEndpoint } from './observability/metrics';
 import { startAutoSyncScheduler } from './syncs/auto-sync';
 import { registerSyncRoutes } from './syncs/routes';
@@ -161,10 +162,12 @@ export const buildServer = async () => {
 export const start = async () => {
   const app = await buildServer();
   let stopAutoSyncScheduler: (() => void) | null = null;
+  let stopWeeklyRecapScheduler: (() => void) | null = null;
 
   try {
     await app.listen({ port: PORT, host: HOST });
     stopAutoSyncScheduler = startAutoSyncScheduler(app.log);
+    stopWeeklyRecapScheduler = startWeeklyRecapScheduler(app.log);
   } catch (error) {
     app.log.error(error);
     process.exit(1);
@@ -172,6 +175,7 @@ export const start = async () => {
 
   const shutdown = async () => {
     stopAutoSyncScheduler?.();
+    stopWeeklyRecapScheduler?.();
     await app.close();
   };
 
