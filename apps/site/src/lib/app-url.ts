@@ -35,10 +35,43 @@ export const getAppOrigin = (): string => {
   return `${protocol}//app.${hostname}`;
 };
 
+// Keep in sync with LOCALE_STORAGE_KEY in lib/i18n.tsx. The marketing site and
+// the app live on different subdomains (synqit.com vs app.synqit.com), so they
+// do NOT share localStorage. We forward the chosen locale in the URL so the app
+// can pick it up and stay consistent with the site.
+const LOCALE_STORAGE_KEY = 'synqit.site.locale.v1';
+
+const resolveLocale = (): 'en' | 'fr' | null => {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+      if (stored === 'en' || stored === 'fr') {
+        return stored;
+      }
+    } catch {
+      // Ignore storage access failures.
+    }
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('fr')) {
+    return 'fr';
+  }
+
+  return null;
+};
+
 export const buildAppUrl = (path: string): string => {
   const base = getAppOrigin();
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
-  return `${base}${normalizedPath}`;
+  const url = `${base}${normalizedPath}`;
+
+  const locale = resolveLocale();
+  if (!locale) {
+    return url;
+  }
+
+  const separator = normalizedPath.includes('?') ? '&' : '?';
+  return `${url}${separator}lang=${locale}`;
 };
 
 const APP_PATH_PREFIXES = [

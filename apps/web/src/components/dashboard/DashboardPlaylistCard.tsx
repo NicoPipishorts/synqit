@@ -1,16 +1,19 @@
 import { useNavigate } from '@tanstack/react-router';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, CalendarDays, Repeat } from 'lucide-react';
 import { type KeyboardEvent } from 'react';
 
 export type PlaylistCardRole = 'owner' | 'visited' | 'tracked' | 'subscriber';
+export type PlaylistCardType = 'event' | 'sync';
 
 type DashboardPlaylistCardProps = {
   playlistName: string;
   href: string;
   role: PlaylistCardRole;
   roleLabel: string;
+  type: PlaylistCardType;
   signal: string | null;
   signalActive?: boolean;
+  live?: boolean;
 };
 
 const roleStyles: Record<PlaylistCardRole, string> = {
@@ -25,8 +28,10 @@ export const DashboardPlaylistCard = ({
   href,
   role,
   roleLabel,
+  type,
   signal,
   signalActive,
+  live,
 }: DashboardPlaylistCardProps) => {
   const navigate = useNavigate();
 
@@ -41,6 +46,8 @@ export const DashboardPlaylistCard = ({
     }
   };
 
+  const TypeIcon = type === 'event' ? CalendarDays : Repeat;
+
   return (
     <div
       role="link"
@@ -49,9 +56,24 @@ export const DashboardPlaylistCard = ({
       onKeyDown={onKeyDown}
       className="group flex cursor-pointer items-center gap-3 border-b border-app-border px-4 py-3.5 transition-colors hover:bg-brand-pink/5 focus:bg-brand-pink/5 focus:outline-none last:border-b-0"
     >
+      <span
+        aria-hidden="true"
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${roleStyles[role]}`}
+      >
+        <TypeIcon size={18} />
+      </span>
+
       <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-2">
-        <span className="block min-w-0 truncate text-sm font-black text-brand-dark transition-colors group-hover:text-brand-pink group-focus:text-brand-pink dark:text-brand-white dark:group-hover:text-brand-pink dark:group-focus:text-brand-pink sm:flex-1">
-          {playlistName}
+        <span className="flex min-w-0 items-center gap-1.5 sm:flex-1">
+          <span className="block min-w-0 truncate text-sm font-black text-brand-dark transition-colors group-hover:text-brand-pink group-focus:text-brand-pink dark:text-brand-white dark:group-hover:text-brand-pink dark:group-focus:text-brand-pink">
+            {playlistName}
+          </span>
+          {live ? (
+            <span aria-hidden="true" className="relative flex h-2 w-2 shrink-0">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand-lime opacity-75" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-brand-lime" />
+            </span>
+          ) : null}
         </span>
         {signal ? (
           <span

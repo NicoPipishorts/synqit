@@ -7,7 +7,26 @@ import { getAccessToken } from '../auth';
 import { loadAnonymousPreferences, saveAnonymousPreferences } from '../preferences';
 import { updateUserPreferences } from '../queries';
 
+// The marketing site (different subdomain → separate localStorage) forwards the
+// visitor's chosen locale via a `?lang=` query param so the app stays consistent
+// with the site. A param wins over stored prefs here because it reflects the
+// choice the visitor just made on the site before landing on login/create.
+const readLocaleFromUrl = (): Locale | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  const param = new URLSearchParams(window.location.search).get('lang');
+  return param === 'en' || param === 'fr' ? param : null;
+};
+
 const detectInitialLocale = (): Locale => {
+  const urlLocale = readLocaleFromUrl();
+  if (urlLocale) {
+    saveAnonymousPreferences({ locale: urlLocale });
+    return urlLocale;
+  }
+
   const storedLocale = loadAnonymousPreferences().locale;
   if (storedLocale) {
     return storedLocale;
