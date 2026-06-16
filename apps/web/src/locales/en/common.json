@@ -788,11 +788,17 @@
   "home": {
     "hero": {
       "worksWith": "Works with",
-      "title": "One link. Every playlist.",
-      "description": "Synqit lets you build collaborative event playlists and share personal playlists across streaming platforms — all through a single magic link.",
+      "title": "For the party where\neveryone's the DJ.",
+      "description": "Create a playlist, share one link, and let your guests add songs right from their phone — no app, no account, no friction.",
+      "titleSync": "Your playlist,\non every platform.",
+      "descriptionSync": "Share a playlist once. Your followers always get the latest tracks — whether they're on Spotify or Apple Music.",
       "ctaEvent": "Start an event playlist",
-      "ctaSync": "Share a playlist",
+      "ctaSync": "Or share a playlist",
       "ctaLogin": "Sign in"
+    },
+    "nav": {
+      "product": "Product",
+      "share": "Share a playlist"
     },
     "offer": {
       "tabEvent": "Event playlist",
@@ -844,6 +850,129 @@
       "syncCtaBody": "Share your playlist across platforms. Subscribers need a free Synqit account to follow.",
       "syncCtaAction": "Share a playlist",
       "login": "I already have an account"
+    },
+    "pricing": {
+      "pill": "Pricing",
+      "title": "Simple pricing. Pay when it matters.",
+      "description": "Events are a one-time cost — pay only when you host. Sharing a playlist is free; unlock more when you need it.",
+      "tabEvents": "For your event",
+      "tabSharing": "For sharing playlists",
+      "recommended": "Most popular",
+      "footnote": "Prices in EUR. Final pricing may change before launch.",
+      "navLink": "Pricing",
+      "teaserCta": "See full pricing",
+      "pageTitle": "Pricing",
+      "pageSubtitle": "Events are a one-time cost. Sharing is free — go Pro when you curate for an audience.",
+      "featuresLabel": "Features",
+      "eventsTitle": "Event playlists",
+      "eventsSubtitle": "One-time, per event. Pay only when you host.",
+      "sharingTitle": "Shared playlists",
+      "sharingSubtitle": "Free to share. Unlock a playlist once, or go Pro for curators.",
+      "backHome": "Back to home",
+      "sec": {
+        "eventBasics": "Event basics",
+        "keepsake": "Keepsake & retention",
+        "sharingBasics": "Sharing",
+        "curators": "Pro / Curators"
+      },
+      "row": {
+        "magicLink": "Magic-link guest contributions",
+        "moderation": "Host moderation",
+        "guestCap": "Guests",
+        "branding": "\"Made with Synqit\" badge",
+        "cohosts": "Co-hosts",
+        "exportPlaylist": "Export final tracklist to a playlist",
+        "recapPage": "Shareable recap page",
+        "pdf": "Printable / PDF keepsake",
+        "retention": "Recap retention",
+        "crossPlatform": "Share across Spotify & Apple Music",
+        "subscribers": "Subscribers",
+        "syncLifetime": "Sync lifetime",
+        "oneWaySync": "Add-only one-way sync",
+        "brandedPage": "Branded share page",
+        "stats": "Subscriber stats",
+        "mirroring": "Mirror to Spotify & Apple Music",
+        "biSync": "Bidirectional + faster sync",
+        "unlimitedPlaylists": "Unlimited synced playlists",
+        "channelPage": "Branded channel page",
+        "seats": "Team seats"
+      },
+      "val": {
+        "cap25": "25",
+        "unlimited": "Unlimited",
+        "shown": "Shown",
+        "removed": "Removed",
+        "days30": "30 days",
+        "days60": "60 days",
+        "forever": "Forever",
+        "noLimit": "No limit",
+        "basic": "Basic",
+        "advanced": "Advanced"
+      },
+      "events": {
+        "free": {
+          "name": "Free",
+          "price": "Free",
+          "note": "per event",
+          "cta": "Start free",
+          "feat1": "Guest contributions via magic link",
+          "feat2": "Host moderation",
+          "feat3": "Up to 25 guests",
+          "feat4": "\"Made with Synqit\" on the guest page"
+        },
+        "party": {
+          "name": "Party",
+          "price": "€15",
+          "note": "one-time per event",
+          "cta": "Choose Party",
+          "feat1": "Unlimited guests",
+          "feat2": "No Synqit branding",
+          "feat3": "Keepsake recap page",
+          "feat4": "Export to your playlist"
+        },
+        "celebration": {
+          "name": "Celebration",
+          "price": "€39",
+          "note": "one-time per event",
+          "cta": "Choose Celebration",
+          "feat1": "Everything in Party, plus:",
+          "feat2": "Co-hosts",
+          "feat3": "Printable / PDF keepsake",
+          "feat4": "Kept forever"
+        }
+      },
+      "sharing": {
+        "free": {
+          "name": "Free",
+          "price": "Free",
+          "note": "forever",
+          "cta": "Start free",
+          "feat1": "Share across Spotify & Apple Music",
+          "feat2": "Subscribers always get the latest",
+          "feat3": "Up to 25 subscribers",
+          "feat4": "Syncs for 60 days"
+        },
+        "unlock": {
+          "name": "Unlock",
+          "price": "€5",
+          "note": "one-time per playlist",
+          "cta": "Unlock a playlist",
+          "feat1": "Unlimited subscribers",
+          "feat2": "No time limit",
+          "feat3": "Branded share page",
+          "feat4": "Basic subscriber stats"
+        },
+        "curators": {
+          "name": "Curators",
+          "price": "€12",
+          "note": "per month, billed monthly",
+          "cta": "Talk to us",
+          "feat1": "Mirror to Spotify & Apple Music",
+          "feat2": "Branded channel page",
+          "feat3": "Growth analytics",
+          "feat4": "Unlimited playlists & seats"
+        }
+      }
     }
   },
   "modal": {

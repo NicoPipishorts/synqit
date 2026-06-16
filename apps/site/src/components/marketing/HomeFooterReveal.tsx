@@ -1,4 +1,3 @@
-import { AppAuthActions } from './AppAuthActions';
 import { buildAppUrl } from '../../lib/app-url';
 import { useI18n } from '../../lib/i18n';
 import { BrandLogo } from '../ui/BrandLogo';
@@ -11,7 +10,7 @@ export const HomeFooterReveal = () => {
   return (
     <footer className="fixed inset-x-0 bottom-0 z-0 bg-brand-dark text-brand-white dark:bg-brand-white dark:text-brand-dark sm:h-96 lg:h-104">
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col justify-between px-4 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
-        <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_1.2fr] lg:gap-10">
+        <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr] lg:gap-10">
           <div className="grid content-start gap-3">
             <div className="flex items-center justify-between">
               <a href="/" className="w-fit">
@@ -50,6 +49,9 @@ export const HomeFooterReveal = () => {
             <a href="/" className="hover:text-brand-lime">
               {t('footer.home')}
             </a>
+            <a href="/pricing" className="hover:text-brand-lime">
+              {t('home.pricing.navLink')}
+            </a>
             <a href={buildAppUrl('/auth/register')} className="hover:text-brand-lime">
               {t('footer.start')}
             </a>
@@ -71,22 +73,6 @@ export const HomeFooterReveal = () => {
             <a href={buildAppUrl('/playlists/new')} className="hover:text-brand-lime">
               {t('footer.createEvent')}
             </a>
-          </div>
-
-          <div className="rounded-2xl border border-brand-white/20 bg-brand-white/95 p-4 text-brand-dark dark:border-brand-dark/20 dark:bg-brand-dark dark:text-brand-white">
-            <p className="text-xs font-black uppercase tracking-wide text-brand-dark/50 dark:text-brand-white/50">
-              {t('footer.onePlan')}
-            </p>
-            <p className="mt-1 text-3xl font-black tracking-tight">{t('footer.freeMvp')}</p>
-            <p className="mt-2 text-sm text-brand-dark/70 dark:text-brand-white/75">
-              {t('footer.planDesc')}
-            </p>
-            <AppAuthActions
-              primaryLabel={t('footer.getStarted')}
-              secondaryLabel={t('footer.dashboard')}
-              size="sm"
-              className="mt-4 gap-2"
-            />
           </div>
         </div>
 
