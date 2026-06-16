@@ -1,8 +1,12 @@
 import { useNavigate } from '@tanstack/react-router';
+import { Music, UserPlus } from 'lucide-react';
 import { type KeyboardEvent } from 'react';
+
+export type ActivityFeedKind = 'subscriber' | 'songs';
 
 export type ActivityFeedItem = {
   id: string;
+  kind: ActivityFeedKind;
   description: string;
   playlistName: string;
   href: string;
@@ -13,6 +17,11 @@ type DashboardActivityFeedProps = {
   items: ActivityFeedItem[];
   emptyLabel: string;
   unknownTimeLabel: string;
+};
+
+const kindStyles: Record<ActivityFeedKind, string> = {
+  subscriber: 'bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]',
+  songs: 'bg-brand-pink/10 text-brand-pink',
 };
 
 export const DashboardActivityFeed = ({
@@ -39,34 +48,36 @@ export const DashboardActivityFeed = ({
 
   return (
     <ul className="divide-y divide-app-border">
-      {items.map((item) => (
-        <li key={item.id}>
-          <div
-            role="link"
-            tabIndex={0}
-            onClick={() => activate(item.href)}
-            onKeyDown={(e) => onKeyDown(e, item.href)}
-            className="group flex cursor-pointer items-start gap-3 px-4 py-3.5 transition-colors hover:bg-brand-pink/5 focus:bg-brand-pink/5 focus:outline-none"
-          >
-            <span
-              aria-hidden="true"
-              className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-app-text-secondary/50 group-hover:bg-brand-pink/60 group-focus:bg-brand-pink/60 transition-colors"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm text-brand-dark dark:text-brand-white">
-                <span className="font-semibold transition-colors group-hover:text-brand-pink group-focus:text-brand-pink">
+      {items.map((item) => {
+        const Icon = item.kind === 'subscriber' ? UserPlus : Music;
+        return (
+          <li key={item.id}>
+            <div
+              role="link"
+              tabIndex={0}
+              onClick={() => activate(item.href)}
+              onKeyDown={(e) => onKeyDown(e, item.href)}
+              className="group flex cursor-pointer items-center gap-3 px-4 py-3.5 transition-colors hover:bg-brand-pink/5 focus:bg-brand-pink/5 focus:outline-none"
+            >
+              <span
+                aria-hidden="true"
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${kindStyles[item.kind]}`}
+              >
+                <Icon size={15} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-brand-dark transition-colors group-hover:text-brand-pink group-focus:text-brand-pink dark:text-brand-white">
                   {item.playlistName}
-                </span>
-                {' — '}
-                <span className="text-app-text-secondary">{item.description}</span>
-              </p>
+                </p>
+                <p className="truncate text-xs text-app-text-secondary">{item.description}</p>
+              </div>
+              <span className="shrink-0 self-start pt-px text-xs text-app-text-secondary tabular-nums">
+                {item.timeLabel ?? unknownTimeLabel}
+              </span>
             </div>
-            <span className="shrink-0 pt-px text-xs text-app-text-secondary tabular-nums">
-              {item.timeLabel ?? unknownTimeLabel}
-            </span>
-          </div>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 };

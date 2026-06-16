@@ -86,9 +86,7 @@ const PublicAuthNavigation = ({
               aria-current={active ? 'page' : undefined}
               onPointerDown={() => setSelectedItem(item.id)}
               className={`relative z-10 inline-flex min-h-[45px] items-center justify-center rounded-full px-5 py-2.5 text-[15px] font-black transition-colors ${
-                active
-                  ? 'text-brand-dark'
-                  : 'text-app-text-muted hover:text-app-text'
+                active ? 'text-brand-dark' : 'text-app-text-muted hover:text-app-text'
               }`}
             >
               {item.label}
@@ -301,7 +299,7 @@ export const AppShell = () => {
                 aria-label="Synqit home"
                 className="inline-flex"
               >
-                <BrandLogo className="h-12 w-auto sm:h-14 lg:h-20" />
+                <BrandLogo className="h-12 w-auto sm:h-24" />
               </a>
             )}
           </div>
@@ -329,15 +327,23 @@ export const AppShell = () => {
           </div>
           <div className="flex items-center justify-end gap-2">
             {isPublicAuthRoute ? (
-              <PublicAuthMobileMenu
-                activeItem={publicAuthActiveItem}
-                labels={{
-                  product: t('home.nav.product'),
-                  pricing: t('home.pricing.navLink'),
-                  share: t('home.nav.share'),
-                  login: t('accountMenu.login'),
-                }}
-              />
+              <>
+                <Link
+                  to="/auth/login"
+                  className="hidden rounded-full border border-app-border bg-app-elevated px-5 py-2.5 text-[15px] font-bold text-app-text shadow-soft-lift transition hover:border-brand-lime hover:text-brand-lime md:inline-flex dark:bg-app-card"
+                >
+                  {t('accountMenu.login')}
+                </Link>
+                <PublicAuthMobileMenu
+                  activeItem={publicAuthActiveItem}
+                  labels={{
+                    product: t('home.nav.product'),
+                    pricing: t('home.pricing.navLink'),
+                    share: t('home.nav.share'),
+                    login: t('accountMenu.login'),
+                  }}
+                />
+              </>
             ) : (
               <AccountMenu />
             )}
@@ -354,7 +360,7 @@ export const AppShell = () => {
           />
         </Suspense>
       ) : null}
-      <main className={`relative min-h-screen }`}>
+      <main className="relative min-h-screen">
         <Outlet />
       </main>
     </div>

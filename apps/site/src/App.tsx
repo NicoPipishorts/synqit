@@ -1,6 +1,6 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { BlurSpotLayer } from './components/ui/BlurSpotLayer';
 import { BrandLogo } from './components/ui/BrandLogo';

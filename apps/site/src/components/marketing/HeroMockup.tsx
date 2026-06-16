@@ -26,20 +26,20 @@ export const HeroBackdrop = () => {
   return (
     <div className="h-full w-full">
       <img
-        src={`${ASSET_BASE}/playlist-dark-${locale}.png`}
+        src={`${ASSET_BASE}/above-the-fold-dark-${locale}.png`}
         alt=""
         aria-hidden="true"
         loading="eager"
         onError={handleImageError}
-        className="block h-full w-full object-cover object-bottom lg:object-right-bottom dark:hidden"
+        className="block h-full w-full object-cover object-bottom lg:object-bottom-right dark:hidden"
       />
       <img
-        src={`${ASSET_BASE}/playlist-light-${locale}.png`}
+        src={`${ASSET_BASE}/above-the-fold-light-${locale}.png`}
         alt=""
         aria-hidden="true"
         loading="eager"
         onError={handleImageError}
-        className="hidden h-full w-full object-cover object-bottom lg:object-right-bottom dark:block"
+        className="hidden h-full w-full object-cover object-bottom lg:object-bottom-right dark:block"
       />
     </div>
   );

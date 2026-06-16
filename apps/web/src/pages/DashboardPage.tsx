@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Plus, RefreshCcw } from 'lucide-react';
+import { Link2, Music, Plus, Radio, RefreshCcw, Users } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
@@ -10,7 +10,9 @@ import {
 import {
   DashboardPlaylistCard,
   type PlaylistCardRole,
+  type PlaylistCardType,
 } from '../components/dashboard/DashboardPlaylistCard';
+import { DashboardStats, type DashboardStat } from '../components/dashboard/DashboardStats';
 import { PwaInstallPrompt } from '../components/dashboard/PwaInstallPrompt';
 import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { CTALink } from '../components/ui/cta';
@@ -19,6 +21,7 @@ import { useToast } from '../hooks/useToast';
 import {
   fetchDashboardSummary,
   fetchDrafts,
+  fetchPersonalInfo,
   fetchSyncCollections,
   queryKeys,
   syncQueryKeys,
@@ -34,8 +37,10 @@ type PlaylistCardItem = {
   href: string;
   role: PlaylistCardRole;
   roleLabel: string;
+  type: PlaylistCardType;
   signal: string | null;
   signalActive: boolean;
+  live: boolean;
   sortAt: number;
 };
 
@@ -98,6 +103,12 @@ export const DashboardPage = () => {
     staleTime: 120_000,
   });
 
+  const personalInfoQuery = useQuery({
+    queryKey: queryKeys.personalInfo.detail(),
+    queryFn: fetchPersonalInfo,
+    staleTime: 300_000,
+  });
+
   // ---------------------------------------------------------------------------
   // Derived data
   // ---------------------------------------------------------------------------
@@ -127,11 +138,13 @@ export const DashboardPage = () => {
       href: `/playlists/${item.eventId}`,
       role: 'owner' as const,
       roleLabel: t('dashboard.roleOwner'),
+      type: 'event' as const,
       signal:
         item.addedTrackCount24h > 0
           ? t('dashboard.metricSongsAdded24h', { count: item.addedTrackCount24h })
           : null,
       signalActive: item.addedTrackCount24h > 0,
+      live: item.addedTrackCount24h > 0,
       sortAt: toTimestamp(item.latestActivityAt),
     }));
 
@@ -141,8 +154,10 @@ export const DashboardPage = () => {
       href: `/synced-lists/${item.syncId}`,
       role: 'owner' as const,
       roleLabel: t('dashboard.roleOwner'),
+      type: 'sync' as const,
       signal: t('dashboard.metricTotalSubscribers', { count: item.totalSubscriberCount }),
       signalActive: item.newSubscriberCount24h > 0,
+      live: item.newSubscriberCount24h > 0,
       sortAt: toTimestamp(item.latestActivityAt),
     }));
 
@@ -156,11 +171,13 @@ export const DashboardPage = () => {
       href: `/playlist/${item.magicLinkToken}`,
       role: 'tracked' as const,
       roleLabel: t('dashboard.roleTracked'),
+      type: 'event' as const,
       signal:
         item.addedTrackCount24h > 0
           ? t('dashboard.metricRecentSongs', { count: item.addedTrackCount24h })
           : null,
       signalActive: item.addedTrackCount24h > 0,
+      live: item.addedTrackCount24h > 0,
       sortAt: toTimestamp(item.latestActivityAt),
     }));
 
@@ -170,11 +187,13 @@ export const DashboardPage = () => {
       href: `/playlist/${item.magicLinkToken}`,
       role: 'visited' as const,
       roleLabel: t('dashboard.roleVisited'),
+      type: 'event' as const,
       signal:
         item.addedTrackCount24h > 0
           ? t('dashboard.metricRecentSongs', { count: item.addedTrackCount24h })
           : null,
       signalActive: item.addedTrackCount24h > 0,
+      live: item.addedTrackCount24h > 0,
       sortAt: toTimestamp(item.latestActivityAt),
     }));
 
@@ -186,11 +205,13 @@ export const DashboardPage = () => {
         href: sync ? `/sync/${sync.magicLinkToken}` : '#',
         role: 'subscriber' as const,
         roleLabel: t('dashboard.roleSubscriber'),
+        type: 'sync' as const,
         signal:
           item.addedTrackCount7d > 0
             ? t('dashboard.metricSongsAdded7d', { count: item.addedTrackCount7d })
             : null,
         signalActive: item.ownerAddedTracks7d,
+        live: item.ownerAddedTracks7d,
         sortAt: toTimestamp(item.latestActivityAt),
       };
     });
@@ -209,6 +230,7 @@ export const DashboardPage = () => {
       .filter((item) => item.addedTrackCount24h > 0)
       .map((item) => ({
         id: `activity-owner-event-${item.eventId}`,
+        kind: 'songs' as const,
         playlistName: item.name,
         href: `/playlists/${item.eventId}#tracks`,
         description: t('dashboard.activityOwnerEventSongs', { count: item.addedTrackCount24h }),
@@ -220,6 +242,7 @@ export const DashboardPage = () => {
       if (item.recentSubscribers.length > 0) {
         return item.recentSubscribers.map((sub) => ({
           id: `activity-owner-sync-${item.syncId}-${sub.userId}-${sub.subscribedAt}`,
+          kind: 'subscriber' as const,
           playlistName: item.name,
           href: `/synced-lists/${item.syncId}`,
           description: t('dashboard.activityOwnerSyncSubscriber', { name: sub.name }),
@@ -231,6 +254,7 @@ export const DashboardPage = () => {
         return [
           {
             id: `activity-owner-sync-${item.syncId}`,
+            kind: 'subscriber' as const,
             playlistName: item.name,
             href: `/synced-lists/${item.syncId}`,
             description: t('dashboard.activityOwnerSyncSubscribers', {
@@ -248,6 +272,7 @@ export const DashboardPage = () => {
       .filter((item) => item.addedTrackCount24h > 0)
       .map((item) => ({
         id: `activity-tracked-event-${item.eventId}`,
+        kind: 'songs' as const,
         playlistName: item.name,
         href: `/playlist/${item.magicLinkToken}`,
         description: t('dashboard.activityTrackedSongs', { count: item.addedTrackCount24h }),
@@ -259,6 +284,7 @@ export const DashboardPage = () => {
       .filter((item) => item.addedTrackCount24h > 0)
       .map((item) => ({
         id: `activity-visited-event-${item.magicLinkToken}`,
+        kind: 'songs' as const,
         playlistName: item.name,
         href: `/playlist/${item.magicLinkToken}`,
         description: t('dashboard.activityVisitedSongs', { count: item.addedTrackCount24h }),
@@ -272,6 +298,7 @@ export const DashboardPage = () => {
         const sync = subscribedSyncMap.get(item.syncId);
         return {
           id: `activity-subscriber-sync-${item.syncId}`,
+          kind: 'songs' as const,
           playlistName: sync?.name ?? item.name,
           href: sync ? `/sync/${sync.magicLinkToken}` : '#',
           description: t('dashboard.activitySubscriberSongs', { count: item.addedTrackCount7d }),
@@ -297,6 +324,57 @@ export const DashboardPage = () => {
     trackedEventActivity,
     visitedEventActivity,
   ]);
+
+  // ---------------------------------------------------------------------------
+  // Summary stats
+  // ---------------------------------------------------------------------------
+
+  const stats = useMemo<DashboardStat[]>(() => {
+    const hostedEvents = ownerEventActivity.length;
+    const hostedSyncs = ownerSyncActivity.length;
+    const totalSubscribers = ownerSyncActivity.reduce((sum, s) => sum + s.totalSubscriberCount, 0);
+    const newSubscribers24h = ownerSyncActivity.reduce(
+      (sum, s) => sum + s.newSubscriberCount24h,
+      0,
+    );
+    const songsAdded24h = ownerEventActivity.reduce((sum, e) => sum + e.addedTrackCount24h, 0);
+
+    return [
+      {
+        id: 'hosting',
+        label: t('dashboard.statHosting'),
+        value: hostedEvents + hostedSyncs,
+        hint: t('dashboard.statHostingDetail', { events: hostedEvents, syncs: hostedSyncs }),
+        icon: Radio,
+      },
+      {
+        id: 'subscribers',
+        label: t('dashboard.statSubscribers'),
+        value: totalSubscribers,
+        hint:
+          newSubscribers24h > 0
+            ? t('dashboard.statSubscribersDelta', { count: newSubscribers24h })
+            : t('dashboard.statSubscribersHint'),
+        hintActive: newSubscribers24h > 0,
+        icon: Users,
+      },
+      {
+        id: 'added',
+        label: t('dashboard.statAddedToday'),
+        value: songsAdded24h,
+        hint: t('dashboard.statAddedTodayHint'),
+        hintActive: songsAdded24h > 0,
+        icon: Music,
+      },
+      {
+        id: 'joined',
+        label: t('dashboard.statJoined'),
+        value: joinedCards.length,
+        hint: t('dashboard.statJoinedHint'),
+        icon: Link2,
+      },
+    ];
+  }, [ownerEventActivity, ownerSyncActivity, joinedCards.length, t]);
 
   // ---------------------------------------------------------------------------
   // Error toasts — depend on the error object, not the boolean flag,
@@ -326,9 +404,14 @@ export const DashboardPage = () => {
   const hasDashboardContent = ownedCards.length > 0 || joinedCards.length > 0;
   const isInitialLoad = syncsQuery.isLoading || dashboardSummaryQuery.isLoading;
   const isFetching = syncsQuery.isFetching || dashboardSummaryQuery.isFetching;
-  const showCreateCta = ownedCards.length === 0;
   const newEventTo = activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new';
   const newEventLabel = activeDraft ? t('dashboard.ctaResumeDraft') : t('dashboard.ctaCreateEvent');
+
+  const personalInfo = personalInfoQuery.data;
+  const greetingName = personalInfo?.displayName?.trim() || personalInfo?.firstName?.trim() || null;
+  const headingTitle = greetingName
+    ? t('dashboard.greeting', { name: greetingName })
+    : t('dashboard.title');
 
   return (
     <AppPageLayout
@@ -402,93 +485,93 @@ export const DashboardPage = () => {
                 {t('dashboard.pill')}
               </p>
               <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-                {t('dashboard.title')}
+                {headingTitle}
               </h1>
             </div>
-            {showCreateCta ? (
-              <div className="hidden shrink-0 items-center gap-3 sm:flex">
-                <CTALink to="/synced-lists/new" variant="secondary" size="lg">
-                  {t('dashboard.ctaCreateSyncedPlaylist')}
-                </CTALink>
-                <CTALink to={newEventTo} variant="primary" size="lg">
-                  <Plus size={16} aria-hidden="true" />
-                  {newEventLabel}
-                </CTALink>
-              </div>
-            ) : null}
-          </header>
-
-          {showCreateCta ? (
-            <div className="grid gap-3 sm:hidden">
-              <CTALink to="/synced-lists/new" variant="secondary" className="w-full justify-center">
+            <div className="hidden shrink-0 items-center gap-3 sm:flex">
+              <CTALink to="/synced-lists/new" variant="secondary" size="lg">
                 {t('dashboard.ctaCreateSyncedPlaylist')}
               </CTALink>
-              <CTALink to={newEventTo} variant="primary" className="w-full justify-center">
+              <CTALink to={newEventTo} variant="primary" size="lg">
                 <Plus size={16} aria-hidden="true" />
                 {newEventLabel}
               </CTALink>
             </div>
-          ) : null}
+          </header>
 
-          {/* Playlists */}
-          <section className="grid gap-4">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
-                {t('dashboard.overviewTitle')}
+          <div className="grid gap-3 sm:hidden">
+            <CTALink to={newEventTo} variant="primary" className="w-full justify-center">
+              <Plus size={16} aria-hidden="true" />
+              {newEventLabel}
+            </CTALink>
+            <CTALink to="/synced-lists/new" variant="secondary" className="w-full justify-center">
+              {t('dashboard.ctaCreateSyncedPlaylist')}
+            </CTALink>
+          </div>
+
+          {/* Stat band */}
+          <DashboardStats stats={stats} />
+
+          {/* Playlists + activity */}
+          <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] lg:items-start">
+            <section className="grid gap-4">
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
+                  {t('dashboard.overviewTitle')}
+                </h2>
+                {isFetching ? (
+                  <RefreshCcw
+                    size={13}
+                    className="animate-spin text-app-text-secondary"
+                    aria-hidden="true"
+                  />
+                ) : null}
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
+                {ownedCards.length > 0 ? (
+                  <>
+                    <p className="border-b border-app-border bg-app-surface px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-app-text-secondary">
+                      {t('dashboard.overviewOwnedTitle')}
+                    </p>
+                    {ownedCards.map((card) => (
+                      <DashboardPlaylistCard key={card.id} {...card} />
+                    ))}
+                  </>
+                ) : null}
+
+                {joinedCards.length > 0 ? (
+                  <>
+                    <p className="border-b border-app-border bg-app-surface px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-app-text-secondary">
+                      {t('dashboard.overviewJoinedTitle')}
+                    </p>
+                    {joinedCards.map((card) => (
+                      <DashboardPlaylistCard key={card.id} {...card} />
+                    ))}
+                  </>
+                ) : null}
+
+                {ownedCards.length === 0 && joinedCards.length === 0 ? (
+                  <p className="px-4 py-5 text-sm text-app-text-secondary">
+                    {t('dashboard.overviewOwnedEmpty')}
+                  </p>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="grid gap-4 lg:sticky lg:top-28">
+              <h2 className="px-1 text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
+                {t('dashboard.activityTitle')}
               </h2>
-              {isFetching ? (
-                <RefreshCcw
-                  size={13}
-                  className="animate-spin text-app-text-secondary"
-                  aria-hidden="true"
+              <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
+                <DashboardActivityFeed
+                  items={activityItems}
+                  emptyLabel={t('dashboard.activityEmpty')}
+                  unknownTimeLabel={t('dashboard.activityTimeUnknown')}
                 />
-              ) : null}
-            </div>
-
-            <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
-              {ownedCards.length > 0 ? (
-                <>
-                  <p className="border-b border-brand-lime bg-brand-lime/22 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-brand-dark dark:text-brand-white">
-                    {t('dashboard.overviewOwnedTitle')}
-                  </p>
-                  {ownedCards.map((card) => (
-                    <DashboardPlaylistCard key={card.id} {...card} />
-                  ))}
-                </>
-              ) : null}
-
-              {joinedCards.length > 0 ? (
-                <>
-                  <p className="border-b border-brand-lime bg-brand-lime/22 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-brand-dark dark:text-brand-white">
-                    {t('dashboard.overviewJoinedTitle')}
-                  </p>
-                  {joinedCards.map((card) => (
-                    <DashboardPlaylistCard key={card.id} {...card} />
-                  ))}
-                </>
-              ) : null}
-
-              {ownedCards.length === 0 && joinedCards.length === 0 ? (
-                <p className="px-4 py-5 text-sm text-app-text-secondary">
-                  {t('dashboard.overviewOwnedEmpty')}
-                </p>
-              ) : null}
-            </div>
-          </section>
-
-          {/* Activity */}
-          <section className="grid gap-4">
-            <h2 className="px-1 text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
-              {t('dashboard.activityTitle')}
-            </h2>
-            <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
-              <DashboardActivityFeed
-                items={activityItems}
-                emptyLabel={t('dashboard.activityEmpty')}
-                unknownTimeLabel={t('dashboard.activityTimeUnknown')}
-              />
-            </div>
-          </section>
+              </div>
+            </section>
+          </div>
         </>
       )}
     </AppPageLayout>

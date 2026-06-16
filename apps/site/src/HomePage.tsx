@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { HeroBackdrop } from './components/marketing/HeroMockup';
 import { HomeFooterReveal } from './components/marketing/HomeFooterReveal';
+import { PricingTeaserCards } from './components/marketing/PricingTeaserCards';
 import { RevealSection } from './components/marketing/RevealSection';
 import { ScreenshotCarousel } from './components/marketing/ScreenshotCarousel';
 import { SurfaceCard } from './components/marketing/SurfaceCard';
@@ -338,32 +339,29 @@ export const HomePage = () => {
                     </motion.div>
                   </AnimatePresence>
                 </div>
+              </div>
 
-                {/* screenshot carousel — slides in from left (event) or right (sync) */}
-                <div className="flex justify-center overflow-hidden">
-                  <AnimatePresence mode="popLayout" custom={activeTab === 'event' ? -1 : 1}>
-                    <motion.div
-                      key={activeTab}
-                      custom={activeTab === 'event' ? -1 : 1}
-                      variants={TAB_SLIDE}
-                      initial="enter"
-                      animate="center"
-                      exit="exit"
-                      transition={{ duration: 0.15, ease: [0.25, 0, 0, 1] }}
-                      style={{ willChange: 'transform, opacity' }}
-                    >
-                      {activeTab === 'event' ? (
-                        <ScreenshotCarousel
-                          steps={eventSteps}
-                          images={EVENT_IMAGES}
-                          accent="lime"
-                        />
-                      ) : (
-                        <ScreenshotCarousel steps={syncSteps} images={SYNC_IMAGES} accent="pink" />
-                      )}
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
+              {/* screenshot carousel — full-bleed; slides in from left (event) or right (sync) */}
+              <div className="flex w-full justify-center overflow-hidden">
+                <AnimatePresence mode="popLayout" custom={activeTab === 'event' ? -1 : 1}>
+                  <motion.div
+                    key={activeTab}
+                    custom={activeTab === 'event' ? -1 : 1}
+                    variants={TAB_SLIDE}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    transition={{ duration: 0.15, ease: [0.25, 0, 0, 1] }}
+                    style={{ willChange: 'transform, opacity' }}
+                    className="w-full"
+                  >
+                    {activeTab === 'event' ? (
+                      <ScreenshotCarousel steps={eventSteps} images={EVENT_IMAGES} accent="lime" />
+                    ) : (
+                      <ScreenshotCarousel steps={syncSteps} images={SYNC_IMAGES} accent="pink" />
+                    )}
+                  </motion.div>
+                </AnimatePresence>
               </div>
             </RevealSection>
 
@@ -454,6 +452,7 @@ export const HomePage = () => {
                 <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
                   {t('home.pricing.description')}
                 </p>
+                <PricingTeaserCards />
                 <HeroLink href="/pricing" variant="lime" size="sm">
                   {t('home.pricing.teaserCta')}
                 </HeroLink>
@@ -462,10 +461,7 @@ export const HomePage = () => {
 
             {/* ── Final CTA ──────────────────────────────────────────────────── */}
             <RevealSection className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(180deg,rgba(198,255,0,0.08)_0%,transparent_42%,rgba(255,46,139,0.08)_100%)] px-4 pb-32 pt-24 sm:px-0 sm:pb-44 sm:pt-32 lg:pb-48 lg:pt-36">
-              <div
-                aria-hidden="true"
-                className="absolute inset-x-0 top-0 h-1 bg-brand-gradient"
-              />
+              <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-brand-gradient" />
               <div className="relative mx-auto w-full max-w-6xl overflow-hidden rounded-[2rem] border border-app-border bg-brand-gradient p-[1px] shadow-soft-lift">
                 <div className="relative overflow-hidden rounded-[calc(2rem-1px)] bg-app-elevated px-6 py-14 dark:bg-app-card sm:px-10 sm:py-16">
                   <div
