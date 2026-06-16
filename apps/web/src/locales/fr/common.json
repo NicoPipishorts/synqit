@@ -788,11 +788,17 @@
   "home": {
     "hero": {
       "worksWith": "Compatible avec",
-      "title": "Un lien. \n Toutes tes playlists.",
-      "description": "Synqit te permet de créer des playlists d’événement collaboratives et de partager tes playlists entre plateformes — le tout via un lien magique.",
+      "title": "La fête où\nchacun est le DJ.",
+      "description": "Crée une playlist, partage un seul lien, et laisse tes invités ajouter des titres depuis leur téléphone — sans appli, sans compte, sans friction.",
+      "titleSync": "Ta playlist,\nsur chaque plateforme.",
+      "descriptionSync": "Partage une playlist une seule fois. Tes abonnés ont toujours les derniers titres — qu’ils soient sur Spotify ou Apple Music.",
       "ctaEvent": "Créer ton événement",
-      "ctaSync": "Partager une playlist",
+      "ctaSync": "Ou partager une playlist",
       "ctaLogin": "Se connecter"
+    },
+    "nav": {
+      "product": "Le Produit",
+      "share": "Partager une playlist"
     },
     "offer": {
       "tabEvent": "Événement",
@@ -844,6 +850,129 @@
       "syncCtaBody": "Partage ta playlist entre plateformes. Les abonnés ont besoin d'un compte Synqit gratuit pour suivre.",
       "syncCtaAction": "Partager une playlist",
       "login": "J’ai déjà un compte"
+    },
+    "pricing": {
+      "pill": "Tarifs",
+      "title": "Des tarifs simples. Payez quand ça compte.",
+      "description": "Les événements sont à coût unique — payez seulement quand vous organisez. Partager une playlist est gratuit ; débloquez plus selon vos besoins.",
+      "tabEvents": "Pour votre événement",
+      "tabSharing": "Pour partager des playlists",
+      "recommended": "Le plus populaire",
+      "footnote": "Prix en EUR. Les tarifs peuvent évoluer avant le lancement.",
+      "navLink": "Tarifs",
+      "teaserCta": "Voir tous les tarifs",
+      "pageTitle": "Tarifs",
+      "pageSubtitle": "Les événements sont à coût unique. Le partage est gratuit — passez Pro quand vous curatez pour une audience.",
+      "featuresLabel": "Fonctionnalités",
+      "eventsTitle": "Playlists d’événement",
+      "eventsSubtitle": "Coût unique, par événement. Payez seulement quand vous organisez.",
+      "sharingTitle": "Playlists partagées",
+      "sharingSubtitle": "Partage gratuit. Débloquez une playlist une fois, ou passez Pro pour les curateurs.",
+      "backHome": "Retour à l’accueil",
+      "sec": {
+        "eventBasics": "Essentiel événement",
+        "keepsake": "Souvenir & conservation",
+        "sharingBasics": "Partage",
+        "curators": "Pro / Curateurs"
+      },
+      "row": {
+        "magicLink": "Contributions des invités via lien magique",
+        "moderation": "Modération par l’hôte",
+        "guestCap": "Invités",
+        "branding": "Mention « Made with Synqit »",
+        "cohosts": "Co-hôtes",
+        "exportPlaylist": "Export du tracklist final vers une playlist",
+        "recapPage": "Page récap partageable",
+        "pdf": "Souvenir imprimable / PDF",
+        "retention": "Conservation du récap",
+        "crossPlatform": "Partage entre Spotify et Apple Music",
+        "subscribers": "Abonnés",
+        "syncLifetime": "Durée de synchronisation",
+        "oneWaySync": "Synchronisation unidirectionnelle (ajout seul)",
+        "brandedPage": "Page de partage personnalisée",
+        "stats": "Statistiques d’abonnés",
+        "mirroring": "Diffusion sur Spotify et Apple Music",
+        "biSync": "Synchronisation bidirectionnelle + plus rapide",
+        "unlimitedPlaylists": "Playlists synchronisées illimitées",
+        "channelPage": "Page de chaîne personnalisée",
+        "seats": "Sièges d’équipe"
+      },
+      "val": {
+        "cap25": "25",
+        "unlimited": "Illimité",
+        "shown": "Affichée",
+        "removed": "Retirée",
+        "days30": "30 jours",
+        "days60": "60 jours",
+        "forever": "Pour toujours",
+        "noLimit": "Sans limite",
+        "basic": "Basiques",
+        "advanced": "Avancées"
+      },
+      "events": {
+        "free": {
+          "name": "Gratuit",
+          "price": "Gratuit",
+          "note": "par événement",
+          "cta": "Commencer",
+          "feat1": "Contributions des invités via lien magique",
+          "feat2": "Modération par l’hôte",
+          "feat3": "Jusqu’à 25 invités",
+          "feat4": "Mention « Made with Synqit » sur la page invité"
+        },
+        "party": {
+          "name": "Party",
+          "price": "15 €",
+          "note": "paiement unique par événement",
+          "cta": "Choisir Party",
+          "feat1": "Invités illimités",
+          "feat2": "Sans marque Synqit",
+          "feat3": "Page souvenir récap",
+          "feat4": "Export vers votre playlist"
+        },
+        "celebration": {
+          "name": "Celebration",
+          "price": "39 €",
+          "note": "paiement unique par événement",
+          "cta": "Choisir Celebration",
+          "feat1": "Tout Party, plus :",
+          "feat2": "Co-hôtes",
+          "feat3": "Souvenir imprimable / PDF",
+          "feat4": "Conservé pour toujours"
+        }
+      },
+      "sharing": {
+        "free": {
+          "name": "Gratuit",
+          "price": "Gratuit",
+          "note": "pour toujours",
+          "cta": "Commencer",
+          "feat1": "Partage entre Spotify et Apple Music",
+          "feat2": "Les abonnés ont toujours la dernière version",
+          "feat3": "Jusqu’à 25 abonnés",
+          "feat4": "Synchronisation pendant 60 jours"
+        },
+        "unlock": {
+          "name": "Déblocage",
+          "price": "5 €",
+          "note": "paiement unique par playlist",
+          "cta": "Débloquer une playlist",
+          "feat1": "Abonnés illimités",
+          "feat2": "Sans limite de durée",
+          "feat3": "Page de partage personnalisée",
+          "feat4": "Statistiques d’abonnés"
+        },
+        "curators": {
+          "name": "Curators",
+          "price": "12 €",
+          "note": "par mois, facturation mensuelle",
+          "cta": "Nous contacter",
+          "feat1": "Diffusion sur Spotify et Apple Music",
+          "feat2": "Page de chaîne personnalisée",
+          "feat3": "Analyses de croissance",
+          "feat4": "Playlists et sièges illimités"
+        }
+      }
     }
   },
   "modal": {
