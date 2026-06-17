@@ -13,12 +13,12 @@ export const HomeFooterReveal = () => {
     <footer className="fixed inset-x-0 bottom-0 z-0 h-[28rem] bg-brand-dark text-brand-white dark:bg-brand-white dark:text-brand-dark sm:h-[24rem] lg:h-[26rem]">
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col justify-between px-4 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
         <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_1.2fr] lg:gap-10">
-          <div className="grid content-start gap-3">
+          <div className="grid content-center gap-3">
             <BrandLogo className="h-10 w-auto" />
-            <p className="max-w-sm text-sm text-brand-white/80 dark:text-brand-dark/75 sm:text-base">
+            <p className="max-w-sm text-sm text-center text-brand-white/80 dark:text-brand-dark/75">
               {t('footer.description')}
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-3">
               <img
                 src="/assets/logos/Providers/Spotify.png"
                 alt="Spotify"
