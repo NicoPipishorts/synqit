@@ -171,14 +171,14 @@ const ArrowButton = ({
       onClick={onClick}
       disabled={disabled}
       aria-label={direction === 'prev' ? 'Previous step' : 'Next step'}
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full border bg-app-elevated shadow-soft-lift transition-all duration-200 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30 dark:bg-app-card ${c.arrow}`}
+      className={`flex h-18 w-18 shrink-0 items-center justify-center rounded-full border shadow-soft-lift transition-all duration-200 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30  ${c.arrow}`}
     >
       <svg
         viewBox="0 0 24 24"
-        className={`h-5 w-5 ${direction === 'prev' ? 'rotate-180' : ''}`}
+        className={`h-8 w-8 ${direction === 'prev' ? 'rotate-180' : ''}`}
         fill="none"
         stroke="currentColor"
-        strokeWidth={2.5}
+        strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       >

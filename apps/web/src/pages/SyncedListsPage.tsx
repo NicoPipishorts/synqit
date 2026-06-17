@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { ListMusic, Plus } from 'lucide-react';
 
+import { AppEmptyState } from '../components/app/AppEmptyState';
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
+import { AppSectionHeading } from '../components/app/AppSectionHeading';
 import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { SyncCard } from '../components/syncs/SyncCard';
 import { CTALink } from '../components/ui/cta';
@@ -68,56 +70,32 @@ export const SyncedListsPage = () => {
       {/* ── List / Empty ── */}
       {!hasAny ? (
         <div className="flex min-h-[calc(100svh-24rem)] items-start justify-center pt-8 sm:pt-16">
-          <div className="relative w-85 p-6 sm:w-[35vw] sm:p-10">
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute left-0 top-0 h-7 w-7 rounded-tl-lg border-l border-t border-brand-dark dark:border-brand-white"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute right-0 top-0 h-7 w-7 rounded-tr-lg border-r border-t border-brand-dark dark:border-brand-white"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 left-0 h-7 w-7 rounded-bl-lg border-b border-l border-brand-dark dark:border-brand-white"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 right-0 h-7 w-7 rounded-br-lg border-b border-r border-brand-dark dark:border-brand-white"
-            />
-            <div className="flex flex-col items-center gap-6 text-center">
-              <ListMusic size={36} className="text-app-text-secondary/40" aria-hidden="true" />
-              <div className="flex flex-col items-center gap-2">
-                <p className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl">
-                  {t('syncedListsPage.emptyTitle')}
-                </p>
-                <p className="text-sm text-app-text-secondary sm:text-base">
-                  {t('syncedListsPage.emptyBody')}
-                </p>
-              </div>
+          <AppEmptyState
+            icon={<ListMusic size={36} aria-hidden="true" />}
+            title={t('syncedListsPage.emptyTitle')}
+            body={t('syncedListsPage.emptyBody')}
+            action={
               <CTALink to="/synced-lists/new" variant="primary" size="lg">
                 {t('syncedListsPage.shareFirst')}
               </CTALink>
-            </div>
-          </div>
+            }
+          />
         </div>
       ) : (
         <div className="grid gap-8">
           {ownedSyncs.length > 0 ? (
             <section className="grid gap-4">
-              <div className="grid gap-1">
-                <h2 className="text-xl font-black tracking-tight text-brand-dark dark:text-brand-white">
-                  {t('syncedListsPage.ownerSectionTitle')}
-                </h2>
-                <p className="text-sm text-app-text-secondary">
-                  {t('syncedListsPage.ownerSectionBody')}
-                </p>
-              </div>
+              <AppSectionHeading
+                title={t('syncedListsPage.ownerSectionTitle')}
+                description={t('syncedListsPage.ownerSectionBody')}
+                count={ownedSyncs.length}
+              />
               <div className="grid gap-4 sm:grid-cols-2">
                 {ownedSyncs.map((sync) => (
                   <SyncCard
                     key={`owned-${sync.id}`}
                     sync={sync}
+                    role="owner"
                     detailTo={`/synced-lists/${sync.id}`}
                   />
                 ))}
@@ -127,17 +105,14 @@ export const SyncedListsPage = () => {
 
           {subscribedSyncs.length > 0 ? (
             <section className="grid gap-4">
-              <div className="grid gap-1">
-                <h2 className="text-xl font-black tracking-tight text-brand-dark dark:text-brand-white">
-                  {t('syncedListsPage.subscriberSectionTitle')}
-                </h2>
-                <p className="text-sm text-app-text-secondary">
-                  {t('syncedListsPage.subscriberSectionBody')}
-                </p>
-              </div>
+              <AppSectionHeading
+                title={t('syncedListsPage.subscriberSectionTitle')}
+                description={t('syncedListsPage.subscriberSectionBody')}
+                count={subscribedSyncs.length}
+              />
               <div className="grid gap-4 sm:grid-cols-2">
                 {subscribedSyncs.map((sync) => (
-                  <SyncCard key={`subscribed-${sync.id}`} sync={sync} />
+                  <SyncCard key={`subscribed-${sync.id}`} sync={sync} role="subscriber" />
                 ))}
               </div>
             </section>

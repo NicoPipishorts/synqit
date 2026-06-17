@@ -2,8 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ListMusic, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
+import { AppEmptyState } from '../components/app/AppEmptyState';
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
+import { AppSectionHeading } from '../components/app/AppSectionHeading';
 import { HostEventCard } from '../components/events/HostEventCard';
 import { HostEventDraftCard } from '../components/events/HostEventDraftCard';
 import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
@@ -142,33 +144,11 @@ export const HostEventsPage = () => {
       {/* ── List / Empty ── */}
       {!hasAny ? (
         <div className="flex min-h-[calc(100svh-24rem)] items-start justify-center pt-8 sm:pt-16">
-          <div className="relative w-85 p-6 sm:w-[35vw] sm:p-10">
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute left-0 top-0 h-7 w-7 rounded-tl-lg border-l border-t border-brand-dark dark:border-brand-white"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute right-0 top-0 h-7 w-7 rounded-tr-lg border-r border-t border-brand-dark dark:border-brand-white"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 left-0 h-7 w-7 rounded-bl-lg border-b border-l border-brand-dark dark:border-brand-white"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 right-0 h-7 w-7 rounded-br-lg border-b border-r border-brand-dark dark:border-brand-white"
-            />
-            <div className="flex flex-col items-center gap-6 text-center">
-              <ListMusic size={36} className="text-app-text-secondary/40" aria-hidden="true" />
-              <div className="flex flex-col items-center gap-2">
-                <p className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl">
-                  {t('eventsPage.emptyTitle')}
-                </p>
-                <p className="text-sm text-app-text-secondary sm:text-base">
-                  {t('eventsPage.emptyBody')}
-                </p>
-              </div>
+          <AppEmptyState
+            icon={<ListMusic size={36} aria-hidden="true" />}
+            title={t('eventsPage.emptyTitle')}
+            body={t('eventsPage.emptyBody')}
+            action={
               <CTALink
                 to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
                 variant="primary"
@@ -176,35 +156,42 @@ export const HostEventsPage = () => {
               >
                 {activeDraft ? t('dashboard.ctaResumeDraft') : t('eventsPage.create')}
               </CTALink>
-            </div>
-          </div>
+            }
+          />
         </div>
       ) : (
         <div className="grid gap-10">
           {activeItems.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {activeItems.map((item) =>
-                item.kind === 'event' ? (
-                  <HostEventCard key={item.id} event={item.event} />
-                ) : (
-                  <HostEventDraftCard
-                    key={item.id}
-                    draft={item.draft}
-                    onDelete={(draft) => setDraftToDelete(draft)}
-                    isDeleting={
-                      deleteDraftMutation.isPending && draftToDelete?.id === item.draft.id
-                    }
-                  />
-                ),
-              )}
-            </div>
+            <section className="grid gap-4">
+              <AppSectionHeading
+                title={t('eventsPage.activeSectionTitle')}
+                count={activeItems.length}
+              />
+              <div className="grid gap-4 sm:grid-cols-2">
+                {activeItems.map((item) =>
+                  item.kind === 'event' ? (
+                    <HostEventCard key={item.id} event={item.event} />
+                  ) : (
+                    <HostEventDraftCard
+                      key={item.id}
+                      draft={item.draft}
+                      onDelete={(draft) => setDraftToDelete(draft)}
+                      isDeleting={
+                        deleteDraftMutation.isPending && draftToDelete?.id === item.draft.id
+                      }
+                    />
+                  ),
+                )}
+              </div>
+            </section>
           )}
 
           {closedItems.length > 0 && (
             <section className="grid gap-4">
-              <p className="pl-1 text-xs font-semibold uppercase tracking-widest text-app-text-secondary">
-                {t('eventsPage.closedSectionTitle')}
-              </p>
+              <AppSectionHeading
+                title={t('eventsPage.closedSectionTitle')}
+                count={closedItems.length}
+              />
               <div className="grid gap-4 sm:grid-cols-2">
                 {closedItems.map((item) => (
                   <HostEventCard key={item.id} event={item.event} />

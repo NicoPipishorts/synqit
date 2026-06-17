@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link2, Music, Plus, Radio, RefreshCcw, Users } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 
+import { AppEmptyState } from '../components/app/AppEmptyState';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import {
   DashboardActivityFeed,
@@ -115,17 +116,18 @@ export const DashboardPage = () => {
 
   const activeDraft = draftsQuery.data?.[0] ?? null;
   const summary = dashboardSummaryQuery.data;
-  const trackedEventActivity = summary?.trackedEventActivity ?? [];
-  const visitedEventActivity = summary?.visitedEventActivity ?? [];
+
+  // Stable references so the downstream useMemo hooks don't recompute every render.
+  const trackedEventActivity = useMemo(() => summary?.trackedEventActivity ?? [], [summary]);
+  const visitedEventActivity = useMemo(() => summary?.visitedEventActivity ?? [], [summary]);
+  const ownerEventActivity = useMemo(() => summary?.ownerEventActivity ?? [], [summary]);
+  const ownerSyncActivity = useMemo(() => summary?.ownerSyncActivity ?? [], [summary]);
+  const subscriberSyncActivity = useMemo(() => summary?.subscriberSyncActivity ?? [], [summary]);
 
   const subscribedSyncMap = useMemo(
     () => new Map((syncsQuery.data?.subscribedSyncs ?? []).map((s) => [s.id, s])),
     [syncsQuery.data?.subscribedSyncs],
   );
-
-  const ownerEventActivity = summary?.ownerEventActivity ?? [];
-  const ownerSyncActivity = summary?.ownerSyncActivity ?? [];
-  const subscriberSyncActivity = summary?.subscriberSyncActivity ?? [];
 
   // ---------------------------------------------------------------------------
   // Playlist cards
@@ -432,27 +434,9 @@ export const DashboardPage = () => {
 
       {!hasDashboardContent && !isInitialLoad ? (
         <div className="flex min-h-[60vh] flex-col items-center justify-center">
-          <div className="relative w-85 p-6 sm:w-[35vw] sm:p-10">
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute left-0 top-0 h-7 w-7 rounded-tl-lg border-l border-t border-brand-dark dark:border-brand-white"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute right-0 top-0 h-7 w-7 rounded-tr-lg border-r border-t border-brand-dark dark:border-brand-white"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 left-0 h-7 w-7 rounded-bl-lg border-b border-l border-brand-dark dark:border-brand-white"
-            />
-            <span
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-0 right-0 h-7 w-7 rounded-br-lg border-b border-r border-brand-dark dark:border-brand-white"
-            />
-            <div className="flex flex-col items-center gap-6 text-center">
-              <h2 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl">
-                {t('dashboard.ctaCreateFirst')}
-              </h2>
+          <AppEmptyState
+            title={t('dashboard.ctaCreateFirst')}
+            action={
               <div className="flex w-72 flex-col items-stretch gap-4">
                 <CTALink
                   to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
@@ -473,8 +457,8 @@ export const DashboardPage = () => {
                   {t('dashboard.ctaCreateSyncedPlaylist')}
                 </CTALink>
               </div>
-            </div>
-          </div>
+            }
+          />
         </div>
       ) : (
         <>
@@ -528,10 +512,10 @@ export const DashboardPage = () => {
                 ) : null}
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
+              <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card shadow-soft-lift">
                 {ownedCards.length > 0 ? (
                   <>
-                    <p className="border-b border-app-border bg-app-surface px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-app-text-secondary">
+                    <p className="border-b border-app-border bg-app-surface px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-app-text-secondary ">
                       {t('dashboard.overviewOwnedTitle')}
                     </p>
                     {ownedCards.map((card) => (
@@ -542,7 +526,7 @@ export const DashboardPage = () => {
 
                 {joinedCards.length > 0 ? (
                   <>
-                    <p className="border-b border-app-border bg-app-surface px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-app-text-secondary">
+                    <p className="border-b border-app-border bg-app-surface px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-app-text-secondary ">
                       {t('dashboard.overviewJoinedTitle')}
                     </p>
                     {joinedCards.map((card) => (
@@ -563,7 +547,7 @@ export const DashboardPage = () => {
               <h2 className="px-1 text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
                 {t('dashboard.activityTitle')}
               </h2>
-              <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card">
+              <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card shadow-soft-lift">
                 <DashboardActivityFeed
                   items={activityItems}
                   emptyLabel={t('dashboard.activityEmpty')}
