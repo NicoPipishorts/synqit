@@ -1,9 +1,9 @@
 import { Link, Outlet, useMatchRoute, useRouterState } from '@tanstack/react-router';
-import { motion } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
 import { BackgroundBlurSpots } from './BackgroundBlurSpots';
+import { PublicNav } from './PublicNav';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
 import { trackPageView } from '../../lib/analytics';
@@ -69,32 +69,13 @@ const PublicAuthNavigation = ({
   }, [activeItem]);
 
   return (
-    <nav className="relative flex min-w-0 items-center gap-1.5 overflow-hidden rounded-full border border-app-border bg-app-elevated/85 p-1.5 shadow-soft-lift backdrop-blur dark:bg-app-card/85">
-      {navItems.map((item) => {
-        const active = selectedItem === item.id;
-        return (
-          <span key={item.id} className="relative inline-flex">
-            {active ? (
-              <motion.span
-                layoutId="public-auth-nav-pill"
-                className="absolute inset-0 rounded-full bg-brand-lime"
-                transition={{ type: 'spring', stiffness: 520, damping: 42 }}
-              />
-            ) : null}
-            <a
-              href={item.href}
-              aria-current={active ? 'page' : undefined}
-              onPointerDown={() => setSelectedItem(item.id)}
-              className={`relative z-10 inline-flex min-h-[45px] items-center justify-center rounded-full px-5 py-2.5 text-[15px] font-black transition-colors ${
-                active ? 'text-brand-dark' : 'text-app-text-muted hover:text-app-text'
-              }`}
-            >
-              {item.label}
-            </a>
-          </span>
-        );
-      })}
-    </nav>
+    <PublicNav
+      items={navItems}
+      activeId={selectedItem}
+      onActivate={(id) => setSelectedItem(id as PublicNavItemId)}
+      ariaLabel="Primary navigation"
+      layoutGroupId="public-auth-nav"
+    />
   );
 };
 

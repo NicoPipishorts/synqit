@@ -166,17 +166,17 @@ export const HomePage = () => {
   const eventSteps = [
     t('home.offer.eventStep1'),
     t('home.offer.eventStep2'),
-    t('home.offer.eventStep2'),
     t('home.offer.eventStep3'),
     t('home.offer.eventStep4'),
     t('home.offer.eventStep5'),
+    t('home.offer.eventStep6'),
   ];
 
   const syncSteps = [
     t('home.offer.syncStep1'),
     t('home.offer.syncStep2'),
-    t('home.offer.syncStep2'),
     t('home.offer.syncStep3'),
+    t('home.offer.syncStep4'),
   ];
 
   return (

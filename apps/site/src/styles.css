@@ -114,6 +114,122 @@
     outline: 2px solid var(--syn-focus-ring);
     outline-offset: 2px;
   }
+
+  /* Mirrors the web app's RouteLoadingScreen so the cross-origin handoff to
+     the app (login / create) shows the identical animated logo — no frozen
+     stall, just one continuous loader across the navigation. */
+  .route-loader-logo {
+    position: relative;
+    overflow: hidden;
+    background: var(--color-brand-lime);
+    filter: drop-shadow(0 0 18px rgba(255, 46, 139, 0.24))
+      drop-shadow(0 0 28px rgba(198, 255, 0, 0.18));
+    mask-image: url('/assets/logos/loader.svg');
+    mask-position: center;
+    mask-repeat: no-repeat;
+    mask-size: contain;
+    animation:
+      route-loader-base-cycle 3.1s steps(1, end) infinite,
+      route-loader-float 2.4s ease-in-out infinite;
+    -webkit-mask-image: url('/assets/logos/loader.svg');
+    -webkit-mask-position: center;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-size: contain;
+  }
+
+  .route-loader-logo::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      var(--color-brand-pink) 0%,
+      var(--color-brand-pink) 66%,
+      color-mix(in srgb, var(--color-brand-pink) 82%, var(--color-brand-lime) 18%) 80%,
+      color-mix(in srgb, var(--color-brand-pink) 52%, var(--color-brand-lime) 48%) 90%,
+      var(--color-brand-lime) 100%
+    );
+    transform: scaleY(0);
+    transform-origin: bottom center;
+    animation: route-loader-fill-cycle 3.1s linear infinite;
+  }
+}
+
+@keyframes route-loader-base-cycle {
+  0%,
+  49.999% {
+    background: var(--color-brand-lime);
+    filter: drop-shadow(0 0 18px rgba(198, 255, 0, 0.3))
+      drop-shadow(0 0 24px rgba(198, 255, 0, 0.2));
+  }
+
+  50%,
+  100% {
+    background: var(--color-brand-pink);
+    filter: drop-shadow(0 0 18px rgba(255, 46, 139, 0.3))
+      drop-shadow(0 0 22px rgba(255, 46, 139, 0.18));
+  }
+}
+
+@keyframes route-loader-fill-cycle {
+  0% {
+    background: linear-gradient(
+      to top,
+      var(--color-brand-pink) 0%,
+      var(--color-brand-pink) 66%,
+      color-mix(in srgb, var(--color-brand-pink) 82%, var(--color-brand-lime) 18%) 80%,
+      color-mix(in srgb, var(--color-brand-pink) 52%, var(--color-brand-lime) 48%) 90%,
+      var(--color-brand-lime) 100%
+    );
+    transform: scaleY(0);
+  }
+
+  49.999% {
+    background: linear-gradient(
+      to top,
+      var(--color-brand-pink) 0%,
+      var(--color-brand-pink) 66%,
+      color-mix(in srgb, var(--color-brand-pink) 82%, var(--color-brand-lime) 18%) 80%,
+      color-mix(in srgb, var(--color-brand-pink) 52%, var(--color-brand-lime) 48%) 90%,
+      var(--color-brand-lime) 100%
+    );
+    transform: scaleY(1);
+  }
+
+  50% {
+    background: linear-gradient(
+      to top,
+      var(--color-brand-lime) 0%,
+      var(--color-brand-lime) 66%,
+      color-mix(in srgb, var(--color-brand-lime) 82%, var(--color-brand-pink) 18%) 80%,
+      color-mix(in srgb, var(--color-brand-lime) 52%, var(--color-brand-pink) 48%) 90%,
+      var(--color-brand-pink) 100%
+    );
+    transform: scaleY(0);
+  }
+
+  100% {
+    background: linear-gradient(
+      to top,
+      var(--color-brand-lime) 0%,
+      var(--color-brand-lime) 66%,
+      color-mix(in srgb, var(--color-brand-lime) 82%, var(--color-brand-pink) 18%) 80%,
+      color-mix(in srgb, var(--color-brand-lime) 52%, var(--color-brand-pink) 48%) 90%,
+      var(--color-brand-pink) 100%
+    );
+    transform: scaleY(1);
+  }
+}
+
+@keyframes route-loader-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(0.98);
+  }
+
+  50% {
+    transform: translateY(-3px) scale(1.02);
+  }
 }
 
 body {

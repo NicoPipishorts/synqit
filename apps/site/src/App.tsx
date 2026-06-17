@@ -1,11 +1,12 @@
-import { motion } from 'framer-motion';
-import { Menu, X } from 'lucide-react';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { Home, LogIn, Share2, Tag } from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BlurSpotLayer } from './components/ui/BlurSpotLayer';
 import { BrandLogo } from './components/ui/BrandLogo';
+import { PublicMobileNav, type PublicMobileNavItem } from './components/ui/PublicMobileNav';
+import { PublicNav, type PublicNavItem as PublicNavComponentItem } from './components/ui/PublicNav';
 import { HomePage } from './HomePage';
-import { buildAppUrl, shouldRedirectToApp } from './lib/app-url';
+import { buildAppUrl, getAppOrigin, shouldRedirectToApp } from './lib/app-url';
 import { I18nProvider, useI18n } from './lib/i18n';
 import { applyTheme, loadTheme } from './lib/theme';
 import { PricingPage } from './PricingPage';
@@ -18,8 +19,24 @@ const SITE_BG_SPOTS = [
   { id: 'site-spot-4', size: 200, top: 75, left: 90, color: 'rgba(255,46,139,0.15)' },
 ];
 
-const isPricingRoutePath = (pathname: string): boolean =>
-  pathname.replace(/\/+$/, '') === '/pricing';
+const normalizePath = (pathname: string): string => {
+  const trimmed = pathname.replace(/\/+$/, '');
+  return trimmed === '' ? '/' : trimmed;
+};
+
+// Routes the site renders itself. Anything else (the app subdomain, auth,
+// external links) is left to the browser as a normal navigation.
+const INTERNAL_ROUTES = new Set(['/', '/pricing']);
+
+const isPricingRoutePath = (pathname: string): boolean => normalizePath(pathname) === '/pricing';
+
+// Identical to the web app's RouteLoadingScreen, so navigating across to the app
+// (login / create) shows one continuous animated loader instead of a frozen page.
+const AppHandoffScreen = () => (
+  <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 pt-24">
+    <div aria-hidden="true" className="route-loader-logo h-24 w-24 sm:h-28 sm:w-28" />
+  </div>
+);
 
 type PublicNavItem = {
   id: 'product' | 'pricing' | 'share';
@@ -27,43 +44,35 @@ type PublicNavItem = {
   label: ReactNode;
 };
 
-const NavLink = ({
-  item,
-  href,
-  active,
-  onActivate,
-  children,
-}: {
-  item: PublicNavItem['id'];
-  href: string;
-  active: boolean;
-  onActivate: (item: PublicNavItem['id']) => void;
-  children: ReactNode;
-}) => (
-  <a
-    href={href}
-    aria-current={active ? 'page' : undefined}
-    onPointerDown={() => onActivate(item)}
-    className={`relative z-10 inline-flex min-h-[45px] items-center justify-center rounded-full px-5 py-2.5 text-[15px] font-black transition-colors ${
-      active ? 'text-brand-dark' : 'text-app-text-muted hover:text-app-text'
-    }`}
-  >
-    {children}
-  </a>
-);
-
 const AppShell = () => {
   const [isNavBlurActive, setIsNavBlurActive] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { t } = useI18n();
-  const isPricing = typeof window !== 'undefined' && isPricingRoutePath(window.location.pathname);
+  const [pathname, setPathname] = useState<string>(() =>
+    typeof window === 'undefined' ? '/' : normalizePath(window.location.pathname),
+  );
+  const [isLeavingToApp, setIsLeavingToApp] = useState(false);
+  const appOrigin = useMemo(() => getAppOrigin(), []);
+  const isPricing = isPricingRoutePath(pathname);
   const routeActiveNavItem: PublicNavItem['id'] = isPricing ? 'pricing' : 'product';
   const [activeNavItem, setActiveNavItem] = useState<PublicNavItem['id']>(routeActiveNavItem);
-  const navItems: PublicNavItem[] = [
+  const navItems: PublicNavComponentItem[] = [
     { id: 'product', href: '/', label: t('home.nav.product') },
     { id: 'pricing', href: '/pricing', label: t('home.pricing.navLink') },
     { id: 'share', href: buildAppUrl('/auth/register'), label: t('home.nav.share') },
   ];
+
+  const mobileNavItems: PublicMobileNavItem[] = [
+    { id: 'product', href: '/', label: t('home.nav.product'), icon: Home },
+    { id: 'pricing', href: '/pricing', label: t('home.pricing.navLink'), icon: Tag },
+    { id: 'share', href: buildAppUrl('/auth/register'), label: t('home.nav.share'), icon: Share2 },
+    { id: 'login', href: buildAppUrl('/auth/login'), label: t('accountMenu.login'), icon: LogIn },
+  ];
+
+  const handleNavActivate = (id: string) => {
+    if (id === 'product' || id === 'pricing' || id === 'share') {
+      setActiveNavItem(id);
+    }
+  };
 
   useEffect(() => {
     applyTheme(loadTheme());
@@ -93,8 +102,107 @@ const AppShell = () => {
 
   useEffect(() => {
     setActiveNavItem(routeActiveNavItem);
-    setIsMobileMenuOpen(false);
   }, [routeActiveNavItem]);
+
+  const navigate = useCallback(
+    (nextPath: string) => {
+      const normalized = normalizePath(nextPath);
+      if (normalized === pathname) {
+        return;
+      }
+      window.history.pushState({}, '', normalized);
+      setPathname(normalized);
+      window.scrollTo({ top: 0 });
+    },
+    [pathname],
+  );
+
+  // Keep state in sync with browser back/forward.
+  useEffect(() => {
+    const onPopState = () => setPathname(normalizePath(window.location.pathname));
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // Warm the connection to the app subdomain so the DNS/TLS handshake is already
+  // done by the time the visitor clicks login / create — cuts real boot latency.
+  useEffect(() => {
+    if (!appOrigin || appOrigin === window.location.origin) {
+      return;
+    }
+    const links = (['preconnect', 'dns-prefetch'] as const).map((rel) => {
+      const link = document.createElement('link');
+      link.rel = rel;
+      link.href = appOrigin;
+      if (rel === 'preconnect') {
+        link.crossOrigin = '';
+      }
+      document.head.appendChild(link);
+      return link;
+    });
+    return () => links.forEach((link) => link.remove());
+  }, [appOrigin]);
+
+  // Intercept clicks on internal-route links and swap the page client-side,
+  // instead of letting the browser do a full document reload. A document-level
+  // listener catches every anchor (nav, logo, hero CTAs) without per-link wiring.
+  useEffect(() => {
+    const onClick = (event: MouseEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return;
+      }
+
+      const anchor = (event.target as HTMLElement | null)?.closest('a');
+      if (
+        !anchor ||
+        (anchor.target && anchor.target !== '_self') ||
+        anchor.hasAttribute('download')
+      ) {
+        return;
+      }
+
+      const href = anchor.getAttribute('href');
+      if (!href) {
+        return;
+      }
+
+      const url = new URL(href, window.location.href);
+
+      // Same-origin internal route → instant client-side swap.
+      if (url.origin === window.location.origin) {
+        const target = normalizePath(url.pathname);
+        if (!INTERNAL_ROUTES.has(target)) {
+          return;
+        }
+        event.preventDefault();
+        navigate(target);
+        return;
+      }
+
+      // The app subdomain (login / create). We can't SPA across origins, but we
+      // can paint the app's loader immediately so there's no frozen-page lag,
+      // then hand off — the app boots into the same loader for a seamless feel.
+      if (url.origin === appOrigin) {
+        event.preventDefault();
+        setIsLeavingToApp(true);
+        requestAnimationFrame(() => window.location.assign(url.href));
+      }
+    };
+
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, [navigate, appOrigin]);
+
+  if (isLeavingToApp) {
+    return <AppHandoffScreen />;
+  }
 
   return (
     <div className="relative min-h-screen overflow-x-clip bg-app-bg text-app-text transition-colors">
@@ -117,30 +225,14 @@ const AppShell = () => {
             <BrandLogo className="h-12 w-auto sm:h-24" />
           </a>
 
-          <nav className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 items-center gap-1.5 overflow-hidden rounded-full border border-app-border bg-app-elevated/85 p-1.5 shadow-soft-lift backdrop-blur md:flex dark:bg-app-card/85">
-            {navItems.map((item) => {
-              const active = activeNavItem === item.id;
-              return (
-                <span key={item.id} className="relative inline-flex">
-                  {active ? (
-                    <motion.span
-                      layoutId="public-site-nav-pill"
-                      className="absolute inset-0 rounded-full bg-brand-lime"
-                      transition={{ type: 'spring', stiffness: 520, damping: 42 }}
-                    />
-                  ) : null}
-                  <NavLink
-                    item={item.id}
-                    href={item.href}
-                    active={active}
-                    onActivate={setActiveNavItem}
-                  >
-                    {item.label}
-                  </NavLink>
-                </span>
-              );
-            })}
-          </nav>
+          <PublicNav
+            items={navItems}
+            activeId={activeNavItem}
+            onActivate={handleNavActivate}
+            ariaLabel="Primary navigation"
+            layoutGroupId="public-site-nav"
+            className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 md:block"
+          />
 
           <div className="absolute right-4 top-1/2 hidden -translate-y-1/2 items-center gap-2 md:flex sm:right-6 lg:right-8">
             <a
@@ -150,53 +242,15 @@ const AppShell = () => {
               {t('accountMenu.login')}
             </a>
           </div>
-          <button
-            type="button"
-            aria-label={isMobileMenuOpen ? 'Close menu' : 'Open menu'}
-            aria-expanded={isMobileMenuOpen}
-            onClick={() => setIsMobileMenuOpen((value) => !value)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-app-border bg-app-elevated text-app-text shadow-soft-lift md:hidden dark:bg-app-card"
-          >
-            {isMobileMenuOpen ? (
-              <X size={20} aria-hidden="true" />
-            ) : (
-              <Menu size={20} aria-hidden="true" />
-            )}
-          </button>
         </div>
-        {isMobileMenuOpen ? (
-          <div className="absolute right-4 top-[calc(100%-0.25rem)] z-20 w-[min(18rem,calc(100vw-2rem))] rounded-2xl border border-app-border bg-app-elevated/95 p-2 shadow-xl backdrop-blur-md md:hidden dark:bg-app-card/95">
-            <nav className="grid gap-1" aria-label="Mobile navigation">
-              {navItems.map((item) => {
-                const active = activeNavItem === item.id;
-                return (
-                  <a
-                    key={item.id}
-                    href={item.href}
-                    aria-current={active ? 'page' : undefined}
-                    onPointerDown={() => setActiveNavItem(item.id)}
-                    className={`rounded-xl px-3 py-3 text-sm font-black transition-colors ${
-                      active
-                        ? 'bg-brand-lime text-brand-dark'
-                        : 'text-app-text-muted hover:bg-app-bg hover:text-app-text'
-                    }`}
-                  >
-                    {item.label}
-                  </a>
-                );
-              })}
-              <div className="mt-1 border-t border-app-border pt-1">
-                <a
-                  href={buildAppUrl('/auth/login')}
-                  className="block rounded-xl px-3 py-3 text-sm font-black text-app-text-muted transition-colors hover:bg-app-bg hover:text-app-text"
-                >
-                  {t('accountMenu.login')}
-                </a>
-              </div>
-            </nav>
-          </div>
-        ) : null}
       </header>
+
+      <PublicMobileNav
+        items={mobileNavItems}
+        activeId={activeNavItem}
+        onActivate={handleNavActivate}
+        ariaLabel="Mobile navigation"
+      />
       <main className="relative z-10 min-h-screen">
         {isPricing ? <PricingPage /> : <HomePage />}
       </main>
@@ -227,14 +281,7 @@ export default function App() {
   }, [redirectTarget]);
 
   if (redirectTarget) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-app-bg px-6 text-center text-app-text">
-        <div className="grid gap-4">
-          <BrandLogo className="mx-auto h-12 w-auto" />
-          <p className="text-sm text-app-text-secondary">Redirecting to the Synqit app...</p>
-        </div>
-      </div>
-    );
+    return <AppHandoffScreen />;
   }
 
   return (

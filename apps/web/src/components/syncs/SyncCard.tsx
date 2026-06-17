@@ -1,12 +1,12 @@
 import type { SyncItem } from '@synqit/shared';
 import {
-  ArrowUpRight,
   Copy,
-  Link2,
+  ExternalLink,
   ListMusic,
   Mail,
   MessageCircle,
   MoreHorizontal,
+  Settings2,
   Share2,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -20,6 +20,12 @@ import { Modal } from '../ui/Modal';
 type SyncCardProps = {
   sync: SyncItem;
   detailTo?: string;
+  role?: 'owner' | 'subscriber';
+};
+
+const ROLE_ACCENT = {
+  owner: 'bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]',
+  subscriber: 'bg-purple-400/15 text-purple-700 dark:text-purple-300',
 };
 
 const buildSyncUrl = (token: string): string => {
@@ -64,11 +70,14 @@ const formatSyncErrorMessage = (
   return sync.lastError;
 };
 
-export const SyncCard = ({ sync, detailTo }: SyncCardProps) => {
+export const SyncCard = ({ sync, detailTo, role }: SyncCardProps) => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
 
+  const isOwner = role ? role === 'owner' : Boolean(detailTo);
+  const accent = ROLE_ACCENT[isOwner ? 'owner' : 'subscriber'];
+  const roleLabel = isOwner ? t('dashboard.roleOwner') : t('dashboard.roleSubscriber');
   const isRevoked = sync.magicLinkRevokedAt !== null;
   const formattedLastSyncedAt = formatSyncTimestamp(sync.lastSyncedAt);
   const formattedLastError = formatSyncErrorMessage(sync, t);
@@ -130,46 +139,48 @@ export const SyncCard = ({ sync, detailTo }: SyncCardProps) => {
   };
 
   return (
-    <div className="grid min-w-0 gap-3 overflow-hidden rounded-2xl border border-app-border bg-app-surface p-4 shadow-soft-lift transition duration-150 hover:border-brand-lime/40 dark:bg-app-card">
+    <div className="grid min-w-0 gap-4 overflow-hidden rounded-2xl border border-app-border bg-app-surface p-4 shadow-soft-lift transition duration-150 hover:border-brand-lime/40 dark:bg-app-card">
       <div className="flex items-start gap-3">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-dashed border-app-border bg-app-bg dark:bg-app-elevated">
-          <ListMusic size={18} className="text-app-text-secondary/40" aria-hidden="true" />
-        </div>
+        <span
+          aria-hidden="true"
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${accent}`}
+        >
+          <ListMusic size={18} />
+        </span>
         <div className="min-w-0 flex-1 overflow-hidden">
-          <h2 className="truncate text-sm font-black text-brand-dark dark:text-brand-white">
-            {sync.name}
-          </h2>
-          {sync.trackCount !== null ? (
-            <p className="truncate text-xs text-app-text-secondary">
-              {t('syncCreatePage.trackCount', { count: sync.trackCount })}
-            </p>
-          ) : null}
-          {!isRevoked && formattedLastError ? (
-            <p className="truncate pt-1 text-[11px] text-[#b41563] dark:text-[#ff8ac0]">
-              {formattedLastError}
-            </p>
-          ) : !isRevoked ? (
-            <p className="truncate pt-1 text-[11px] text-app-text-secondary">
-              {formattedLastSyncedAt
-                ? t('syncedListsPage.lastSyncedAt', { date: formattedLastSyncedAt })
-                : t('syncedListsPage.autoSyncActive')}
-            </p>
-          ) : null}
+          <div className="flex min-w-0 items-center gap-2">
+            <h2 className="min-w-0 truncate text-sm font-black text-brand-dark dark:text-brand-white">
+              {sync.name}
+            </h2>
+            <span
+              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${accent}`}
+            >
+              {roleLabel}
+            </span>
+          </div>
+          <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-app-text-secondary">
+            {sync.trackCount !== null ? (
+              <span className="shrink-0">
+                {t('syncCreatePage.trackCount', { count: sync.trackCount })}
+              </span>
+            ) : null}
+            {!isRevoked && formattedLastError ? (
+              <span className="inline-flex min-w-0 items-center gap-1 text-[#b41563] dark:text-[#ff8ac0]">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
+                <span className="truncate">{formattedLastError}</span>
+              </span>
+            ) : !isRevoked ? (
+              <span className="inline-flex min-w-0 items-center gap-1 text-[#6d9600] dark:text-[#d5ff5c]">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" aria-hidden="true" />
+                <span className="truncate">
+                  {formattedLastSyncedAt
+                    ? t('syncedListsPage.lastSyncedAt', { date: formattedLastSyncedAt })
+                    : t('syncedListsPage.autoSyncActive')}
+                </span>
+              </span>
+            ) : null}
+          </div>
         </div>
-        {detailTo ? (
-          <CTALink
-            to={detailTo}
-            variant="ghost"
-            className="group shrink-0 gap-1.5 rounded-xl px-2.5 py-1.5 text-xs hover:border-brand-pink hover:text-brand-pink"
-          >
-            <span className="hidden sm:inline">{t('syncedListsPage.manageList')}</span>
-            <ArrowUpRight
-              size={12}
-              aria-hidden="true"
-              className="transition duration-150 ease-out group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-            />
-          </CTALink>
-        ) : null}
       </div>
 
       {isRevoked ? (
@@ -177,38 +188,43 @@ export const SyncCard = ({ sync, detailTo }: SyncCardProps) => {
           {t('eventsPage.linkRevoked')}
         </p>
       ) : (
-        <div className="flex w-full items-center justify-between gap-3">
-          <a
-            href={buildSyncPath(sync.magicLinkToken)}
-            target="_blank"
-            rel="noreferrer"
-            className="group inline-flex flex-1 min-w-0 items-center justify-between gap-3 rounded-xl border border-app-border bg-app-surface px-3 py-1 text-app-text shadow-soft-lift transition duration-150 hover:border-brand-pink focus-ring-brand dark:bg-app-elevated"
-          >
-            <span className="flex min-w-0 items-center gap-2">
-              <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center text-brand-pink dark:bg-app-card">
-                <Link2 size={14} aria-hidden="true" />
-              </span>
-              <span className="grid min-w-0 gap-0.5">
-                <span className="truncate text-sm font-semibold">
-                  {t('eventsPage.magicLinkOpenHint')}
-                </span>
-              </span>
-            </span>
-            <ArrowUpRight
-              size={15}
-              aria-hidden="true"
-              className="shrink-0 text-app-text-secondary transition duration-150 ease-out group-hover:text-brand-pink sm:motion-safe:group-hover:translate-x-1 sm:motion-safe:group-hover:-translate-y-1"
-            />
-          </a>
-          <div className="flex shrink-0 items-center gap-2">
+        <div className="flex w-full items-center gap-2">
+          {detailTo ? (
+            <CTALink
+              to={detailTo}
+              variant="primary"
+              className="flex-1 justify-center gap-1.5 px-4 py-2.5 text-sm"
+            >
+              <Settings2 size={14} aria-hidden="true" />
+              {t('syncedListsPage.manageList')}
+            </CTALink>
+          ) : (
+            <CTAButton
+              type="button"
+              variant="primary"
+              className="flex-1 justify-center gap-1.5 px-4 py-2.5 text-sm"
+              onClick={() => window.open(buildSyncPath(sync.magicLinkToken), '_blank', 'noopener')}
+            >
+              {t('syncedListsPage.openList')}
+              <ExternalLink size={14} aria-hidden="true" />
+            </CTAButton>
+          )}
+          {detailTo ? (
             <IconButton
-              onClick={() => setIsShareSheetOpen(true)}
-              aria-label={t('eventsPage.shareLinkAria')}
+              onClick={() => window.open(buildSyncPath(sync.magicLinkToken), '_blank', 'noopener')}
+              aria-label={t('syncedListsPage.openList')}
               size="sm"
               className="hover:border-brand-pink hover:text-brand-pink"
-              icon={<Share2 size={14} aria-hidden="true" />}
+              icon={<ExternalLink size={14} aria-hidden="true" />}
             />
-          </div>
+          ) : null}
+          <IconButton
+            onClick={() => setIsShareSheetOpen(true)}
+            aria-label={t('eventsPage.shareLinkAria')}
+            size="sm"
+            className="hover:border-brand-pink hover:text-brand-pink"
+            icon={<Share2 size={14} aria-hidden="true" />}
+          />
           <Modal
             open={isShareSheetOpen}
             title={t('eventsPage.shareSheetTitle')}

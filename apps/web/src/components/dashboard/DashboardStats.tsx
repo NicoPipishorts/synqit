@@ -18,7 +18,7 @@ export const DashboardStats = ({ stats }: DashboardStatsProps) => (
     {stats.map(({ id, label, value, hint, hintActive, icon: Icon }) => (
       <div
         key={id}
-        className="rounded-2xl border border-app-border bg-app-elevated p-4 dark:bg-app-card"
+        className="rounded-2xl border border-app-border bg-app-elevated p-4 dark:bg-app-card shadow-soft-lift"
       >
         <div className="flex items-center gap-1.5 text-app-text-secondary">
           <Icon size={14} aria-hidden="true" />
