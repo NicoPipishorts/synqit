@@ -504,7 +504,7 @@ export const HomePage = () => {
       </div>
 
       {/* footer reveal spacer */}
-      <div aria-hidden className="h-100 sm:h-96 lg:h-104" />
+      <div aria-hidden className="h-[30rem] sm:h-96 lg:h-104" />
     </div>
   );
 };

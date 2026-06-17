@@ -139,7 +139,7 @@ export const SyncCard = ({ sync, detailTo, role }: SyncCardProps) => {
   };
 
   return (
-    <div className="grid min-w-0 gap-4 overflow-hidden rounded-2xl border border-app-border bg-app-surface p-4 shadow-soft-lift transition duration-150 hover:border-brand-lime/40 dark:bg-app-card">
+    <div className="grid min-w-0 gap-4 overflow-hidden rounded-2xl border border-app-border bg-app-bg p-4 shadow-soft-lift transition duration-150 hover:border-brand-lime/40 dark:bg-app-card">
       <div className="flex items-start gap-3">
         <span
           aria-hidden="true"
@@ -192,7 +192,7 @@ export const SyncCard = ({ sync, detailTo, role }: SyncCardProps) => {
           {detailTo ? (
             <CTALink
               to={detailTo}
-              variant="primary"
+              variant="secondary"
               className="flex-1 justify-center gap-1.5 px-4 py-2.5 text-sm"
             >
               <Settings2 size={14} aria-hidden="true" />
