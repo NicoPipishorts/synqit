@@ -57,6 +57,11 @@ const SyncDetailsPage = createLazyRouteComponent(() =>
     default: module.SyncDetailsPage,
   })),
 );
+const FollowersPage = createLazyRouteComponent(() =>
+  import('./pages/FollowersPage').then((module) => ({
+    default: module.FollowersPage,
+  })),
+);
 const ProfilePage = createLazyRouteComponent(() =>
   import('./pages/ProfilePage').then((module) => ({
     default: module.ProfilePage,
@@ -321,6 +326,13 @@ const dashboardRoute = createRoute({
   component: DashboardPage,
 });
 
+const followersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/followers',
+  beforeLoad: requireAuth,
+  component: FollowersPage,
+});
+
 const profileRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/profile',
@@ -376,6 +388,7 @@ const routeTree = rootRoute.addChildren([
   adminEmailsRoute,
   providerOauthCallbackRoute,
   dashboardRoute,
+  followersRoute,
   profileRoute,
   profilePlatformsRoute,
   profilePersonalInfoRoute,

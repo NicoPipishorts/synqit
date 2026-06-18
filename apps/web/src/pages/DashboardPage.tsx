@@ -8,6 +8,7 @@ import {
   DashboardActivityFeed,
   type ActivityFeedItem,
 } from '../components/dashboard/DashboardActivityFeed';
+import { DashboardFollowersRow } from '../components/dashboard/DashboardFollowersRow';
 import {
   DashboardPlaylistCard,
   type PlaylistCardRole,
@@ -21,6 +22,7 @@ import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import {
   fetchDashboardSummary,
+  fetchDashboardTopFollowers,
   fetchDrafts,
   fetchPersonalInfo,
   fetchSyncCollections,
@@ -110,12 +112,19 @@ export const DashboardPage = () => {
     staleTime: 300_000,
   });
 
+  const topFollowersQuery = useQuery({
+    queryKey: queryKeys.dashboard.topFollowers(),
+    queryFn: fetchDashboardTopFollowers,
+    staleTime: 120_000,
+  });
+
   // ---------------------------------------------------------------------------
   // Derived data
   // ---------------------------------------------------------------------------
 
   const activeDraft = draftsQuery.data?.[0] ?? null;
   const summary = dashboardSummaryQuery.data;
+  const topFollowers = topFollowersQuery.data?.followers ?? [];
 
   // Stable references so the downstream useMemo hooks don't recompute every render.
   const trackedEventActivity = useMemo(() => summary?.trackedEventActivity ?? [], [summary]);
@@ -495,6 +504,16 @@ export const DashboardPage = () => {
 
           {/* Stat band */}
           <DashboardStats stats={stats} />
+
+          {/* Top followers */}
+          <DashboardFollowersRow
+            followers={topFollowers}
+            title={t('dashboard.followersTitle')}
+            subtitle={t('dashboard.followersSubtitle')}
+            viewAllLabel={t('dashboard.followersViewAll')}
+            viewAllTo="/followers"
+            emptyLabel={t('dashboard.followersEmpty')}
+          />
 
           {/* Playlists + activity */}
           <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] lg:items-start">

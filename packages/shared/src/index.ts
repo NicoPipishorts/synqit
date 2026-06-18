@@ -970,6 +970,21 @@ export const dashboardSummaryResponseSchema = z.object({
 });
 export type DashboardSummaryResponse = z.infer<typeof dashboardSummaryResponseSchema>;
 
+export const dashboardTopFollowerSchema = z.object({
+  userId: z.string(),
+  name: z.string(),
+  avatarUrl: z.string().nullable(),
+  subscriptionCount: z.number().int().nonnegative(),
+  latestSubscribedAt: z.string(),
+});
+export type DashboardTopFollower = z.infer<typeof dashboardTopFollowerSchema>;
+
+export const dashboardTopFollowersResponseSchema = z.object({
+  followers: z.array(dashboardTopFollowerSchema),
+  totalCount: z.number().int().nonnegative(),
+});
+export type DashboardTopFollowersResponse = z.infer<typeof dashboardTopFollowersResponseSchema>;
+
 export const healthResponseSchema = z.object({
   status: z.literal('ok'),
   service: z.string(),

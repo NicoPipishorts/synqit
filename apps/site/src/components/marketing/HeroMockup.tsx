@@ -44,3 +44,28 @@ export const HeroBackdrop = () => {
     </div>
   );
 };
+
+export const HostWorkspaceBackdrop = () => {
+  const { locale } = useI18n();
+
+  return (
+    <div className="h-full w-full">
+      <img
+        src={`${ASSET_BASE}/host-scree-dark-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="block h-full w-full object-cover object-top dark:hidden"
+      />
+      <img
+        src={`${ASSET_BASE}/host-scree-light-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="hidden h-full w-full object-cover object-top dark:block"
+      />
+    </div>
+  );
+};
