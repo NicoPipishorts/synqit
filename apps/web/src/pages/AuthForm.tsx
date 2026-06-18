@@ -22,13 +22,8 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
     () => new URLSearchParams(search).get('email')?.trim() ?? '',
     [search],
   );
-  const prefilledInviteToken = useMemo(
-    () => new URLSearchParams(search).get('inviteToken')?.trim() ?? '',
-    [search],
-  );
   const [email, setEmail] = useState(prefilledEmail);
   const [password, setPassword] = useState('');
-  const [inviteToken] = useState(prefilledInviteToken);
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<'error' | 'success' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,9 +46,6 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
     if (prefilledEmail) {
       params.set('email', prefilledEmail);
     }
-    if (prefilledInviteToken) {
-      params.set('inviteToken', prefilledInviteToken);
-    }
     const query = params.toString();
     return query ? `${path}?${query}` : path;
   };
@@ -73,9 +65,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
         endpoint,
         {
           method: 'POST',
-          body: JSON.stringify(
-            isLogin ? { email, password } : { email, password, inviteToken: inviteToken.trim() },
-          ),
+          body: JSON.stringify({ email, password }),
         },
         (payload) => payload,
       );
@@ -105,10 +95,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   };
 
   return (
-    <AuthPageLayout
-      title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
-      description={isLogin ? undefined : t('auth.registerLeadInviteOnly')}
-    >
+    <AuthPageLayout title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}>
       <form onSubmit={onSubmit} autoComplete="on" className="mx-auto grid w-full max-w-xl gap-5">
         <label htmlFor="auth-email" className="grid gap-2 text-sm font-medium">
           <span>{t('auth.email')}</span>
@@ -144,7 +131,6 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
           />
           {!isLogin ? <PasswordStrengthMeter password={password} showTooltip /> : null}
         </label>
-        {!isLogin ? <input type="hidden" name="inviteToken" value={inviteToken} /> : null}
         {isLogin ? (
           <div className="flex justify-end">
             <Link

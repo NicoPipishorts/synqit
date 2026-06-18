@@ -18,10 +18,6 @@ export const AdminEmailsPage = () => {
   const [resetPreviewLocale, setResetPreviewLocale] = useState<'en' | 'fr'>('en');
   const [isSendingResetPreview, setIsSendingResetPreview] = useState(false);
   const [resetPreviewStatus, setResetPreviewStatus] = useState<string | null>(null);
-  const [invitePreviewEmail, setInvitePreviewEmail] = useState('');
-  const [invitePreviewLocale, setInvitePreviewLocale] = useState<'en' | 'fr'>('en');
-  const [isSendingInvitePreview, setIsSendingInvitePreview] = useState(false);
-  const [invitePreviewStatus, setInvitePreviewStatus] = useState<string | null>(null);
   const [recapPreviewEmail, setRecapPreviewEmail] = useState('');
   const [recapPreviewLocale, setRecapPreviewLocale] = useState<'en' | 'fr'>('en');
   const [isSendingRecapPreview, setIsSendingRecapPreview] = useState(false);
@@ -108,48 +104,6 @@ export const AdminEmailsPage = () => {
       setResetPreviewStatus(apiError.message);
     } finally {
       setIsSendingResetPreview(false);
-    }
-  };
-
-  const sendInvitePreview = async () => {
-    if (!invitePreviewEmail) {
-      return;
-    }
-
-    setIsSendingInvitePreview(true);
-    setInvitePreviewStatus(null);
-    try {
-      const result = await callApi(
-        '/v1/admin/email/preview/invite',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            toEmail: invitePreviewEmail,
-            locale: invitePreviewLocale,
-          }),
-        },
-        (payload) => payload,
-      );
-      const jobId =
-        result &&
-        typeof result === 'object' &&
-        'jobId' in result &&
-        typeof result.jobId === 'string'
-          ? result.jobId
-          : null;
-      setInvitePreviewStatus(
-        jobId ? t('admin.invitePreviewQueuedWithJob', { jobId }) : t('admin.invitePreviewQueued'),
-      );
-    } catch (error) {
-      const apiError = toApiError(error);
-      if (apiError.code === 'unauthorized' || apiError.code === 'forbidden') {
-        clearAuth();
-        void navigate({ to: '/login' });
-        return;
-      }
-      setInvitePreviewStatus(apiError.message);
-    } finally {
-      setIsSendingInvitePreview(false);
     }
   };
 
@@ -268,43 +222,6 @@ export const AdminEmailsPage = () => {
         {resetPreviewStatus ? (
           <p className="rounded-lg border border-app-border bg-app-surface px-3 py-2 text-xs font-semibold text-app-text-secondary">
             {resetPreviewStatus}
-          </p>
-        ) : null}
-      </article>
-
-      <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-4 shadow-soft-lift sm:p-5 dark:bg-app-card">
-        <h2 className="text-lg font-black text-app-text">{t('admin.inviteEmailPreviewTitle')}</h2>
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto_auto]">
-          <input
-            type="email"
-            value={invitePreviewEmail}
-            onChange={(event) => setInvitePreviewEmail(event.target.value)}
-            placeholder={t('admin.previewEmailPlaceholder')}
-            className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text outline-none transition focus:border-brand-lime"
-          />
-          <select
-            value={invitePreviewLocale}
-            onChange={(event) => setInvitePreviewLocale(event.target.value === 'fr' ? 'fr' : 'en')}
-            className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text"
-          >
-            <option value="en">EN</option>
-            <option value="fr">FR</option>
-          </select>
-          <CTAButton
-            type="button"
-            variant="secondary"
-            onClick={() => void sendInvitePreview()}
-            disabled={isSendingInvitePreview}
-            className="w-full justify-center sm:w-auto"
-          >
-            {isSendingInvitePreview
-              ? t('admin.sendingInvitePreview')
-              : t('admin.sendInvitePreview')}
-          </CTAButton>
-        </div>
-        {invitePreviewStatus ? (
-          <p className="rounded-lg border border-app-border bg-app-surface px-3 py-2 text-xs font-semibold text-app-text-secondary">
-            {invitePreviewStatus}
           </p>
         ) : null}
       </article>

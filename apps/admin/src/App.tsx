@@ -13,7 +13,6 @@ import { isAdminAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
 import { AdminAnalyticsPage } from './pages/AdminAnalyticsPage';
 import { AdminEmailsPage } from './pages/AdminEmailsPage';
-import { AdminInvitesPage } from './pages/AdminInvitesPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
 import { AdminUserDetailsPage } from './pages/AdminUserDetailsPage';
 import { AdminUsersPage } from './pages/AdminUsersPage';
@@ -33,7 +32,7 @@ const requireAdminAuth = () => {
 const redirectIfAdminAuthenticated = () => {
   if (isAdminAuthenticated()) {
     throw redirect({
-      to: '/invites',
+      to: '/users',
     });
   }
 };
@@ -43,7 +42,7 @@ const indexRoute = createRoute({
   path: '/',
   beforeLoad: () => {
     throw redirect({
-      to: isAdminAuthenticated() ? '/invites' : '/login',
+      to: isAdminAuthenticated() ? '/users' : '/login',
     });
   },
 });
@@ -55,19 +54,12 @@ const loginRoute = createRoute({
   component: AdminLoginPage,
 });
 
-const invitesRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/invites',
-  beforeLoad: requireAdminAuth,
-  component: AdminInvitesPage,
-});
-
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dashboard',
   beforeLoad: () => {
     throw redirect({
-      to: '/invites',
+      to: '/users',
     });
   },
 });
@@ -103,7 +95,6 @@ const emailsRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   indexRoute,
   loginRoute,
-  invitesRoute,
   dashboardRoute,
   usersRoute,
   userDetailRoute,
