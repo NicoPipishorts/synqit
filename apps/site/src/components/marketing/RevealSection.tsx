@@ -1,6 +1,7 @@
 import { motion, type Variants } from 'framer-motion';
-import { type ReactNode } from 'react';
+import { type ReactNode, useCallback, useRef } from 'react';
 
+import { trackSiteEvent } from '../../lib/analytics';
 import { isTouchDevice } from '../../lib/motion';
 
 const SECTION_REVEAL_VARIANTS: Variants = {
@@ -16,24 +17,72 @@ const SECTION_REVEAL_VARIANTS: Variants = {
   },
 };
 
+// Returns a callback ref that fires `site_section_viewed` once, the first time
+// the section scrolls into view. Works for both the animated and touch branches.
+const useSectionViewRef = (trackId?: string) => {
+  const hasFiredRef = useRef(false);
+
+  return useCallback(
+    (node: HTMLElement | null) => {
+      if (!node || !trackId || hasFiredRef.current) {
+        return;
+      }
+
+      const fire = () => {
+        if (hasFiredRef.current) {
+          return;
+        }
+        hasFiredRef.current = true;
+        trackSiteEvent({ eventName: 'site_section_viewed', properties: { section: trackId } });
+      };
+
+      if (typeof IntersectionObserver === 'undefined') {
+        fire();
+        return;
+      }
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((entry) => entry.isIntersecting)) {
+            fire();
+            observer.disconnect();
+          }
+        },
+        { threshold: 0.3 },
+      );
+      observer.observe(node);
+    },
+    [trackId],
+  );
+};
+
 type RevealSectionProps = {
   children: ReactNode;
   className?: string;
   revealOnScroll?: boolean;
+  trackId?: string;
 };
 
 export const RevealSection = ({
   children,
   className,
   revealOnScroll = true,
+  trackId,
 }: RevealSectionProps) => {
+  const sectionViewRef = useSectionViewRef(trackId);
+
   if (isTouchDevice) {
-    return <section className={className}>{children}</section>;
+    return (
+      <section ref={sectionViewRef} className={className}>
+        {children}
+      </section>
+    );
   }
 
   if (revealOnScroll) {
     return (
       <motion.section
+        ref={sectionViewRef}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.1, margin: '0px 0px -10% 0px' }}
@@ -47,6 +96,7 @@ export const RevealSection = ({
 
   return (
     <motion.section
+      ref={sectionViewRef}
       initial="hidden"
       animate="visible"
       variants={SECTION_REVEAL_VARIANTS}

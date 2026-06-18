@@ -6,6 +6,16 @@ import {
   useSpring,
   useTransform,
 } from 'framer-motion';
+import {
+  ArrowLeftRight,
+  type LucideIcon,
+  RefreshCw,
+  ShieldCheck,
+  SlidersHorizontal,
+  Smartphone,
+  Wand2,
+  Zap,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { HeroBackdrop } from './components/marketing/HeroMockup';
@@ -49,6 +59,25 @@ const HERO_ROTATE_MS = 12000;
 
 type OfferTab = 'event' | 'sync';
 
+const CARD_ACCENTS = {
+  lime: {
+    badge: 'bg-brand-lime/15 text-[#7aa300] dark:bg-brand-lime/10 dark:text-brand-lime',
+    text: 'text-[#7aa300] dark:text-brand-lime',
+    glow: 'bg-[radial-gradient(circle_at_top_right,rgba(198,255,0,0.18),transparent_58%)]',
+    line: 'from-brand-lime/70 via-brand-lime/25 to-transparent',
+    panel:
+      'bg-[linear-gradient(165deg,rgba(198,255,0,0.12)_0%,rgba(255,255,255,0)_48%)] dark:bg-[linear-gradient(165deg,rgba(198,255,0,0.10)_0%,rgba(255,255,255,0)_48%)]',
+  },
+  pink: {
+    badge: 'bg-brand-pink/15 text-[#b41563] dark:bg-brand-pink/10 dark:text-brand-pink',
+    text: 'text-[#b41563] dark:text-brand-pink',
+    glow: 'bg-[radial-gradient(circle_at_top_right,rgba(255,46,139,0.16),transparent_58%)]',
+    line: 'from-brand-pink/70 via-brand-pink/25 to-transparent',
+    panel:
+      'bg-[linear-gradient(165deg,rgba(255,46,139,0.10)_0%,rgba(255,255,255,0)_48%)] dark:bg-[linear-gradient(165deg,rgba(255,46,139,0.08)_0%,rgba(255,255,255,0)_48%)]',
+  },
+} as const;
+
 const EVENT_IMAGES = [
   '/assets/presentation/Events-step-1.png',
   '/assets/presentation/Events-step-2-1.png',
@@ -69,36 +98,86 @@ const SYNC_IMAGES = [
 
 const ReasonCard = ({
   number,
+  icon: Icon,
   title,
   body,
   accent,
 }: {
   number: string;
+  icon: LucideIcon;
   title: string;
   body: string;
   accent: 'lime' | 'pink';
 }) => (
-  <SurfaceCard className="flex flex-col gap-3 p-6">
-    <span
-      className={`text-xs font-black tracking-widest uppercase ${
-        accent === 'lime'
-          ? 'text-[#7aa300] dark:text-brand-lime'
-          : 'text-[#b41563] dark:text-brand-pink'
-      }`}
-    >
-      {number}
-    </span>
-    <p className="font-black text-brand-dark dark:text-brand-white">{title}</p>
-    <p className="text-sm leading-relaxed text-app-text-secondary">{body}</p>
+  <SurfaceCard className={`h-full border-app-border/80 p-6 ${CARD_ACCENTS[accent].panel}`}>
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none absolute inset-0 ${CARD_ACCENTS[accent].glow}`}
+    />
+    <div className="relative z-10 flex h-full flex-col gap-5">
+      <div className="flex items-start justify-between gap-4">
+        <span
+          className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ring-1 ring-inset ring-white/35 dark:ring-white/8 ${CARD_ACCENTS[accent].badge}`}
+        >
+          <Icon size={21} aria-hidden="true" />
+        </span>
+        <div
+          aria-hidden="true"
+          className={`mt-6 h-px min-w-8 flex-1 bg-gradient-to-r ${CARD_ACCENTS[accent].line}`}
+        />
+        <span
+          className={`rounded-full border border-current/12 bg-app-bg/70 px-3 py-1 text-[11px] font-black tracking-[0.24em] uppercase backdrop-blur-sm ${CARD_ACCENTS[accent].text}`}
+        >
+          {number}
+        </span>
+      </div>
+      <div className="flex flex-1 flex-col gap-3">
+        <p className="max-w-[18rem] text-lg font-black leading-tight text-brand-dark dark:text-brand-white">
+          {title}
+        </p>
+        <p className="text-sm leading-relaxed text-app-text-secondary">{body}</p>
+      </div>
+    </div>
   </SurfaceCard>
 );
 
 // ─── Feature card ──────────────────────────────────────────────────────────────
 
-const FeatureCard = ({ title, body }: { title: string; body: string }) => (
-  <SurfaceCard className="flex flex-col gap-2 p-5">
-    <p className="font-black text-brand-dark dark:text-brand-white">{title}</p>
-    <p className="text-sm leading-relaxed text-app-text-secondary">{body}</p>
+const FeatureCard = ({
+  icon: Icon,
+  title,
+  body,
+  accent,
+}: {
+  icon: LucideIcon;
+  title: string;
+  body: string;
+  accent: 'lime' | 'pink';
+}) => (
+  <SurfaceCard className={`h-full border-app-border/80 p-5 ${CARD_ACCENTS[accent].panel}`}>
+    <div
+      aria-hidden="true"
+      className={`pointer-events-none absolute inset-0 ${CARD_ACCENTS[accent].glow}`}
+    />
+    <div className="relative z-10 flex h-full flex-col gap-4">
+      <div className="flex items-start justify-between gap-4">
+        <span
+          className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ring-1 ring-inset ring-white/35 dark:ring-white/8 ${CARD_ACCENTS[accent].badge}`}
+        >
+          <Icon size={20} aria-hidden="true" />
+        </span>
+        <div
+          aria-hidden="true"
+          className={`mt-[1.375rem] min-w-8 flex-1 self-start h-px bg-gradient-to-r ${CARD_ACCENTS[accent].line}`}
+        />
+      </div>
+      <div className="flex flex-1 flex-col gap-3">
+        <p className="text-lg font-black leading-tight text-brand-dark dark:text-brand-white">
+          {title}
+        </p>
+        <p className="text-sm leading-relaxed text-app-text-secondary">{body}</p>
+      </div>
+    </div>
   </SurfaceCard>
 );
 
@@ -189,6 +268,7 @@ export const HomePage = () => {
           {/* ── Hero ──────────────────────────────────────────────────────── */}
           <RevealSection
             revealOnScroll={false}
+            trackId="hero"
             className="relative flex min-h-svh flex-col justify-center pb-12 pt-32 sm:min-h-[calc(100svh-6rem)] sm:pb-20 sm:pt-40"
           >
             <motion.div
@@ -200,7 +280,7 @@ export const HomePage = () => {
               <motion.div
                 ref={heroImageRef}
                 variants={FADE_UP}
-                className="relative flex min-h-80 justify-center overflow-hidden sm:h-[52svh] lg:h-[75svh] lg:min-h-140 lg:justify-end"
+                className="order-2 relative flex min-h-80 justify-center overflow-hidden sm:h-[52svh] lg:order-1 lg:h-[75svh] lg:min-h-140 lg:justify-end"
                 style={{ perspective: '1400px' }}
               >
                 <motion.div
@@ -219,7 +299,7 @@ export const HomePage = () => {
 
               <motion.div
                 variants={FADE_UP}
-                className="relative flex w-full flex-col items-center justify-center gap-4 px-4 text-center sm:min-h-[280px] sm:gap-6 sm:px-0 lg:min-h-[75svh]"
+                className="order-1 relative flex w-full flex-col items-center justify-center gap-4 px-4 text-center sm:min-h-[280px] sm:gap-6 sm:px-0 lg:order-2 lg:min-h-[75svh]"
               >
                 <div
                   aria-hidden="true"
@@ -283,7 +363,10 @@ export const HomePage = () => {
 
           <div>
             {/* ── Offer tabs + screenshots ───────────────────────────────────── */}
-            <RevealSection className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(135deg,rgba(198,255,0,0.08)_0%,transparent_42%,rgba(255,46,139,0.06)_100%)] py-24 sm:py-32 lg:py-36">
+            <RevealSection
+              trackId="showcase"
+              className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(135deg,rgba(198,255,0,0.08)_0%,transparent_42%,rgba(255,46,139,0.06)_100%)] py-24 sm:py-32 lg:py-36"
+            >
               <div
                 aria-hidden="true"
                 className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#c6ff00,#ff2e8b,#7dd3fc)]"
@@ -366,7 +449,10 @@ export const HomePage = () => {
             </RevealSection>
 
             {/* ── Features ──────────────────────────────────────────────────── */}
-            <RevealSection className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(145deg,rgba(198,255,0,0.14)_0%,rgba(245,245,245,0.72)_46%,rgba(125,211,252,0.12)_100%)] py-24 dark:bg-[linear-gradient(145deg,rgba(198,255,0,0.10)_0%,rgba(26,26,26,0.88)_46%,rgba(125,211,252,0.10)_100%)] sm:py-32 lg:py-36">
+            <RevealSection
+              trackId="features"
+              className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(145deg,rgba(198,255,0,0.14)_0%,rgba(245,245,245,0.72)_46%,rgba(125,211,252,0.12)_100%)] py-24 dark:bg-[linear-gradient(145deg,rgba(198,255,0,0.10)_0%,rgba(26,26,26,0.88)_46%,rgba(125,211,252,0.10)_100%)] sm:py-32 lg:py-36"
+            >
               <div
                 aria-hidden="true"
                 className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#c6ff00,#7dd3fc,#c6ff00)]"
@@ -379,27 +465,38 @@ export const HomePage = () => {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <FeatureCard
+                    icon={Smartphone}
                     title={t('home.features.nativeTitle')}
                     body={t('home.features.nativeBody')}
+                    accent="lime"
                   />
                   <FeatureCard
+                    icon={Wand2}
                     title={t('home.features.magicLinkTitle')}
                     body={t('home.features.magicLinkBody')}
+                    accent="pink"
                   />
                   <FeatureCard
+                    icon={ArrowLeftRight}
                     title={t('home.features.crossPlatformTitle')}
                     body={t('home.features.crossPlatformBody')}
+                    accent="lime"
                   />
                   <FeatureCard
+                    icon={ShieldCheck}
                     title={t('home.features.moderationTitle')}
                     body={t('home.features.moderationBody')}
+                    accent="pink"
                   />
                 </div>
               </div>
             </RevealSection>
 
             {/* ── Why Synqit ────────────────────────────────────────────────── */}
-            <RevealSection className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(160deg,rgba(255,46,139,0.08)_0%,transparent_45%,rgba(198,255,0,0.07)_100%)] py-24 sm:py-32 lg:py-36">
+            <RevealSection
+              trackId="why"
+              className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(160deg,rgba(255,46,139,0.08)_0%,transparent_45%,rgba(198,255,0,0.07)_100%)] py-24 sm:py-32 lg:py-36"
+            >
               <div
                 aria-hidden="true"
                 className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#ff2e8b,#c6ff00,#ff2e8b)]"
@@ -413,24 +510,28 @@ export const HomePage = () => {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <ReasonCard
                     number="01"
+                    icon={Zap}
                     accent="lime"
                     title={t('home.why.reason1Title')}
                     body={t('home.why.reason1Body')}
                   />
                   <ReasonCard
                     number="02"
+                    icon={ArrowLeftRight}
                     accent="pink"
                     title={t('home.why.reason2Title')}
                     body={t('home.why.reason2Body')}
                   />
                   <ReasonCard
                     number="03"
+                    icon={RefreshCw}
                     accent="lime"
                     title={t('home.why.reason3Title')}
                     body={t('home.why.reason3Body')}
                   />
                   <ReasonCard
                     number="04"
+                    icon={SlidersHorizontal}
                     accent="pink"
                     title={t('home.why.reason4Title')}
                     body={t('home.why.reason4Body')}
@@ -440,7 +541,10 @@ export const HomePage = () => {
             </RevealSection>
 
             {/* ── Pricing teaser ────────────────────────────────────────────── */}
-            <RevealSection className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(140deg,rgba(125,211,252,0.14)_0%,rgba(245,245,245,0.70)_48%,rgba(255,46,139,0.10)_100%)] py-24 dark:bg-[linear-gradient(140deg,rgba(125,211,252,0.10)_0%,rgba(26,26,26,0.88)_48%,rgba(255,46,139,0.09)_100%)] sm:py-32 lg:py-36">
+            <RevealSection
+              trackId="pricing"
+              className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(140deg,rgba(125,211,252,0.14)_0%,rgba(245,245,245,0.70)_48%,rgba(255,46,139,0.10)_100%)] py-24 dark:bg-[linear-gradient(140deg,rgba(125,211,252,0.10)_0%,rgba(26,26,26,0.88)_48%,rgba(255,46,139,0.09)_100%)] sm:py-32 lg:py-36"
+            >
               <div
                 aria-hidden="true"
                 className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#7dd3fc,#ff2e8b,#c6ff00)]"
@@ -460,7 +564,10 @@ export const HomePage = () => {
             </RevealSection>
 
             {/* ── Final CTA ──────────────────────────────────────────────────── */}
-            <RevealSection className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(180deg,rgba(198,255,0,0.08)_0%,transparent_42%,rgba(255,46,139,0.08)_100%)] px-4 pb-32 pt-24 sm:px-0 sm:pb-44 sm:pt-32 lg:pb-48 lg:pt-36">
+            <RevealSection
+              trackId="final_cta"
+              className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(180deg,rgba(198,255,0,0.08)_0%,transparent_42%,rgba(255,46,139,0.08)_100%)] px-4 pb-32 pt-24 sm:px-0 sm:pb-44 sm:pt-32 lg:pb-48 lg:pt-36"
+            >
               <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-brand-gradient" />
               <div className="relative mx-auto w-full max-w-6xl overflow-hidden rounded-[2rem] border border-app-border bg-brand-gradient p-[1px] shadow-soft-lift">
                 <div className="relative overflow-hidden rounded-[calc(2rem-1px)] bg-app-elevated px-6 py-14 dark:bg-app-card sm:px-10 sm:py-16">

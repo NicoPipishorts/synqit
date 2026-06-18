@@ -286,6 +286,49 @@ export const adminAnalyticsPageViewsByDaySchema = z.object({
 });
 export type AdminAnalyticsPageViewsByDay = z.infer<typeof adminAnalyticsPageViewsByDaySchema>;
 
+export const adminAnalyticsFunnelStepSchema = z.enum([
+  'sessions',
+  'registered',
+  'providerConnected',
+  'eventCreated',
+  'shared',
+]);
+export type AdminAnalyticsFunnelStep = z.infer<typeof adminAnalyticsFunnelStepSchema>;
+
+export const adminAnalyticsFunnelEntrySchema = z.object({
+  step: adminAnalyticsFunnelStepSchema,
+  count: z.number().int().nonnegative(),
+});
+export type AdminAnalyticsFunnelEntry = z.infer<typeof adminAnalyticsFunnelEntrySchema>;
+
+export const adminAnalyticsEventBreakdownRowSchema = z.object({
+  eventName: z.string(),
+  target: z.string(),
+  count: z.number().int().nonnegative(),
+  sessions: z.number().int().nonnegative(),
+});
+export type AdminAnalyticsEventBreakdownRow = z.infer<typeof adminAnalyticsEventBreakdownRowSchema>;
+
+export const adminAnalyticsActiveSessionsByDaySchema = z.object({
+  day: z.string(),
+  sessions: z.number().int().nonnegative(),
+});
+export type AdminAnalyticsActiveSessionsByDay = z.infer<
+  typeof adminAnalyticsActiveSessionsByDaySchema
+>;
+
+export const adminAnalyticsSiteSectionSchema = z.object({
+  section: z.string(),
+  views: z.number().int().nonnegative(),
+});
+export type AdminAnalyticsSiteSection = z.infer<typeof adminAnalyticsSiteSectionSchema>;
+
+export const adminAnalyticsSiteClickSchema = z.object({
+  label: z.string(),
+  clicks: z.number().int().nonnegative(),
+});
+export type AdminAnalyticsSiteClick = z.infer<typeof adminAnalyticsSiteClickSchema>;
+
 const adminUserProfileNameSchema = z.object({
   displayName: z.string().max(80).nullable(),
   firstName: z.string().max(80).nullable(),
@@ -315,6 +358,22 @@ export const adminAnalyticsOverviewResponseSchema = z.object({
   }),
   pageViewsByPath: z.array(adminAnalyticsPageViewsByPathSchema),
   pageViewsByDay: z.array(adminAnalyticsPageViewsByDaySchema),
+  funnel: z.array(adminAnalyticsFunnelEntrySchema),
+  eventBreakdown: z.array(adminAnalyticsEventBreakdownRowSchema),
+  engagement: z.object({
+    returningSessionsCount: z.number().int().nonnegative(),
+    avgEventsPerSession: z.number().nonnegative(),
+    activeSessionsByDay: z.array(adminAnalyticsActiveSessionsByDaySchema),
+  }),
+  site: z.object({
+    uniqueVisitors: z.number().int().nonnegative(),
+    pageViewsCount: z.number().int().nonnegative(),
+    avgEngagedSeconds: z.number().nonnegative(),
+    trafficByDay: z.array(adminAnalyticsPageViewsByDaySchema),
+    topPages: z.array(adminAnalyticsPageViewsByPathSchema),
+    topSections: z.array(adminAnalyticsSiteSectionSchema),
+    topClicks: z.array(adminAnalyticsSiteClickSchema),
+  }),
 });
 export type AdminAnalyticsOverviewResponse = z.infer<typeof adminAnalyticsOverviewResponseSchema>;
 
@@ -334,6 +393,7 @@ export const analyticsEventNameSchema = z.enum([
   'auth_login_submit',
   'auth_login_success',
   'auth_login_failed',
+  'auth_logout',
   'auth_register_submit',
   'auth_register_success',
   'auth_register_failed',
@@ -354,13 +414,26 @@ export const analyticsEventNameSchema = z.enum([
   'event_create_submitted',
   'event_create_succeeded',
   'event_create_failed',
+  'event_public_viewed',
   'event_public_load_failed',
   'event_host_load_failed',
   'event_tracks_load_failed',
   'event_track_search_failed',
+  'event_track_add_succeeded',
   'event_track_add_failed',
   'event_track_add_blocked',
+  'event_closed',
+  'event_reopened',
   'event_provider_disconnected_warning',
+  'sync_create_submitted',
+  'sync_create_succeeded',
+  'sync_create_failed',
+  'sync_subscribed',
+  'sync_unsubscribed',
+  'site_page_view',
+  'site_section_viewed',
+  'site_cta_click',
+  'site_time_on_page',
 ]);
 export type AnalyticsEventName = z.infer<typeof analyticsEventNameSchema>;
 
@@ -369,8 +442,10 @@ export const analyticsTargetSchema = z.enum([
   'auth',
   'providers',
   'events',
+  'sync',
   'admin',
   'engagement',
+  'marketing',
 ]);
 export type AnalyticsTarget = z.infer<typeof analyticsTargetSchema>;
 
@@ -380,7 +455,7 @@ export const analyticsTrackRequestSchema = z.object({
   sessionId: z.string().min(8).max(128),
   path: z.string().min(1).max(512),
   locale: z.enum(['en', 'fr']).optional(),
-  source: z.literal('web').default('web'),
+  source: z.enum(['web', 'site']).default('web'),
   properties: z.record(z.string(), z.unknown()).default({}),
 });
 export type AnalyticsTrackRequest = z.infer<typeof analyticsTrackRequestSchema>;

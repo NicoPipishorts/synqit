@@ -4,6 +4,7 @@ import {
   adminAnalyticsEventDetailResponseSchema,
   adminAnalyticsEventsListResponseSchema,
   adminAnalyticsOverviewRangeSchema,
+  analyticsTargetSchema,
   adminAnalyticsOverviewResponseSchema,
   adminAnalyticsUserDetailResponseSchema,
   adminAnalyticsUsersListResponseSchema,
@@ -70,6 +71,11 @@ const adminUserAnalyticsParamsSchema = z.object({
 
 const adminAnalyticsOverviewQuerySchema = z.object({
   range: adminAnalyticsOverviewRangeSchema.optional().default('24h'),
+  source: z.enum(['web', 'site']).optional(),
+  target: analyticsTargetSchema.optional(),
+  page: z.string().min(1).max(512).optional(),
+  locale: z.enum(['en', 'fr']).optional(),
+  visitor: z.enum(['anonymous', 'authenticated']).optional(),
 });
 
 const bootstrapAdminRequestSchema = z.object({
@@ -681,6 +687,46 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       }
     })();
 
+    // Event-level filters (app/source, feature/target, page, language, visitor).
+    // These narrow the event-based blocks only; entity totals, the funnel, and
+    // the dedicated Public-site block stay global (date-range only). Predicates
+    // share one positional-param array with `since` as $1 when present.
+    const eventParams: unknown[] = [];
+    const eventPredicates: string[] = [];
+    if (since) {
+      eventParams.push(since);
+      eventPredicates.push(`created_at >= $${eventParams.length}`);
+    }
+    if (parsedQuery.data.source) {
+      eventParams.push(parsedQuery.data.source);
+      eventPredicates.push(`source = $${eventParams.length}`);
+    }
+    if (parsedQuery.data.target) {
+      eventParams.push(parsedQuery.data.target);
+      eventPredicates.push(`target = $${eventParams.length}`);
+    }
+    if (parsedQuery.data.page) {
+      eventParams.push(parsedQuery.data.page);
+      eventPredicates.push(`page_path = $${eventParams.length}`);
+    }
+    if (parsedQuery.data.locale) {
+      eventParams.push(parsedQuery.data.locale);
+      eventPredicates.push(`locale = $${eventParams.length}`);
+    }
+    if (parsedQuery.data.visitor === 'anonymous') {
+      eventPredicates.push('user_id IS NULL');
+    } else if (parsedQuery.data.visitor === 'authenticated') {
+      eventPredicates.push('user_id IS NOT NULL');
+    }
+    const eventAndClause = eventPredicates.length ? `AND ${eventPredicates.join(' AND ')}` : '';
+    const eventWhereClause = eventPredicates.length ? `WHERE ${eventPredicates.join(' AND ')}` : '';
+    const runEvent = <T>(query: string): Promise<T> =>
+      (eventParams.length
+        ? prisma.$queryRawUnsafe(query, ...eventParams)
+        : prisma.$queryRawUnsafe(query)) as Promise<T>;
+    // Page-view metrics span both apps so the source filter can split them.
+    const pageViewEventNames = `event_name IN ('app_page_view', 'site_page_view')`;
+
     const totalsQuery = `
       SELECT
         (SELECT COUNT(*)::int FROM "users" ${usersSinceClause}) AS users_count,
@@ -689,72 +735,250 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         (
           SELECT COUNT(*)::int
           FROM "analytics_events"
-          WHERE event_name = 'app_page_view'
-            ${analyticsSinceClause}
+          WHERE ${pageViewEventNames}
+            ${eventAndClause}
         ) AS page_views_count,
         (
           SELECT COUNT(DISTINCT session_id)::int
           FROM "analytics_events"
-          ${analyticsWhereSinceClause}
+          ${eventWhereClause}
         ) AS unique_sessions_count,
         (
           SELECT COUNT(*)::int
           FROM "analytics_events"
-          ${analyticsWhereSinceClause}
+          ${eventWhereClause}
         ) AS tracked_events_count
     `;
-    const totalsRows = (
-      hasSince
-        ? await prisma.$queryRawUnsafe(totalsQuery, since)
-        : await prisma.$queryRawUnsafe(totalsQuery)
-    ) as Array<{
-      users_count: number;
-      event_playlists_count: number;
-      shared_playlists_count: number;
-      page_views_count: number;
-      unique_sessions_count: number;
-      tracked_events_count: number;
-    }>;
+    const totalsRows = await runEvent<
+      Array<{
+        users_count: number;
+        event_playlists_count: number;
+        shared_playlists_count: number;
+        page_views_count: number;
+        unique_sessions_count: number;
+        tracked_events_count: number;
+      }>
+    >(totalsQuery);
 
     const pageViewsByPathQuery = `
       SELECT
         page_path,
         COUNT(*)::int AS views
       FROM "analytics_events"
-      WHERE event_name = 'app_page_view'
-        ${analyticsSinceClause}
+      WHERE ${pageViewEventNames}
+        ${eventAndClause}
       GROUP BY page_path
       ORDER BY views DESC
       LIMIT 12
     `;
-    const pageViewsByPathRows = (
-      hasSince
-        ? await prisma.$queryRawUnsafe(pageViewsByPathQuery, since)
-        : await prisma.$queryRawUnsafe(pageViewsByPathQuery)
-    ) as Array<{
-      page_path: string;
-      views: number;
-    }>;
+    const pageViewsByPathRows = await runEvent<
+      Array<{
+        page_path: string;
+        views: number;
+      }>
+    >(pageViewsByPathQuery);
 
     const pageViewsByDayQuery = `
       SELECT
         TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD') AS day,
         COUNT(*)::int AS views
       FROM "analytics_events"
-      WHERE event_name = 'app_page_view'
+      WHERE ${pageViewEventNames}
+        ${eventAndClause}
+      GROUP BY DATE_TRUNC('day', created_at)
+      ORDER BY DATE_TRUNC('day', created_at) DESC
+      ${pageViewsByDayLimit}
+    `;
+    const pageViewsByDayRows = await runEvent<
+      Array<{
+        day: string;
+        views: number;
+      }>
+    >(pageViewsByDayQuery);
+
+    const funnelQuery = `
+      SELECT
+        (
+          SELECT COUNT(DISTINCT session_id)::int
+          FROM "analytics_events"
+          ${analyticsWhereSinceClause}
+        ) AS sessions,
+        (
+          SELECT COUNT(*)::int
+          FROM "analytics_events"
+          WHERE event_name = 'auth_register_success'
+            ${analyticsSinceClause}
+        ) AS registered,
+        (
+          SELECT COUNT(*)::int
+          FROM "analytics_events"
+          WHERE event_name = 'provider_connect_succeeded'
+            ${analyticsSinceClause}
+        ) AS provider_connected,
+        (
+          SELECT COUNT(*)::int
+          FROM "analytics_events"
+          WHERE event_name = 'event_create_succeeded'
+            ${analyticsSinceClause}
+        ) AS event_created,
+        (SELECT COUNT(*)::int FROM "playlist_syncs" ${syncsSinceClause}) AS shared
+    `;
+    const funnelRows = (
+      hasSince
+        ? await prisma.$queryRawUnsafe(funnelQuery, since)
+        : await prisma.$queryRawUnsafe(funnelQuery)
+    ) as Array<{
+      sessions: number;
+      registered: number;
+      provider_connected: number;
+      event_created: number;
+      shared: number;
+    }>;
+
+    const eventBreakdownQuery = `
+      SELECT
+        event_name,
+        target,
+        COUNT(*)::int AS count,
+        COUNT(DISTINCT session_id)::int AS sessions
+      FROM "analytics_events"
+      ${eventWhereClause}
+      GROUP BY event_name, target
+      ORDER BY count DESC
+      LIMIT 100
+    `;
+    const eventBreakdownRows = await runEvent<
+      Array<{
+        event_name: string;
+        target: string;
+        count: number;
+        sessions: number;
+      }>
+    >(eventBreakdownQuery);
+
+    const activeSessionsByDayQuery = `
+      SELECT
+        TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD') AS day,
+        COUNT(DISTINCT session_id)::int AS sessions
+      FROM "analytics_events"
+      ${eventWhereClause}
+      GROUP BY DATE_TRUNC('day', created_at)
+      ORDER BY DATE_TRUNC('day', created_at) DESC
+      ${pageViewsByDayLimit}
+    `;
+    const activeSessionsByDayRows = await runEvent<
+      Array<{
+        day: string;
+        sessions: number;
+      }>
+    >(activeSessionsByDayQuery);
+
+    const returningSessionsQuery = `
+      SELECT COUNT(*)::int AS returning_sessions
+      FROM (
+        SELECT session_id
+        FROM "analytics_events"
+        ${eventWhereClause}
+        GROUP BY session_id
+        HAVING COUNT(DISTINCT DATE_TRUNC('day', created_at)) >= 2
+      ) AS multi_day_sessions
+    `;
+    const returningSessionsRows =
+      await runEvent<Array<{ returning_sessions: number }>>(returningSessionsQuery);
+
+    // Public marketing site (source = 'site') aggregations.
+    const siteTotalsQuery = `
+      SELECT
+        (
+          SELECT COUNT(*)::int
+          FROM "analytics_events"
+          WHERE source = 'site' AND event_name = 'site_page_view'
+            ${analyticsSinceClause}
+        ) AS page_views,
+        (
+          SELECT COUNT(DISTINCT session_id)::int
+          FROM "analytics_events"
+          WHERE source = 'site'
+            ${analyticsSinceClause}
+        ) AS unique_visitors,
+        (
+          SELECT COALESCE(AVG((properties->>'engagedMs')::numeric), 0)
+          FROM "analytics_events"
+          WHERE source = 'site' AND event_name = 'site_time_on_page'
+            AND (properties->>'engagedMs') IS NOT NULL
+            ${analyticsSinceClause}
+        ) AS avg_engaged_ms
+    `;
+    const siteTotalsRows = (
+      hasSince
+        ? await prisma.$queryRawUnsafe(siteTotalsQuery, since)
+        : await prisma.$queryRawUnsafe(siteTotalsQuery)
+    ) as Array<{ page_views: number; unique_visitors: number; avg_engaged_ms: number }>;
+
+    const siteTrafficByDayQuery = `
+      SELECT
+        TO_CHAR(DATE_TRUNC('day', created_at), 'YYYY-MM-DD') AS day,
+        COUNT(*)::int AS views
+      FROM "analytics_events"
+      WHERE source = 'site' AND event_name = 'site_page_view'
         ${analyticsSinceClause}
       GROUP BY DATE_TRUNC('day', created_at)
       ORDER BY DATE_TRUNC('day', created_at) DESC
       ${pageViewsByDayLimit}
     `;
-    const pageViewsByDayRows = (
+    const siteTrafficByDayRows = (
       hasSince
-        ? await prisma.$queryRawUnsafe(pageViewsByDayQuery, since)
-        : await prisma.$queryRawUnsafe(pageViewsByDayQuery)
-    ) as Array<{
-      day: string;
-      views: number;
-    }>;
+        ? await prisma.$queryRawUnsafe(siteTrafficByDayQuery, since)
+        : await prisma.$queryRawUnsafe(siteTrafficByDayQuery)
+    ) as Array<{ day: string; views: number }>;
+
+    const siteTopPagesQuery = `
+      SELECT page_path, COUNT(*)::int AS views
+      FROM "analytics_events"
+      WHERE source = 'site' AND event_name = 'site_page_view'
+        ${analyticsSinceClause}
+      GROUP BY page_path
+      ORDER BY views DESC
+      LIMIT 12
+    `;
+    const siteTopPagesRows = (
+      hasSince
+        ? await prisma.$queryRawUnsafe(siteTopPagesQuery, since)
+        : await prisma.$queryRawUnsafe(siteTopPagesQuery)
+    ) as Array<{ page_path: string; views: number }>;
+
+    const siteTopSectionsQuery = `
+      SELECT properties->>'section' AS section, COUNT(*)::int AS views
+      FROM "analytics_events"
+      WHERE source = 'site' AND event_name = 'site_section_viewed'
+        AND (properties->>'section') IS NOT NULL
+        ${analyticsSinceClause}
+      GROUP BY properties->>'section'
+      ORDER BY views DESC
+      LIMIT 20
+    `;
+    const siteTopSectionsRows = (
+      hasSince
+        ? await prisma.$queryRawUnsafe(siteTopSectionsQuery, since)
+        : await prisma.$queryRawUnsafe(siteTopSectionsQuery)
+    ) as Array<{ section: string; views: number }>;
+
+    const siteTopClicksQuery = `
+      SELECT
+        COALESCE(NULLIF(properties->>'label', ''), '(unlabeled)') AS label,
+        COUNT(*)::int AS clicks
+      FROM "analytics_events"
+      WHERE source = 'site' AND event_name = 'site_cta_click'
+        ${analyticsSinceClause}
+      GROUP BY COALESCE(NULLIF(properties->>'label', ''), '(unlabeled)')
+      ORDER BY clicks DESC
+      LIMIT 20
+    `;
+    const siteTopClicksRows = (
+      hasSince
+        ? await prisma.$queryRawUnsafe(siteTopClicksQuery, since)
+        : await prisma.$queryRawUnsafe(siteTopClicksQuery)
+    ) as Array<{ label: string; clicks: number }>;
 
     const totals = totalsRows[0] ?? {
       users_count: 0,
@@ -764,6 +988,25 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       unique_sessions_count: 0,
       tracked_events_count: 0,
     };
+
+    const funnelTotals = funnelRows[0] ?? {
+      sessions: 0,
+      registered: 0,
+      provider_connected: 0,
+      event_created: 0,
+      shared: 0,
+    };
+    const uniqueSessions = Number(totals.unique_sessions_count) || 0;
+    const trackedEvents = Number(totals.tracked_events_count) || 0;
+    const avgEventsPerSession =
+      uniqueSessions > 0 ? Number((trackedEvents / uniqueSessions).toFixed(2)) : 0;
+
+    const siteTotals = siteTotalsRows[0] ?? {
+      page_views: 0,
+      unique_visitors: 0,
+      avg_engaged_ms: 0,
+    };
+    const avgEngagedSeconds = Number((Number(siteTotals.avg_engaged_ms) / 1000).toFixed(1)) || 0;
 
     return adminAnalyticsOverviewResponseSchema.parse({
       totals: {
@@ -784,6 +1027,55 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
           views: Number(row.views) || 0,
         }))
         .reverse(),
+      funnel: [
+        { step: 'sessions' as const, count: Number(funnelTotals.sessions) || 0 },
+        { step: 'registered' as const, count: Number(funnelTotals.registered) || 0 },
+        {
+          step: 'providerConnected' as const,
+          count: Number(funnelTotals.provider_connected) || 0,
+        },
+        { step: 'eventCreated' as const, count: Number(funnelTotals.event_created) || 0 },
+        { step: 'shared' as const, count: Number(funnelTotals.shared) || 0 },
+      ],
+      eventBreakdown: eventBreakdownRows.map((row) => ({
+        eventName: row.event_name,
+        target: row.target,
+        count: Number(row.count) || 0,
+        sessions: Number(row.sessions) || 0,
+      })),
+      engagement: {
+        returningSessionsCount: Number(returningSessionsRows[0]?.returning_sessions) || 0,
+        avgEventsPerSession,
+        activeSessionsByDay: activeSessionsByDayRows
+          .map((row) => ({
+            day: row.day,
+            sessions: Number(row.sessions) || 0,
+          }))
+          .reverse(),
+      },
+      site: {
+        uniqueVisitors: Number(siteTotals.unique_visitors) || 0,
+        pageViewsCount: Number(siteTotals.page_views) || 0,
+        avgEngagedSeconds,
+        trafficByDay: siteTrafficByDayRows
+          .map((row) => ({
+            day: row.day,
+            views: Number(row.views) || 0,
+          }))
+          .reverse(),
+        topPages: siteTopPagesRows.map((row) => ({
+          path: row.page_path,
+          views: Number(row.views) || 0,
+        })),
+        topSections: siteTopSectionsRows.map((row) => ({
+          section: row.section,
+          views: Number(row.views) || 0,
+        })),
+        topClicks: siteTopClicksRows.map((row) => ({
+          label: row.label,
+          clicks: Number(row.clicks) || 0,
+        })),
+      },
     });
   });
 

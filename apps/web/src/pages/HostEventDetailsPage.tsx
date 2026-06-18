@@ -151,6 +151,11 @@ export const HostEventDetailsPage = () => {
       applyEventUpdate(updated);
       showToast(t('eventsPage.closed', { name: updated.name }), { variant: 'success' });
       setIsCloseConfirmOpen(false);
+      trackAnalyticsEvent({
+        eventName: 'event_closed',
+        target: 'events',
+        properties: { eventId },
+      });
     },
     onError: (error) => {
       showToast(t('eventsPage.error', { message: toApiError(error).message }), {
@@ -164,6 +169,11 @@ export const HostEventDetailsPage = () => {
     onSuccess: (updated) => {
       applyEventUpdate(updated);
       showToast(t('eventsPage.reopened', { name: updated.name }), { variant: 'success' });
+      trackAnalyticsEvent({
+        eventName: 'event_reopened',
+        target: 'events',
+        properties: { eventId },
+      });
     },
     onError: (error) => {
       showToast(t('eventsPage.error', { message: toApiError(error).message }), {

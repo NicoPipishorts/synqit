@@ -31,7 +31,7 @@ export const HeroBackdrop = () => {
         aria-hidden="true"
         loading="eager"
         onError={handleImageError}
-        className="block h-full w-full object-cover object-bottom lg:object-bottom-right dark:hidden"
+        className="block h-full w-full object-contain object-bottom lg:object-bottom-right dark:hidden"
       />
       <img
         src={`${ASSET_BASE}/above-the-fold-light-${locale}.png`}
@@ -39,7 +39,7 @@ export const HeroBackdrop = () => {
         aria-hidden="true"
         loading="eager"
         onError={handleImageError}
-        className="hidden h-full w-full object-cover object-bottom lg:object-bottom-right dark:block"
+        className="hidden h-full w-full object-contain object-bottom lg:object-bottom-right dark:block"
       />
     </div>
   );
