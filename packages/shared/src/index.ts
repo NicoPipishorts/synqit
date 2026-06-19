@@ -61,7 +61,6 @@ export type AuthCredentials = z.infer<typeof authCredentialsSchema>;
 export const registerCredentialsSchema = z.object({
   email: authEmailSchema,
   password: strongPasswordSchema,
-  inviteToken: z.string().min(8).max(512),
 });
 
 export type RegisterCredentials = z.infer<typeof registerCredentialsSchema>;
@@ -1002,47 +1001,6 @@ export type ApiError = z.infer<typeof apiErrorSchema>;
 export const emailLocaleSchema = z.enum(['en', 'fr']);
 export type EmailLocale = z.infer<typeof emailLocaleSchema>;
 
-export const adminInviteStatusSchema = z.enum(['active', 'expired', 'used', 'revoked']);
-export type AdminInviteStatus = z.infer<typeof adminInviteStatusSchema>;
-
-export const adminRegistrationInviteTokenSummarySchema = z.object({
-  id: z.string(),
-  invitedEmail: z.string().email(),
-  locale: emailLocaleSchema,
-  tokenPreview: z.string(),
-  createdAt: z.string(),
-  expiresAt: z.string().nullable(),
-  lastSentAt: z.string().nullable(),
-  usedAt: z.string().nullable(),
-  revokedAt: z.string().nullable(),
-  status: adminInviteStatusSchema,
-});
-export type AdminRegistrationInviteTokenSummary = z.infer<
-  typeof adminRegistrationInviteTokenSummarySchema
->;
-
-export const adminRegistrationInviteTokenListResponseSchema = z.object({
-  tokens: z.array(adminRegistrationInviteTokenSummarySchema),
-});
-export type AdminRegistrationInviteTokenListResponse = z.infer<
-  typeof adminRegistrationInviteTokenListResponseSchema
->;
-
-export const adminCreateRegistrationInviteTokenRequestSchema = z.object({
-  email: authEmailSchema,
-  locale: emailLocaleSchema.default('en'),
-});
-export type AdminCreateRegistrationInviteTokenRequest = z.infer<
-  typeof adminCreateRegistrationInviteTokenRequestSchema
->;
-
-export const adminCreateRegistrationInviteTokenResponseSchema = z.object({
-  inviteToken: adminRegistrationInviteTokenSummarySchema,
-});
-export type AdminCreateRegistrationInviteTokenResponse = z.infer<
-  typeof adminCreateRegistrationInviteTokenResponseSchema
->;
-
 export const registrationConfirmationEmailJobSchema = z.object({
   userId: z.string(),
   toEmail: z.string().email(),
@@ -1063,26 +1021,6 @@ export const registrationConfirmationEmailPreviewJobSchema = z.object({
 
 export type RegistrationConfirmationEmailPreviewJob = z.infer<
   typeof registrationConfirmationEmailPreviewJobSchema
->;
-
-export const registrationInviteEmailJobSchema = z.object({
-  inviteId: z.string(),
-  toEmail: z.string().email(),
-  locale: emailLocaleSchema,
-  webAppUrl: z.string().url(),
-  inviteUrl: z.string().url(),
-});
-export type RegistrationInviteEmailJob = z.infer<typeof registrationInviteEmailJobSchema>;
-
-export const registrationInviteEmailPreviewJobSchema = z.object({
-  toEmail: z.string().email(),
-  locale: emailLocaleSchema,
-  webAppUrl: z.string().url(),
-  inviteUrl: z.string().url(),
-  requestedAt: z.string(),
-});
-export type RegistrationInviteEmailPreviewJob = z.infer<
-  typeof registrationInviteEmailPreviewJobSchema
 >;
 
 export const passwordResetEmailJobSchema = z.object({
@@ -1150,8 +1088,6 @@ export const JOBS = {
   sendRegistrationConfirmationEmail: 'notifications:sendRegistrationConfirmationEmail',
   sendRegistrationConfirmationEmailPreview:
     'notifications:sendRegistrationConfirmationEmailPreview',
-  sendRegistrationInviteEmail: 'notifications:sendRegistrationInviteEmail',
-  sendRegistrationInviteEmailPreview: 'notifications:sendRegistrationInviteEmailPreview',
   sendPasswordResetEmail: 'notifications:sendPasswordResetEmail',
   sendPasswordResetEmailPreview: 'notifications:sendPasswordResetEmailPreview',
   sendWeeklyRecapEmail: 'notifications:sendWeeklyRecapEmail',
