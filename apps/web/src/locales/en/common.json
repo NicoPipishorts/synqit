@@ -19,6 +19,7 @@
     "loggingOut": "Logging out...",
     "accountAccess": "Account access",
     "login": "Login",
+    "shareNow": "Share now",
     "createAccount": "Share your first playlist"
   },
   "languageSwitcher": {
@@ -898,7 +899,7 @@
     },
     "why": {
       "pill": "Why Synqit",
-      "title": "Why it works better than a plain playlist link",
+      "title": "Why it works better than a plain playlist",
       "description": "The point is not just to share a playlist. The point is to get people participating without losing them on the way.",
       "reason1Title": "Zero friction for event guests",
       "reason1Body": "For event playlists, guests contribute in seconds via the magic link — no Synqit account, no app install.",

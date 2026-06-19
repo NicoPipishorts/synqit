@@ -69,3 +69,53 @@ export const HostWorkspaceBackdrop = () => {
     </div>
   );
 };
+
+export const DesktopShareBackdrop = () => {
+  const { locale } = useI18n();
+
+  return (
+    <div className="h-full w-full">
+      <img
+        src={`${ASSET_BASE}/desktop-share-dark-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="block h-full w-full object-contain object-left dark:hidden"
+      />
+      <img
+        src={`${ASSET_BASE}/desktop-share-light-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="hidden h-full w-full object-contain object-left dark:block"
+      />
+    </div>
+  );
+};
+
+export const MobileShareBackdrop = () => {
+  const { locale } = useI18n();
+
+  return (
+    <div className="h-full w-full">
+      <img
+        src={`${ASSET_BASE}/mobile-share-dark-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="block h-full w-full object-contain object-center dark:hidden"
+      />
+      <img
+        src={`${ASSET_BASE}/mobile-share-light-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="hidden h-full w-full object-contain object-center dark:block"
+      />
+    </div>
+  );
+};

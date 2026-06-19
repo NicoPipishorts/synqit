@@ -15,10 +15,6 @@ type PublicMobileNavProps = {
   ariaLabel?: string;
 };
 
-/**
- * Floating bottom icon bar for the marketing site on mobile, mirroring the
- * logged-in app's mobile navigation (icons + a sliding active pill).
- */
 export const PublicMobileNav = ({
   items,
   activeId,

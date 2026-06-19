@@ -29,6 +29,7 @@ type AccentInfoCardProps = {
   body: string;
   badge?: string;
   size?: 'md' | 'lg';
+  className?: string;
 };
 
 export const AccentInfoCard = ({
@@ -38,6 +39,7 @@ export const AccentInfoCard = ({
   body,
   badge,
   size = 'md',
+  className,
 }: AccentInfoCardProps) => {
   const styles = CARD_ACCENTS[accent];
   const padding = size === 'lg' ? 'p-6' : 'p-5';
@@ -46,7 +48,9 @@ export const AccentInfoCard = ({
   const lineOffset = size === 'lg' ? 'mt-6' : 'mt-[1.375rem]';
 
   return (
-    <SurfaceCard className={`h-full border-app-border/80 ${padding} ${styles.panel}`}>
+    <SurfaceCard
+      className={`h-full border-app-border/80 ${padding} ${styles.panel} ${className ?? ''}`.trim()}
+    >
       <div aria-hidden="true" className={`pointer-events-none absolute inset-0 ${styles.glow}`} />
       <div className="relative z-10 flex h-full flex-col gap-4">
         <div className="flex items-start justify-between gap-4">

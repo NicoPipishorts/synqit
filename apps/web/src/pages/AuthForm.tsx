@@ -108,6 +108,8 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
     <AuthPageLayout
       title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
       description={isLogin ? undefined : t('auth.registerLeadInviteOnly')}
+      showMobileNav
+      mobileNavActiveId={isLogin ? 'login' : 'share'}
     >
       <form onSubmit={onSubmit} autoComplete="on" className="mx-auto grid w-full max-w-xl gap-5">
         <label htmlFor="auth-email" className="grid gap-2 text-sm font-medium">

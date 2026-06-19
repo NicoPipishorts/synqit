@@ -228,10 +228,7 @@ const AppShell = () => {
       )}
       <header className="fixed inset-x-0 top-0 z-50">
         {isNavBlurActive && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-app-bg/30 shadow-[0_4px_12px_-10px_rgba(0,0,0,0.22)] backdrop-blur-md"
-          />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0" />
         )}
         <div className="relative z-10 flex w-full items-center justify-between gap-3 px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
           <a
@@ -256,7 +253,7 @@ const AppShell = () => {
             <a
               href={buildAppUrl('/auth/login')}
               data-analytics-label="header_login"
-              className="rounded-full border border-app-border bg-app-elevated px-5 py-2.5 text-[15px] font-bold text-app-text shadow-soft-lift transition hover:border-brand-lime hover:text-brand-lime dark:bg-app-card"
+              className="rounded-full border border-app-border bg-app-elevated px-5 py-2.5 text-[15px] font-bold text-app-text shadow-[0_18px_42px_-22px_rgba(34,34,34,0.44),0_8px_18px_-14px_rgba(34,34,34,0.28)] transition hover:border-brand-lime hover:text-brand-lime dark:bg-app-card"
             >
               {t('accountMenu.login')}
             </a>

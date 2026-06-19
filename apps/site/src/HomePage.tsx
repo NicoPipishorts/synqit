@@ -24,6 +24,7 @@ import { ScreenshotCarousel } from './components/marketing/ScreenshotCarousel';
 import { SectionCta } from './components/marketing/SectionCta';
 import { SectionHeading } from './components/marketing/SectionHeading';
 import { SegmentedToggle } from './components/marketing/SegmentedToggle';
+import { WhyStackSection } from './components/marketing/WhyStackSection';
 import { HeroLink } from './components/ui/HeroLink';
 import { buildAppUrl } from './lib/app-url';
 import { useI18n } from './lib/i18n';
@@ -428,33 +429,13 @@ export const HomePage = () => {
         </RevealSection>
 
         {/* ── Why Synqit ────────────────────────────────────────────────── */}
-        <RevealSection
-          trackId="why"
-          className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(160deg,rgba(255,46,139,0.08)_0%,transparent_45%,rgba(198,255,0,0.07)_100%)] py-24 sm:py-32 lg:py-36"
-        >
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#ff2e8b,#c6ff00,#ff2e8b)]"
-          />
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-6 sm:px-6 lg:px-8">
-            <SectionHeading
-              title={t('home.why.title')}
-              description={t('home.why.description')}
-              titleClassName="text-shadow-section-title text-3xl font-black tracking-tight sm:text-4xl"
-              descriptionClassName="leading-relaxed"
-            />
-            <div className="grid gap-4 sm:grid-cols-2">
-              {reasonCards.map((card) => (
-                <AccentInfoCard key={card.number} {...card} badge={card.number} size="lg" />
-              ))}
-            </div>
-            <SectionCta
-              href={buildAppUrl('/auth/register')}
-              variant="lime"
-              label={t('home.why.cta')}
-            />
-          </div>
-        </RevealSection>
+        <WhyStackSection
+          title={t('home.why.title')}
+          description={t('home.why.description')}
+          cards={reasonCards}
+          ctaHref={buildAppUrl('/auth/register')}
+          ctaLabel={t('home.why.cta')}
+        />
 
         {/* ── Pricing teaser ────────────────────────────────────────────── */}
         <RevealSection
