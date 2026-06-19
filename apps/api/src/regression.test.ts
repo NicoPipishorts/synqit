@@ -256,8 +256,9 @@ describe('API regression', () => {
     });
 
     assert.equal(response.statusCode, 400);
-    const body = parseBody(response.body) as { code?: string };
+    const body = parseBody(response.body) as { code?: string; message?: string };
     assert.equal(body.code, 'validation_error');
+    assert.match(body.message ?? '', /special character/i);
   });
 
   it('auth: forgot/reset password flow updates credentials and invalidates old refresh tokens', async () => {
