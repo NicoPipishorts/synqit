@@ -97,7 +97,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   return (
     <AuthPageLayout
       title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
-      description={isLogin ? undefined : t('auth.registerLeadInviteOnly')}
+      description={isLogin ? undefined : t('auth.registerLead')}
       showMobileNav
       mobileNavActiveId={isLogin ? 'login' : 'share'}
     >
