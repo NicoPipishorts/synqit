@@ -1,12 +1,20 @@
 import { providerSchema } from '@synqit/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Variants } from 'framer-motion';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
-import { Check, ChevronLeft, ChevronRight, Eye, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
+import { CreateFlowStepBreadcrumbs } from '../components/create-flow/CreateFlowStepBreadcrumbs';
+import {
+  CREATE_FLOW_STEP_ACTIONS_LAYOUT_TRANSITION,
+  CREATE_FLOW_STEP_SLIDE_VARIANTS,
+} from '../components/create-flow/flowMotion';
+import {
+  ProviderIntegrationStatus,
+  ProviderSelectionStep,
+} from '../components/create-flow/ProviderSelectionStep';
 import { EventMagicLinkRow } from '../components/events/EventMagicLinkRow';
 import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
@@ -26,49 +34,12 @@ import {
 } from '../lib/queries';
 import { Provider } from '../lib/types';
 
-type ProviderIntegrationStatus = 'connected' | 'not_connected';
 type CreateStep = 1 | 2 | 3 | 4;
 
 type CreatedEventState = {
   eventId: string;
   magicLinkToken: string;
   magicLinkUrl: string;
-};
-
-const STEP_SLIDE_EASE = [0.16, 1, 0.3, 1] as const;
-const BREADCRUMB_LAYOUT_TRANSITION = {
-  type: 'spring',
-  stiffness: 430,
-  damping: 36,
-  mass: 0.82,
-} as const;
-const STEP_ACTIONS_LAYOUT_TRANSITION = {
-  type: 'spring',
-  stiffness: 420,
-  damping: 34,
-  mass: 0.8,
-} as const;
-const STEP_SLIDE_VARIANTS: Variants = {
-  enter: (direction: number) => ({
-    opacity: 0,
-    x: direction > 0 ? 52 : -52,
-  }),
-  center: {
-    opacity: 1,
-    x: 0,
-    transition: {
-      duration: 0.3,
-      ease: STEP_SLIDE_EASE,
-    },
-  },
-  exit: (direction: number) => ({
-    opacity: 0,
-    x: direction > 0 ? -52 : 52,
-    transition: {
-      duration: 0.22,
-      ease: STEP_SLIDE_EASE,
-    },
-  }),
 };
 
 export const EventCreatePage = () => {
@@ -564,6 +535,10 @@ export const EventCreatePage = () => {
       ? t('eventsPage.createFlow.providerApple')
       : t('eventsPage.createFlow.providerSpotify')
     : t('eventsPage.createFlow.providerNotSelected');
+  const providerLabels: Record<Provider, string> = {
+    apple: t('eventsPage.createFlow.providerApple'),
+    spotify: t('eventsPage.createFlow.providerSpotify'),
+  };
 
   const isLoadingIntegrations = integrationsQuery.isLoading;
   const isCreatingEvent = createEventMutation.isPending;
@@ -576,174 +551,42 @@ export const EventCreatePage = () => {
         title={t('eventsPage.createFlow.title')}
         description={t('eventsPage.createFlow.description')}
       />
-      <LayoutGroup id="create-event-breadcrumbs">
-        <div className="mt-2 mb-5 flex w-full flex-wrap items-center justify-center gap-2 sm:gap-3">
-          {stepItems.map((item) => {
-            const isActive = step === item.value;
-            const isClickable = canOpenStep(item.value);
-
-            return (
-              <motion.button
-                key={item.value}
-                type="button"
-                layout
-                transition={BREADCRUMB_LAYOUT_TRANSITION}
-                disabled={!isClickable || isActive}
-                onClick={() => navigateToStep(item.value)}
-                className={`relative inline-flex items-center justify-center overflow-hidden rounded-full border text-xs font-black transition sm:text-sm ${
-                  isActive ? 'h-8 px-3 sm:h-9 sm:px-3.5' : 'h-8 w-8 sm:h-9 sm:w-9'
-                } ${
-                  isActive
-                    ? 'border-brand-lime/50 text-brand-dark dark:text-brand-white'
-                    : isClickable
-                      ? 'cursor-pointer border-app-border bg-app-elevated text-app-text hover:border-brand-lime dark:bg-app-card'
-                      : 'cursor-not-allowed border-app-border bg-app-bg text-app-text-secondary opacity-60 dark:bg-app-elevated'
-                }`}
-              >
-                {isActive ? (
-                  <motion.span
-                    layoutId="create-event-breadcrumb-active"
-                    transition={BREADCRUMB_LAYOUT_TRANSITION}
-                    className="absolute inset-0 rounded-full bg-brand-lime/10"
-                  />
-                ) : null}
-                <span className="relative z-10 inline-flex items-center">
-                  <span>{isActive ? `0${item.value}` : item.value}</span>
-                  <AnimatePresence initial={false}>
-                    {isActive ? (
-                      <motion.span
-                        key={`label-${item.value}`}
-                        initial={{ width: 0, opacity: 0, x: -6 }}
-                        animate={{ width: 'auto', opacity: 1, x: 0 }}
-                        exit={{ width: 0, opacity: 0, x: 6 }}
-                        transition={{ duration: 0.22, ease: STEP_SLIDE_EASE }}
-                        className="ml-1 overflow-hidden whitespace-nowrap"
-                      >
-                        {item.label}
-                      </motion.span>
-                    ) : null}
-                  </AnimatePresence>
-                </span>
-              </motion.button>
-            );
-          })}
-        </div>
-      </LayoutGroup>
+      <CreateFlowStepBreadcrumbs
+        activeLayoutId="create-event-breadcrumb-active"
+        currentStep={step}
+        items={stepItems}
+        layoutGroupId="create-event-breadcrumbs"
+        canOpenStep={canOpenStep}
+        onStepChange={navigateToStep}
+      />
 
       <div className="mx-auto w-full max-w-3xl">
         <AnimatePresence mode="wait" initial={false} custom={stepDirection}>
           {step === 1 ? (
-            <motion.article
-              key="step-1"
-              custom={stepDirection}
-              variants={STEP_SLIDE_VARIANTS}
-              initial="enter"
-              animate="center"
-              exit="exit"
-              className="p-1 sm:p-2"
-            >
-              <p className="mx-auto max-w-[70%] text-center text-sm text-app-text-secondary sm:max-w-[50%]">
-                {t('eventsPage.createFlow.stepProviderBody')}
-              </p>
-              <div className="mt-5 flex items-center justify-center gap-6 sm:gap-8">
-                <AnimatePresence initial={false}>
-                  {providerSchema.options.map((value) => {
-                    const isSelected = provider === value;
-                    const isConnected = providerStatusByType[value] === 'connected';
-                    const isHidden = provider !== null && !isSelected;
-                    const label =
-                      value === 'apple'
-                        ? t('eventsPage.createFlow.providerApple')
-                        : t('eventsPage.createFlow.providerSpotify');
-
-                    if (isHidden) return null;
-
-                    return (
-                      <motion.div
-                        key={value}
-                        layout
-                        initial={{ opacity: 0, scale: 0.88 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.88 }}
-                        transition={{ duration: 0.22, ease: STEP_SLIDE_EASE }}
-                        className="relative inline-flex flex-col items-center"
-                      >
-                        <span className="relative inline-flex p-2 sm:p-3">
-                          {!isSelected ? (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setProvider(value);
-                                if (providerStatusByType[value] !== 'connected') {
-                                  void connectSelectedProvider(value);
-                                }
-                              }}
-                              disabled={isConnectingProvider}
-                              aria-label={label}
-                              className={`relative inline-flex items-center justify-center rounded-full transition ${
-                                isConnectingProvider
-                                  ? 'cursor-not-allowed opacity-50'
-                                  : 'cursor-pointer'
-                              }`}
-                            >
-                              <EventProviderIcon
-                                provider={value}
-                                sizeClassName="h-24 w-24 sm:h-24 sm:w-24"
-                                imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}
-                              />
-                            </button>
-                          ) : (
-                            <span className="relative inline-flex">
-                              <EventProviderIcon
-                                provider={value}
-                                sizeClassName="h-24 w-24 sm:h-24 sm:w-24"
-                                imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}
-                                className="ring-2 ring-brand-lime/70 ring-offset-1 ring-offset-app-bg"
-                              />
-                            </span>
-                          )}
-                          <AnimatePresence initial={false} mode="wait">
-                            {isSelected && isConnected ? (
-                              <motion.span
-                                key="check"
-                                initial={{ opacity: 0, scale: 0.7 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.7 }}
-                                transition={{ duration: 0.18, ease: STEP_SLIDE_EASE }}
-                                className="absolute top-3.75 right-3.75 inline-flex h-6 w-6 items-center justify-center rounded-full border border-app-border bg-brand-lime text-brand-white shadow-soft-lift"
-                              >
-                                <Check size={15} strokeWidth={4} aria-hidden="true" />
-                              </motion.span>
-                            ) : isSelected && !isConnected ? (
-                              <motion.button
-                                key="close"
-                                type="button"
-                                initial={{ opacity: 0, scale: 0.7 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                exit={{ opacity: 0, scale: 0.7 }}
-                                transition={{ duration: 0.18, ease: STEP_SLIDE_EASE }}
-                                onClick={() => setProvider(null)}
-                                aria-label="Unselect provider"
-                                className="absolute top-3.75 right-3.75 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-brand-pink text-white shadow-soft-lift transition hover:opacity-80"
-                              >
-                                <X size={13} strokeWidth={3} aria-hidden="true" />
-                              </motion.button>
-                            ) : null}
-                          </AnimatePresence>
-                        </span>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            </motion.article>
+            <ProviderSelectionStep
+              body={t('eventsPage.createFlow.stepProviderBody')}
+              isConnectingProvider={isConnectingProvider}
+              motionKey="step-1"
+              provider={provider}
+              providerLabels={providerLabels}
+              providerStatusByType={providerStatusByType}
+              stepDirection={stepDirection}
+              unselectAriaLabel="Unselect provider"
+              onProviderClear={() => setProvider(null)}
+              onProviderSelect={(value) => {
+                setProvider(value);
+                if (providerStatusByType[value] !== 'connected') {
+                  void connectSelectedProvider(value);
+                }
+              }}
+            />
           ) : null}
 
           {step === 2 ? (
             <motion.article
               key="step-2"
               custom={stepDirection}
-              variants={STEP_SLIDE_VARIANTS}
+              variants={CREATE_FLOW_STEP_SLIDE_VARIANTS}
               initial="enter"
               animate="center"
               exit="exit"
@@ -773,7 +616,7 @@ export const EventCreatePage = () => {
             <motion.article
               key="step-3"
               custom={stepDirection}
-              variants={STEP_SLIDE_VARIANTS}
+              variants={CREATE_FLOW_STEP_SLIDE_VARIANTS}
               initial="enter"
               animate="center"
               exit="exit"
@@ -802,7 +645,7 @@ export const EventCreatePage = () => {
             <motion.article
               key="step-4"
               custom={stepDirection}
-              variants={STEP_SLIDE_VARIANTS}
+              variants={CREATE_FLOW_STEP_SLIDE_VARIANTS}
               initial="enter"
               animate="center"
               exit="exit"
@@ -883,7 +726,7 @@ export const EventCreatePage = () => {
         <LayoutGroup id="create-event-actions">
           <motion.div
             layout
-            transition={STEP_ACTIONS_LAYOUT_TRANSITION}
+            transition={CREATE_FLOW_STEP_ACTIONS_LAYOUT_TRANSITION}
             className="mt-6 flex min-h-10 items-center justify-center gap-2"
           >
             <AnimatePresence initial={false} mode="popLayout">
@@ -891,7 +734,7 @@ export const EventCreatePage = () => {
                 <motion.div
                   key="create-step-back"
                   layout
-                  transition={STEP_ACTIONS_LAYOUT_TRANSITION}
+                  transition={CREATE_FLOW_STEP_ACTIONS_LAYOUT_TRANSITION}
                   initial={{ opacity: 0, x: -18, scale: 0.96 }}
                   animate={{ opacity: 1, x: 0, scale: 1 }}
                   exit={{ opacity: 0, x: -18, scale: 0.96 }}
@@ -909,7 +752,7 @@ export const EventCreatePage = () => {
                 <motion.div
                   key="create-step-next"
                   layout
-                  transition={STEP_ACTIONS_LAYOUT_TRANSITION}
+                  transition={CREATE_FLOW_STEP_ACTIONS_LAYOUT_TRANSITION}
                   initial={{ opacity: 0, x: 18, scale: 0.96 }}
                   animate={{ opacity: 1, x: 0, scale: 1 }}
                   exit={{ opacity: 0, x: 18, scale: 0.96 }}

@@ -11,7 +11,6 @@ import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { EventStatusIndicator } from '../components/events/EventStatusIndicator';
 import { EventTracksCard } from '../components/events/EventTracksCard';
 import { HostEventDetailsHeader } from '../components/events/HostEventDetailsHeader';
-import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
@@ -295,22 +294,7 @@ export const HostEventDetailsPage = () => {
   );
 
   return (
-    <AppPageLayout
-      className="overflow-hidden pt-20 sm:pt-4"
-      backdrop={
-        <BlurSpotLayer
-          filterId="manage-page-blur-filter"
-          className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
-          spots={[
-            { id: 'a', size: 260, top: 5, left: 10, color: 'rgba(198,255,0,0.18)' },
-            { id: 'b', size: 280, top: 10, left: 78, color: 'rgba(255,46,139,0.18)' },
-            { id: 'c', size: 220, top: 40, left: 50, color: 'rgba(125,211,252,0.15)' },
-            { id: 'd', size: 240, top: 72, left: 12, color: 'rgba(198,255,0,0.15)' },
-            { id: 'e', size: 200, top: 68, left: 88, color: 'rgba(255,46,139,0.15)' },
-          ]}
-        />
-      }
-    >
+    <AppPageLayout className="overflow-hidden pt-20 sm:pt-4">
       <div className="relative grid gap-4">
         {/* Back button */}
         <HostEventDetailsHeader

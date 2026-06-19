@@ -8,7 +8,6 @@ import { AppPageLayout } from '../components/app/AppPageLayout';
 import { AppSectionHeading } from '../components/app/AppSectionHeading';
 import { HostEventCard } from '../components/events/HostEventCard';
 import { HostEventDraftCard } from '../components/events/HostEventDraftCard';
-import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
@@ -110,19 +109,7 @@ export const HostEventsPage = () => {
   // ---------------------------------------------------------------------------
 
   return (
-    <AppPageLayout
-      bodyClassName="gap-8"
-      backdrop={
-        <BlurSpotLayer
-          filterId="events-blur"
-          className="pointer-events-none absolute inset-0 z-0"
-          spots={[
-            { id: 'events-a', size: 180, top: 15, left: 10, color: 'rgba(198,241,53,0.07)' },
-            { id: 'events-b', size: 200, top: 60, left: 85, color: 'rgba(232,87,154,0.06)' },
-          ]}
-        />
-      }
-    >
+    <AppPageLayout bodyClassName="gap-8">
       {hasAny ? (
         <AppPageHeader
           eyebrow={t('eventsPage.title')}
