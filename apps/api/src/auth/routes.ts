@@ -237,19 +237,11 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     }
 
     const passwordHash = await hashPassword(parsed.data.password);
-    const registrationResult = await authStore.registerUserWithInvite({
+    const registrationResult = await authStore.registerUser({
       email: parsed.data.email,
       passwordHash,
-      inviteToken: parsed.data.inviteToken,
     });
     if (registrationResult.kind !== 'created') {
-      if (registrationResult.kind === 'invalid_invite') {
-        return reply.status(403).send({
-          code: 'invalid_invite_token',
-          message: 'A valid registration token is required to create an account.',
-        });
-      }
-
       return reply.status(409).send({
         code: 'email_taken',
         message: 'An account already exists for that email.',

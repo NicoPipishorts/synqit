@@ -1,6 +1,4 @@
 import {
-  adminCreateRegistrationInviteTokenRequestSchema,
-  adminCreateRegistrationInviteTokenResponseSchema,
   adminAnalyticsEventDetailResponseSchema,
   adminAnalyticsEventsListResponseSchema,
   adminAnalyticsOverviewRangeSchema,
@@ -8,7 +6,6 @@ import {
   adminAnalyticsOverviewResponseSchema,
   adminAnalyticsUserDetailResponseSchema,
   adminAnalyticsUsersListResponseSchema,
-  adminRegistrationInviteTokenListResponseSchema,
   adminLoginRequestSchema,
   adminMeResponseSchema,
   adminPermissionScopeSchema,
@@ -33,11 +30,7 @@ import { createRefreshToken, hashToken, verifyPassword } from '../auth/crypto';
 import { authStore, type UserRecord } from '../auth/store';
 import { prisma } from '../db/prisma';
 import { enqueuePasswordResetEmailPreview } from '../jobs/password-reset-email';
-import {
-  enqueueRegistrationConfirmationEmailPreview,
-  enqueueRegistrationInviteEmailPreview,
-  enqueueRegistrationInviteEmail,
-} from '../jobs/registration-email';
+import { enqueueRegistrationConfirmationEmailPreview } from '../jobs/registration-email';
 import { enqueueWeeklyRecapEmailPreview } from '../jobs/weekly-recap-email';
 
 const DEFAULT_REDIS_URL = 'redis://localhost:6380';
@@ -55,10 +48,6 @@ const previewJobParamsSchema = z.object({
 
 const userAccessParamsSchema = z.object({
   userId: z.string().uuid(),
-});
-
-const inviteParamsSchema = z.object({
-  inviteId: z.string().uuid(),
 });
 
 const adminEventAnalyticsParamsSchema = z.object({
@@ -299,23 +288,6 @@ const issueTokens = async (app: FastifyInstance, user: UserRecord) => {
   };
 };
 
-const toAdminInviteStatus = (token: {
-  usedAt: Date | null;
-  revokedAt: Date | null;
-  expiresAt: Date | null;
-}): 'active' | 'expired' | 'used' | 'revoked' => {
-  if (token.usedAt) {
-    return 'used';
-  }
-  if (token.revokedAt) {
-    return 'revoked';
-  }
-  if (token.expiresAt && token.expiresAt.getTime() <= Date.now()) {
-    return 'expired';
-  }
-  return 'active';
-};
-
 export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> => {
   app.post('/admin/auth/login', async (request, reply) => {
     const parsed = adminLoginRequestSchema.safeParse(request.body);
@@ -407,173 +379,6 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         adminPermissions: user.adminPermissions,
       })),
     });
-  });
-
-  app.get('/admin/invites', async (request, reply) => {
-    const access = await resolveAdminAccess(request, reply, {
-      scope: 'users',
-      level: 'write',
-    });
-    if (!access) {
-      return;
-    }
-
-    const tokens = await authStore.listRegistrationInviteTokens();
-    return adminRegistrationInviteTokenListResponseSchema.parse({
-      tokens: tokens.map((token) => ({
-        id: token.id,
-        invitedEmail: token.invitedEmail ?? '',
-        locale: token.locale,
-        tokenPreview: token.tokenPreview,
-        createdAt: token.createdAt.toISOString(),
-        expiresAt: token.expiresAt ? token.expiresAt.toISOString() : null,
-        lastSentAt: token.lastSentAt ? token.lastSentAt.toISOString() : null,
-        usedAt: token.usedAt ? token.usedAt.toISOString() : null,
-        revokedAt: token.revokedAt ? token.revokedAt.toISOString() : null,
-        status: toAdminInviteStatus(token),
-      })),
-    });
-  });
-
-  app.post('/admin/invites', async (request, reply) => {
-    const access = await resolveAdminAccess(request, reply, {
-      scope: 'users',
-      level: 'write',
-    });
-    if (!access || !access.user) {
-      return;
-    }
-
-    const body = adminCreateRegistrationInviteTokenRequestSchema.safeParse(request.body);
-    if (!body.success) {
-      return reply.status(400).send({
-        code: 'validation_error',
-        message: 'Request payload is invalid.',
-        details: body.error.flatten(),
-      });
-    }
-
-    const existingUser = await authStore.findUserByEmail(body.data.email);
-    if (existingUser) {
-      return reply.status(409).send({
-        code: 'user_already_exists',
-        message: 'An account already exists for that email address.',
-      });
-    }
-
-    const inviteToken = await authStore.createRegistrationInviteToken({
-      createdByUserId: access.user.id,
-      invitedEmail: body.data.email,
-      locale: body.data.locale,
-    });
-
-    if (!inviteToken) {
-      return reply.status(500).send({
-        code: 'registration_invite_generation_failed',
-        message: 'Registration invite token could not be created.',
-      });
-    }
-
-    try {
-      await enqueueRegistrationInviteEmail({
-        inviteId: inviteToken.id,
-        toEmail: body.data.email,
-        locale: body.data.locale,
-        inviteToken: inviteToken.plainToken,
-      });
-    } catch (error) {
-      return reply.status(502).send({
-        code: 'invite_email_enqueue_failed',
-        message: error instanceof Error ? error.message : 'Invite email could not be queued.',
-      });
-    }
-
-    return reply.status(201).send(
-      adminCreateRegistrationInviteTokenResponseSchema.parse({
-        inviteToken: {
-          id: inviteToken.id,
-          invitedEmail: inviteToken.invitedEmail ?? body.data.email,
-          locale: inviteToken.locale,
-          tokenPreview: inviteToken.tokenPreview,
-          createdAt: inviteToken.createdAt.toISOString(),
-          expiresAt: inviteToken.expiresAt ? inviteToken.expiresAt.toISOString() : null,
-          lastSentAt: inviteToken.lastSentAt ? inviteToken.lastSentAt.toISOString() : null,
-          usedAt: inviteToken.usedAt ? inviteToken.usedAt.toISOString() : null,
-          revokedAt: inviteToken.revokedAt ? inviteToken.revokedAt.toISOString() : null,
-          status: toAdminInviteStatus(inviteToken),
-        },
-      }),
-    );
-  });
-
-  app.post('/admin/invites/:inviteId/resend', async (request, reply) => {
-    const access = await resolveAdminAccess(request, reply, {
-      scope: 'users',
-      level: 'write',
-    });
-    if (!access || !access.user) {
-      return;
-    }
-
-    const params = inviteParamsSchema.safeParse(request.params);
-    if (!params.success) {
-      return reply.status(400).send({
-        code: 'validation_error',
-        message: 'Request params are invalid.',
-        details: params.error.flatten(),
-      });
-    }
-
-    const inviteToken = await authStore.resendRegistrationInviteToken({
-      inviteId: params.data.inviteId,
-      createdByUserId: access.user.id,
-    });
-
-    if (!inviteToken || !inviteToken.invitedEmail) {
-      return reply.status(404).send({
-        code: 'invite_not_found',
-        message: 'Invite could not be resent.',
-      });
-    }
-
-    const existingUser = await authStore.findUserByEmail(inviteToken.invitedEmail);
-    if (existingUser) {
-      return reply.status(409).send({
-        code: 'user_already_exists',
-        message: 'An account already exists for that email address.',
-      });
-    }
-
-    try {
-      await enqueueRegistrationInviteEmail({
-        inviteId: inviteToken.id,
-        toEmail: inviteToken.invitedEmail,
-        locale: inviteToken.locale,
-        inviteToken: inviteToken.plainToken,
-      });
-    } catch (error) {
-      return reply.status(502).send({
-        code: 'invite_email_enqueue_failed',
-        message: error instanceof Error ? error.message : 'Invite email could not be queued.',
-      });
-    }
-
-    return reply.status(200).send(
-      adminCreateRegistrationInviteTokenResponseSchema.parse({
-        inviteToken: {
-          id: inviteToken.id,
-          invitedEmail: inviteToken.invitedEmail,
-          locale: inviteToken.locale,
-          tokenPreview: inviteToken.tokenPreview,
-          createdAt: inviteToken.createdAt.toISOString(),
-          expiresAt: inviteToken.expiresAt ? inviteToken.expiresAt.toISOString() : null,
-          lastSentAt: inviteToken.lastSentAt ? inviteToken.lastSentAt.toISOString() : null,
-          usedAt: inviteToken.usedAt ? inviteToken.usedAt.toISOString() : null,
-          revokedAt: inviteToken.revokedAt ? inviteToken.revokedAt.toISOString() : null,
-          status: toAdminInviteStatus(inviteToken),
-        },
-      }),
-    );
   });
 
   app.get('/admin/analytics/playlists', async (request, reply) => {
@@ -1682,44 +1487,6 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     } catch (error) {
       request.log.error({ err: error }, 'failed to enqueue preview password reset email');
-      return reply.status(500).send({
-        code: 'email_preview_enqueue_failed',
-        message: 'Unable to enqueue preview email at this time.',
-      });
-    }
-  });
-
-  app.post('/admin/email/preview/invite', async (request, reply) => {
-    const access = await resolveAdminAccess(request, reply, {
-      scope: 'emails',
-      level: 'write',
-    });
-    if (!access) {
-      return;
-    }
-
-    const parsed = previewEmailRequestSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.status(400).send({
-        code: 'validation_error',
-        message: 'Request payload is invalid.',
-        details: parsed.error.flatten(),
-      });
-    }
-
-    try {
-      const jobId = await enqueueRegistrationInviteEmailPreview({
-        toEmail: parsed.data.toEmail,
-        locale: parsed.data.locale,
-      });
-
-      return reply.status(202).send({
-        ok: true,
-        queued: true,
-        jobId: String(jobId),
-      });
-    } catch (error) {
-      request.log.error({ err: error }, 'failed to enqueue preview invite email');
       return reply.status(500).send({
         code: 'email_preview_enqueue_failed',
         message: 'Unable to enqueue preview email at this time.',

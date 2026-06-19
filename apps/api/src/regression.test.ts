@@ -42,31 +42,13 @@ const cleanupTestData = async (): Promise<void> => {
   });
 };
 
-const createRegistrationInviteTokenForTests = async (invitedEmail: string): Promise<string> => {
-  const issuer = await authStore.createUser({
-    email: `${TEST_EMAIL_PREFIX}issuer-${randomUUID()}@synqit.test`,
-    passwordHash: 'internal-test-password-hash',
-  });
-  assert.ok(issuer);
-
-  const inviteToken = await authStore.createRegistrationInviteToken({
-    createdByUserId: issuer.id,
-    invitedEmail,
-    locale: 'en',
-  });
-  assert.ok(inviteToken);
-  return inviteToken.plainToken;
-};
-
 const registerUser = async (app: FastifyInstance, email: string) => {
-  const inviteToken = await createRegistrationInviteTokenForTests(email);
   const response = await app.inject({
     method: 'POST',
     url: '/v1/auth/register',
     payload: {
       email,
       password: TEST_PASSWORD,
-      inviteToken,
     },
   });
 
@@ -263,7 +245,6 @@ describe('API regression', () => {
 
   it('auth: register rejects weak passwords', async () => {
     const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
-    const inviteToken = await createRegistrationInviteTokenForTests(email);
 
     const response = await app.inject({
       method: 'POST',
@@ -271,31 +252,12 @@ describe('API regression', () => {
       payload: {
         email,
         password: 'password123',
-        inviteToken,
       },
     });
 
     assert.equal(response.statusCode, 400);
     const body = parseBody(response.body) as { code?: string };
     assert.equal(body.code, 'validation_error');
-  });
-
-  it('auth: register rejects invalid invite token', async () => {
-    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
-
-    const response = await app.inject({
-      method: 'POST',
-      url: '/v1/auth/register',
-      payload: {
-        email,
-        password: TEST_PASSWORD,
-        inviteToken: 'invalid-token',
-      },
-    });
-
-    assert.equal(response.statusCode, 403);
-    const body = parseBody(response.body) as { code?: string };
-    assert.equal(body.code, 'invalid_invite_token');
   });
 
   it('auth: forgot/reset password flow updates credentials and invalidates old refresh tokens', async () => {
@@ -965,7 +927,6 @@ describe('API regression', () => {
 
     try {
       const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
-      const inviteToken = await createRegistrationInviteTokenForTests(email);
       const response = await app.inject({
         method: 'POST',
         url: '/v1/auth/register',
@@ -975,7 +936,6 @@ describe('API regression', () => {
         payload: {
           email,
           password: TEST_PASSWORD,
-          inviteToken,
         },
       });
 
