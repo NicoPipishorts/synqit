@@ -30,11 +30,13 @@ import {
   syncListResponseSchema,
   syncPublicResponseSchema,
   syncResponseSchema,
+  dashboardTopFollowersResponseSchema,
   updateEventRequestSchema,
   updateSyncRequestSchema,
   userPreferencesResponseSchema,
   type ImportSyncResponse,
   type DashboardSummaryResponse,
+  type DashboardTopFollowersResponse,
   type ProviderPlaylistItem,
   type PersonalInfo,
   type SyncDetailItem,
@@ -78,6 +80,11 @@ export const queryKeys = {
   personalInfo: {
     all: () => ['personalInfo'] as const,
     detail: () => ['personalInfo', 'detail'] as const,
+  },
+  dashboard: {
+    all: () => ['dashboard'] as const,
+    summary: () => ['dashboard', 'summary'] as const,
+    topFollowers: () => ['dashboard', 'topFollowers'] as const,
   },
 } as const;
 
@@ -571,6 +578,15 @@ export const fetchDashboardSummary = async (): Promise<DashboardSummaryResponse>
     '/v1/dashboard/summary',
     { method: 'GET', headers: { authorization: `Bearer ${token}` } },
     (payload) => dashboardSummaryResponseSchema.parse(payload),
+  );
+};
+
+export const fetchDashboardTopFollowers = async (): Promise<DashboardTopFollowersResponse> => {
+  const token = requireToken();
+  return callApi(
+    '/v1/dashboard/top-followers',
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => dashboardTopFollowersResponseSchema.parse(payload),
   );
 };
 

@@ -754,6 +754,41 @@ describe('API regression', () => {
       assert.ok((hostSummary?.eventPlaylistsCount ?? 0) >= 1);
       assert.ok((hostSummary?.sharedPlaylistsCount ?? 0) >= 1);
 
+      // Seed public-site (source='site') events directly so the overview `site`
+      // block has data. Inserted via Prisma (not the HTTP endpoint) to avoid the
+      // request rate limit the full suite runs close to.
+      const siteSessionId = `site-session-${randomUUID()}`;
+      await prisma.analyticsEvents.createMany({
+        data: [
+          {
+            id: randomUUID(),
+            user_id: null,
+            session_id: siteSessionId,
+            event_name: 'site_page_view',
+            target: 'marketing',
+            page_path: '/',
+            locale: null,
+            source: 'site',
+            referrer: null,
+            properties: {},
+            created_at: new Date(),
+          },
+          {
+            id: randomUUID(),
+            user_id: null,
+            session_id: siteSessionId,
+            event_name: 'site_time_on_page',
+            target: 'marketing',
+            page_path: '/',
+            locale: null,
+            source: 'site',
+            referrer: null,
+            properties: { engagedMs: 4000 },
+            created_at: new Date(),
+          },
+        ],
+      });
+
       const overviewResponse = await app.inject({
         method: 'GET',
         url: '/v1/admin/analytics/overview',
@@ -768,12 +803,51 @@ describe('API regression', () => {
           pageViewsCount: number;
         };
         pageViewsByPath: Array<{ path: string; views: number }>;
+        funnel: Array<{ step: string; count: number }>;
+        eventBreakdown: Array<{
+          eventName: string;
+          target: string;
+          count: number;
+          sessions: number;
+        }>;
+        engagement: {
+          returningSessionsCount: number;
+          avgEventsPerSession: number;
+          activeSessionsByDay: Array<{ day: string; sessions: number }>;
+        };
+        site: {
+          uniqueVisitors: number;
+          pageViewsCount: number;
+          avgEngagedSeconds: number;
+          trafficByDay: Array<{ day: string; views: number }>;
+          topPages: Array<{ path: string; views: number }>;
+          topSections: Array<{ section: string; views: number }>;
+          topClicks: Array<{ label: string; clicks: number }>;
+        };
       };
       assert.ok(overviewBody.totals.usersCount >= 1);
       assert.ok(overviewBody.totals.eventPlaylistsCount >= 1);
       assert.ok(overviewBody.totals.sharedPlaylistsCount >= 1);
       assert.ok(overviewBody.totals.pageViewsCount >= 1);
       assert.ok(overviewBody.pageViewsByPath.length >= 1);
+      // New analytics blocks: funnel steps in fixed order, event breakdown, engagement.
+      assert.deepEqual(
+        overviewBody.funnel.map((entry) => entry.step),
+        ['sessions', 'registered', 'providerConnected', 'eventCreated', 'shared'],
+      );
+      assert.ok(overviewBody.funnel.every((entry) => entry.count >= 0));
+      assert.ok(overviewBody.eventBreakdown.length >= 1);
+      assert.ok(
+        overviewBody.eventBreakdown.some((row) => row.eventName === 'app_page_view'),
+        'event breakdown should include app_page_view',
+      );
+      assert.ok(overviewBody.engagement.avgEventsPerSession >= 0);
+      assert.ok(Array.isArray(overviewBody.engagement.activeSessionsByDay));
+      // Public-site block reflects the seeded site_page_view + site_time_on_page.
+      assert.ok(overviewBody.site.pageViewsCount >= 1);
+      assert.ok(overviewBody.site.uniqueVisitors >= 1);
+      assert.ok(overviewBody.site.avgEngagedSeconds >= 1);
+      assert.ok(overviewBody.site.topPages.some((row) => row.path === '/'));
 
       const overviewAllTimeResponse = await app.inject({
         method: 'GET',

@@ -150,7 +150,7 @@ const MobileSwipe = ({ steps, images, accent }: ScreenshotCarouselProps) => {
 // ─── Tablet / desktop: centered peek slider with arrows ──────────────────────
 
 // Phone-mockup footprint (matches the mobile card's w-70).
-const ITEM_W = 280;
+const ITEM_W = 252;
 const GAP = 28;
 
 const ArrowButton = ({

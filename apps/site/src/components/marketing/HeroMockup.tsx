@@ -31,7 +31,7 @@ export const HeroBackdrop = () => {
         aria-hidden="true"
         loading="eager"
         onError={handleImageError}
-        className="block h-full w-full object-cover object-bottom lg:object-bottom-right dark:hidden"
+        className="block h-full w-full object-contain object-bottom lg:object-bottom-right dark:hidden"
       />
       <img
         src={`${ASSET_BASE}/above-the-fold-light-${locale}.png`}
@@ -39,7 +39,82 @@ export const HeroBackdrop = () => {
         aria-hidden="true"
         loading="eager"
         onError={handleImageError}
-        className="hidden h-full w-full object-cover object-bottom lg:object-bottom-right dark:block"
+        className="hidden h-full w-full object-contain object-bottom lg:object-bottom-right dark:block"
+      />
+    </div>
+  );
+};
+
+export const HostWorkspaceBackdrop = () => {
+  const { locale } = useI18n();
+
+  return (
+    <div className="h-full w-full">
+      <img
+        src={`${ASSET_BASE}/host-scree-dark-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="block h-full w-full object-cover object-top dark:hidden"
+      />
+      <img
+        src={`${ASSET_BASE}/host-scree-light-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="hidden h-full w-full object-cover object-top dark:block"
+      />
+    </div>
+  );
+};
+
+export const DesktopShareBackdrop = () => {
+  const { locale } = useI18n();
+
+  return (
+    <div className="h-full w-full">
+      <img
+        src={`${ASSET_BASE}/desktop-share-dark-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="block h-full w-full object-contain object-left dark:hidden"
+      />
+      <img
+        src={`${ASSET_BASE}/desktop-share-light-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="hidden h-full w-full object-contain object-left dark:block"
+      />
+    </div>
+  );
+};
+
+export const MobileShareBackdrop = () => {
+  const { locale } = useI18n();
+
+  return (
+    <div className="h-full w-full">
+      <img
+        src={`${ASSET_BASE}/mobile-share-dark-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="block h-full w-full object-contain object-center dark:hidden"
+      />
+      <img
+        src={`${ASSET_BASE}/mobile-share-light-${locale}.png`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        onError={handleImageError}
+        className="hidden h-full w-full object-contain object-center dark:block"
       />
     </div>
   );

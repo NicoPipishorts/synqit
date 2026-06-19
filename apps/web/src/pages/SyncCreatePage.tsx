@@ -14,6 +14,7 @@ import { SyncPlaylistPicker } from '../components/syncs/SyncPlaylistPicker';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
+import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
@@ -205,10 +206,20 @@ export const SyncCreatePage = () => {
       setCreatedSync(result.sync);
       showToast(t('syncCreatePage.shared', { name: result.sync.name }), { variant: 'success' });
       void queryClient.invalidateQueries({ queryKey: syncQueryKeys.all() });
+      trackAnalyticsEvent({
+        eventName: 'sync_create_succeeded',
+        target: 'sync',
+        properties: { provider: result.sync.provider },
+      });
     },
     onError: (error) => {
       const apiError = toApiError(error);
       showToast(t('eventsPage.error', { message: apiError.message }), { variant: 'error' });
+      trackAnalyticsEvent({
+        eventName: 'sync_create_failed',
+        target: 'sync',
+        properties: { code: apiError.code },
+      });
     },
   });
 
@@ -345,6 +356,11 @@ export const SyncCreatePage = () => {
     if (!provider || !selectedPlaylist) return;
     const selectedTrackCount = selectedPlaylistTrackCountQuery.data ?? selectedPlaylist.trackCount;
 
+    trackAnalyticsEvent({
+      eventName: 'sync_create_submitted',
+      target: 'sync',
+      properties: { provider },
+    });
     createSyncMutation.mutate({
       provider,
       providerPlaylistId: selectedPlaylist.providerPlaylistId,

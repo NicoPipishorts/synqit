@@ -1,4 +1,7 @@
-import { dashboardSummaryResponseSchema } from '@synqit/shared';
+import {
+  dashboardSummaryResponseSchema,
+  dashboardTopFollowersResponseSchema,
+} from '@synqit/shared';
 import type { FastifyInstance } from 'fastify';
 
 import { requireAuthenticatedUserId } from '../auth/guards';
@@ -6,6 +9,7 @@ import { eventsStore } from '../events/store';
 import { syncsStore } from '../syncs/store';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const TOP_FOLLOWERS_LIMIT = 10;
 
 export const registerDashboardRoutes = async (app: FastifyInstance): Promise<void> => {
   app.get('/dashboard/summary', async (request, reply) => {
@@ -128,6 +132,30 @@ export const registerDashboardRoutes = async (app: FastifyInstance): Promise<voi
           })
           .sort((a, b) => b.updatedAt - a.updatedAt)
           .map(({ updatedAt: _updatedAt, ...item }) => item),
+      }),
+    );
+  });
+
+  app.get('/dashboard/top-followers', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const ownedSyncs = await syncsStore.listSyncsBySender(userId);
+    const { followers, totalCount } = await syncsStore.listTopSubscribersBySyncIds({
+      syncIds: ownedSyncs.map((sync) => sync.id),
+      limit: TOP_FOLLOWERS_LIMIT,
+    });
+
+    return reply.send(
+      dashboardTopFollowersResponseSchema.parse({
+        followers: followers.map((follower) => ({
+          userId: follower.userId,
+          name: follower.name,
+          avatarUrl: follower.avatarUrl,
+          subscriptionCount: follower.subscriptionCount,
+          latestSubscribedAt: follower.latestSubscribedAt.toISOString(),
+        })),
+        totalCount,
       }),
     );
   });
