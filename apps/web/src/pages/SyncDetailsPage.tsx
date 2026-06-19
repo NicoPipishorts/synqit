@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
-import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { SyncMagicLinkCard } from '../components/syncs/SyncMagicLinkCard';
 import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
 import { useI18n } from '../hooks/useI18n';
@@ -118,31 +117,7 @@ export const SyncDetailsPage = () => {
   });
 
   return (
-    <AppPageLayout
-      bodyClassName="gap-6"
-      backdrop={
-        <BlurSpotLayer
-          filterId="sync-detail-blur"
-          className="pointer-events-none absolute inset-0 z-0"
-          spots={[
-            {
-              id: 'sync-detail-a',
-              size: 210,
-              top: 12,
-              left: 12,
-              color: 'rgba(198,241,53,0.07)',
-            },
-            {
-              id: 'sync-detail-b',
-              size: 220,
-              top: 60,
-              left: 78,
-              color: 'rgba(232,87,154,0.06)',
-            },
-          ]}
-        />
-      }
-    >
+    <AppPageLayout bodyClassName="gap-6">
       <div className="relative grid gap-4">
         <CircleChevronBackButton to="/synced-lists" label={t('syncCreatePage.backToSyncedLists')} />
 

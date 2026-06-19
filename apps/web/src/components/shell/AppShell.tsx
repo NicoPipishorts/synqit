@@ -1,7 +1,6 @@
 import { Link, Outlet, useMatchRoute, useRouterState } from '@tanstack/react-router';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
-import { BackgroundBlurSpots } from './BackgroundBlurSpots';
 import { PublicNav } from './PublicNav';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
@@ -256,7 +255,6 @@ export const AppShell = () => {
           </div>
         </div>
       </header>
-      <BackgroundBlurSpots />
       {auth && isPrivateRoute ? (
         <Suspense fallback={null}>
           <PrivateMobileNavigation
