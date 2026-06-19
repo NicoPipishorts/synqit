@@ -47,6 +47,7 @@
     "passwordStrengthFair": "Moyen",
     "passwordStrengthGood": "Bon",
     "passwordStrengthStrong": "Fort",
+    "registerPasswordMissingCriteria": "Il manque encore ces critères à votre mot de passe : {{criteria}}.",
     "submitting": "Envoi...",
     "authenticated": "Connecté en tant que {{email}}. Redirection...",
     "noAccount": "Pas encore partagé de playlist ?",

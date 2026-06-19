@@ -47,6 +47,7 @@
     "passwordStrengthFair": "Fair",
     "passwordStrengthGood": "Good",
     "passwordStrengthStrong": "Strong",
+    "registerPasswordMissingCriteria": "Your password is still missing: {{criteria}}.",
     "submitting": "Submitting...",
     "authenticated": "Authenticated as {{email}}. Redirecting...",
     "noAccount": "Haven't shared a playlist yet?",
