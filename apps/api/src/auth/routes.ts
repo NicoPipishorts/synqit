@@ -6,6 +6,7 @@ import {
   type EmailLocale,
   forgotPasswordRequestSchema,
   forgotPasswordResponseSchema,
+  getPasswordCriteria,
   personalInfoResponseSchema,
   registerCredentialsSchema,
   refreshResponseSchema,
@@ -90,10 +91,66 @@ const emptyPersonalInfo = {
   country: null,
 } as const;
 
-const sendValidationError = (reply: FastifyReply, details: unknown) =>
+const getValidationErrorMessage = (details: unknown): string => {
+  if (!details || typeof details !== 'object') {
+    return 'Request payload is invalid.';
+  }
+
+  const typedDetails = details as {
+    formErrors?: unknown;
+    fieldErrors?: Record<string, unknown>;
+  };
+
+  if (Array.isArray(typedDetails.formErrors)) {
+    const firstFormError = typedDetails.formErrors.find((entry) => typeof entry === 'string');
+    if (typeof firstFormError === 'string' && firstFormError.trim().length > 0) {
+      return firstFormError;
+    }
+  }
+
+  if (typedDetails.fieldErrors && typeof typedDetails.fieldErrors === 'object') {
+    for (const value of Object.values(typedDetails.fieldErrors)) {
+      if (!Array.isArray(value)) {
+        continue;
+      }
+      const firstFieldError = value.find((entry) => typeof entry === 'string');
+      if (typeof firstFieldError === 'string' && firstFieldError.trim().length > 0) {
+        return firstFieldError;
+      }
+    }
+  }
+
+  return 'Request payload is invalid.';
+};
+
+const getRegisterValidationMessage = (password: string, details: unknown): string => {
+  const criteria = getPasswordCriteria(password);
+  const missingCriteria: string[] = [];
+
+  if (!criteria.length) {
+    missingCriteria.push('at least 8 characters');
+  }
+  if (!criteria.case) {
+    missingCriteria.push('uppercase and lowercase letters');
+  }
+  if (!criteria.number) {
+    missingCriteria.push('a number');
+  }
+  if (!criteria.special) {
+    missingCriteria.push('a special character');
+  }
+
+  if (missingCriteria.length > 0) {
+    return `Password must include ${missingCriteria.join(', ')}.`;
+  }
+
+  return getValidationErrorMessage(details);
+};
+
+const sendValidationError = (reply: FastifyReply, details: unknown, message?: string) =>
   reply.status(400).send({
     code: 'validation_error',
-    message: 'Request payload is invalid.',
+    message: message ?? getValidationErrorMessage(details),
     details,
   });
 
@@ -233,7 +290,18 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
   app.post('/auth/register', async (request, reply) => {
     const parsed = registerCredentialsSchema.safeParse(request.body);
     if (!parsed.success) {
-      return sendValidationError(reply, parsed.error.flatten());
+      const details = parsed.error.flatten();
+      const password =
+        request.body && typeof request.body === 'object' && 'password' in request.body
+          ? request.body.password
+          : undefined;
+      return sendValidationError(
+        reply,
+        typeof password === 'string'
+          ? { ...details, passwordCriteria: getPasswordCriteria(password) }
+          : details,
+        typeof password === 'string' ? getRegisterValidationMessage(password, details) : undefined,
+      );
     }
 
     const passwordHash = await hashPassword(parsed.data.password);

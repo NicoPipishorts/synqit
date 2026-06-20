@@ -152,6 +152,15 @@ export const usePublicEvent = (magicLinkToken: string, accessToken?: string | nu
         });
         setTracks(tracksResult.tracks);
         setVisibleAddedTracksCount(ADDED_TRACKS_PAGE_SIZE);
+        trackAnalyticsEvent({
+          eventName: 'event_public_viewed',
+          target: 'events',
+          properties: {
+            provider: eventResult.event.provider,
+            status: eventResult.event.status,
+            isOwner: eventResult.event.isOwner,
+          },
+        });
       } catch (error) {
         const apiError = toApiError(error);
         if (apiError.code === 'provider_playlist_missing') applyProviderPlaylistMissingState();
@@ -316,6 +325,11 @@ export const usePublicEvent = (magicLinkToken: string, accessToken?: string | nu
       setSearchStatus(t('eventPublicPage.addedToPlaylist', { name: result.track.name }));
       showToast(t('eventPublicPage.addedToast', { name: result.track.name }), {
         variant: 'success',
+      });
+      trackAnalyticsEvent({
+        eventName: 'event_track_add_succeeded',
+        target: 'events',
+        properties: { scope: 'public', providerTrackId: result.track.providerTrackId },
       });
     } catch (error) {
       const apiError = toApiError(error);

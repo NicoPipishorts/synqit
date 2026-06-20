@@ -1,8 +1,6 @@
 import { Link, Outlet, useMatchRoute, useRouterState } from '@tanstack/react-router';
-import { Menu, X } from 'lucide-react';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
-import { BackgroundBlurSpots } from './BackgroundBlurSpots';
 import { PublicNav } from './PublicNav';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
@@ -79,75 +77,6 @@ const PublicAuthNavigation = ({
   );
 };
 
-const PublicAuthMobileMenu = ({
-  activeItem,
-  labels,
-}: {
-  activeItem: PublicNavItemId | null;
-  labels: { product: string; pricing: string; share: string; login: string };
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<PublicNavItemId | null>(activeItem);
-  const siteOrigin = getSiteOrigin();
-  const navItems = [
-    { id: 'product', href: `${siteOrigin}/`, label: labels.product },
-    { id: 'pricing', href: `${siteOrigin}/pricing`, label: labels.pricing },
-    { id: 'share', href: '/auth/register', label: labels.share },
-  ] as const;
-
-  useEffect(() => {
-    setSelectedItem(activeItem);
-    setIsOpen(false);
-  }, [activeItem]);
-
-  return (
-    <div className="relative md:hidden">
-      <button
-        type="button"
-        aria-label={isOpen ? 'Close menu' : 'Open menu'}
-        aria-expanded={isOpen}
-        onClick={() => setIsOpen((value) => !value)}
-        className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-app-border bg-app-elevated text-app-text shadow-soft-lift dark:bg-app-card"
-      >
-        {isOpen ? <X size={20} aria-hidden="true" /> : <Menu size={20} aria-hidden="true" />}
-      </button>
-      {isOpen ? (
-        <div className="absolute right-0 z-30 mt-2 w-[min(18rem,calc(100vw-2rem))] rounded-2xl border border-app-border bg-app-elevated/95 p-2 shadow-xl backdrop-blur-md dark:bg-app-card/95">
-          <nav className="grid gap-1" aria-label="Mobile navigation">
-            {navItems.map((item) => {
-              const active = selectedItem === item.id;
-              return (
-                <a
-                  key={item.id}
-                  href={item.href}
-                  aria-current={active ? 'page' : undefined}
-                  onPointerDown={() => setSelectedItem(item.id)}
-                  className={`rounded-xl px-3 py-3 text-sm font-black transition-colors ${
-                    active
-                      ? 'bg-brand-lime text-brand-dark'
-                      : 'text-app-text-muted hover:bg-app-bg hover:text-app-text'
-                  }`}
-                >
-                  {item.label}
-                </a>
-              );
-            })}
-            <div className="mt-1 border-t border-app-border pt-1">
-              <Link
-                to="/auth/login"
-                onPointerDown={() => setSelectedItem(null)}
-                className="block rounded-xl px-3 py-3 text-sm font-black text-app-text-muted transition-colors hover:bg-app-bg hover:text-app-text"
-              >
-                {labels.login}
-              </Link>
-            </div>
-          </nav>
-        </div>
-      ) : null}
-    </div>
-  );
-};
-
 export const AppShell = () => {
   const [isNavBlurActive, setIsNavBlurActive] = useState(false);
   const { auth } = useAuthSession();
@@ -164,8 +93,12 @@ export const AppShell = () => {
     !pathname.startsWith('/event/') &&
     !pathname.startsWith('/sync/');
   const isPublicAuthRoute = pathname === '/auth/login' || pathname === '/auth/register';
-  const publicAuthActiveItem: PublicNavItemId | null =
-    pathname === '/auth/register' ? 'share' : null;
+  const isRegisterRoute = pathname === '/auth/register';
+  const publicAuthActiveItem: PublicNavItemId | null = isRegisterRoute ? 'share' : null;
+  // On the login screen the CTA invites you to register ("Share now"); on the
+  // register screen it flips back to "Login".
+  const authCtaTo = isRegisterRoute ? '/auth/login' : '/auth/register';
+  const authCtaLabel = isRegisterRoute ? t('accountMenu.login') : t('accountMenu.shareNow');
   const navItems = [
     { to: '/dashboard', label: t('accountMenu.dashboard') },
     { to: '/playlists', label: t('accountMenu.myEvents') },
@@ -310,20 +243,11 @@ export const AppShell = () => {
             {isPublicAuthRoute ? (
               <>
                 <Link
-                  to="/auth/login"
+                  to={authCtaTo}
                   className="hidden rounded-full border border-app-border bg-app-elevated px-5 py-2.5 text-[15px] font-bold text-app-text shadow-soft-lift transition hover:border-brand-lime hover:text-brand-lime md:inline-flex dark:bg-app-card"
                 >
-                  {t('accountMenu.login')}
+                  {authCtaLabel}
                 </Link>
-                <PublicAuthMobileMenu
-                  activeItem={publicAuthActiveItem}
-                  labels={{
-                    product: t('home.nav.product'),
-                    pricing: t('home.pricing.navLink'),
-                    share: t('home.nav.share'),
-                    login: t('accountMenu.login'),
-                  }}
-                />
               </>
             ) : (
               <AccountMenu />
@@ -331,7 +255,6 @@ export const AppShell = () => {
           </div>
         </div>
       </header>
-      <BackgroundBlurSpots />
       {auth && isPrivateRoute ? (
         <Suspense fallback={null}>
           <PrivateMobileNavigation

@@ -6,9 +6,11 @@ import { BrandLogo } from './components/ui/BrandLogo';
 import { PublicMobileNav, type PublicMobileNavItem } from './components/ui/PublicMobileNav';
 import { PublicNav, type PublicNavItem as PublicNavComponentItem } from './components/ui/PublicNav';
 import { HomePage } from './HomePage';
+import { trackSiteEvent } from './lib/analytics';
 import { buildAppUrl, getAppOrigin, shouldRedirectToApp } from './lib/app-url';
 import { I18nProvider, useI18n } from './lib/i18n';
 import { applyTheme, loadTheme } from './lib/theme';
+import { useSiteAnalytics } from './lib/useSiteAnalytics';
 import { PricingPage } from './PricingPage';
 
 const SITE_BG_SPOTS = [
@@ -53,6 +55,7 @@ const AppShell = () => {
   const [isLeavingToApp, setIsLeavingToApp] = useState(false);
   const appOrigin = useMemo(() => getAppOrigin(), []);
   const isPricing = isPricingRoutePath(pathname);
+  useSiteAnalytics(pathname);
   const routeActiveNavItem: PublicNavItem['id'] = isPricing ? 'pricing' : 'product';
   const [activeNavItem, setActiveNavItem] = useState<PublicNavItem['id']>(routeActiveNavItem);
   const navItems: PublicNavComponentItem[] = [
@@ -173,6 +176,16 @@ const AppShell = () => {
         return;
       }
 
+      const label =
+        anchor.dataset.analyticsLabel ??
+        anchor.getAttribute('aria-label') ??
+        anchor.textContent?.trim().slice(0, 80) ??
+        '';
+      trackSiteEvent({
+        eventName: 'site_cta_click',
+        properties: { label, href },
+      });
+
       const url = new URL(href, window.location.href);
 
       // Same-origin internal route → instant client-side swap.
@@ -215,13 +228,15 @@ const AppShell = () => {
       )}
       <header className="fixed inset-x-0 top-0 z-50">
         {isNavBlurActive && (
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-app-bg/30 shadow-[0_4px_12px_-10px_rgba(0,0,0,0.22)] backdrop-blur-md"
-          />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0" />
         )}
         <div className="relative z-10 flex w-full items-center justify-between gap-3 px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
-          <a href="/" aria-label="Synqit home" className="inline-flex shrink-0 mt-3 sm:mt-0">
+          <a
+            href="/"
+            aria-label="Synqit home"
+            data-analytics-label="logo"
+            className="inline-flex shrink-0 mt-3 sm:mt-0"
+          >
             <BrandLogo className="h-12 w-auto sm:h-24" />
           </a>
 
@@ -237,7 +252,8 @@ const AppShell = () => {
           <div className="absolute right-4 top-1/2 hidden -translate-y-1/2 items-center gap-2 md:flex sm:right-6 lg:right-8">
             <a
               href={buildAppUrl('/auth/login')}
-              className="rounded-full border border-app-border bg-app-elevated px-5 py-2.5 text-[15px] font-bold text-app-text shadow-soft-lift transition hover:border-brand-lime hover:text-brand-lime dark:bg-app-card"
+              data-analytics-label="header_login"
+              className="rounded-full border border-app-border bg-app-elevated px-5 py-2.5 text-[15px] font-bold text-app-text shadow-[0_18px_42px_-22px_rgba(34,34,34,0.44),0_8px_18px_-14px_rgba(34,34,34,0.28)] transition hover:border-brand-lime hover:text-brand-lime dark:bg-app-card"
             >
               {t('accountMenu.login')}
             </a>

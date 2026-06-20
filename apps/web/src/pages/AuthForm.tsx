@@ -9,7 +9,40 @@ import { useI18n } from '../hooks/useI18n';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { storeAuth } from '../lib/auth';
-import { PASSWORD_MIN_LENGTH } from '../lib/client-models';
+import { getPasswordCriteria, isPasswordStrong, PASSWORD_MIN_LENGTH } from '../lib/client-models';
+
+const getMissingPasswordCriteriaLabels = (
+  password: string,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string[] => {
+  const criteria = getPasswordCriteria(password);
+  const missing: string[] = [];
+
+  if (!criteria.length) {
+    missing.push(t('profile.passwordCriteriaLength'));
+  }
+  if (!criteria.case) {
+    missing.push(t('profile.passwordCriteriaCase'));
+  }
+  if (!criteria.number) {
+    missing.push(t('profile.passwordCriteriaNumber'));
+  }
+  if (!criteria.special) {
+    missing.push(t('profile.passwordCriteriaSpecial'));
+  }
+
+  return missing;
+};
+
+const getRegisterValidationMessage = (
+  password: string,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string => {
+  const missingCriteria = getMissingPasswordCriteriaLabels(password, t);
+  return t('auth.registerPasswordMissingCriteria', {
+    criteria: missingCriteria.join(', '),
+  });
+};
 
 export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/auth/login' }) => {
   const search = useRouterState({
@@ -27,6 +60,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   const [status, setStatus] = useState<string | null>(null);
   const [statusType, setStatusType] = useState<'error' | 'success' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPasswordInfoOpen, setIsPasswordInfoOpen] = useState(false);
   const redirectTo = useMemo(() => {
     const rawValue = new URLSearchParams(search).get('redirectTo')?.trim();
     if (!rawValue || !rawValue.startsWith('/') || rawValue.startsWith('//')) {
@@ -37,6 +71,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
     }
     return rawValue;
   }, [search]);
+  const isRegisterPasswordValid = isLogin || isPasswordStrong(password);
 
   const authRouteHref = (path: '/auth/login' | '/auth/register') => {
     const params = new URLSearchParams();
@@ -52,6 +87,13 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!isLogin && !isRegisterPasswordValid) {
+      setStatus(getRegisterValidationMessage(password, t));
+      setStatusType('error');
+      setIsPasswordInfoOpen(true);
+      return;
+    }
+
     setIsSubmitting(true);
     setStatus(null);
     setStatusType(null);
@@ -80,7 +122,12 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
       window.location.assign(redirectTo);
     } catch (error) {
       const apiError = toApiError(error);
-      setStatus(apiError.message);
+      if (!isLogin && apiError.code === 'validation_error' && !isRegisterPasswordValid) {
+        setStatus(getRegisterValidationMessage(password, t));
+        setIsPasswordInfoOpen(true);
+      } else {
+        setStatus(apiError.message);
+      }
       setStatusType('error');
       trackAnalyticsEvent({
         eventName: isLogin ? 'auth_login_failed' : 'auth_register_failed',
@@ -95,7 +142,12 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
   };
 
   return (
-    <AuthPageLayout title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}>
+    <AuthPageLayout
+      title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
+      description={isLogin ? undefined : t('auth.registerLead')}
+      showMobileNav
+      mobileNavActiveId={isLogin ? 'login' : 'share'}
+    >
       <form onSubmit={onSubmit} autoComplete="on" className="mx-auto grid w-full max-w-xl gap-5">
         <label htmlFor="auth-email" className="grid gap-2 text-sm font-medium">
           <span>{t('auth.email')}</span>
@@ -125,11 +177,24 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
             minLength={PASSWORD_MIN_LENGTH}
             autoComplete={isLogin ? 'current-password' : 'new-password'}
             value={password}
-            onChange={setPassword}
+            onChange={(nextPassword) => {
+              setPassword(nextPassword);
+              if (statusType === 'error') {
+                setStatus(null);
+                setStatusType(null);
+              }
+            }}
             inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text shadow-soft-lift outline-none transition focus:border-brand-pink"
             placeholder={t('auth.passwordPlaceholder')}
           />
-          {!isLogin ? <PasswordStrengthMeter password={password} showTooltip /> : null}
+          {!isLogin ? (
+            <PasswordStrengthMeter
+              password={password}
+              showTooltip
+              detailsOpen={isPasswordInfoOpen}
+              onDetailsOpenChange={setIsPasswordInfoOpen}
+            />
+          ) : null}
         </label>
         {isLogin ? (
           <div className="flex justify-end">
@@ -142,9 +207,24 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
           </div>
         ) : null}
 
-        <CTAButton disabled={isSubmitting} type="submit" variant="primary">
+        <CTAButton
+          disabled={isSubmitting}
+          aria-disabled={isSubmitting || (!isLogin && !isRegisterPasswordValid)}
+          type="submit"
+          variant="primary"
+          className={
+            !isLogin && !isRegisterPasswordValid
+              ? 'border-brand-pink/45 bg-brand-pink/15 text-[#b41563] hover:bg-brand-pink/20 dark:text-[#ff8ac0]'
+              : undefined
+          }
+        >
           {isSubmitting ? t('auth.submitting') : title}
         </CTAButton>
+        {!isLogin && password.length > 0 && !isRegisterPasswordValid ? (
+          <p className="text-xs text-[#b41563] dark:text-[#ff8ac0]">
+            {getRegisterValidationMessage(password, t)}
+          </p>
+        ) : null}
 
         {status ? (
           <p

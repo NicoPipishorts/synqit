@@ -15,6 +15,7 @@ import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
+import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { isAuthenticated } from '../lib/auth';
 import {
@@ -246,11 +247,16 @@ export const SyncPublicPage = () => {
 
   const importMutation = useMutation({
     mutationFn: importSync,
-    onSuccess: () => {
+    onSuccess: (_result, variables) => {
       setSheetOpen(false);
       setImportStageIndex(2);
       setIsImportPreviewActive(false);
       setShowImportSuccessOverlay(true);
+      trackAnalyticsEvent({
+        eventName: 'sync_subscribed',
+        target: 'sync',
+        properties: { provider: variables.recipientProvider },
+      });
       if (importSuccessTimeoutRef.current !== null) {
         window.clearTimeout(importSuccessTimeoutRef.current);
       }
@@ -274,6 +280,10 @@ export const SyncPublicPage = () => {
     mutationFn: () => unsubscribeSync(token),
     onSuccess: () => {
       showToast(t('syncPublicPage.unsubscribeSuccess'), { variant: 'success' });
+      trackAnalyticsEvent({
+        eventName: 'sync_unsubscribed',
+        target: 'sync',
+      });
       void queryClient.invalidateQueries({ queryKey: syncQueryKeys.public(token) });
       void queryClient.invalidateQueries({ queryKey: syncQueryKeys.all() });
     },

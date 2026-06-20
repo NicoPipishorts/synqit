@@ -70,6 +70,14 @@ export type RecentSyncSubscriberRecord = {
   subscribedAt: Date;
 };
 
+export type TopSubscriberRecord = {
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  subscriptionCount: number;
+  latestSubscribedAt: Date;
+};
+
 type SyncTrackActivityTrack = {
   providerTrackId?: string | null;
   name: string;
@@ -690,6 +698,69 @@ export const syncsStore = {
     }
 
     return bySyncId;
+  },
+
+  async listTopSubscribersBySyncIds(params: {
+    syncIds: string[];
+    limit: number;
+  }): Promise<{ followers: TopSubscriberRecord[]; totalCount: number }> {
+    if (params.syncIds.length === 0) {
+      return { followers: [], totalCount: 0 };
+    }
+
+    // Aggregate distinct subscribers across all the owner's synced playlists,
+    // ranking by how many of those playlists they subscribe to, then recency.
+    const grouped = await prisma.playlist_sync_imports.groupBy({
+      by: ['recipient_user_id'],
+      where: { sync_id: { in: params.syncIds } },
+      _count: { _all: true },
+      _max: { created_at: true },
+    });
+
+    const ranked = grouped
+      .map((row) => ({
+        userId: row.recipient_user_id,
+        subscriptionCount: row._count._all,
+        latestSubscribedAt: row._max.created_at ?? new Date(0),
+      }))
+      .sort(
+        (a, b) =>
+          b.subscriptionCount - a.subscriptionCount ||
+          b.latestSubscribedAt.getTime() - a.latestSubscribedAt.getTime(),
+      )
+      .slice(0, params.limit);
+
+    const users = await prisma.users.findMany({
+      where: { id: { in: ranked.map((row) => row.userId) } },
+      select: {
+        id: true,
+        email: true,
+        avatar_url: true,
+        user_profile: {
+          select: { display_name: true, first_name: true, last_name: true },
+        },
+      },
+    });
+
+    const usersById = new Map(users.map((user) => [user.id, user]));
+
+    const followers = ranked.map((row) => {
+      const user = usersById.get(row.userId);
+      return {
+        userId: row.userId,
+        name: buildUserDisplayName({
+          email: user?.email ?? '',
+          displayName: user?.user_profile?.display_name ?? null,
+          firstName: user?.user_profile?.first_name ?? null,
+          lastName: user?.user_profile?.last_name ?? null,
+        }),
+        avatarUrl: user?.avatar_url ?? null,
+        subscriptionCount: row.subscriptionCount,
+        latestSubscribedAt: row.latestSubscribedAt,
+      };
+    });
+
+    return { followers, totalCount: grouped.length };
   },
 
   async recordTrackActivity(params: {

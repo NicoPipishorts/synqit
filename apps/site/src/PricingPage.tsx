@@ -1,5 +1,7 @@
-import { HomeFooterReveal } from './components/marketing/HomeFooterReveal';
-import { PricingComparison, type PricingTable } from './components/marketing/PricingComparison';
+import { MarketingPageShell } from './components/marketing/MarketingPageShell';
+import { type PricingTable } from './components/marketing/PricingComparison';
+import { PricingTableBlock } from './components/marketing/PricingTableBlock';
+import { SectionHeading } from './components/marketing/SectionHeading';
 import { HeroLink } from './components/ui/HeroLink';
 import { useI18n } from './lib/i18n';
 
@@ -57,67 +59,38 @@ const SHARING_TABLE: PricingTable = {
   ],
 };
 
-const TableBlock = ({
-  title,
-  subtitle,
-  table,
-}: {
-  title: string;
-  subtitle: string;
-  table: PricingTable;
-}) => (
-  <section className="mb-16">
-    <div className="mb-6">
-      <h2 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl">
-        {title}
-      </h2>
-      <p className="mt-1 text-sm text-app-text-secondary sm:text-base">{subtitle}</p>
-    </div>
-    <PricingComparison table={table} />
-  </section>
-);
-
 export const PricingPage = () => {
   const { t } = useI18n();
 
   return (
-    <div className="relative bg-brand-dark dark:bg-brand-white">
-      <HomeFooterReveal />
-
-      <div className="relative z-10 overflow-hidden rounded-b-[2.75rem] bg-app-bg shadow-[0_28px_64px_-20px_rgba(0,0,0,0.55)] dark:shadow-[0_30px_70px_-20px_rgba(0,0,0,0.72)] sm:rounded-b-[3.5rem] lg:rounded-b-[4.5rem]">
-        <div className="mx-auto w-full max-w-6xl px-4 pb-24 pt-32 sm:px-6 sm:pt-40 lg:px-8">
-          <div className="mb-14 text-center">
-            <h1 className="text-4xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-              {t('home.pricing.pageTitle')}
-            </h1>
-            <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
-              {t('home.pricing.pageSubtitle')}
-            </p>
-          </div>
-
-          <TableBlock
-            title={t('home.pricing.eventsTitle')}
-            subtitle={t('home.pricing.eventsSubtitle')}
-            table={EVENTS_TABLE}
-          />
-          <TableBlock
-            title={t('home.pricing.sharingTitle')}
-            subtitle={t('home.pricing.sharingSubtitle')}
-            table={SHARING_TABLE}
-          />
-
-          <p className="mt-2 text-center text-xs text-app-text-muted">
-            {t('home.pricing.footnote')}
-          </p>
-          <div className="mt-10 text-center">
-            <HeroLink href="/" variant="outline" size="sm">
-              ← {t('home.pricing.backHome')}
-            </HeroLink>
-          </div>
-        </div>
+    <MarketingPageShell contentClassName="mx-auto w-full max-w-6xl px-4 pb-24 pt-32 sm:px-6 sm:pt-40 lg:px-8">
+      <div className="mb-14 text-center">
+        <SectionHeading
+          title={t('home.pricing.pageTitle')}
+          description={t('home.pricing.pageSubtitle')}
+          align="center"
+          titleClassName="text-4xl font-black tracking-tight sm:text-5xl"
+          descriptionClassName="mx-auto mt-4 max-w-xl leading-relaxed"
+        />
       </div>
 
-      <div aria-hidden className="h-[30rem] sm:h-96 lg:h-104" />
-    </div>
+      <PricingTableBlock
+        title={t('home.pricing.eventsTitle')}
+        subtitle={t('home.pricing.eventsSubtitle')}
+        table={EVENTS_TABLE}
+      />
+      <PricingTableBlock
+        title={t('home.pricing.sharingTitle')}
+        subtitle={t('home.pricing.sharingSubtitle')}
+        table={SHARING_TABLE}
+      />
+
+      <p className="mt-2 text-center text-xs text-app-text-muted">{t('home.pricing.footnote')}</p>
+      <div className="mt-10 text-center">
+        <HeroLink href="/" variant="outline" size="sm">
+          ← {t('home.pricing.backHome')}
+        </HeroLink>
+      </div>
+    </MarketingPageShell>
   );
 };

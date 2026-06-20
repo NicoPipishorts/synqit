@@ -5,7 +5,6 @@ import { AppEmptyState } from '../components/app/AppEmptyState';
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { AppSectionHeading } from '../components/app/AppSectionHeading';
-import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { SyncCard } from '../components/syncs/SyncCard';
 import { CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
@@ -24,31 +23,7 @@ export const SyncedListsPage = () => {
   const hasAny = ownedSyncs.length > 0 || subscribedSyncs.length > 0;
 
   return (
-    <AppPageLayout
-      bodyClassName="gap-8"
-      backdrop={
-        <BlurSpotLayer
-          filterId="synced-lists-blur"
-          className="pointer-events-none absolute inset-0 z-0"
-          spots={[
-            {
-              id: 'synced-lists-a',
-              size: 180,
-              top: 20,
-              left: 15,
-              color: 'rgba(198,241,53,0.07)',
-            },
-            {
-              id: 'synced-lists-b',
-              size: 200,
-              top: 65,
-              left: 80,
-              color: 'rgba(232,87,154,0.06)',
-            },
-          ]}
-        />
-      }
-    >
+    <AppPageLayout bodyClassName="gap-8">
       {hasAny ? (
         <AppPageHeader
           eyebrow={t('syncedListsPage.title')}

@@ -1,7 +1,10 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 
+import { SegmentedToggle } from './SegmentedToggle';
+import { buildAppUrl } from '../../lib/app-url';
 import { useI18n } from '../../lib/i18n';
+import { HeroLink } from '../ui/HeroLink';
 
 type Tab = 'events' | 'sharing';
 
@@ -15,7 +18,7 @@ type PlanGroup = {
 };
 
 // Each plan already ships name / price / note / feat1..feat4 in the locale
-// files. The teaser cards reuse those and surface only the first two feature
+// files. The teaser cards reuse those and surface the key promise points, while
 // points; the full feature breakdown lives in the comparison tables on /pricing.
 const GROUPS: Record<Tab, PlanGroup> = {
   events: {
@@ -32,7 +35,7 @@ const GROUPS: Record<Tab, PlanGroup> = {
 
 const TABS: Tab[] = ['events', 'sharing'];
 
-const FEATURE_KEYS = ['feat1', 'feat2'] as const;
+const FEATURE_KEYS = ['feat1', 'feat2', 'feat3', 'feat4'] as const;
 
 const Check = () => (
   <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-brand-lime">
@@ -82,6 +85,17 @@ const PlanCard = ({ planKey, recommended }: { planKey: string; recommended: bool
           </li>
         ))}
       </ul>
+
+      <div className="mt-5 pt-1">
+        <HeroLink
+          href={buildAppUrl('/auth/register')}
+          variant={recommended ? 'lime' : 'outline'}
+          size="sm"
+          className="w-full justify-center"
+        >
+          {t(`${base}.cta`)}
+        </HeroLink>
+      </div>
     </div>
   );
 };
@@ -90,40 +104,20 @@ export const PricingTeaserCards = () => {
   const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<Tab>('events');
   const group = GROUPS[activeTab];
+  const options = TABS.map((tab) => ({
+    value: tab,
+    label: t(GROUPS[tab].tabKey),
+    activeVariant: tab === 'events' ? ('lime' as const) : ('pink' as const),
+  }));
 
   return (
     <div className="mt-2 flex w-full flex-col items-center gap-8">
-      {/* tab switcher with sliding pill — mirrors the offer section toggle.
-          Equal-width columns so the 50/50 pill lines up with either label,
-          regardless of their differing text lengths. */}
-      <div className="relative inline-grid grid-cols-2 rounded-full border border-app-border bg-app-elevated p-1 shadow-soft-lift dark:bg-app-card">
-        <motion.div
-          layout
-          layoutId="pricing-tab-pill"
-          transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-          className={`absolute inset-y-1 rounded-full ${activeTab === 'events' ? 'bg-brand-lime' : 'bg-brand-pink'}`}
-          style={{
-            left: activeTab === 'events' ? '4px' : '50%',
-            right: activeTab === 'events' ? '50%' : '4px',
-          }}
-        />
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-            className={`relative z-10 w-full rounded-full px-5 py-2 text-center text-sm font-black tracking-tight transition-colors duration-200 focus-visible:outline-none ${
-              activeTab === tab
-                ? tab === 'events'
-                  ? 'text-brand-dark'
-                  : 'text-brand-white'
-                : 'text-app-text-muted hover:text-app-text'
-            }`}
-          >
-            {t(GROUPS[tab].tabKey)}
-          </button>
-        ))}
-      </div>
+      <SegmentedToggle
+        value={activeTab}
+        onChange={setActiveTab}
+        options={options}
+        layoutId="pricing-tab-pill"
+      />
 
       <AnimatePresence mode="wait">
         <motion.div

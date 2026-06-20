@@ -8,6 +8,7 @@ import {
   DashboardActivityFeed,
   type ActivityFeedItem,
 } from '../components/dashboard/DashboardActivityFeed';
+import { DashboardFollowersRow } from '../components/dashboard/DashboardFollowersRow';
 import {
   DashboardPlaylistCard,
   type PlaylistCardRole,
@@ -15,12 +16,12 @@ import {
 } from '../components/dashboard/DashboardPlaylistCard';
 import { DashboardStats, type DashboardStat } from '../components/dashboard/DashboardStats';
 import { PwaInstallPrompt } from '../components/dashboard/PwaInstallPrompt';
-import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
 import { CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import {
   fetchDashboardSummary,
+  fetchDashboardTopFollowers,
   fetchDrafts,
   fetchPersonalInfo,
   fetchSyncCollections,
@@ -110,12 +111,19 @@ export const DashboardPage = () => {
     staleTime: 300_000,
   });
 
+  const topFollowersQuery = useQuery({
+    queryKey: queryKeys.dashboard.topFollowers(),
+    queryFn: fetchDashboardTopFollowers,
+    staleTime: 120_000,
+  });
+
   // ---------------------------------------------------------------------------
   // Derived data
   // ---------------------------------------------------------------------------
 
   const activeDraft = draftsQuery.data?.[0] ?? null;
   const summary = dashboardSummaryQuery.data;
+  const topFollowers = topFollowersQuery.data?.followers ?? [];
 
   // Stable references so the downstream useMemo hooks don't recompute every render.
   const trackedEventActivity = useMemo(() => summary?.trackedEventActivity ?? [], [summary]);
@@ -416,20 +424,7 @@ export const DashboardPage = () => {
     : t('dashboard.title');
 
   return (
-    <AppPageLayout
-      bodyClassName="gap-8"
-      backdrop={
-        <BlurSpotLayer
-          filterId="dashboard-blur"
-          className="pointer-events-none absolute inset-0 z-0"
-          spots={[
-            { id: 'a', size: 320, top: 0, left: 5, color: 'rgba(198,255,0,0.10)' },
-            { id: 'b', size: 280, top: 8, left: 80, color: 'rgba(255,46,139,0.10)' },
-            { id: 'c', size: 240, top: 60, left: 60, color: 'rgba(125,211,252,0.08)' },
-          ]}
-        />
-      }
-    >
+    <AppPageLayout bodyClassName="gap-8">
       <PwaInstallPrompt />
 
       {!hasDashboardContent && !isInitialLoad ? (
@@ -495,6 +490,16 @@ export const DashboardPage = () => {
 
           {/* Stat band */}
           <DashboardStats stats={stats} />
+
+          {/* Top followers */}
+          <DashboardFollowersRow
+            followers={topFollowers}
+            title={t('dashboard.followersTitle')}
+            subtitle={t('dashboard.followersSubtitle')}
+            viewAllLabel={t('dashboard.followersViewAll')}
+            viewAllTo="/followers"
+            emptyLabel={t('dashboard.followersEmpty')}
+          />
 
           {/* Playlists + activity */}
           <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] lg:items-start">

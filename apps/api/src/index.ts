@@ -65,6 +65,16 @@ export const buildServer = async () => {
     origin: parseCorsOrigins(process.env.CORS_ORIGINS),
     credentials: true,
   });
+  // The marketing site sends analytics beacons as `text/plain` (CORS-safelisted,
+  // so cross-origin `sendBeacon` skips preflight and survives unload). Parse the
+  // string body as JSON so those events reach the normal analytics handler.
+  app.addContentTypeParser('text/plain', { parseAs: 'string' }, (_req, body, done) => {
+    try {
+      done(null, body ? JSON.parse(body as string) : {});
+    } catch (error) {
+      done(error as Error, undefined);
+    }
+  });
   await app.register(rateLimit, {
     max: Number.isFinite(rateLimitMax) && rateLimitMax > 0 ? Math.floor(rateLimitMax) : 150,
     timeWindow: rateLimitTimeWindow,

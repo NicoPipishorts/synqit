@@ -36,7 +36,7 @@ export const PublicNav = ({
     <nav aria-label={ariaLabel} className={className}>
       <div
         onMouseLeave={() => setHoveredId(null)}
-        className="flex items-center gap-1.5 rounded-full border border-app-border/70 bg-app-elevated/85 px-2 py-1.5 shadow-soft-lift backdrop-blur-md dark:bg-app-card/85"
+        className="flex items-center gap-1.5 rounded-full border border-app-border/70 bg-white/92 px-2 py-1.5 shadow-[0_18px_42px_-22px_rgba(34,34,34,0.42),0_8px_18px_-14px_rgba(34,34,34,0.26)] backdrop-blur-[6px] dark:bg-app-card/92"
       >
         {items.map((item) => {
           const isActive = activeId === item.id;

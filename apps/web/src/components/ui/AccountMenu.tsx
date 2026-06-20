@@ -9,6 +9,7 @@ import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
 import { useProfileCompletion } from '../../hooks/useProfileCompletion';
 import { useProfileSettings } from '../../hooks/useProfileSettings';
+import { trackAnalyticsEvent } from '../../lib/analytics';
 import { callApi } from '../../lib/api';
 import { clearAuth, getInitials } from '../../lib/auth';
 
@@ -54,6 +55,10 @@ export const AccountMenu = () => {
     }
 
     setIsBusy(true);
+    trackAnalyticsEvent({
+      eventName: 'auth_logout',
+      target: 'auth',
+    });
     try {
       await callApi(
         '/v1/auth/logout',

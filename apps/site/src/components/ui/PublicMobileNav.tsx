@@ -27,7 +27,7 @@ export const PublicMobileNav = ({
 }: PublicMobileNavProps) => (
   <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center md:hidden">
     <nav
-      className="pointer-events-auto relative flex items-center gap-1 rounded-full border border-app-border/70 bg-app-elevated/90 px-2 py-1.5 shadow-soft-lift backdrop-blur-md dark:bg-app-card/90"
+      className="pointer-events-auto relative flex items-center gap-1 rounded-full border border-app-border/70 bg-white/92 px-2 py-1.5 shadow-[0_18px_42px_-22px_rgba(34,34,34,0.42),0_8px_18px_-14px_rgba(34,34,34,0.26)] backdrop-blur-[6px] dark:bg-app-card/92"
       aria-label={ariaLabel}
     >
       {items.map((item) => {

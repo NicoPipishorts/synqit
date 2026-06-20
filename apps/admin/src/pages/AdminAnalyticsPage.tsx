@@ -3,6 +3,7 @@ import {
   adminAnalyticsUserDetailResponseSchema,
   adminAnalyticsUsersListResponseSchema,
   adminPermissionScopeSchema,
+  analyticsTargetSchema,
   type AdminAnalyticsOverviewRange,
   type AdminAnalyticsOverviewResponse,
   type AdminAnalyticsUserDetailResponse,
@@ -11,9 +12,15 @@ import {
   type AdminPermissionScope,
 } from '@synqit/shared';
 import { useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AdminSectionHeader } from '../components/admin/AdminSectionHeader';
+import {
+  AnalyticsFilterDrawer,
+  EMPTY_FILTERS,
+  activeFilterCount,
+  type AnalyticsFilters,
+} from '../components/admin/AnalyticsFilterDrawer';
 import { PermissionLevelSlider } from '../components/admin/PermissionLevelSlider';
 import { AccordionSection } from '../components/ui/AccordionSection';
 import { CTAButton } from '../components/ui/cta';
@@ -64,15 +71,18 @@ export const AdminAnalyticsPage = () => {
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
   const [isLoadingOverview, setIsLoadingOverview] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
-  const [overviewRange, setOverviewRange] = useState<AdminAnalyticsOverviewRange>('24h');
-  const [isRangeMenuOpen, setIsRangeMenuOpen] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<AnalyticsFilters>({
+    range: '24h',
+    ...EMPTY_FILTERS,
+  });
+  const [draftFilters, setDraftFilters] = useState<AnalyticsFilters>(appliedFilters);
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [selectedUserDetail, setSelectedUserDetail] = useState<AnalyticsUserDetail | null>(null);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [accessEditor, setAccessEditor] = useState<AccessEditorState | null>(null);
-  const rangeMenuRef = useRef<HTMLDivElement | null>(null);
 
   const scopes = useMemo(() => adminPermissionScopeSchema.options, []);
   const canManageAdmins = useMemo(() => hasAdminPermission('admin_users', 'write'), []);
@@ -135,9 +145,12 @@ export const AdminAnalyticsPage = () => {
   const loadOverview = useCallback(async () => {
     setIsLoadingOverview(true);
     try {
-      const search = new URLSearchParams({
-        range: overviewRange,
-      });
+      const search = new URLSearchParams({ range: appliedFilters.range });
+      if (appliedFilters.source) search.set('source', appliedFilters.source);
+      if (appliedFilters.target) search.set('target', appliedFilters.target);
+      if (appliedFilters.page) search.set('page', appliedFilters.page);
+      if (appliedFilters.locale) search.set('locale', appliedFilters.locale);
+      if (appliedFilters.visitor) search.set('visitor', appliedFilters.visitor);
       const result = await callApi(
         `/v1/admin/analytics/overview?${search.toString()}`,
         {
@@ -154,7 +167,7 @@ export const AdminAnalyticsPage = () => {
     } finally {
       setIsLoadingOverview(false);
     }
-  }, [handleAccessError, overviewRange]);
+  }, [handleAccessError, appliedFilters]);
 
   const openUserDetails = useCallback(
     async (userId: string) => {
@@ -252,26 +265,6 @@ export const AdminAnalyticsPage = () => {
     void refreshData();
   }, [refreshData]);
 
-  useEffect(() => {
-    if (!isRangeMenuOpen) {
-      return;
-    }
-
-    const handleOutsideClick = (event: MouseEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) {
-        return;
-      }
-      if (rangeMenuRef.current?.contains(target)) {
-        return;
-      }
-      setIsRangeMenuOpen(false);
-    };
-
-    document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
-  }, [isRangeMenuOpen]);
-
   const overviewRangeOptions = useMemo(
     () =>
       [
@@ -290,9 +283,37 @@ export const AdminAnalyticsPage = () => {
   );
 
   const selectedOverviewRangeLabel =
-    overviewRangeOptions.find((option) => option.value === overviewRange)?.label ??
+    overviewRangeOptions.find((option) => option.value === appliedFilters.range)?.label ??
     overviewRangeOptions[0]?.label ??
     '';
+
+  const featureOptions = useMemo(
+    () =>
+      analyticsTargetSchema.options.map((value) => ({
+        value,
+        label: value.charAt(0).toUpperCase() + value.slice(1),
+      })),
+    [],
+  );
+  const pageFilterOptions = useMemo(() => {
+    const paths = new Set<string>();
+    for (const row of overview?.pageViewsByPath ?? []) paths.add(row.path);
+    for (const row of overview?.site.topPages ?? []) paths.add(row.path);
+    return Array.from(paths).sort();
+  }, [overview]);
+  const appliedFilterCount = activeFilterCount(appliedFilters);
+
+  const openFilterDrawer = () => {
+    setDraftFilters(appliedFilters);
+    setIsFilterDrawerOpen(true);
+  };
+  const applyDraftFilters = () => {
+    setAppliedFilters(draftFilters);
+    setIsFilterDrawerOpen(false);
+  };
+  const clearDraftFilters = () => {
+    setDraftFilters((current) => ({ range: current.range, ...EMPTY_FILTERS }));
+  };
 
   const topUsersByPlaylists = useMemo(
     () =>
@@ -321,6 +342,44 @@ export const AdminAnalyticsPage = () => {
   const maxDayViews =
     overview?.pageViewsByDay.reduce((max, row) => Math.max(max, row.views), 0) ?? 1;
 
+  const funnelStepLabels: Record<string, string> = {
+    sessions: t('admin.analyticsFunnelSessions'),
+    registered: t('admin.analyticsFunnelRegistered'),
+    providerConnected: t('admin.analyticsFunnelProviderConnected'),
+    eventCreated: t('admin.analyticsFunnelEventCreated'),
+    shared: t('admin.analyticsFunnelShared'),
+  };
+  const funnelSteps = useMemo(() => {
+    const entries = overview?.funnel ?? [];
+    const first = entries[0]?.count ?? 0;
+    return entries.map((entry, index) => {
+      const previous = index === 0 ? entry.count : entries[index - 1].count;
+      return {
+        ...entry,
+        widthPct: first > 0 ? Math.max(4, Math.round((entry.count / first) * 100)) : 0,
+        conversionFromPrev: previous > 0 ? Math.round((entry.count / previous) * 100) : 0,
+      };
+    });
+  }, [overview]);
+  const isErrorEventName = (name: string) => /_(failed|blocked|warning)$/.test(name);
+  const errorEvents = useMemo(
+    () => (overview?.eventBreakdown ?? []).filter((row) => isErrorEventName(row.eventName)),
+    [overview],
+  );
+  const maxEventCount =
+    (overview?.eventBreakdown ?? []).reduce((max, row) => Math.max(max, row.count), 0) || 1;
+  const maxActiveSessions =
+    overview?.engagement.activeSessionsByDay.reduce((max, row) => Math.max(max, row.sessions), 0) ||
+    1;
+  const maxSiteTraffic =
+    overview?.site.trafficByDay.reduce((max, row) => Math.max(max, row.views), 0) || 1;
+  const maxSitePageViews =
+    overview?.site.topPages.reduce((max, row) => Math.max(max, row.views), 0) || 1;
+  const maxSiteSectionViews =
+    overview?.site.topSections.reduce((max, row) => Math.max(max, row.views), 0) || 1;
+  const maxSiteClicks =
+    overview?.site.topClicks.reduce((max, row) => Math.max(max, row.clicks), 0) || 1;
+
   return (
     <section className="grid content-start gap-6">
       <AdminSectionHeader
@@ -331,10 +390,7 @@ export const AdminAnalyticsPage = () => {
       <article className="grid gap-4 rounded-3xl border border-app-border bg-app-elevated p-4 shadow-soft-lift sm:p-5 dark:bg-app-card">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-lg font-black text-app-text">{t('admin.analyticsOverviewTitle')}</h2>
-          <div
-            ref={rangeMenuRef}
-            className="relative flex flex-col gap-2 sm:flex-row sm:items-center"
-          >
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <CTAButton
               type="button"
               variant="secondary"
@@ -346,35 +402,17 @@ export const AdminAnalyticsPage = () => {
             <CTAButton
               type="button"
               variant="secondary"
-              onClick={() => setIsRangeMenuOpen((current) => !current)}
-              aria-expanded={isRangeMenuOpen}
-              aria-haspopup="menu"
+              onClick={openFilterDrawer}
+              aria-haspopup="dialog"
               className="w-full justify-center sm:w-auto"
             >
               {t('admin.analyticsFilterButton')}: {selectedOverviewRangeLabel}
+              {appliedFilterCount > 0 ? (
+                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-lime px-1.5 text-[11px] font-black text-brand-dark">
+                  {appliedFilterCount}
+                </span>
+              ) : null}
             </CTAButton>
-            {isRangeMenuOpen ? (
-              <div className="absolute inset-x-0 top-full z-20 mt-2 grid gap-1 rounded-xl border border-app-border bg-app-elevated p-1.5 shadow-soft-lift sm:left-auto sm:right-0 sm:min-w-52 dark:bg-app-card">
-                {overviewRangeOptions.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setOverviewRange(option.value);
-                      setIsRangeMenuOpen(false);
-                    }}
-                    className={`cursor-pointer rounded-lg px-3 py-2 text-left text-xs font-black transition ${
-                      overviewRange === option.value
-                        ? 'bg-brand-lime text-brand-dark'
-                        : 'text-app-text-secondary hover:bg-app-surface hover:text-app-text dark:hover:bg-app-bg'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
           </div>
         </div>
 
@@ -485,6 +523,299 @@ export const AdminAnalyticsPage = () => {
               </div>
             </div>
 
+            <div className="grid content-start gap-2 rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
+              <h3 className="text-sm font-black text-app-text">
+                {t('admin.analyticsFunnelTitle')}
+              </h3>
+              {funnelSteps.length === 0 ? (
+                <p className="text-xs font-semibold text-app-text-secondary">
+                  {t('admin.analyticsEmpty')}
+                </p>
+              ) : (
+                <div className="grid content-start gap-2">
+                  {funnelSteps.map((entry, index) => (
+                    <div
+                      key={entry.step}
+                      className="grid gap-1 rounded-lg border border-app-border bg-app-bg p-2 text-xs"
+                    >
+                      <div className="flex items-center justify-between gap-2 text-app-text-secondary">
+                        <span className="truncate font-semibold text-app-text">
+                          {funnelStepLabels[entry.step] ?? entry.step}
+                        </span>
+                        <span className="flex items-center gap-2">
+                          {index > 0 ? (
+                            <span className="font-semibold text-app-text-secondary">
+                              {entry.conversionFromPrev}%
+                            </span>
+                          ) : null}
+                          <span className="font-black text-app-text">{entry.count}</span>
+                        </span>
+                      </div>
+                      <span className="h-2 rounded-full bg-brand-lime/20">
+                        <span
+                          className="block h-2 rounded-full bg-brand-lime"
+                          style={{ width: `${entry.widthPct}%` }}
+                        />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="grid items-start gap-3 lg:grid-cols-2">
+              <div className="grid content-start gap-2 rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
+                <h3 className="text-sm font-black text-app-text">
+                  {t('admin.analyticsEventBreakdownTitle')}
+                </h3>
+                {overview.eventBreakdown.length === 0 ? (
+                  <p className="text-xs font-semibold text-app-text-secondary">
+                    {t('admin.analyticsEmpty')}
+                  </p>
+                ) : (
+                  <div className="grid max-h-80 content-start gap-2 overflow-y-auto pr-1">
+                    {overview.eventBreakdown.map((row) => {
+                      const width = Math.max(4, Math.round((row.count / maxEventCount) * 100));
+                      const isError = isErrorEventName(row.eventName);
+                      return (
+                        <div
+                          key={`${row.eventName}-${row.target}`}
+                          className={`grid gap-1 rounded-lg border p-2 text-xs ${
+                            isError
+                              ? 'border-brand-pink/40 bg-brand-pink/5'
+                              : 'border-app-border bg-app-bg'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 text-app-text-secondary">
+                            <span className="truncate font-mono text-[11px] text-app-text">
+                              {row.eventName}
+                            </span>
+                            <span className="flex items-center gap-2 whitespace-nowrap">
+                              <span title={t('admin.analyticsEventSessions')}>{row.sessions}</span>
+                              <span className="font-black text-app-text">{row.count}</span>
+                            </span>
+                          </div>
+                          <span
+                            className={`h-2 rounded-full ${isError ? 'bg-brand-pink/20' : 'bg-brand-pink/10'}`}
+                          >
+                            <span
+                              className={`block h-2 rounded-full ${isError ? 'bg-brand-pink' : 'bg-app-text/40'}`}
+                              style={{ width: `${width}%` }}
+                            />
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid content-start gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
+                    <p className="text-xs font-semibold text-app-text-secondary">
+                      {t('admin.analyticsReturningSessions')}
+                    </p>
+                    <p className="text-2xl font-black text-app-text">
+                      {overview.engagement.returningSessionsCount}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
+                    <p className="text-xs font-semibold text-app-text-secondary">
+                      {t('admin.analyticsAvgEventsPerSession')}
+                    </p>
+                    <p className="text-2xl font-black text-app-text">
+                      {overview.engagement.avgEventsPerSession}
+                    </p>
+                  </div>
+                </div>
+                <div className="grid content-start gap-2 rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
+                  <h3 className="text-sm font-black text-app-text">
+                    {t('admin.analyticsActiveSessionsByDay')}
+                  </h3>
+                  {overview.engagement.activeSessionsByDay.length === 0 ? (
+                    <p className="text-xs font-semibold text-app-text-secondary">
+                      {t('admin.analyticsEmpty')}
+                    </p>
+                  ) : (
+                    <div className="grid content-start gap-2">
+                      {overview.engagement.activeSessionsByDay.map((row) => {
+                        const width = Math.max(
+                          6,
+                          Math.round((row.sessions / maxActiveSessions) * 100),
+                        );
+                        return (
+                          <div
+                            key={row.day}
+                            className="grid gap-1 rounded-lg border border-app-border bg-app-bg p-2 text-xs"
+                          >
+                            <div className="flex items-center justify-between gap-2 text-app-text-secondary">
+                              <span className="truncate">{row.day}</span>
+                              <span className="font-black text-app-text">{row.sessions}</span>
+                            </div>
+                            <span className="h-2 rounded-full bg-brand-lime/20">
+                              <span
+                                className="block h-2 rounded-full bg-brand-lime"
+                                style={{ width: `${width}%` }}
+                              />
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {errorEvents.length > 0 ? (
+              <div className="grid content-start gap-2 rounded-2xl border border-brand-pink/40 bg-brand-pink/5 p-4">
+                <h3 className="text-sm font-black text-app-text">
+                  {t('admin.analyticsErrorHealthTitle')}
+                </h3>
+                <div className="grid content-start gap-2">
+                  {errorEvents.map((row) => (
+                    <div
+                      key={`err-${row.eventName}-${row.target}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-brand-pink/30 bg-app-bg p-2 text-xs"
+                    >
+                      <span className="truncate font-mono text-[11px] text-app-text">
+                        {row.eventName}
+                      </span>
+                      <span className="font-black text-[#b41563] dark:text-[#ff8ac0]">
+                        {row.count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid content-start gap-3 rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
+              <h3 className="text-sm font-black text-app-text">{t('admin.analyticsSiteTitle')}</h3>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-app-border bg-app-bg p-4">
+                  <p className="text-xs font-semibold text-app-text-secondary">
+                    {t('admin.analyticsSiteVisitors')}
+                  </p>
+                  <p className="text-2xl font-black text-app-text">
+                    {overview.site.uniqueVisitors}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-app-border bg-app-bg p-4">
+                  <p className="text-xs font-semibold text-app-text-secondary">
+                    {t('admin.analyticsSitePageViews')}
+                  </p>
+                  <p className="text-2xl font-black text-app-text">
+                    {overview.site.pageViewsCount}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-app-border bg-app-bg p-4">
+                  <p className="text-xs font-semibold text-app-text-secondary">
+                    {t('admin.analyticsSiteAvgTime')}
+                  </p>
+                  <p className="text-2xl font-black text-app-text">
+                    {overview.site.avgEngagedSeconds}
+                    {t('admin.analyticsSiteSecondsSuffix')}
+                  </p>
+                </div>
+              </div>
+
+              {overview.site.trafficByDay.length > 0 ? (
+                <div className="grid content-start gap-2">
+                  <h4 className="text-xs font-black uppercase tracking-wide text-app-text-secondary">
+                    {t('admin.analyticsSiteTrafficByDay')}
+                  </h4>
+                  {overview.site.trafficByDay.map((row) => {
+                    const width = Math.max(6, Math.round((row.views / maxSiteTraffic) * 100));
+                    return (
+                      <div
+                        key={row.day}
+                        className="grid gap-1 rounded-lg border border-app-border bg-app-bg p-2 text-xs"
+                      >
+                        <div className="flex items-center justify-between gap-2 text-app-text-secondary">
+                          <span className="truncate">{row.day}</span>
+                          <span className="font-black text-app-text">{row.views}</span>
+                        </div>
+                        <span className="h-2 rounded-full bg-brand-lime/20">
+                          <span
+                            className="block h-2 rounded-full bg-brand-lime"
+                            style={{ width: `${width}%` }}
+                          />
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              <div className="grid items-start gap-3 lg:grid-cols-3">
+                {(
+                  [
+                    {
+                      key: 'pages',
+                      title: t('admin.analyticsSiteTopPages'),
+                      rows: overview.site.topPages.map((row) => ({
+                        label: row.path,
+                        value: row.views,
+                        max: maxSitePageViews,
+                      })),
+                    },
+                    {
+                      key: 'sections',
+                      title: t('admin.analyticsSiteTopSections'),
+                      rows: overview.site.topSections.map((row) => ({
+                        label: row.section,
+                        value: row.views,
+                        max: maxSiteSectionViews,
+                      })),
+                    },
+                    {
+                      key: 'clicks',
+                      title: t('admin.analyticsSiteTopClicks'),
+                      rows: overview.site.topClicks.map((row) => ({
+                        label: row.label,
+                        value: row.clicks,
+                        max: maxSiteClicks,
+                      })),
+                    },
+                  ] as const
+                ).map((column) => (
+                  <div key={column.key} className="grid content-start gap-2">
+                    <h4 className="text-xs font-black uppercase tracking-wide text-app-text-secondary">
+                      {column.title}
+                    </h4>
+                    {column.rows.length === 0 ? (
+                      <p className="text-xs font-semibold text-app-text-secondary">
+                        {t('admin.analyticsEmpty')}
+                      </p>
+                    ) : (
+                      column.rows.map((row) => {
+                        const width = Math.max(6, Math.round((row.value / row.max) * 100));
+                        return (
+                          <div
+                            key={`${column.key}-${row.label}`}
+                            className="grid gap-1 rounded-lg border border-app-border bg-app-bg p-2 text-xs"
+                          >
+                            <div className="flex items-center justify-between gap-2 text-app-text-secondary">
+                              <span className="truncate">{row.label}</span>
+                              <span className="font-black text-app-text">{row.value}</span>
+                            </div>
+                            <span className="h-2 rounded-full bg-brand-pink/15">
+                              <span
+                                className="block h-2 rounded-full bg-brand-pink"
+                                style={{ width: `${width}%` }}
+                              />
+                            </span>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
             <div className="grid gap-2 rounded-2xl border border-app-border bg-app-surface p-4 dark:bg-app-card">
               <h3 className="text-sm font-black text-app-text">{t('admin.analyticsTopHosts')}</h3>
               {isLoadingUsers ? (
@@ -531,6 +862,18 @@ export const AdminAnalyticsPage = () => {
           </>
         )}
       </article>
+
+      <AnalyticsFilterDrawer
+        open={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        draft={draftFilters}
+        onDraftChange={setDraftFilters}
+        rangeOptions={overviewRangeOptions.map((option) => ({ ...option }))}
+        featureOptions={featureOptions}
+        pageOptions={pageFilterOptions}
+        onApply={applyDraftFilters}
+        onClear={clearDraftFilters}
+      />
 
       <SlideOverPanel
         open={Boolean(selectedUserId)}

@@ -16,7 +16,7 @@ export const analyticsStore = {
     target: AnalyticsTarget;
     path: string;
     locale: 'en' | 'fr' | null;
-    source: 'web';
+    source: 'web' | 'site';
     referrer: string | null;
     properties: Record<string, unknown>;
   }): Promise<void> {
