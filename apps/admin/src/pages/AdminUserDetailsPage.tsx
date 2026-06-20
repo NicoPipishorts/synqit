@@ -17,7 +17,7 @@ import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { isDisplayableAnalyticsPath } from '../lib/analytics-display';
 import { callApi, toApiError } from '../lib/api';
-import { clearAuth, loadAuth } from '../lib/auth';
+import { clearAuth, hasAdminPermission, loadAuth } from '../lib/auth';
 
 type AnalyticsUserDetail = AdminAnalyticsUserDetailResponse['user'];
 type AccessLevelUi = AdminPermissionLevel | 'none';
@@ -27,14 +27,11 @@ type AccessEditorState = {
   scopeLevels: Record<AdminPermissionScope, AccessLevelUi>;
 };
 
-const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> => ({
-  dashboard: 'none',
-  users: 'none',
-  events: 'none',
-  integrations: 'none',
-  emails: 'none',
-  analytics: 'none',
-});
+const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> =>
+  Object.fromEntries(adminPermissionScopeSchema.options.map((scope) => [scope, 'none'])) as Record<
+    AdminPermissionScope,
+    AccessLevelUi
+  >;
 
 const providerLabel = (provider: 'spotify' | 'apple'): string =>
   provider === 'spotify' ? 'Spotify' : 'Apple Music';
@@ -94,6 +91,7 @@ export const AdminUserDetailsPage = () => {
 
   const scopes = useMemo(() => adminPermissionScopeSchema.options, []);
   const currentAdminUserId = useMemo(() => loadAuth()?.userId ?? null, []);
+  const canManageAdmins = useMemo(() => hasAdminPermission('admin_users', 'write'), []);
   const persistedAccessRef = useRef<AccessEditorState | null>(null);
   const queuedAccessRef = useRef<AccessEditorState | null>(null);
   const saveTimeoutRef = useRef<number | null>(null);
@@ -477,7 +475,11 @@ export const AdminUserDetailsPage = () => {
           </AdminDetailCard>
 
           <AdminDetailCard title={t('admin.accessEditorTitle')}>
-            {accessEditor ? (
+            {!canManageAdmins ? (
+              <p className="text-sm text-app-text-secondary">
+                Only admins with `admin_users:write` can create admins or edit admin rights.
+              </p>
+            ) : accessEditor ? (
               <div className="grid gap-6">
                 <div className="flex flex-col gap-4 rounded-lg border border-app-border bg-app-bg px-4 py-3 text-xs font-semibold uppercase tracking-wide text-app-text-secondary lg:flex-row lg:items-center lg:justify-between">
                   <div className="flex items-center gap-3">

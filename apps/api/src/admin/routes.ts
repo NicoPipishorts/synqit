@@ -938,7 +938,7 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
 
   app.put('/admin/users/:userId/access', async (request, reply) => {
     const access = await resolveAdminAccess(request, reply, {
-      scope: 'users',
+      scope: 'admin_users',
       level: 'write',
     });
     if (!access) {

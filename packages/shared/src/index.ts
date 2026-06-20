@@ -109,6 +109,7 @@ export const adminPermissionScopeSchema = z.enum([
   'integrations',
   'emails',
   'analytics',
+  'admin_users',
 ]);
 export type AdminPermissionScope = z.infer<typeof adminPermissionScopeSchema>;
 
