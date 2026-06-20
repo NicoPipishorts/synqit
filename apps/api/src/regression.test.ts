@@ -119,10 +119,12 @@ describe('API regression', () => {
   let app: FastifyInstance;
   let previousRegistrationEmailEnabled: string | undefined;
   let previousPasswordResetEmailEnabled: string | undefined;
+  let previousRateLimitMax: string | undefined;
 
   before(async () => {
     previousRegistrationEmailEnabled = process.env.AUTH_REGISTRATION_EMAIL_ENABLED;
     previousPasswordResetEmailEnabled = process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED;
+    previousRateLimitMax = process.env.RATE_LIMIT_MAX;
 
     // Regression must never enqueue real emails, even if local env enables them.
     process.env.AUTH_REGISTRATION_EMAIL_ENABLED = 'false';
@@ -137,6 +139,7 @@ describe('API regression', () => {
     process.env.APPLE_KEY_ID = 'replace-me';
     process.env.APPLE_MUSICKIT_IDENTIFIER = 'replace-me';
     process.env.APPLE_PRIVATE_KEY_P8 = 'replace-me';
+    process.env.RATE_LIMIT_MAX = '1000';
 
     app = await buildServer();
   });
@@ -155,6 +158,11 @@ describe('API regression', () => {
       delete process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED;
     } else {
       process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED = previousPasswordResetEmailEnabled;
+    }
+    if (previousRateLimitMax === undefined) {
+      delete process.env.RATE_LIMIT_MAX;
+    } else {
+      process.env.RATE_LIMIT_MAX = previousRateLimitMax;
     }
 
     await cleanupTestData();
@@ -507,8 +515,13 @@ describe('API regression', () => {
     assert.equal(nonAdminLoginResponse.statusCode, 403);
 
     const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
+    const previousSuperUsers = process.env.ADMIN_SUPER_USERS;
+    const superAdminEmail = `${TEST_EMAIL_PREFIX}super-admin@synqit.test`;
     process.env.ADMIN_BOOTSTRAP_KEY = 'regression-bootstrap-key';
+    process.env.ADMIN_SUPER_USERS = superAdminEmail;
     try {
+      await createUserAndLogin(app, superAdminEmail);
+
       const bootstrapResponse = await app.inject({
         method: 'POST',
         url: '/v1/admin/bootstrap/promote',
@@ -516,7 +529,7 @@ describe('API regression', () => {
           'x-admin-bootstrap-key': process.env.ADMIN_BOOTSTRAP_KEY,
         },
         payload: {
-          email: hostEmail,
+          email: superAdminEmail,
         },
       });
       assert.equal(bootstrapResponse.statusCode, 200);
@@ -525,7 +538,7 @@ describe('API regression', () => {
         method: 'POST',
         url: '/v1/admin/auth/login',
         payload: {
-          email: hostEmail,
+          email: superAdminEmail,
           password: TEST_PASSWORD,
         },
       });
@@ -598,6 +611,95 @@ describe('API regression', () => {
         delete process.env.ADMIN_BOOTSTRAP_KEY;
       } else {
         process.env.ADMIN_BOOTSTRAP_KEY = previousBootstrapKey;
+      }
+      if (previousSuperUsers === undefined) {
+        delete process.env.ADMIN_SUPER_USERS;
+      } else {
+        process.env.ADMIN_SUPER_USERS = previousSuperUsers;
+      }
+    }
+  });
+
+  it('admin: reset user flow deletes a user account so the email can register again', async () => {
+    const superAdminEmail = `${TEST_EMAIL_PREFIX}super-admin-reset@synqit.test`;
+    const targetEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    await createUserAndLogin(app, superAdminEmail);
+    const targetUser = await createUserAndLogin(app, targetEmail);
+
+    const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
+    const previousSuperUsers = process.env.ADMIN_SUPER_USERS;
+    process.env.ADMIN_BOOTSTRAP_KEY = 'regression-bootstrap-key';
+    process.env.ADMIN_SUPER_USERS = superAdminEmail;
+
+    try {
+      const bootstrapResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/bootstrap/promote',
+        headers: {
+          'x-admin-bootstrap-key': process.env.ADMIN_BOOTSTRAP_KEY,
+        },
+        payload: {
+          email: superAdminEmail,
+        },
+      });
+      assert.equal(bootstrapResponse.statusCode, 200);
+
+      const adminLoginResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/auth/login',
+        payload: {
+          email: superAdminEmail,
+          password: TEST_PASSWORD,
+        },
+      });
+      assert.equal(adminLoginResponse.statusCode, 200);
+      const adminLoginBody = parseBody(adminLoginResponse.body) as {
+        tokens: { accessToken: string };
+      };
+
+      const resetResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/admin/users/${targetUser.user.id}/reset-user-flow`,
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+      });
+      assert.equal(resetResponse.statusCode, 200);
+
+      const deletedMeResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/me',
+        headers: authHeader(targetUser.tokens.accessToken),
+      });
+      assert.equal(deletedMeResponse.statusCode, 401);
+
+      const loginAfterResetResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/login',
+        payload: {
+          email: targetEmail,
+          password: TEST_PASSWORD,
+        },
+      });
+      assert.equal(loginAfterResetResponse.statusCode, 401);
+
+      const registerAgainResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/register',
+        payload: {
+          email: targetEmail,
+          password: TEST_PASSWORD,
+        },
+      });
+      assert.equal(registerAgainResponse.statusCode, 200);
+    } finally {
+      if (previousBootstrapKey === undefined) {
+        delete process.env.ADMIN_BOOTSTRAP_KEY;
+      } else {
+        process.env.ADMIN_BOOTSTRAP_KEY = previousBootstrapKey;
+      }
+      if (previousSuperUsers === undefined) {
+        delete process.env.ADMIN_SUPER_USERS;
+      } else {
+        process.env.ADMIN_SUPER_USERS = previousSuperUsers;
       }
     }
   });

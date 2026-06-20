@@ -57,6 +57,8 @@ export const buildServer = async () => {
   const app = Fastify({
     logger: true,
   });
+  const rateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 150);
+  const rateLimitTimeWindow = process.env.RATE_LIMIT_TIME_WINDOW ?? '1 minute';
 
   await app.register(helmet);
   await app.register(cors, {
@@ -64,8 +66,8 @@ export const buildServer = async () => {
     credentials: true,
   });
   await app.register(rateLimit, {
-    max: 150,
-    timeWindow: '1 minute',
+    max: Number.isFinite(rateLimitMax) && rateLimitMax > 0 ? Math.floor(rateLimitMax) : 150,
+    timeWindow: rateLimitTimeWindow,
   });
   await app.register(jwt, {
     secret: JWT_ACCESS_SECRET,

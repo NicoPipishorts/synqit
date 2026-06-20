@@ -182,6 +182,13 @@ export const adminUserBlockUpdateSchema = z.object({
 });
 export type AdminUserBlockUpdate = z.infer<typeof adminUserBlockUpdateSchema>;
 
+export const adminUserResetFlowResponseSchema = z.object({
+  ok: z.literal(true),
+  reset: z.literal(true),
+  releasedEmail: z.string().email(),
+});
+export type AdminUserResetFlowResponse = z.infer<typeof adminUserResetFlowResponseSchema>;
+
 export const adminUserSummarySchema = z.object({
   id: z.string(),
   email: z.string().email(),

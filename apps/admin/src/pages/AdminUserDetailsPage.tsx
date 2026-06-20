@@ -27,6 +27,21 @@ type AccessEditorState = {
   scopeLevels: Record<AdminPermissionScope, AccessLevelUi>;
 };
 
+const toAccessEditorState = (
+  role: 'user' | 'admin',
+  permissions: Array<{ scope: AdminPermissionScope; level: AdminPermissionLevel }>,
+): AccessEditorState => {
+  const nextScopeLevels = defaultScopeLevels();
+  for (const permission of permissions) {
+    nextScopeLevels[permission.scope] = permission.level;
+  }
+
+  return {
+    role,
+    scopeLevels: nextScopeLevels,
+  };
+};
+
 const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> =>
   Object.fromEntries(adminPermissionScopeSchema.options.map((scope) => [scope, 'none'])) as Record<
     AdminPermissionScope,
@@ -86,7 +101,9 @@ export const AdminUserDetailsPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isUpdatingBlockedState, setIsUpdatingBlockedState] = useState(false);
+  const [isResettingUserFlow, setIsResettingUserFlow] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   const scopes = useMemo(() => adminPermissionScopeSchema.options, []);
@@ -144,16 +161,8 @@ export const AdminUserDetailsPage = () => {
         (payload) => adminAnalyticsUserDetailResponseSchema.parse(payload),
       );
 
-      const nextScopeLevels = defaultScopeLevels();
-      for (const permission of result.user.adminPermissions) {
-        nextScopeLevels[permission.scope] = permission.level;
-      }
-
       setUserDetail(result.user);
-      const nextAccessEditor = {
-        role: result.user.role,
-        scopeLevels: nextScopeLevels,
-      };
+      const nextAccessEditor = toAccessEditorState(result.user.role, result.user.adminPermissions);
       setAccessEditor(nextAccessEditor);
       persistedAccessRef.current = nextAccessEditor;
     } catch (error) {
@@ -197,7 +206,7 @@ export const AdminUserDetailsPage = () => {
                 )
             : [];
 
-        await callApi(
+        const result = await callApi(
           `/v1/admin/users/${userDetail.userId}/access`,
           {
             method: 'PUT',
@@ -206,16 +215,31 @@ export const AdminUserDetailsPage = () => {
               adminPermissions,
             }),
           },
-          (payload) => payload,
+          (payload) =>
+            payload as {
+              ok: true;
+              user: {
+                role: 'user' | 'admin';
+                adminPermissions: Array<{
+                  scope: AdminPermissionScope;
+                  level: AdminPermissionLevel;
+                }>;
+              };
+            },
         );
 
-        persistedAccessRef.current = nextAccessEditor;
+        const persistedAccess = toAccessEditorState(
+          result.user.role,
+          result.user.adminPermissions,
+        );
+        persistedAccessRef.current = persistedAccess;
+        setAccessEditor(persistedAccess);
         setUserDetail((current) =>
           current
             ? {
                 ...current,
-                role: nextAccessEditor.role,
-                adminPermissions,
+                role: result.user.role,
+                adminPermissions: result.user.adminPermissions,
               }
             : current,
         );
@@ -290,11 +314,20 @@ export const AdminUserDetailsPage = () => {
   const canToggleBlockedState = Boolean(
     userDetail && currentAdminUserId && userDetail.userId !== currentAdminUserId,
   );
+  const canResetUserFlow = Boolean(
+    canManageAdmins &&
+      userDetail?.role !== 'admin' &&
+      currentAdminUserId &&
+      userDetail?.userId !== currentAdminUserId,
+  );
   const blockActionLabel = userDetail?.isBlocked ? 'Reactivate account' : 'Block account';
   const blockModalTitle = userDetail?.isBlocked ? 'Reactivate account?' : 'Block account?';
   const blockModalMessage = userDetail?.isBlocked
     ? 'This will restore access to login, refresh sessions, and use the customer app again.'
     : 'This will immediately prevent the account from refreshing sessions and accessing the customer app.';
+  const resetModalTitle = 'Reset user flow?';
+  const resetModalMessage =
+    'This will permanently remove the local account so the same email can register again from scratch. Existing local history will be lost.';
 
   const toggleBlockedState = useCallback(async () => {
     if (!userDetail || !canToggleBlockedState) {
@@ -340,6 +373,44 @@ export const AdminUserDetailsPage = () => {
       setIsUpdatingBlockedState(false);
     }
   }, [canToggleBlockedState, handleAccessError, showToast, userDetail]);
+
+  const resetUserFlow = useCallback(async () => {
+    if (!userDetail || !canResetUserFlow) {
+      return;
+    }
+
+    setIsResettingUserFlow(true);
+    setStatus(null);
+
+    try {
+        const result = await callApi(
+          `/v1/admin/users/${userDetail.userId}/reset-user-flow`,
+          {
+            method: 'POST',
+          },
+          (payload) =>
+            payload as {
+              ok: true;
+              reset: true;
+              releasedEmail: string;
+            },
+        );
+
+      const message = `User flow reset. ${result.releasedEmail} can register again.`;
+      setStatus(message);
+      showToast(message, { variant: 'success' });
+      setIsResetModalOpen(false);
+      void navigate({ to: '/users' });
+    } catch (error) {
+      const message = handleAccessError(error);
+      if (message) {
+        setStatus(message);
+        showToast(message, { variant: 'error' });
+      }
+    } finally {
+      setIsResettingUserFlow(false);
+    }
+  }, [canResetUserFlow, handleAccessError, navigate, showToast, userDetail]);
 
   useEffect(() => {
     void loadUserDetail();
@@ -396,16 +467,28 @@ export const AdminUserDetailsPage = () => {
             {getUserTitle(userDetail)}
           </h1>
         </div>
-        {canToggleBlockedState ? (
-          <CTAButton
-            type="button"
-            variant={userDetail.isBlocked ? 'secondary' : 'danger'}
-            onClick={() => setIsBlockModalOpen(true)}
-            className="w-full justify-center sm:w-auto"
-          >
-            {blockActionLabel}
-          </CTAButton>
-        ) : null}
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+          {canResetUserFlow ? (
+            <CTAButton
+              type="button"
+              variant="dangerSoft"
+              onClick={() => setIsResetModalOpen(true)}
+              className="w-full justify-center sm:w-auto"
+            >
+              Reset user flow
+            </CTAButton>
+          ) : null}
+          {canToggleBlockedState ? (
+            <CTAButton
+              type="button"
+              variant={userDetail.isBlocked ? 'secondary' : 'danger'}
+              onClick={() => setIsBlockModalOpen(true)}
+              className="w-full justify-center sm:w-auto"
+            >
+              {blockActionLabel}
+            </CTAButton>
+          ) : null}
+        </div>
       </div>
 
       <article className="grid gap-6 rounded-3xl border border-app-border bg-app-elevated p-4 shadow-soft-lift sm:p-5 dark:bg-app-card">
@@ -652,6 +735,40 @@ export const AdminUserDetailsPage = () => {
               className="w-full justify-center sm:w-auto"
             >
               {isUpdatingBlockedState ? 'Working...' : blockActionLabel}
+            </CTAButton>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={isResetModalOpen}
+        title={resetModalTitle}
+        onClose={() => {
+          if (!isResettingUserFlow) {
+            setIsResetModalOpen(false);
+          }
+        }}
+      >
+        <div className="grid gap-5">
+          <p className="text-sm text-app-text-secondary">{resetModalMessage}</p>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <CTAButton
+              type="button"
+              variant="secondary"
+              onClick={() => setIsResetModalOpen(false)}
+              disabled={isResettingUserFlow}
+              className="w-full justify-center sm:w-auto"
+            >
+              Cancel
+            </CTAButton>
+            <CTAButton
+              type="button"
+              variant="danger"
+              onClick={() => void resetUserFlow()}
+              disabled={isResettingUserFlow}
+              className="w-full justify-center sm:w-auto"
+            >
+              {isResettingUserFlow ? 'Resetting...' : 'Confirm reset'}
             </CTAButton>
           </div>
         </div>

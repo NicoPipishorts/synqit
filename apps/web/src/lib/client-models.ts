@@ -6,7 +6,8 @@ export type AdminPermissionScope =
   | 'events'
   | 'integrations'
   | 'emails'
-  | 'analytics';
+  | 'analytics'
+  | 'admin_users';
 export type AdminPermissionLevel = 'read' | 'write';
 export type AdminPermission = {
   scope: AdminPermissionScope;
@@ -57,7 +58,7 @@ const isAdminPermission = (value: unknown): value is AdminPermission => {
   return (
     'scope' in value &&
     typeof value.scope === 'string' &&
-    ['dashboard', 'users', 'events', 'integrations', 'emails', 'analytics'].includes(value.scope) &&
+    ['dashboard', 'users', 'events', 'integrations', 'emails', 'analytics', 'admin_users'].includes(value.scope) &&
     'level' in value &&
     (value.level === 'read' || value.level === 'write')
   );

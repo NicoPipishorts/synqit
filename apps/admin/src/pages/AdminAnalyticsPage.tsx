@@ -32,6 +32,21 @@ type AccessEditorState = {
   scopeLevels: Record<AdminPermissionScope, AccessLevelUi>;
 };
 
+const toAccessEditorState = (
+  role: 'user' | 'admin',
+  permissions: Array<{ scope: AdminPermissionScope; level: AdminPermissionLevel }>,
+): AccessEditorState => {
+  const nextScopeLevels = defaultScopeLevels();
+  for (const permission of permissions) {
+    nextScopeLevels[permission.scope] = permission.level;
+  }
+
+  return {
+    role,
+    scopeLevels: nextScopeLevels,
+  };
+};
+
 const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> =>
   Object.fromEntries(adminPermissionScopeSchema.options.map((scope) => [scope, 'none'])) as Record<
     AdminPermissionScope,
@@ -158,16 +173,8 @@ export const AdminAnalyticsPage = () => {
           (payload) => adminAnalyticsUserDetailResponseSchema.parse(payload),
         );
 
-        const nextScopeLevels = defaultScopeLevels();
-        for (const permission of result.user.adminPermissions) {
-          nextScopeLevels[permission.scope] = permission.level;
-        }
-
         setSelectedUserDetail(result.user);
-        setAccessEditor({
-          role: result.user.role,
-          scopeLevels: nextScopeLevels,
-        });
+        setAccessEditor(toAccessEditorState(result.user.role, result.user.adminPermissions));
       } catch (error) {
         const message = handleAccessError(error);
         if (message) {

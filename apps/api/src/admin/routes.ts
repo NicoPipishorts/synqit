@@ -24,7 +24,7 @@ import { Queue } from 'bullmq';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 
-import { buildAvatarUrl } from '../auth/avatar-storage';
+import { buildAvatarUrl, deleteAvatarImage } from '../auth/avatar-storage';
 import { createRefreshToken, hashToken, verifyPassword } from '../auth/crypto';
 import { authStore, type UserRecord } from '../auth/store';
 import { prisma } from '../db/prisma';
@@ -35,6 +35,7 @@ import { enqueueWeeklyRecapEmailPreview } from '../jobs/weekly-recap-email';
 const DEFAULT_REDIS_URL = 'redis://localhost:6380';
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
+const DEFAULT_SUPER_ADMIN_IDENTITIES = 'shamanproto';
 
 const previewEmailRequestSchema = z.object({
   toEmail: z.string().email(),
@@ -91,6 +92,48 @@ const fullAdminPermissions = (): AdminPermission[] =>
     scope,
     level: 'write',
   }));
+
+const standardAdminPermissions = (): AdminPermission[] =>
+  adminPermissionScopeSchema.options
+    .filter((scope) => scope !== 'admin_users')
+    .map((scope) => ({
+      scope,
+      level: 'write',
+    }));
+
+const readSuperAdminIdentities = (): Set<string> =>
+  new Set(
+    (process.env.ADMIN_SUPER_USERS ?? DEFAULT_SUPER_ADMIN_IDENTITIES)
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+const isSuperAdminIdentity = (email: string): boolean => {
+  const normalizedEmail = email.trim().toLowerCase();
+  const localPart = normalizedEmail.split('@')[0] ?? normalizedEmail;
+  const identifiers = readSuperAdminIdentities();
+  return identifiers.has(normalizedEmail) || identifiers.has(localPart);
+};
+
+const defaultAdminPermissionsForEmail = (email: string): AdminPermission[] =>
+  isSuperAdminIdentity(email) ? fullAdminPermissions() : standardAdminPermissions();
+
+const normalizeAdminPermissionsForTarget = (
+  email: string,
+  role: AccountRole,
+  requestedPermissions: AdminPermission[],
+): AdminPermission[] => {
+  if (role !== 'admin') {
+    return [];
+  }
+
+  if (isSuperAdminIdentity(email)) {
+    return fullAdminPermissions();
+  }
+
+  return requestedPermissions.filter((permission) => permission.scope !== 'admin_users');
+};
 
 const formatPublicUser = (user: UserRecord) =>
   authUserSchema.parse({
@@ -972,8 +1015,11 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const nextRole: AccountRole = body.data.role;
-    const normalizedPermissions =
-      nextRole === 'admin' ? normalizePermissionMap(body.data.adminPermissions) : [];
+    const normalizedPermissions = normalizeAdminPermissionsForTarget(
+      existing.email,
+      nextRole,
+      normalizePermissionMap(body.data.adminPermissions),
+    );
 
     await authStore.setUserRoleById(existing.id, nextRole);
     await authStore.replaceUserAdminPermissionsByUserId(existing.id, normalizedPermissions);
@@ -997,6 +1043,66 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         createdAt: refreshed.createdAt.toISOString(),
         adminPermissions: refreshed.adminPermissions,
       },
+    });
+  });
+
+  app.post('/admin/users/:userId/reset-user-flow', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'admin_users',
+      level: 'write',
+    });
+    if (!access || !access.user) {
+      return;
+    }
+
+    const params = userAccessParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Request params are invalid.',
+        details: params.error.flatten(),
+      });
+    }
+
+    if (access.user.id === params.data.userId) {
+      return reply.status(409).send({
+        code: 'self_reset_not_allowed',
+        message: 'You cannot reset your own account flow.',
+      });
+    }
+
+    const existing = await authStore.findUserById(params.data.userId);
+    if (!existing) {
+      return reply.status(404).send({
+        code: 'user_not_found',
+        message: 'User not found.',
+      });
+    }
+
+    if (existing.role === 'admin') {
+      return reply.status(409).send({
+        code: 'admin_reset_not_allowed',
+        message: 'Admin accounts cannot be reset through this flow.',
+      });
+    }
+
+    await authStore.revokeAllRefreshTokensByUserId(existing.id);
+    if (existing.avatarPath) {
+      await deleteAvatarImage(existing.avatarPath);
+    }
+
+    const deleted = await authStore.deleteUserById(existing.id);
+    if (!deleted) {
+      return reply.status(500).send({
+        code: 'admin_user_reset_failed',
+        message: 'Unable to reset this user account.',
+      });
+    }
+
+    return reply.status(200).send({
+      ok: true,
+      reset: true,
+      releasedEmail: existing.email,
     });
   });
 
@@ -1104,7 +1210,10 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     await authStore.setUserRoleById(user.id, 'admin');
-    await authStore.replaceUserAdminPermissionsByUserId(user.id, fullAdminPermissions());
+    await authStore.replaceUserAdminPermissionsByUserId(
+      user.id,
+      defaultAdminPermissionsForEmail(user.email),
+    );
 
     const refreshed = await authStore.findUserById(user.id);
     if (!refreshed) {

@@ -115,6 +115,8 @@ type UserPreferencesRow = {
   updated_at: Date;
 };
 
+const DEFAULT_SUPER_ADMIN_IDENTITIES = 'shamanproto';
+
 type RefreshTokenRow = {
   id: string;
   user_id: string;
@@ -145,6 +147,43 @@ const toUserRecord = (row: UserRow): UserRecord => ({
   avatarPath: row.avatar_url ?? null,
   createdAt: new Date(row.created_at),
 });
+
+const readSuperAdminIdentities = (): Set<string> =>
+  new Set(
+    (process.env.ADMIN_SUPER_USERS ?? DEFAULT_SUPER_ADMIN_IDENTITIES)
+      .split(',')
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean),
+  );
+
+const isSuperAdminIdentity = (email: string): boolean => {
+  const normalizedEmail = email.trim().toLowerCase();
+  const localPart = normalizedEmail.split('@')[0] ?? normalizedEmail;
+  const identifiers = readSuperAdminIdentities();
+  return identifiers.has(normalizedEmail) || identifiers.has(localPart);
+};
+
+const withDerivedAdminPermissions = (
+  user: UserRecord,
+  permissions: AdminPermission[],
+): AdminPermission[] => {
+  if (user.role !== 'admin' || !isSuperAdminIdentity(user.email)) {
+    return permissions;
+  }
+
+  const hasAdminUsers = permissions.some((permission) => permission.scope === 'admin_users');
+  if (hasAdminUsers) {
+    return permissions;
+  }
+
+  return [
+    ...permissions,
+    {
+      scope: 'admin_users',
+      level: 'write',
+    },
+  ];
+};
 
 const toRefreshTokenRecord = (row: RefreshTokenRow): RefreshTokenRecord => ({
   id: row.id,
@@ -303,7 +342,10 @@ export const authStore = {
         return null;
       }
       const record = toUserRecord(rows[0]);
-      record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+      record.adminPermissions = withDerivedAdminPermissions(
+        record,
+        await authStore.listUserAdminPermissionsByUserId(record.id),
+      );
       return record;
     } catch (error) {
       if (isMissingAvatarColumnError(error)) {
@@ -317,7 +359,10 @@ export const authStore = {
             return null;
           }
           const record = toUserRecord(rows[0]);
-          record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+          record.adminPermissions = withDerivedAdminPermissions(
+            record,
+            await authStore.listUserAdminPermissionsByUserId(record.id),
+          );
           return record;
         } catch (fallbackError) {
           if (isUniqueConstraintViolation(fallbackError)) {
@@ -347,7 +392,10 @@ export const authStore = {
         return null;
       }
       const record = toUserRecord(rows[0]);
-      record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+      record.adminPermissions = withDerivedAdminPermissions(
+        record,
+        await authStore.listUserAdminPermissionsByUserId(record.id),
+      );
       return record;
     } catch (error) {
       if (isMissingAvatarColumnError(error)) {
@@ -361,7 +409,10 @@ export const authStore = {
           return null;
         }
         const record = toUserRecord(rows[0]);
-        record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+        record.adminPermissions = withDerivedAdminPermissions(
+          record,
+          await authStore.listUserAdminPermissionsByUserId(record.id),
+        );
         return record;
       }
       throw error;
@@ -380,7 +431,10 @@ export const authStore = {
         return null;
       }
       const record = toUserRecord(rows[0]);
-      record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+      record.adminPermissions = withDerivedAdminPermissions(
+        record,
+        await authStore.listUserAdminPermissionsByUserId(record.id),
+      );
       return record;
     } catch (error) {
       if (isMissingAvatarColumnError(error)) {
@@ -394,7 +448,10 @@ export const authStore = {
           return null;
         }
         const record = toUserRecord(rows[0]);
-        record.adminPermissions = await authStore.listUserAdminPermissionsByUserId(record.id);
+        record.adminPermissions = withDerivedAdminPermissions(
+          record,
+          await authStore.listUserAdminPermissionsByUserId(record.id),
+        );
         return record;
       }
       throw error;
@@ -475,18 +532,20 @@ export const authStore = {
     userId: string,
     permissions: AdminPermission[],
   ): Promise<void> {
+    const storablePermissions = permissions.filter((permission) => permission.scope !== 'admin_users');
+
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
         DELETE FROM "user_admin_permissions"
         WHERE user_id = ${userId}
       `;
 
-      if (permissions.length === 0) {
+      if (storablePermissions.length === 0) {
         return;
       }
 
       const now = new Date();
-      for (const permission of permissions) {
+      for (const permission of storablePermissions) {
         await tx.$executeRaw`
           INSERT INTO "user_admin_permissions" (
             user_id,
@@ -556,7 +615,7 @@ export const authStore = {
 
     return users.map((user) => ({
       ...user,
-      adminPermissions: permissionsByUser.get(user.id) ?? [],
+      adminPermissions: withDerivedAdminPermissions(user, permissionsByUser.get(user.id) ?? []),
     }));
   },
 
@@ -900,7 +959,10 @@ export const authStore = {
       `;
 
       const user = toUserRecord(userRows[0]);
-      user.adminPermissions = await authStore.listUserAdminPermissionsByUserId(user.id);
+      user.adminPermissions = withDerivedAdminPermissions(
+        user,
+        await authStore.listUserAdminPermissionsByUserId(user.id),
+      );
       return { kind: 'created', user } as const;
     });
   },
@@ -1031,6 +1093,14 @@ export const authStore = {
     `;
 
     return Number(updatedCount);
+  },
+
+  async deleteUserById(userId: string): Promise<boolean> {
+    const deleted = await prisma.users.deleteMany({
+      where: { id: userId },
+    });
+
+    return deleted.count === 1;
   },
 };
 
