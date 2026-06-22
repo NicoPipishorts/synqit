@@ -658,6 +658,16 @@ describe('API regression', () => {
         tokens: { accessToken: string };
       };
 
+      const markTestAccountResponse = await app.inject({
+        method: 'PUT',
+        url: `/v1/admin/users/${targetUser.user.id}/test-account`,
+        headers: authHeader(adminLoginBody.tokens.accessToken),
+        payload: {
+          isTestAccount: true,
+        },
+      });
+      assert.equal(markTestAccountResponse.statusCode, 200);
+
       const resetResponse = await app.inject({
         method: 'POST',
         url: `/v1/admin/users/${targetUser.user.id}/reset-user-flow`,
