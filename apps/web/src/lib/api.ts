@@ -37,14 +37,15 @@ export const callApi = async <TResponse>(
   const buildHeaders = (overrideAccessToken?: string): Headers => {
     const headers = new Headers(init.headers ?? {});
     const preferredLocale = loadAnonymousPreferences().locale;
+    const currentAccessToken = overrideAccessToken ?? loadAuth()?.accessToken ?? null;
     if (hasBody && !headers.has('content-type')) {
       headers.set('content-type', 'application/json');
     }
     if (preferredLocale && !headers.has('x-synqit-locale')) {
       headers.set('x-synqit-locale', preferredLocale);
     }
-    if (overrideAccessToken) {
-      headers.set('authorization', `Bearer ${overrideAccessToken}`);
+    if (currentAccessToken && !headers.has('authorization')) {
+      headers.set('authorization', `Bearer ${currentAccessToken}`);
     }
     return headers;
   };

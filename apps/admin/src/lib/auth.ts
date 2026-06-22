@@ -1,3 +1,4 @@
+import { type AdminPermissionLevel, type AdminPermissionScope } from '@synqit/shared';
 import { authResponseSchema } from '@synqit/shared';
 
 import { AUTH_CHANGED_EVENT, AUTH_STORAGE_KEY } from './constants';
@@ -110,6 +111,27 @@ export const getAccessToken = (): string | null => loadAuth()?.accessToken ?? nu
 export const isAuthenticated = (): boolean => Boolean(loadAuth()?.accessToken);
 
 export const isAdminAuthenticated = (): boolean => loadAuth()?.role === 'admin';
+
+export const hasAdminPermission = (
+  scope: AdminPermissionScope,
+  level: AdminPermissionLevel,
+): boolean => {
+  const auth = loadAuth();
+  if (!auth || auth.role !== 'admin') {
+    return false;
+  }
+
+  const match = auth.adminPermissions.find((permission) => permission.scope === scope);
+  if (!match) {
+    return false;
+  }
+
+  if (level === 'read') {
+    return match.level === 'read' || match.level === 'write';
+  }
+
+  return match.level === 'write';
+};
 
 export const getInitials = (email: string): string => {
   const trimmed = email.trim();

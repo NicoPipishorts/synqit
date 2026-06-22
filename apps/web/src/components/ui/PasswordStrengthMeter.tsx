@@ -1,8 +1,8 @@
 import { Info } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
-import { useI18n } from '../../hooks/useI18n';
 import { Modal } from './Modal';
+import { useI18n } from '../../hooks/useI18n';
 import {
   getPasswordCriteria,
   getPasswordStrengthScore,

@@ -102,6 +102,9 @@ export type ResetPasswordResponse = z.infer<typeof resetPasswordResponseSchema>;
 export const accountRoleSchema = z.enum(['user', 'admin']);
 export type AccountRole = z.infer<typeof accountRoleSchema>;
 
+export const accountStateSchema = z.enum(['active', 'blocked', 'pending_deletion', 'deleted']);
+export type AccountState = z.infer<typeof accountStateSchema>;
+
 export const adminPermissionScopeSchema = z.enum([
   'dashboard',
   'users',
@@ -109,6 +112,7 @@ export const adminPermissionScopeSchema = z.enum([
   'integrations',
   'emails',
   'analytics',
+  'admin_users',
 ]);
 export type AdminPermissionScope = z.infer<typeof adminPermissionScopeSchema>;
 
@@ -128,6 +132,8 @@ export const authUserSchema = z.object({
   avatarUrl: z.string().url().nullable().default(null),
   role: accountRoleSchema.default('user'),
   adminPermissions: z.array(adminPermissionSchema).default([]),
+  accountState: accountStateSchema.default('active'),
+  isTestAccount: z.boolean().default(false),
 });
 
 export type AuthUser = z.infer<typeof authUserSchema>;
@@ -181,12 +187,41 @@ export const adminUserBlockUpdateSchema = z.object({
 });
 export type AdminUserBlockUpdate = z.infer<typeof adminUserBlockUpdateSchema>;
 
+export const adminUserTestAccountUpdateSchema = z.object({
+  isTestAccount: z.boolean(),
+});
+export type AdminUserTestAccountUpdate = z.infer<typeof adminUserTestAccountUpdateSchema>;
+
+export const adminUserDeletionRequestSchema = z.object({
+  reason: z.string().trim().max(500).nullable().optional().default(null),
+});
+export type AdminUserDeletionRequest = z.infer<typeof adminUserDeletionRequestSchema>;
+
+export const adminUserResetFlowResponseSchema = z.object({
+  ok: z.literal(true),
+  reset: z.literal(true),
+  releasedEmail: z.string().email(),
+});
+export type AdminUserResetFlowResponse = z.infer<typeof adminUserResetFlowResponseSchema>;
+
+export const adminUserDeletionResponseSchema = z.object({
+  ok: z.literal(true),
+  scheduled: z.literal(true),
+  deletionScheduledFor: z.string(),
+});
+export type AdminUserDeletionResponse = z.infer<typeof adminUserDeletionResponseSchema>;
+
 export const adminUserSummarySchema = z.object({
   id: z.string(),
   email: z.string().email(),
   role: accountRoleSchema,
   isBlocked: z.boolean().default(false),
   blockedAt: z.string().nullable().default(null),
+  accountState: accountStateSchema.default('active'),
+  isTestAccount: z.boolean().default(false),
+  deletionRequestedAt: z.string().nullable().default(null),
+  deletionScheduledFor: z.string().nullable().default(null),
+  deletedAt: z.string().nullable().default(null),
   createdAt: z.string(),
   adminPermissions: z.array(adminPermissionSchema),
 });
@@ -251,6 +286,11 @@ export const adminAnalyticsUserSummarySchema = z.object({
   role: accountRoleSchema,
   isBlocked: z.boolean().default(false),
   blockedAt: z.string().nullable().default(null),
+  accountState: accountStateSchema.default('active'),
+  isTestAccount: z.boolean().default(false),
+  deletionRequestedAt: z.string().nullable().default(null),
+  deletionScheduledFor: z.string().nullable().default(null),
+  deletedAt: z.string().nullable().default(null),
   createdAt: z.string(),
   eventPlaylistsCount: z.number().int().nonnegative(),
   sharedPlaylistsCount: z.number().int().nonnegative(),

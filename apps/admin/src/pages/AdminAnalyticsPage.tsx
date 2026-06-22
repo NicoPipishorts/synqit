@@ -28,7 +28,7 @@ import { SlideOverPanel } from '../components/ui/SlideOverPanel';
 import { useI18n } from '../hooks/useI18n';
 import { isDisplayableAnalyticsPath } from '../lib/analytics-display';
 import { callApi, toApiError } from '../lib/api';
-import { clearAuth } from '../lib/auth';
+import { clearAuth, hasAdminPermission } from '../lib/auth';
 
 type AnalyticsUserSummary = AdminAnalyticsUserSummary;
 type AnalyticsUserDetail = AdminAnalyticsUserDetailResponse['user'];
@@ -39,14 +39,26 @@ type AccessEditorState = {
   scopeLevels: Record<AdminPermissionScope, AccessLevelUi>;
 };
 
-const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> => ({
-  dashboard: 'none',
-  users: 'none',
-  events: 'none',
-  integrations: 'none',
-  emails: 'none',
-  analytics: 'none',
-});
+const toAccessEditorState = (
+  role: 'user' | 'admin',
+  permissions: Array<{ scope: AdminPermissionScope; level: AdminPermissionLevel }>,
+): AccessEditorState => {
+  const nextScopeLevels = defaultScopeLevels();
+  for (const permission of permissions) {
+    nextScopeLevels[permission.scope] = permission.level;
+  }
+
+  return {
+    role,
+    scopeLevels: nextScopeLevels,
+  };
+};
+
+const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> =>
+  Object.fromEntries(adminPermissionScopeSchema.options.map((scope) => [scope, 'none'])) as Record<
+    AdminPermissionScope,
+    AccessLevelUi
+  >;
 
 const providerLabel = (provider: 'spotify' | 'apple'): string =>
   provider === 'spotify' ? 'Spotify' : 'Apple Music';
@@ -73,6 +85,7 @@ export const AdminAnalyticsPage = () => {
   const [accessEditor, setAccessEditor] = useState<AccessEditorState | null>(null);
 
   const scopes = useMemo(() => adminPermissionScopeSchema.options, []);
+  const canManageAdmins = useMemo(() => hasAdminPermission('admin_users', 'write'), []);
 
   const formatDate = useMemo(() => {
     return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
@@ -173,16 +186,8 @@ export const AdminAnalyticsPage = () => {
           (payload) => adminAnalyticsUserDetailResponseSchema.parse(payload),
         );
 
-        const nextScopeLevels = defaultScopeLevels();
-        for (const permission of result.user.adminPermissions) {
-          nextScopeLevels[permission.scope] = permission.level;
-        }
-
         setSelectedUserDetail(result.user);
-        setAccessEditor({
-          role: result.user.role,
-          scopeLevels: nextScopeLevels,
-        });
+        setAccessEditor(toAccessEditorState(result.user.role, result.user.adminPermissions));
       } catch (error) {
         const message = handleAccessError(error);
         if (message) {
@@ -909,7 +914,7 @@ export const AdminAnalyticsPage = () => {
               </div>
             </div>
 
-            {accessEditor ? (
+            {canManageAdmins && accessEditor ? (
               <AccordionSection title={t('admin.accessEditorTitle')}>
                 <div className="flex flex-col gap-3 text-xs font-semibold uppercase tracking-wide text-app-text-secondary sm:flex-row sm:items-center sm:justify-between">
                   <span>{t('admin.roleLabel')}</span>

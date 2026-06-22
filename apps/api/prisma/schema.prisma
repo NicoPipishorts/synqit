@@ -157,6 +157,13 @@ model users {
   role           String           @default("user")
   is_blocked     Boolean          @default(false)
   blocked_at     DateTime?        @db.Timestamptz(6)
+  account_state  String           @default("active")
+  is_test_account Boolean         @default(false)
+  deletion_requested_at DateTime? @db.Timestamptz(6)
+  deletion_scheduled_for DateTime? @db.Timestamptz(6)
+  deleted_at     DateTime?        @db.Timestamptz(6)
+  deletion_reason String?
+  test_reset_at  DateTime?        @db.Timestamptz(6)
   password_hash  String?
   avatar_url     String?
   created_at     DateTime         @db.Timestamptz(6)
@@ -175,6 +182,22 @@ model users {
   user_preferences user_preferences?
   playlist_syncs playlist_syncs[]
   playlist_sync_imports playlist_sync_imports[]
+}
+
+model admin_audit_logs {
+  id            String   @id
+  actor_user_id String?
+  actor_email   String?
+  target_user_id String?
+  target_email  String?
+  action        String
+  reason        String?
+  metadata_json Json?
+  created_at    DateTime @db.Timestamptz(6)
+
+  @@index([action], map: "idx_admin_audit_logs_action")
+  @@index([created_at], map: "idx_admin_audit_logs_created_at")
+  @@index([target_user_id], map: "idx_admin_audit_logs_target_user_id")
 }
 
 model event_follows {

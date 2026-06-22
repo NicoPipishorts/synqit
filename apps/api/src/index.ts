@@ -15,6 +15,7 @@ import { registerDashboardRoutes } from './dashboard/routes';
 import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
+import { startAccountDeletionScheduler } from './jobs/account-deletion';
 import { startWeeklyRecapScheduler } from './jobs/weekly-recap';
 import { registerMetricsEndpoint } from './observability/metrics';
 import { startAutoSyncScheduler } from './syncs/auto-sync';
@@ -57,6 +58,8 @@ export const buildServer = async () => {
   const app = Fastify({
     logger: true,
   });
+  const rateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 150);
+  const rateLimitTimeWindow = process.env.RATE_LIMIT_TIME_WINDOW ?? '1 minute';
 
   await app.register(helmet);
   await app.register(cors, {
@@ -74,8 +77,8 @@ export const buildServer = async () => {
     }
   });
   await app.register(rateLimit, {
-    max: 150,
-    timeWindow: '1 minute',
+    max: Number.isFinite(rateLimitMax) && rateLimitMax > 0 ? Math.floor(rateLimitMax) : 150,
+    timeWindow: rateLimitTimeWindow,
   });
   await app.register(jwt, {
     secret: JWT_ACCESS_SECRET,
@@ -172,11 +175,13 @@ export const buildServer = async () => {
 export const start = async () => {
   const app = await buildServer();
   let stopAutoSyncScheduler: (() => void) | null = null;
+  let stopAccountDeletionScheduler: (() => void) | null = null;
   let stopWeeklyRecapScheduler: (() => void) | null = null;
 
   try {
     await app.listen({ port: PORT, host: HOST });
     stopAutoSyncScheduler = startAutoSyncScheduler(app.log);
+    stopAccountDeletionScheduler = startAccountDeletionScheduler(app.log);
     stopWeeklyRecapScheduler = startWeeklyRecapScheduler(app.log);
   } catch (error) {
     app.log.error(error);
@@ -185,6 +190,7 @@ export const start = async () => {
 
   const shutdown = async () => {
     stopAutoSyncScheduler?.();
+    stopAccountDeletionScheduler?.();
     stopWeeklyRecapScheduler?.();
     await app.close();
   };
