@@ -46,9 +46,9 @@ export const AppOnboardingPanel = ({
         <p className="text-[11px] font-black uppercase tracking-[0.22em] text-app-text-secondary">
           {eyebrow}
         </p>
-        <h1 className="max-w-xl text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+        <p className="max-w-xl text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
           {title}
-        </h1>
+        </p>
         <p className="max-w-xl text-sm text-app-text-secondary sm:text-base">{body}</p>
       </div>
 
