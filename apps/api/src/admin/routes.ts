@@ -11,7 +11,11 @@ import {
   adminPermissionScopeSchema,
   adminUserBlockUpdateSchema,
   adminUserAccessUpdateSchema,
+  adminUserDeletionRequestSchema,
+  adminUserDeletionResponseSchema,
   adminUserListResponseSchema,
+  adminUserResetFlowResponseSchema,
+  adminUserTestAccountUpdateSchema,
   authResponseSchema,
   authUserSchema,
   personalInfoSchema,
@@ -37,6 +41,7 @@ const DEFAULT_REDIS_URL = 'redis://localhost:6380';
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
 const DEFAULT_SUPER_ADMIN_IDENTITIES = 'shamanproto';
+const DEFAULT_ACCOUNT_DELETION_GRACE_DAYS = 30;
 
 const previewEmailRequestSchema = z.object({
   toEmail: z.string().email(),
@@ -81,6 +86,30 @@ const parsePositiveNumber = (raw: string | undefined, fallback: number): number 
     return fallback;
   }
   return Math.floor(parsed);
+};
+
+const isMissingColumnError = (error: unknown): boolean => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const normalized = error as {
+    code?: string;
+    meta?: {
+      driverAdapterError?: {
+        cause?: {
+          originalCode?: string;
+        };
+      };
+    };
+  };
+
+  if (normalized.code === '42703') {
+    return true;
+  }
+
+  const sqlCode = normalized.meta?.driverAdapterError?.cause?.originalCode;
+  return sqlCode === '42703';
 };
 
 const accessTokenTtlSeconds = parsePositiveNumber(
@@ -149,7 +178,14 @@ const formatPublicUser = (user: UserRecord) =>
     avatarUrl: buildAvatarUrl(user.avatarPath),
     role: user.role,
     adminPermissions: user.adminPermissions,
+    accountState: user.accountState,
+    isTestAccount: user.isTestAccount,
   });
+
+const accountDeletionGraceDays = parsePositiveNumber(
+  process.env.ACCOUNT_DELETION_GRACE_DAYS,
+  DEFAULT_ACCOUNT_DELETION_GRACE_DAYS,
+);
 
 const readRedisConnectionConfig = () => {
   const redisUrl = new URL(process.env.REDIS_URL ?? DEFAULT_REDIS_URL);
@@ -331,6 +367,62 @@ const issueTokens = async (app: FastifyInstance, user: UserRecord) => {
   };
 };
 
+const isEffectiveSuperAdmin = (user: UserRecord): boolean =>
+  user.role === 'admin' &&
+  !user.isBlocked &&
+  user.accountState !== 'pending_deletion' &&
+  user.accountState !== 'deleted' &&
+  isSuperAdminIdentity(user.email);
+
+const auditAdminAction = async (params: {
+  actor: UserRecord | null;
+  target: UserRecord | null;
+  action: string;
+  reason?: string | null;
+  metadata?: Record<string, unknown> | null;
+}): Promise<void> => {
+  await authStore.createAdminAuditLog({
+    actorUserId: params.actor?.id ?? null,
+    actorEmail: params.actor?.email ?? null,
+    targetUserId: params.target?.id ?? null,
+    targetEmail: params.target?.email ?? null,
+    action: params.action,
+    reason: params.reason ?? null,
+    metadata: params.metadata ?? null,
+  });
+};
+
+const denyLastSuperAdminMutationIfNeeded = async (
+  reply: FastifyReply,
+  targetUser: UserRecord,
+  nextState: { role?: AccountRole; blocked?: boolean; accountState?: string },
+): Promise<boolean> => {
+  if (!isSuperAdminIdentity(targetUser.email)) {
+    return false;
+  }
+
+  const remainsSuperAdmin =
+    (nextState.role ?? targetUser.role) === 'admin' &&
+    (nextState.blocked ?? targetUser.isBlocked) !== true &&
+    (nextState.accountState ?? targetUser.accountState) !== 'pending_deletion' &&
+    (nextState.accountState ?? targetUser.accountState) !== 'deleted';
+
+  if (remainsSuperAdmin) {
+    return false;
+  }
+
+  const activeSuperAdminCount = await authStore.countActiveSuperAdmins();
+  if (activeSuperAdminCount > 1) {
+    return false;
+  }
+
+  await reply.status(409).send({
+    code: 'last_super_admin_protected',
+    message: 'This action would remove the last remaining super admin.',
+  });
+  return true;
+};
+
 export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> => {
   app.post('/admin/auth/login', async (request, reply) => {
     const parsed = adminLoginRequestSchema.safeParse(request.body);
@@ -418,6 +510,15 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         role: user.role,
         isBlocked: user.isBlocked,
         blockedAt: user.blockedAt ? user.blockedAt.toISOString() : null,
+        accountState: user.accountState,
+        isTestAccount: user.isTestAccount,
+        deletionRequestedAt: user.deletionRequestedAt
+          ? user.deletionRequestedAt.toISOString()
+          : null,
+        deletionScheduledFor: user.deletionScheduledFor
+          ? user.deletionScheduledFor.toISOString()
+          : null,
+        deletedAt: user.deletedAt ? user.deletedAt.toISOString() : null,
         createdAt: user.createdAt.toISOString(),
         adminPermissions: user.adminPermissions,
       })),
@@ -936,41 +1037,109 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       return;
     }
 
-    const rows = await prisma.$queryRaw<
-      Array<{
-        user_id: string;
-        email: string;
-        role: string;
-        is_blocked: boolean;
-        blocked_at: Date | null;
-        created_at: Date;
-        event_playlists_count: number;
-        shared_playlists_count: number;
-      }>
-    >`
-      SELECT
-        u.id AS user_id,
-        u.email,
-        u.role,
-        u.is_blocked,
-        u.blocked_at,
-        u.created_at,
-        COALESCE(event_stats.event_playlists_count, 0)::int AS event_playlists_count,
-        COALESCE(sync_stats.shared_playlists_count, 0)::int AS shared_playlists_count
-      FROM "users" u
-      LEFT JOIN (
-        SELECT host_user_id, COUNT(*)::int AS event_playlists_count
-        FROM "playlists"
-        GROUP BY host_user_id
-      ) AS event_stats ON event_stats.host_user_id = u.id
-      LEFT JOIN (
-        SELECT sender_user_id, COUNT(*)::int AS shared_playlists_count
-        FROM "playlist_syncs"
-        GROUP BY sender_user_id
-      ) AS sync_stats ON sync_stats.sender_user_id = u.id
-      ORDER BY u.created_at DESC
-      LIMIT 300
-    `;
+    let rows: Array<{
+      user_id: string;
+      email: string;
+      role: string;
+      is_blocked: boolean;
+      blocked_at: Date | null;
+      account_state?: string | null;
+      is_test_account?: boolean | null;
+      deletion_requested_at?: Date | null;
+      deletion_scheduled_for?: Date | null;
+      deleted_at?: Date | null;
+      created_at: Date;
+      event_playlists_count: number;
+      shared_playlists_count: number;
+    }>;
+
+    try {
+      rows = await prisma.$queryRaw<
+        Array<{
+          user_id: string;
+          email: string;
+          role: string;
+          is_blocked: boolean;
+          blocked_at: Date | null;
+          account_state: string;
+          is_test_account: boolean;
+          deletion_requested_at: Date | null;
+          deletion_scheduled_for: Date | null;
+          deleted_at: Date | null;
+          created_at: Date;
+          event_playlists_count: number;
+          shared_playlists_count: number;
+        }>
+      >`
+        SELECT
+          u.id AS user_id,
+          u.email,
+          u.role,
+          u.is_blocked,
+          u.blocked_at,
+          u.account_state,
+          u.is_test_account,
+          u.deletion_requested_at,
+          u.deletion_scheduled_for,
+          u.deleted_at,
+          u.created_at,
+          COALESCE(event_stats.event_playlists_count, 0)::int AS event_playlists_count,
+          COALESCE(sync_stats.shared_playlists_count, 0)::int AS shared_playlists_count
+        FROM "users" u
+        LEFT JOIN (
+          SELECT host_user_id, COUNT(*)::int AS event_playlists_count
+          FROM "playlists"
+          GROUP BY host_user_id
+        ) AS event_stats ON event_stats.host_user_id = u.id
+        LEFT JOIN (
+          SELECT sender_user_id, COUNT(*)::int AS shared_playlists_count
+          FROM "playlist_syncs"
+          GROUP BY sender_user_id
+        ) AS sync_stats ON sync_stats.sender_user_id = u.id
+        ORDER BY u.created_at DESC
+        LIMIT 300
+      `;
+    } catch (error) {
+      if (!isMissingColumnError(error)) {
+        throw error;
+      }
+
+      rows = await prisma.$queryRaw<
+        Array<{
+          user_id: string;
+          email: string;
+          role: string;
+          is_blocked: boolean;
+          blocked_at: Date | null;
+          created_at: Date;
+          event_playlists_count: number;
+          shared_playlists_count: number;
+        }>
+      >`
+        SELECT
+          u.id AS user_id,
+          u.email,
+          u.role,
+          u.is_blocked,
+          u.blocked_at,
+          u.created_at,
+          COALESCE(event_stats.event_playlists_count, 0)::int AS event_playlists_count,
+          COALESCE(sync_stats.shared_playlists_count, 0)::int AS shared_playlists_count
+        FROM "users" u
+        LEFT JOIN (
+          SELECT host_user_id, COUNT(*)::int AS event_playlists_count
+          FROM "playlists"
+          GROUP BY host_user_id
+        ) AS event_stats ON event_stats.host_user_id = u.id
+        LEFT JOIN (
+          SELECT sender_user_id, COUNT(*)::int AS shared_playlists_count
+          FROM "playlist_syncs"
+          GROUP BY sender_user_id
+        ) AS sync_stats ON sync_stats.sender_user_id = u.id
+        ORDER BY u.created_at DESC
+        LIMIT 300
+      `;
+    }
 
     return adminAnalyticsUsersListResponseSchema.parse({
       users: rows.map((row) => ({
@@ -979,6 +1148,20 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         role: row.role === 'admin' ? 'admin' : 'user',
         isBlocked: Boolean(row.is_blocked),
         blockedAt: row.blocked_at ? row.blocked_at.toISOString() : null,
+        accountState:
+          row.account_state === 'pending_deletion' || row.account_state === 'deleted'
+            ? row.account_state
+            : row.is_blocked
+              ? 'blocked'
+              : 'active',
+        isTestAccount: Boolean(row.is_test_account),
+        deletionRequestedAt: row.deletion_requested_at
+          ? row.deletion_requested_at.toISOString()
+          : null,
+        deletionScheduledFor: row.deletion_scheduled_for
+          ? row.deletion_scheduled_for.toISOString()
+          : null,
+        deletedAt: row.deleted_at ? row.deleted_at.toISOString() : null,
         createdAt: row.created_at.toISOString(),
         eventPlaylistsCount: Number(row.event_playlists_count) || 0,
         sharedPlaylistsCount: Number(row.shared_playlists_count) || 0,
@@ -1092,6 +1275,15 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         role: targetUser.role,
         isBlocked: targetUser.isBlocked,
         blockedAt: targetUser.blockedAt ? targetUser.blockedAt.toISOString() : null,
+        accountState: targetUser.accountState,
+        isTestAccount: targetUser.isTestAccount,
+        deletionRequestedAt: targetUser.deletionRequestedAt
+          ? targetUser.deletionRequestedAt.toISOString()
+          : null,
+        deletionScheduledFor: targetUser.deletionScheduledFor
+          ? targetUser.deletionScheduledFor.toISOString()
+          : null,
+        deletedAt: targetUser.deletedAt ? targetUser.deletedAt.toISOString() : null,
         createdAt: targetUser.createdAt.toISOString(),
         personalInfo: personalInfoSchema
           .pick({
@@ -1276,7 +1468,7 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       scope: 'admin_users',
       level: 'write',
     });
-    if (!access) {
+    if (!access || !access.user) {
       return;
     }
 
@@ -1306,7 +1498,22 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    if (access.user.id === existing.id && body.data.role !== 'admin') {
+      return reply.status(409).send({
+        code: 'self_admin_demotion_not_allowed',
+        message: 'You cannot demote your own admin account.',
+      });
+    }
+
     const nextRole: AccountRole = body.data.role;
+    if (
+      await denyLastSuperAdminMutationIfNeeded(reply, existing, {
+        role: nextRole,
+      })
+    ) {
+      return;
+    }
+
     const normalizedPermissions = normalizeAdminPermissionsForTarget(
       existing.email,
       nextRole,
@@ -1324,6 +1531,18 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    await auditAdminAction({
+      actor: access.user,
+      target: refreshed,
+      action: 'admin_access_updated',
+      metadata: {
+        previousRole: existing.role,
+        nextRole: refreshed.role,
+        previousPermissions: existing.adminPermissions,
+        nextPermissions: refreshed.adminPermissions,
+      },
+    });
+
     return reply.status(200).send({
       ok: true,
       user: {
@@ -1332,6 +1551,15 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         role: refreshed.role,
         isBlocked: refreshed.isBlocked,
         blockedAt: refreshed.blockedAt ? refreshed.blockedAt.toISOString() : null,
+        accountState: refreshed.accountState,
+        isTestAccount: refreshed.isTestAccount,
+        deletionRequestedAt: refreshed.deletionRequestedAt
+          ? refreshed.deletionRequestedAt.toISOString()
+          : null,
+        deletionScheduledFor: refreshed.deletionScheduledFor
+          ? refreshed.deletionScheduledFor.toISOString()
+          : null,
+        deletedAt: refreshed.deletedAt ? refreshed.deletedAt.toISOString() : null,
         createdAt: refreshed.createdAt.toISOString(),
         adminPermissions: refreshed.adminPermissions,
       },
@@ -1378,6 +1606,13 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    if (!existing.isTestAccount) {
+      return reply.status(409).send({
+        code: 'test_account_required',
+        message: 'Only accounts marked as test accounts can use this reset flow.',
+      });
+    }
+
     await authStore.revokeAllRefreshTokensByUserId(existing.id);
     if (existing.avatarPath) {
       await deleteAvatarImage(existing.avatarPath);
@@ -1391,11 +1626,206 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    await auditAdminAction({
+      actor: access.user,
+      target: existing,
+      action: 'user_flow_reset',
+      metadata: {
+        targetRole: existing.role,
+        releasedEmail: existing.email,
+        testAccount: existing.isTestAccount,
+      },
+    });
+
+    return reply.status(200).send(
+      adminUserResetFlowResponseSchema.parse({
+        ok: true,
+        reset: true,
+        releasedEmail: existing.email,
+      }),
+    );
+  });
+
+  app.put('/admin/users/:userId/test-account', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'admin_users',
+      level: 'write',
+    });
+    if (!access || !access.user) {
+      return;
+    }
+
+    const params = userAccessParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Request params are invalid.',
+        details: params.error.flatten(),
+      });
+    }
+
+    const body = adminUserTestAccountUpdateSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Request payload is invalid.',
+        details: body.error.flatten(),
+      });
+    }
+
+    const existing = await authStore.findUserById(params.data.userId);
+    if (!existing) {
+      return reply.status(404).send({
+        code: 'user_not_found',
+        message: 'User not found.',
+      });
+    }
+
+    if (existing.role === 'admin') {
+      return reply.status(409).send({
+        code: 'admin_test_account_not_allowed',
+        message: 'Admin accounts cannot be marked as test accounts.',
+      });
+    }
+
+    await authStore.setUserTestAccountFlagById(existing.id, body.data.isTestAccount);
+    const refreshed = await authStore.findUserById(existing.id);
+    if (!refreshed) {
+      return reply.status(500).send({
+        code: 'admin_user_update_failed',
+        message: 'Unable to load updated user.',
+      });
+    }
+
+    await auditAdminAction({
+      actor: access.user,
+      target: refreshed,
+      action: body.data.isTestAccount ? 'test_account_enabled' : 'test_account_disabled',
+      metadata: {
+        previousValue: existing.isTestAccount,
+        nextValue: refreshed.isTestAccount,
+      },
+    });
+
     return reply.status(200).send({
       ok: true,
-      reset: true,
-      releasedEmail: existing.email,
+      user: {
+        id: refreshed.id,
+        email: refreshed.email,
+        role: refreshed.role,
+        isBlocked: refreshed.isBlocked,
+        blockedAt: refreshed.blockedAt ? refreshed.blockedAt.toISOString() : null,
+        accountState: refreshed.accountState,
+        isTestAccount: refreshed.isTestAccount,
+        deletionRequestedAt: refreshed.deletionRequestedAt
+          ? refreshed.deletionRequestedAt.toISOString()
+          : null,
+        deletionScheduledFor: refreshed.deletionScheduledFor
+          ? refreshed.deletionScheduledFor.toISOString()
+          : null,
+        deletedAt: refreshed.deletedAt ? refreshed.deletedAt.toISOString() : null,
+        createdAt: refreshed.createdAt.toISOString(),
+        adminPermissions: refreshed.adminPermissions,
+      },
     });
+  });
+
+  app.post('/admin/users/:userId/request-deletion', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'admin_users',
+      level: 'write',
+    });
+    if (!access || !access.user) {
+      return;
+    }
+
+    const params = userAccessParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Request params are invalid.',
+        details: params.error.flatten(),
+      });
+    }
+
+    const body = adminUserDeletionRequestSchema.safeParse(request.body ?? {});
+    if (!body.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Request payload is invalid.',
+        details: body.error.flatten(),
+      });
+    }
+
+    const existing = await authStore.findUserById(params.data.userId);
+    if (!existing) {
+      return reply.status(404).send({
+        code: 'user_not_found',
+        message: 'User not found.',
+      });
+    }
+
+    if (access.user.id === existing.id) {
+      return reply.status(409).send({
+        code: 'self_deletion_request_not_allowed',
+        message: 'You cannot schedule deletion of your own admin account.',
+      });
+    }
+
+    if (existing.role === 'admin') {
+      return reply.status(409).send({
+        code: 'admin_deletion_not_allowed',
+        message: 'Admin accounts cannot be scheduled for deletion through this flow.',
+      });
+    }
+
+    const scheduledFor = new Date(
+      Date.now() + accountDeletionGraceDays * 24 * 60 * 60 * 1000,
+    );
+
+    if (
+      await denyLastSuperAdminMutationIfNeeded(reply, existing, {
+        accountState: 'pending_deletion',
+      })
+    ) {
+      return;
+    }
+
+    await authStore.scheduleUserDeletionById({
+      userId: existing.id,
+      reason: body.data.reason ?? null,
+      scheduledFor,
+    });
+    await authStore.revokeAllRefreshTokensByUserId(existing.id);
+    await authStore.setUserBlockedStatusById(existing.id, true);
+
+    const refreshed = await authStore.findUserById(existing.id);
+    if (!refreshed) {
+      return reply.status(500).send({
+        code: 'admin_user_update_failed',
+        message: 'Unable to load updated user.',
+      });
+    }
+
+    await auditAdminAction({
+      actor: access.user,
+      target: refreshed,
+      action: 'user_deletion_requested',
+      reason: body.data.reason ?? null,
+      metadata: {
+        scheduledFor: scheduledFor.toISOString(),
+      },
+    });
+
+    return reply
+      .status(200)
+      .send(
+        adminUserDeletionResponseSchema.parse({
+          ok: true,
+          scheduled: true,
+          deletionScheduledFor: scheduledFor.toISOString(),
+        }),
+      );
   });
 
   app.put('/admin/users/:userId/block', async (request, reply) => {
@@ -1440,6 +1870,14 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    if (
+      await denyLastSuperAdminMutationIfNeeded(reply, existing, {
+        blocked: body.data.blocked,
+      })
+    ) {
+      return;
+    }
+
     await authStore.setUserBlockedStatusById(existing.id, body.data.blocked);
     if (body.data.blocked) {
       await authStore.revokeAllRefreshTokensByUserId(existing.id);
@@ -1453,6 +1891,17 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    await auditAdminAction({
+      actor: access.user,
+      target: refreshed,
+      action: body.data.blocked ? 'user_blocked' : 'user_reactivated',
+      metadata: {
+        previousBlocked: existing.isBlocked,
+        nextBlocked: refreshed.isBlocked,
+        accountState: refreshed.accountState,
+      },
+    });
+
     return reply.status(200).send({
       ok: true,
       user: {
@@ -1461,6 +1910,15 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         role: refreshed.role,
         isBlocked: refreshed.isBlocked,
         blockedAt: refreshed.blockedAt ? refreshed.blockedAt.toISOString() : null,
+        accountState: refreshed.accountState,
+        isTestAccount: refreshed.isTestAccount,
+        deletionRequestedAt: refreshed.deletionRequestedAt
+          ? refreshed.deletionRequestedAt.toISOString()
+          : null,
+        deletionScheduledFor: refreshed.deletionScheduledFor
+          ? refreshed.deletionScheduledFor.toISOString()
+          : null,
+        deletedAt: refreshed.deletedAt ? refreshed.deletedAt.toISOString() : null,
         createdAt: refreshed.createdAt.toISOString(),
         adminPermissions: refreshed.adminPermissions,
       },

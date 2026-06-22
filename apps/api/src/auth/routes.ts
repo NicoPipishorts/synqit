@@ -169,6 +169,8 @@ const formatPublicUser = (user: UserRecord) =>
     avatarUrl: buildAvatarUrl(user.avatarPath),
     role: user.role,
     adminPermissions: user.adminPermissions,
+    accountState: user.accountState,
+    isTestAccount: user.isTestAccount,
   });
 
 const normalizeOptionalText = (value: string | null | undefined): string | null => {
@@ -214,6 +216,18 @@ const resolveRequestEmailLocale = (request: FastifyRequest): EmailLocale => {
   }
 
   return 'en';
+};
+
+const resolveUserPreferredEmailLocale = async (
+  userId: string,
+  request: FastifyRequest,
+): Promise<EmailLocale> => {
+  const preferences = await authStore.findUserPreferencesByUserId(userId);
+  if (preferences?.locale === 'fr' || preferences?.locale === 'en') {
+    return preferences.locale;
+  }
+
+  return resolveRequestEmailLocale(request);
 };
 
 const formatPersonalInfo = (
@@ -428,7 +442,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
       await enqueuePasswordResetEmail({
         userId: user.id,
         toEmail: user.email,
-        locale: resolveRequestEmailLocale(request),
+        locale: await resolveUserPreferredEmailLocale(user.id, request),
         resetToken,
       });
     } catch (error) {

@@ -2,28 +2,43 @@
 
 ## Status snapshot
 
+As of 2026-06-21, this file should be read as the current implementation record plus the remaining work.
+
 ### Implemented
 
 - existing `user | admin` role model remains in place
 - existing scoped admin permissions remain in place
 - new `admin_users` permission scope has been added in shared schemas
-- admin role/permission editing is now restricted at API level to `admin_users:write`
-- admin role/permission editing UI is now hidden for admins without `admin_users:write`
+- admin role/permission editing is restricted at API level to `admin_users:write`
+- admin role/permission editing UI is restricted to admins with `admin_users` visibility
+- "super admin" is currently derived by identity, not stored as a separate role
+- local super-admin identity is currently `shamanproto`
+- non-super-admin permission edits cannot grant durable `admin_users` rights
+- admin user detail view now uses an explicit `Save access` CTA instead of autosave
+- read-only admin viewers cannot modify permission controls
+- block/unblock account action exists
+- `is_test_account` support now exists at the data-model and API level
+- reset user flow action exists for privileged admins and deletes the local account so the same email can register again
+- reset user flow is now restricted to accounts explicitly marked as test accounts
+- native admin audit logging now exists for account-access and lifecycle actions
+- last-super-admin protection now blocks demotion/blocking that would leave zero effective super admins
+- scheduled deletion workflow now exists:
+  - accounts can be moved to `pending_deletion`
+  - scheduled purge anonymizes the account and removes direct identity/auth data
 
 ### Still to do
 
-- decide which existing admin accounts should receive `admin_users:write`
-- update admin seed/bootstrap paths so intended super admins receive `admin_users`
 - add self-protection rules:
-  - no self-demotion from `admin_users:write`
-  - no removal of the last remaining super admin
-- implement test-account lifecycle fields and reset flows
-- implement audit logging for admin lifecycle actions
-- implement deletion scheduling, purge, and retention policy
+  - consider whether self-editing of admin rights should be completely disallowed, even when it would not orphan admin management
+- add admin UI surfaces for test-account toggling and deletion scheduling/cancellation
+- document and enforce environment-specific retention windows
+- refine anonymization and retention rules with legal/compliance review for production
 
-### Note
+### Current product position
 
-The `admin_users` permission boundary is already implemented in code, even though the original intent was only to document the plan first. The remaining sections below describe what is still pending.
+- `block account` is an operational access-control action and is available now
+- `reset user flow` is a destructive local-account reset intended for tightly controlled admin use
+- `delete for privacy/compliance` is not yet implemented as a formal workflow and should not be treated as equivalent to the current reset action
 
 ## Current baseline
 
@@ -67,18 +82,17 @@ Pending:
 Done:
 
 - design direction decided: separate `reset onboarding` from `reset to fresh signup`
+- current implementation includes a privileged `reset user flow` action that deletes the local account and releases the email for re-registration
+- current reset action is hidden for admin targets and self-targeting, and requires privileged admin-management rights
 
 Pending:
 
-- add `is_test_account`
-- add explicit lifecycle state fields
 - add admin actions:
   - mark/unmark test account
   - reset onboarding
-  - reset to fresh signup
+  - scheduled deletion / cancel deletion UI
 - define exactly which related records are preserved, cleared, archived, or deleted
-- add confirmation copy in admin UI
-- add audit trail
+- add confirmation copy in admin UI for the new lifecycle actions
 
 ### 3. Account manipulation and EU-style retention/deletion
 
@@ -88,14 +102,14 @@ Done:
   - block for operational control
   - separate deletion workflow for privacy/compliance
   - avoid routine hard-delete by admins in production
+- current implementation distinguishes operational block/unblock from destructive reset
+- current reset flow is suitable for controlled test/admin intervention, not as a GDPR-style deletion workflow
 
 Pending:
 
-- add `pending_deletion` lifecycle support
-- add deletion scheduling and purge worker
 - define retention windows by environment and user type
 - define anonymization rules for records that must remain for security, fraud, or legal reasons
-- document operational procedure for handling deletion requests
+- document the production operational procedure for handling deletion requests
 
 ## Product goals
 
@@ -464,9 +478,83 @@ For both fresh-signup reset and deletion, the original email should become reusa
 ### Production admin protocol
 
 - ordinary admins can block/unblock if they have user-management rights
-- only `admin_users:write` admins can manipulate admin rights or run test-account fresh resets
+- only `admin_users:write` admins can manipulate admin rights or run destructive reset actions
 - deletion should be a scheduled workflow, not an instant casual button
 - destructive actions should be confirmed and audited
+
+## Formal admin SOP
+
+This section is the operational protocol the team should follow with the current implementation.
+
+### 1. Role and permission governance
+
+- Treat "super admin" as an admin identity that effectively has `admin_users:write`.
+- Do not give routine admins the ability to create, promote, demote, or re-scope other admins.
+- Restrict admin-rights editing to the smallest possible set of named operators.
+- At the time of writing, `shamanproto` is the only intended super-admin identity.
+
+### 2. Allowed actions by admin tier
+
+- Standard admins:
+  - can use ordinary admin read/write scopes they already hold
+  - can block or reactivate user accounts if they have the corresponding user-management access
+  - cannot edit admin permissions
+  - cannot grant admin rights
+  - cannot run destructive reset actions
+- Super admins / `admin_users:write` admins:
+  - can edit admin rights
+  - can promote or demote admins within the implemented route boundary
+  - can run the current `reset user flow` action on non-admin targets
+  - must use destructive actions only for controlled support or testing cases
+
+### 3. Current account-action meanings
+
+- `Block account`
+  - operational action
+  - immediately prevents normal access/session refresh
+  - does not erase history
+  - should be used for abuse handling, support containment, or temporary access suspension
+- `Reset user flow`
+  - destructive local-account reset
+  - releases the email so the person can sign up again from scratch
+  - removes local account history tied to that account
+  - should only be used for tightly controlled testing/support scenarios
+- `Delete for privacy/compliance`
+  - not yet implemented as a formal production workflow
+  - must not be simulated by casually using the reset action unless the business explicitly accepts that limitation
+
+### 4. Mandatory operating rules
+
+- Never use `reset user flow` on admins.
+- Never use `reset user flow` as a substitute for a formal legal/privacy erasure workflow.
+- Never broaden admin rights without a named business owner approving the change.
+- Prefer `block` over destructive reset whenever the goal is simply to suspend access.
+- Record who performed a destructive action and why until system audit logging exists.
+
+### 5. Audit procedure
+
+Native admin audit logging now exists for lifecycle/admin-rights mutations. For support and compliance operations, teams should still mirror high-risk actions in their operational tooling with:
+
+- actor admin identity
+- target user id and email
+- action type
+- reason
+- timestamp
+- whether the action was support-driven, testing-driven, or privacy-driven
+
+Store this in the team's operational log, support tracker, or incident record when the action is legally sensitive, user-facing, or part of an incident.
+
+### 6. EU/privacy handling protocol
+
+- Treat account blocking, test reset, and privacy deletion as separate legal/operational intents.
+- If a user exercises deletion/privacy rights, use a dedicated request record and do not rely on the current reset button as the whole process.
+- The future deletion workflow should:
+  - disable access immediately
+  - revoke sessions/tokens
+  - schedule purge or anonymization
+  - preserve only the minimum legally necessary records
+  - make the original email reusable once the identity link is removed or replaced
+- Until that workflow exists, any privacy-driven account removal should be treated as a controlled manual operation requiring explicit review.
 
 ## API changes
 

@@ -78,6 +78,24 @@ const userDetailRoute = createRoute({
   component: AdminUserDetailsPage,
 });
 
+const userDetailAccessRoute = createRoute({
+  getParentRoute: () => userDetailRoute,
+  path: 'access',
+  component: () => null,
+});
+
+const userDetailPlaylistsRoute = createRoute({
+  getParentRoute: () => userDetailRoute,
+  path: 'playlists',
+  component: () => null,
+});
+
+const userDetailActivityRoute = createRoute({
+  getParentRoute: () => userDetailRoute,
+  path: 'activity',
+  component: () => null,
+});
+
 const analyticsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/analytics',
@@ -97,7 +115,11 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   dashboardRoute,
   usersRoute,
-  userDetailRoute,
+  userDetailRoute.addChildren([
+    userDetailAccessRoute,
+    userDetailPlaylistsRoute,
+    userDetailActivityRoute,
+  ]),
   analyticsRoute,
   emailsRoute,
 ]);

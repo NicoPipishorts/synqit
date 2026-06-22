@@ -1,9 +1,11 @@
 import {
+  accountStateSchema,
   accountRoleSchema,
   adminPermissionLevelSchema,
   adminPermissionScopeSchema,
   emailLocaleSchema,
   type EmailLocale,
+  type AccountState,
   type AccountRole,
   type AdminPermission,
 } from '@synqit/shared';
@@ -17,9 +19,28 @@ type UserRecord = {
   role: AccountRole;
   isBlocked: boolean;
   blockedAt: Date | null;
+  accountState: AccountState;
+  isTestAccount: boolean;
+  deletionRequestedAt: Date | null;
+  deletionScheduledFor: Date | null;
+  deletedAt: Date | null;
+  deletionReason: string | null;
+  testResetAt: Date | null;
   adminPermissions: AdminPermission[];
   passwordHash: string | null;
   avatarPath: string | null;
+  createdAt: Date;
+};
+
+type AdminAuditLogRecord = {
+  id: string;
+  actorUserId: string | null;
+  actorEmail: string | null;
+  targetUserId: string | null;
+  targetEmail: string | null;
+  action: string;
+  reason: string | null;
+  metadata: Record<string, unknown> | null;
   createdAt: Date;
 };
 
@@ -71,8 +92,27 @@ type UserRow = {
   role?: string | null;
   is_blocked?: boolean | null;
   blocked_at?: Date | null;
+  account_state?: string | null;
+  is_test_account?: boolean | null;
+  deletion_requested_at?: Date | null;
+  deletion_scheduled_for?: Date | null;
+  deleted_at?: Date | null;
+  deletion_reason?: string | null;
+  test_reset_at?: Date | null;
   password_hash: string | null;
   avatar_url?: string | null;
+  created_at: Date;
+};
+
+type AdminAuditLogRow = {
+  id: string;
+  actor_user_id: string | null;
+  actor_email: string | null;
+  target_user_id: string | null;
+  target_email: string | null;
+  action: string;
+  reason: string | null;
+  metadata_json: unknown;
   created_at: Date;
 };
 
@@ -142,6 +182,17 @@ const toUserRecord = (row: UserRow): UserRecord => ({
   role: accountRoleSchema.safeParse(row.role).success ? (row.role as AccountRole) : 'user',
   isBlocked: row.is_blocked === true,
   blockedAt: row.blocked_at ? new Date(row.blocked_at) : null,
+  accountState: accountStateSchema.safeParse(row.account_state).success
+    ? (row.account_state as AccountState)
+    : row.is_blocked
+      ? 'blocked'
+      : 'active',
+  isTestAccount: row.is_test_account === true,
+  deletionRequestedAt: row.deletion_requested_at ? new Date(row.deletion_requested_at) : null,
+  deletionScheduledFor: row.deletion_scheduled_for ? new Date(row.deletion_scheduled_for) : null,
+  deletedAt: row.deleted_at ? new Date(row.deleted_at) : null,
+  deletionReason: row.deletion_reason ?? null,
+  testResetAt: row.test_reset_at ? new Date(row.test_reset_at) : null,
   adminPermissions: [],
   passwordHash: row.password_hash,
   avatarPath: row.avatar_url ?? null,
@@ -162,6 +213,21 @@ const isSuperAdminIdentity = (email: string): boolean => {
   const identifiers = readSuperAdminIdentities();
   return identifiers.has(normalizedEmail) || identifiers.has(localPart);
 };
+
+const toAdminAuditLogRecord = (row: AdminAuditLogRow): AdminAuditLogRecord => ({
+  id: row.id,
+  actorUserId: row.actor_user_id,
+  actorEmail: row.actor_email,
+  targetUserId: row.target_user_id,
+  targetEmail: row.target_email,
+  action: row.action,
+  reason: row.reason,
+  metadata:
+    row.metadata_json && typeof row.metadata_json === 'object'
+      ? (row.metadata_json as Record<string, unknown>)
+      : null,
+  createdAt: new Date(row.created_at),
+});
 
 const withDerivedAdminPermissions = (
   user: UserRecord,
@@ -304,6 +370,114 @@ const isMissingAvatarColumnError = (error: unknown): boolean => {
   return sqlCode === '42703';
 };
 
+const loadUsersByEmailWithFallback = async (email: string): Promise<UserRow[]> => {
+  try {
+    return await prisma.$queryRaw<UserRow[]>`
+      SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
+      , account_state, is_test_account, deletion_requested_at, deletion_scheduled_for, deleted_at, deletion_reason, test_reset_at
+      FROM "users"
+      WHERE email = ${email}
+      LIMIT 1
+    `;
+  } catch (error) {
+    if (!isMissingAvatarColumnError(error)) {
+      throw error;
+    }
+  }
+
+  try {
+    return await prisma.$queryRaw<UserRow[]>`
+      SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
+      FROM "users"
+      WHERE email = ${email}
+      LIMIT 1
+    `;
+  } catch (error) {
+    if (!isMissingAvatarColumnError(error)) {
+      throw error;
+    }
+  }
+
+  return prisma.$queryRaw<UserRow[]>`
+    SELECT id, email, role, is_blocked, blocked_at, password_hash, created_at
+    FROM "users"
+    WHERE email = ${email}
+    LIMIT 1
+  `;
+};
+
+const loadUsersByIdWithFallback = async (id: string): Promise<UserRow[]> => {
+  try {
+    return await prisma.$queryRaw<UserRow[]>`
+      SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
+      , account_state, is_test_account, deletion_requested_at, deletion_scheduled_for, deleted_at, deletion_reason, test_reset_at
+      FROM "users"
+      WHERE id = ${id}
+      LIMIT 1
+    `;
+  } catch (error) {
+    if (!isMissingAvatarColumnError(error)) {
+      throw error;
+    }
+  }
+
+  try {
+    return await prisma.$queryRaw<UserRow[]>`
+      SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
+      FROM "users"
+      WHERE id = ${id}
+      LIMIT 1
+    `;
+  } catch (error) {
+    if (!isMissingAvatarColumnError(error)) {
+      throw error;
+    }
+  }
+
+  return prisma.$queryRaw<UserRow[]>`
+    SELECT id, email, role, is_blocked, blocked_at, password_hash, created_at
+    FROM "users"
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+};
+
+const loadUsersListWithFallback = async (): Promise<UserRow[]> => {
+  try {
+    return await prisma.$queryRaw<UserRow[]>`
+      SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
+      , account_state, is_test_account, deletion_requested_at, deletion_scheduled_for, deleted_at, deletion_reason, test_reset_at
+      FROM "users"
+      ORDER BY created_at DESC
+      LIMIT 200
+    `;
+  } catch (error) {
+    if (!isMissingAvatarColumnError(error)) {
+      throw error;
+    }
+  }
+
+  try {
+    return await prisma.$queryRaw<UserRow[]>`
+      SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
+      FROM "users"
+      ORDER BY created_at DESC
+      LIMIT 200
+    `;
+  } catch (error) {
+    if (!isMissingAvatarColumnError(error)) {
+      throw error;
+    }
+  }
+
+  return prisma.$queryRaw<UserRow[]>`
+    SELECT id, email, role, is_blocked, blocked_at, password_hash, created_at
+    FROM "users"
+    ORDER BY created_at DESC
+    LIMIT 200
+  `;
+};
+
 const toAdminPermission = (row: UserAdminPermissionRow): AdminPermission | null => {
   const scope = adminPermissionScopeSchema.safeParse(row.scope);
   const level = adminPermissionLevelSchema.safeParse(row.access_level);
@@ -319,6 +493,8 @@ const toAdminPermission = (row: UserAdminPermissionRow): AdminPermission | null 
 
 const PASSWORD_AUTH_PROVIDER = 'password';
 
+const ACTIVE_SUPER_ADMIN_ROLE = 'admin';
+
 export const authStore = {
   async createUser(params: { email: string; passwordHash: string }): Promise<UserRecord | null> {
     const normalizedEmail = params.email.trim().toLowerCase();
@@ -329,14 +505,22 @@ export const authStore = {
         INSERT INTO "users" (
           id,
           email,
+          role,
+          account_state,
+          is_test_account,
+          deletion_requested_at,
+          deletion_scheduled_for,
+          deleted_at,
+          deletion_reason,
+          test_reset_at,
           password_hash,
           is_blocked,
           blocked_at,
           avatar_url,
           created_at
         )
-        VALUES (${userId}, ${normalizedEmail}, ${params.passwordHash}, ${false}, ${null}, ${null}, ${createdAt})
-        RETURNING id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
+        VALUES (${userId}, ${normalizedEmail}, ${'user'}, ${'active'}, ${false}, ${null}, ${null}, ${null}, ${null}, ${null}, ${params.passwordHash}, ${false}, ${null}, ${null}, ${createdAt})
+        RETURNING id, email, role, is_blocked, blocked_at, account_state, is_test_account, deletion_requested_at, deletion_scheduled_for, deleted_at, deletion_reason, test_reset_at, password_hash, avatar_url, created_at
       `;
       if (rows.length === 0) {
         return null;
@@ -381,81 +565,31 @@ export const authStore = {
 
   async findUserByEmail(email: string): Promise<UserRecord | null> {
     const normalizedEmail = email.trim().toLowerCase();
-    try {
-      const rows = await prisma.$queryRaw<UserRow[]>`
-        SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
-        FROM "users"
-        WHERE email = ${normalizedEmail}
-        LIMIT 1
-      `;
-      if (rows.length === 0) {
-        return null;
-      }
-      const record = toUserRecord(rows[0]);
-      record.adminPermissions = withDerivedAdminPermissions(
-        record,
-        await authStore.listUserAdminPermissionsByUserId(record.id),
-      );
-      return record;
-    } catch (error) {
-      if (isMissingAvatarColumnError(error)) {
-        const rows = await prisma.$queryRaw<UserRow[]>`
-          SELECT id, email, password_hash, created_at
-          FROM "users"
-          WHERE email = ${normalizedEmail}
-          LIMIT 1
-        `;
-        if (rows.length === 0) {
-          return null;
-        }
-        const record = toUserRecord(rows[0]);
-        record.adminPermissions = withDerivedAdminPermissions(
-          record,
-          await authStore.listUserAdminPermissionsByUserId(record.id),
-        );
-        return record;
-      }
-      throw error;
+    const rows = await loadUsersByEmailWithFallback(normalizedEmail);
+    if (rows.length === 0) {
+      return null;
     }
+
+    const record = toUserRecord(rows[0]);
+    record.adminPermissions = withDerivedAdminPermissions(
+      record,
+      await authStore.listUserAdminPermissionsByUserId(record.id),
+    );
+    return record;
   },
 
   async findUserById(id: string): Promise<UserRecord | null> {
-    try {
-      const rows = await prisma.$queryRaw<UserRow[]>`
-        SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
-        FROM "users"
-        WHERE id = ${id}
-        LIMIT 1
-      `;
-      if (rows.length === 0) {
-        return null;
-      }
-      const record = toUserRecord(rows[0]);
-      record.adminPermissions = withDerivedAdminPermissions(
-        record,
-        await authStore.listUserAdminPermissionsByUserId(record.id),
-      );
-      return record;
-    } catch (error) {
-      if (isMissingAvatarColumnError(error)) {
-        const rows = await prisma.$queryRaw<UserRow[]>`
-          SELECT id, email, password_hash, created_at
-          FROM "users"
-          WHERE id = ${id}
-          LIMIT 1
-        `;
-        if (rows.length === 0) {
-          return null;
-        }
-        const record = toUserRecord(rows[0]);
-        record.adminPermissions = withDerivedAdminPermissions(
-          record,
-          await authStore.listUserAdminPermissionsByUserId(record.id),
-        );
-        return record;
-      }
-      throw error;
+    const rows = await loadUsersByIdWithFallback(id);
+    if (rows.length === 0) {
+      return null;
     }
+
+    const record = toUserRecord(rows[0]);
+    record.adminPermissions = withDerivedAdminPermissions(
+      record,
+      await authStore.listUserAdminPermissionsByUserId(record.id),
+    );
+    return record;
   },
 
   async listEmailRecipientsByIds(userIds: string[]): Promise<EmailRecipientRecord[]> {
@@ -521,7 +655,12 @@ export const authStore = {
       UPDATE "users"
       SET
         is_blocked = ${blocked},
-        blocked_at = ${blockedAt}
+        blocked_at = ${blockedAt},
+        account_state = CASE
+          WHEN account_state IN (${`pending_deletion`}, ${`deleted`}) THEN account_state
+          WHEN ${blocked} = true THEN ${'blocked'}
+          ELSE ${'active'}
+        END
       WHERE id = ${userId}
     `;
 
@@ -571,25 +710,7 @@ export const authStore = {
   },
 
   async listUsers(): Promise<UserRecord[]> {
-    let rows: UserRow[];
-    try {
-      rows = await prisma.$queryRaw<UserRow[]>`
-        SELECT id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
-        FROM "users"
-        ORDER BY created_at DESC
-        LIMIT 200
-      `;
-    } catch (error) {
-      if (!isMissingAvatarColumnError(error)) {
-        throw error;
-      }
-      rows = await prisma.$queryRaw<UserRow[]>`
-        SELECT id, email, password_hash, created_at
-        FROM "users"
-        ORDER BY created_at DESC
-        LIMIT 200
-      `;
-    }
+    const rows = await loadUsersListWithFallback();
 
     const users = rows.map((row) => toUserRecord(row));
     const permissionsByUser = new Map<string, AdminPermission[]>();
@@ -617,6 +738,194 @@ export const authStore = {
       ...user,
       adminPermissions: withDerivedAdminPermissions(user, permissionsByUser.get(user.id) ?? []),
     }));
+  },
+
+  async countActiveSuperAdmins(): Promise<number> {
+    const rows = await prisma.$queryRaw<UserRow[]>`
+      SELECT id, email, role, is_blocked, blocked_at, account_state, is_test_account, deletion_requested_at, deletion_scheduled_for, deleted_at, deletion_reason, test_reset_at, password_hash, avatar_url, created_at
+      FROM "users"
+      WHERE role = ${ACTIVE_SUPER_ADMIN_ROLE}
+    `;
+
+    return rows
+      .map(toUserRecord)
+      .filter(
+        (user) =>
+          isSuperAdminIdentity(user.email) &&
+          !user.isBlocked &&
+          user.accountState !== 'pending_deletion' &&
+          user.accountState !== 'deleted',
+      ).length;
+  },
+
+  async setUserTestAccountFlagById(userId: string, isTestAccount: boolean): Promise<boolean> {
+    const updatedCount = await prisma.$executeRaw`
+      UPDATE "users"
+      SET is_test_account = ${isTestAccount}
+      WHERE id = ${userId}
+    `;
+
+    return Number(updatedCount) === 1;
+  },
+
+  async scheduleUserDeletionById(params: {
+    userId: string;
+    reason: string | null;
+    scheduledFor: Date;
+  }): Promise<boolean> {
+    const updatedCount = await prisma.$executeRaw`
+      UPDATE "users"
+      SET
+        account_state = ${'pending_deletion'},
+        is_blocked = ${true},
+        blocked_at = COALESCE(blocked_at, NOW()),
+        deletion_requested_at = NOW(),
+        deletion_scheduled_for = ${params.scheduledFor},
+        deletion_reason = ${params.reason}
+      WHERE id = ${params.userId}
+    `;
+
+    return Number(updatedCount) === 1;
+  },
+
+  async cancelUserDeletionById(userId: string): Promise<boolean> {
+    const updatedCount = await prisma.$executeRaw`
+      UPDATE "users"
+      SET
+        account_state = CASE WHEN deleted_at IS NULL THEN ${'active'} ELSE ${'deleted'} END,
+        deletion_requested_at = ${null},
+        deletion_scheduled_for = ${null},
+        deletion_reason = ${null}
+      WHERE id = ${userId}
+        AND account_state = ${'pending_deletion'}
+    `;
+
+    return Number(updatedCount) === 1;
+  },
+
+  async markUserTestResetById(userId: string): Promise<boolean> {
+    const updatedCount = await prisma.$executeRaw`
+      UPDATE "users"
+      SET test_reset_at = NOW()
+      WHERE id = ${userId}
+    `;
+    return Number(updatedCount) === 1;
+  },
+
+  async listUsersPendingDeletion(limit = 50): Promise<UserRecord[]> {
+    const rows = await prisma.$queryRaw<UserRow[]>`
+      SELECT id, email, role, is_blocked, blocked_at, account_state, is_test_account, deletion_requested_at, deletion_scheduled_for, deleted_at, deletion_reason, test_reset_at, password_hash, avatar_url, created_at
+      FROM "users"
+      WHERE account_state = ${'pending_deletion'}
+        AND deletion_scheduled_for IS NOT NULL
+        AND deletion_scheduled_for <= NOW()
+      ORDER BY deletion_scheduled_for ASC
+      LIMIT ${Math.max(1, Math.floor(limit))}
+    `;
+
+    const users = rows.map(toUserRecord);
+    return Promise.all(
+      users.map(async (user) => ({
+        ...user,
+        adminPermissions: withDerivedAdminPermissions(
+          user,
+          await authStore.listUserAdminPermissionsByUserId(user.id),
+        ),
+      })),
+    );
+  },
+
+  async anonymizeUserForDeletionById(userId: string): Promise<{ ok: boolean; avatarPath: string | null }> {
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.$queryRaw<UserRow[]>`
+        SELECT id, email, role, is_blocked, blocked_at, account_state, is_test_account, deletion_requested_at, deletion_scheduled_for, deleted_at, deletion_reason, test_reset_at, password_hash, avatar_url, created_at
+        FROM "users"
+        WHERE id = ${userId}
+        LIMIT 1
+      `;
+      if (existing.length === 0) {
+        return { ok: false, avatarPath: null };
+      }
+
+      const user = toUserRecord(existing[0]);
+      const anonymizedEmail = `deleted+${user.id}@example.invalid`;
+
+      await tx.$executeRaw`DELETE FROM "user_auth_identities" WHERE user_id = ${userId}`;
+      await tx.$executeRaw`DELETE FROM "password_reset_tokens" WHERE user_id = ${userId}`;
+      await tx.$executeRaw`DELETE FROM "refresh_tokens" WHERE user_id = ${userId}`;
+      await tx.$executeRaw`DELETE FROM "oauth_states" WHERE user_id = ${userId}`;
+      await tx.$executeRaw`DELETE FROM "integrations" WHERE user_id = ${userId}`;
+      await tx.$executeRaw`DELETE FROM "user_profiles" WHERE user_id = ${userId}`;
+      await tx.$executeRaw`DELETE FROM "user_preferences" WHERE user_id = ${userId}`;
+      await tx.$executeRaw`DELETE FROM "user_admin_permissions" WHERE user_id = ${userId}`;
+
+      const updatedCount = await tx.$executeRaw`
+        UPDATE "users"
+        SET
+          email = ${anonymizedEmail},
+          role = ${'user'},
+          is_blocked = ${true},
+          blocked_at = COALESCE(blocked_at, NOW()),
+          account_state = ${'deleted'},
+          is_test_account = ${false},
+          deletion_scheduled_for = ${null},
+          deleted_at = COALESCE(deleted_at, NOW()),
+          password_hash = ${null},
+          avatar_url = ${null}
+        WHERE id = ${userId}
+      `;
+
+      return {
+        ok: Number(updatedCount) === 1,
+        avatarPath: user.avatarPath,
+      };
+    });
+  },
+
+  async createAdminAuditLog(params: {
+    actorUserId?: string | null;
+    actorEmail?: string | null;
+    targetUserId?: string | null;
+    targetEmail?: string | null;
+    action: string;
+    reason?: string | null;
+    metadata?: Record<string, unknown> | null;
+  }): Promise<AdminAuditLogRecord | null> {
+    let rows: AdminAuditLogRow[];
+    try {
+      rows = await prisma.$queryRaw<AdminAuditLogRow[]>`
+        INSERT INTO "admin_audit_logs" (
+          id,
+          actor_user_id,
+          actor_email,
+          target_user_id,
+          target_email,
+          action,
+          reason,
+          metadata_json,
+          created_at
+        )
+        VALUES (
+          ${randomUUID()},
+          ${params.actorUserId ?? null},
+          ${params.actorEmail ?? null},
+          ${params.targetUserId ?? null},
+          ${params.targetEmail ?? null},
+          ${params.action},
+          ${params.reason ?? null},
+          ${params.metadata ?? null},
+          ${new Date()}
+        )
+        RETURNING id, actor_user_id, actor_email, target_user_id, target_email, action, reason, metadata_json, created_at
+      `;
+    } catch (error) {
+      if (isMissingRelationError(error)) {
+        return null;
+      }
+      throw error;
+    }
+
+    return rows[0] ? toAdminAuditLogRecord(rows[0]) : null;
   },
 
   async updateUserPasswordById(userId: string, passwordHash: string): Promise<boolean> {
@@ -911,14 +1220,22 @@ export const authStore = {
           INSERT INTO "users" (
             id,
             email,
+            role,
+            account_state,
+            is_test_account,
+            deletion_requested_at,
+            deletion_scheduled_for,
+            deleted_at,
+            deletion_reason,
+            test_reset_at,
             password_hash,
             is_blocked,
             blocked_at,
             avatar_url,
             created_at
           )
-          VALUES (${userId}, ${normalizedEmail}, ${params.passwordHash}, ${false}, ${null}, ${null}, ${createdAt})
-          RETURNING id, email, role, is_blocked, blocked_at, password_hash, avatar_url, created_at
+          VALUES (${userId}, ${normalizedEmail}, ${'user'}, ${'active'}, ${false}, ${null}, ${null}, ${null}, ${null}, ${null}, ${params.passwordHash}, ${false}, ${null}, ${null}, ${createdAt})
+          RETURNING id, email, role, is_blocked, blocked_at, account_state, is_test_account, deletion_requested_at, deletion_scheduled_for, deleted_at, deletion_reason, test_reset_at, password_hash, avatar_url, created_at
         `;
       } catch (error) {
         if (isUniqueConstraintViolation(error)) {
