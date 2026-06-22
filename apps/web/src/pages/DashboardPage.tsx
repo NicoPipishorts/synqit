@@ -1,5 +1,16 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link2, Music, Plus, Radio, RefreshCcw, Sparkles, Users } from 'lucide-react';
+import {
+  CalendarDays,
+  LayoutDashboard,
+  Link2,
+  ListMusic,
+  Music,
+  Plus,
+  Radio,
+  RefreshCcw,
+  Sparkles,
+  Users,
+} from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 
 import { AppOnboardingPanel } from '../components/app/AppOnboardingPanel';
@@ -16,6 +27,7 @@ import {
 } from '../components/dashboard/DashboardPlaylistCard';
 import { DashboardStats, type DashboardStat } from '../components/dashboard/DashboardStats';
 import { PwaInstallPrompt } from '../components/dashboard/PwaInstallPrompt';
+import { RouteLoadingScreen } from '../components/ui/RouteLoadingScreen';
 import { CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
@@ -414,6 +426,8 @@ export const DashboardPage = () => {
   const hasDashboardContent = ownedCards.length > 0 || joinedCards.length > 0;
   const isInitialLoad = syncsQuery.isLoading || dashboardSummaryQuery.isLoading;
   const isFetching = syncsQuery.isFetching || dashboardSummaryQuery.isFetching;
+  const isResolvingEmptyState =
+    (!syncsQuery.data || !dashboardSummaryQuery.data) && !hasDashboardContent && isInitialLoad;
   const newEventTo = activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new';
   const newEventLabel = activeDraft ? t('dashboard.ctaResumeDraft') : t('dashboard.ctaCreateEvent');
 
@@ -427,7 +441,9 @@ export const DashboardPage = () => {
     <AppPageLayout bodyClassName="gap-8">
       <PwaInstallPrompt />
 
-      {!hasDashboardContent && !isInitialLoad ? (
+      {isResolvingEmptyState ? <RouteLoadingScreen /> : null}
+
+      {!isResolvingEmptyState && !hasDashboardContent && !isInitialLoad ? (
         <div className="grid min-h-[60vh] items-center">
           <AppOnboardingPanel
             eyebrow={t('dashboard.onboardingEyebrow')}
@@ -459,24 +475,24 @@ export const DashboardPage = () => {
             }
             steps={[
               {
-                icon: <Radio size={18} aria-hidden="true" />,
+                icon: <CalendarDays size={18} aria-hidden="true" />,
                 title: t('dashboard.onboardingStepEventsTitle'),
                 body: t('dashboard.onboardingStepEventsBody'),
               },
               {
-                icon: <Link2 size={18} aria-hidden="true" />,
+                icon: <ListMusic size={18} aria-hidden="true" />,
                 title: t('dashboard.onboardingStepSyncTitle'),
                 body: t('dashboard.onboardingStepSyncBody'),
               },
               {
-                icon: <Users size={18} aria-hidden="true" />,
+                icon: <LayoutDashboard size={18} aria-hidden="true" />,
                 title: t('dashboard.onboardingStepAudienceTitle'),
                 body: t('dashboard.onboardingStepAudienceBody'),
               },
             ]}
           />
         </div>
-      ) : (
+      ) : !isResolvingEmptyState ? (
         <>
           {/* Page header */}
           <header className="flex items-start justify-between gap-4 sm:px-2 sm:pb-2">
@@ -583,7 +599,7 @@ export const DashboardPage = () => {
             </section>
           </div>
         </>
-      )}
+      ) : null}
     </AppPageLayout>
   );
 };

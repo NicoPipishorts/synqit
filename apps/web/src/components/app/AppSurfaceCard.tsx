@@ -17,7 +17,7 @@ export const AppSurfaceCard = ({
     {
       ...props,
       className:
-        `rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card ${
+        `rounded-2xl border border-app-border bg-app-elevated p-2 sm:p-5 shadow-soft-lift dark:bg-app-card ${
           className ?? ''
         }`.trim(),
     },
