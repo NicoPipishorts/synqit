@@ -9,6 +9,7 @@ import {
   LogOut,
   Mail,
   Menu,
+  ShieldAlert,
   Shield,
   Users,
   X,
@@ -50,6 +51,12 @@ const USER_DETAIL_NAV_ITEMS = [
     section: 'overview',
   },
   {
+    to: '/users/$userId/security',
+    icon: ShieldAlert,
+    label: 'Security',
+    section: 'security',
+  },
+  {
     to: '/users/$userId/access',
     icon: Shield,
     label: 'Access',
@@ -78,10 +85,11 @@ export const AdminShell = () => {
   const auth = loadAuth();
   const isLoginRoute = pathname === '/login';
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const userDetailMatch = pathname.match(/^\/users\/([^/]+)(?:\/(access|playlists|activity))?$/);
+  const userDetailMatch = pathname.match(/^\/users\/([^/]+)(?:\/(security|access|playlists|activity))?$/);
   const userDetailUserId = userDetailMatch?.[1] ?? null;
   const userDetailSection = (userDetailMatch?.[2] ?? 'overview') as
     | 'overview'
+    | 'security'
     | 'access'
     | 'playlists'
     | 'activity';

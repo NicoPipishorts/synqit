@@ -1,7 +1,8 @@
 import { authUserSchema } from '@synqit/shared';
-import { Pencil } from 'lucide-react';
+import { ImagePlus, Pencil, ShieldCheck, UserRound } from 'lucide-react';
 import { ChangeEvent, DragEvent, useRef, useState } from 'react';
 
+import { AppOnboardingPanel } from '../components/app/AppOnboardingPanel';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { CircularImage } from '../components/ui/CircularImage';
@@ -32,6 +33,7 @@ export const ProfilePage = () => {
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const avatarSrc = auth?.avatarUrl ?? settings.avatarDataUrl ?? null;
+  const needsProfileOnboarding = showPersonalInfoPrompt || !avatarSrc;
 
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -202,6 +204,62 @@ export const ProfilePage = () => {
           </div>
         </div>
       </article>
+
+      {needsProfileOnboarding ? (
+        <AppOnboardingPanel
+          eyebrow={t('profile.onboardingEyebrow')}
+          title={t('profile.onboardingTitle')}
+          body={t('profile.onboardingBody')}
+          icon={<UserRound size={24} aria-hidden="true" />}
+          note={t('profile.onboardingNote')}
+          actions={
+            <>
+              <CTAButton
+                type="button"
+                variant="primary"
+                size="lg"
+                className="justify-center"
+                onClick={() => setIsAvatarModalOpen(true)}
+              >
+                {t('profile.onboardingCtaAvatar')}
+              </CTAButton>
+              <CTALink
+                to="/profile/personal-info"
+                variant="secondary"
+                size="lg"
+                className="justify-center"
+              >
+                {t('profile.onboardingCtaProfile')}
+              </CTALink>
+              <CTALink
+                to="/profile/platforms"
+                variant="secondary"
+                size="lg"
+                className="justify-center"
+              >
+                {t('profile.onboardingCtaPlatforms')}
+              </CTALink>
+            </>
+          }
+          steps={[
+            {
+              icon: <ImagePlus size={18} aria-hidden="true" />,
+              title: t('profile.onboardingStepAvatarTitle'),
+              body: t('profile.onboardingStepAvatarBody'),
+            },
+            {
+              icon: <UserRound size={18} aria-hidden="true" />,
+              title: t('profile.onboardingStepIdentityTitle'),
+              body: t('profile.onboardingStepIdentityBody'),
+            },
+            {
+              icon: <ShieldCheck size={18} aria-hidden="true" />,
+              title: t('profile.onboardingStepReadyTitle'),
+              body: t('profile.onboardingStepReadyBody'),
+            },
+          ]}
+        />
+      ) : null}
 
       <AppSurfaceCard>
         <div className="grid gap-1">

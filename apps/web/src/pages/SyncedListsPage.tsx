@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { ListMusic, Plus } from 'lucide-react';
+import { Link2, ListMusic, Plus, Users } from 'lucide-react';
 
-import { AppEmptyState } from '../components/app/AppEmptyState';
+import { AppOnboardingPanel } from '../components/app/AppOnboardingPanel';
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { AppSectionHeading } from '../components/app/AppSectionHeading';
@@ -44,16 +44,40 @@ export const SyncedListsPage = () => {
 
       {/* ── List / Empty ── */}
       {!hasAny ? (
-        <div className="flex min-h-[calc(100svh-24rem)] items-start justify-center pt-8 sm:pt-16">
-          <AppEmptyState
-            icon={<ListMusic size={36} aria-hidden="true" />}
-            title={t('syncedListsPage.emptyTitle')}
-            body={t('syncedListsPage.emptyBody')}
-            action={
-              <CTALink to="/synced-lists/new" variant="primary" size="lg">
+        <div className="grid min-h-[calc(100svh-24rem)] items-start pt-8 sm:pt-12">
+          <AppOnboardingPanel
+            eyebrow={t('syncedListsPage.onboardingEyebrow')}
+            title={t('syncedListsPage.onboardingTitle')}
+            body={t('syncedListsPage.onboardingBody')}
+            icon={<Link2 size={24} aria-hidden="true" />}
+            note={t('syncedListsPage.onboardingNote')}
+            actions={
+              <CTALink
+                to="/synced-lists/new"
+                variant="primary"
+                size="lg"
+                className="justify-center"
+              >
                 {t('syncedListsPage.shareFirst')}
               </CTALink>
             }
+            steps={[
+              {
+                icon: <Plus size={18} aria-hidden="true" />,
+                title: t('syncedListsPage.onboardingStepPickTitle'),
+                body: t('syncedListsPage.onboardingStepPickBody'),
+              },
+              {
+                icon: <Link2 size={18} aria-hidden="true" />,
+                title: t('syncedListsPage.onboardingStepShareTitle'),
+                body: t('syncedListsPage.onboardingStepShareBody'),
+              },
+              {
+                icon: <Users size={18} aria-hidden="true" />,
+                title: t('syncedListsPage.onboardingStepGrowTitle'),
+                body: t('syncedListsPage.onboardingStepGrowBody'),
+              },
+            ]}
           />
         </div>
       ) : (
