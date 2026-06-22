@@ -1,7 +1,16 @@
-import { SignJWT, importPKCS8 } from 'jose';
-
 const DEFAULT_APPLE_STOREFRONT = 'us';
 const APPLE_DEVELOPER_TOKEN_TTL_SECONDS = 60 * 60;
+
+type JoseModule = {
+  SignJWT: new (payload: Record<string, never>) => {
+    setProtectedHeader(header: { alg: string; kid: string; typ: string }): any;
+    setIssuer(issuer: string): any;
+    setIssuedAt(issuedAt: number): any;
+    setExpirationTime(expirationTime: number): any;
+    sign(key: unknown): Promise<string>;
+  };
+  importPKCS8: (pkcs8: string, alg: string) => Promise<unknown>;
+};
 
 const isUnset = (value: string | undefined): boolean =>
   !value || value.trim() === '' || value.trim() === 'replace-me';
@@ -23,6 +32,14 @@ export const isAppleLiveMode = (): boolean =>
 export const getAppleMusicKitIdentifierForClient = (): string => getAppleMusicKitIdentifier();
 
 let cachedDeveloperToken: { token: string; expiresAtEpochSeconds: number } | null = null;
+let joseModulePromise: Promise<JoseModule> | null = null;
+
+const loadJose = async (): Promise<JoseModule> => {
+  if (!joseModulePromise) {
+    joseModulePromise = import('jose');
+  }
+  return joseModulePromise;
+};
 
 const parsePrivateKeyPem = (): string => {
   const privateKey = getApplePrivateKey();
@@ -60,6 +77,7 @@ export const getAppleDeveloperToken = async (params?: {
   const teamId = getAppleTeamId();
   const keyId = getAppleKeyId();
   const privateKey = parsePrivateKeyPem();
+  const { SignJWT, importPKCS8 } = await loadJose();
   const key = await importPKCS8(privateKey, 'ES256');
 
   const expiresAtEpochSeconds = now + APPLE_DEVELOPER_TOKEN_TTL_SECONDS;
