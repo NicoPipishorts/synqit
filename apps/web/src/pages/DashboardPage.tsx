@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link2, Music, Plus, Radio, RefreshCcw, Users } from 'lucide-react';
+import { Link2, Music, Plus, Radio, RefreshCcw, Sparkles, Users } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 
-import { AppEmptyState } from '../components/app/AppEmptyState';
+import { AppOnboardingPanel } from '../components/app/AppOnboardingPanel';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import {
   DashboardActivityFeed,
@@ -428,16 +428,20 @@ export const DashboardPage = () => {
       <PwaInstallPrompt />
 
       {!hasDashboardContent && !isInitialLoad ? (
-        <div className="flex min-h-[60vh] flex-col items-center justify-center">
-          <AppEmptyState
-            title={t('dashboard.ctaCreateFirst')}
-            action={
-              <div className="flex w-72 flex-col items-stretch gap-4">
+        <div className="grid min-h-[60vh] items-center">
+          <AppOnboardingPanel
+            eyebrow={t('dashboard.onboardingEyebrow')}
+            title={t('dashboard.onboardingTitle')}
+            body={t('dashboard.onboardingBody')}
+            icon={<Sparkles size={24} aria-hidden="true" />}
+            note={t('dashboard.onboardingNote')}
+            actions={
+              <>
                 <CTALink
                   to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
                   variant="primary"
                   size="lg"
-                  className="w-full justify-center"
+                  className="justify-center"
                 >
                   {activeDraft
                     ? t('dashboard.ctaResumeDraft')
@@ -447,12 +451,29 @@ export const DashboardPage = () => {
                   to="/synced-lists/new"
                   variant="secondary"
                   size="lg"
-                  className="w-full justify-center"
+                  className="justify-center"
                 >
                   {t('dashboard.ctaCreateSyncedPlaylist')}
                 </CTALink>
-              </div>
+              </>
             }
+            steps={[
+              {
+                icon: <Radio size={18} aria-hidden="true" />,
+                title: t('dashboard.onboardingStepEventsTitle'),
+                body: t('dashboard.onboardingStepEventsBody'),
+              },
+              {
+                icon: <Link2 size={18} aria-hidden="true" />,
+                title: t('dashboard.onboardingStepSyncTitle'),
+                body: t('dashboard.onboardingStepSyncBody'),
+              },
+              {
+                icon: <Users size={18} aria-hidden="true" />,
+                title: t('dashboard.onboardingStepAudienceTitle'),
+                body: t('dashboard.onboardingStepAudienceBody'),
+              },
+            ]}
           />
         </div>
       ) : (

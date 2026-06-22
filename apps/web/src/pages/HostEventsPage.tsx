@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ListMusic, Plus, Trash2 } from 'lucide-react';
+import { ListMusic, Plus, Radio, Share2, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { AppEmptyState } from '../components/app/AppEmptyState';
+import { AppOnboardingPanel } from '../components/app/AppOnboardingPanel';
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { AppSectionHeading } from '../components/app/AppSectionHeading';
@@ -130,20 +130,40 @@ export const HostEventsPage = () => {
 
       {/* ── List / Empty ── */}
       {!hasAny ? (
-        <div className="flex min-h-[calc(100svh-24rem)] items-start justify-center pt-8 sm:pt-16">
-          <AppEmptyState
-            icon={<ListMusic size={36} aria-hidden="true" />}
-            title={t('eventsPage.emptyTitle')}
-            body={t('eventsPage.emptyBody')}
-            action={
+        <div className="grid min-h-[calc(100svh-24rem)] items-start pt-8 sm:pt-12">
+          <AppOnboardingPanel
+            eyebrow={t('eventsPage.onboardingEyebrow')}
+            title={t('eventsPage.onboardingTitle')}
+            body={t('eventsPage.onboardingBody')}
+            icon={<ListMusic size={24} aria-hidden="true" />}
+            note={t('eventsPage.onboardingNote')}
+            actions={
               <CTALink
                 to={activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new'}
                 variant="primary"
                 size="lg"
+                className="justify-center"
               >
                 {activeDraft ? t('dashboard.ctaResumeDraft') : t('eventsPage.create')}
               </CTALink>
             }
+            steps={[
+              {
+                icon: <Plus size={18} aria-hidden="true" />,
+                title: t('eventsPage.onboardingStepCreateTitle'),
+                body: t('eventsPage.onboardingStepCreateBody'),
+              },
+              {
+                icon: <Share2 size={18} aria-hidden="true" />,
+                title: t('eventsPage.onboardingStepShareTitle'),
+                body: t('eventsPage.onboardingStepShareBody'),
+              },
+              {
+                icon: <Radio size={18} aria-hidden="true" />,
+                title: t('eventsPage.onboardingStepManageTitle'),
+                body: t('eventsPage.onboardingStepManageBody'),
+              },
+            ]}
           />
         </div>
       ) : (

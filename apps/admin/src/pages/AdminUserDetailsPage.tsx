@@ -6,7 +6,7 @@ import {
   type AdminPermissionScope,
 } from '@synqit/shared';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
-import { AlertTriangle, ArrowLeft, KeyRound, Trash2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, KeyRound, RotateCcw, Shield, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AdminDetailCard } from '../components/admin/AdminDetailCard';
@@ -21,7 +21,7 @@ import { clearAuth, hasAdminPermission, loadAuth } from '../lib/auth';
 
 type AnalyticsUserDetail = AdminAnalyticsUserDetailResponse['user'];
 type AccessLevelUi = AdminPermissionLevel | 'none';
-type UserDetailSection = 'overview' | 'access' | 'playlists' | 'activity';
+type UserDetailSection = 'overview' | 'security' | 'access' | 'playlists' | 'activity';
 
 type AccessEditorState = {
   role: 'user' | 'admin';
@@ -95,28 +95,14 @@ const UserOverviewSection = ({
   userDetail,
   normalizeDate,
   pageViewsCount,
-  canRequestDeletion,
-  canToggleBlockedState,
-  blockActionLabel,
-  isSendingPasswordReset,
-  onOpenBlock,
-  onSendPasswordReset,
-  onOpenDelete,
   t,
 }: {
   userDetail: AnalyticsUserDetail;
   normalizeDate: (value: string | null) => string;
   pageViewsCount: number;
-  canRequestDeletion: boolean;
-  canToggleBlockedState: boolean;
-  blockActionLabel: string;
-  isSendingPasswordReset: boolean;
-  onOpenBlock: () => void;
-  onSendPasswordReset: () => void;
-  onOpenDelete: () => void;
   t: (key: string) => string;
 }) => (
-  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(18rem,0.9fr)]">
+  <div className="grid gap-4">
     <AdminDetailCard title="Profile">
       <div className="grid gap-6 text-sm text-app-text-secondary md:grid-cols-2">
         <div className="grid content-start gap-2">
@@ -167,107 +153,215 @@ const UserOverviewSection = ({
       </div>
     </AdminDetailCard>
 
-    <div className="grid gap-4">
-      <AdminDetailCard title="Quick view">
-        <div className="grid gap-4">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-2xl border border-app-border bg-app-bg px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
-                {t('admin.analyticsMetricEventsShort')}
-              </p>
-              <p className="mt-2 text-2xl font-black text-app-text">
-                {userDetail.eventPlaylistsCount}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-app-border bg-app-bg px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
-                {t('admin.analyticsMetricSharedShort')}
-              </p>
-              <p className="mt-2 text-2xl font-black text-app-text">
-                {userDetail.sharedPlaylistsCount}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-app-border bg-app-bg px-3 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
-                Page views
-              </p>
-              <p className="mt-2 text-2xl font-black text-app-text">{pageViewsCount}</p>
-            </div>
+    <AdminDetailCard title="Quick view">
+      <div className="grid gap-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-app-border bg-app-bg px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
+              {t('admin.analyticsMetricEventsShort')}
+            </p>
+            <p className="mt-2 text-2xl font-black text-app-text">{userDetail.eventPlaylistsCount}</p>
           </div>
-
-          <p className="text-sm text-app-text-secondary">
-            Use the section nav to drill into admin access, playlists, and app activity without
-            keeping everything on one screen.
-          </p>
+          <div className="rounded-2xl border border-app-border bg-app-bg px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
+              {t('admin.analyticsMetricSharedShort')}
+            </p>
+            <p className="mt-2 text-2xl font-black text-app-text">{userDetail.sharedPlaylistsCount}</p>
+          </div>
+          <div className="rounded-2xl border border-app-border bg-app-bg px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
+              Page views
+            </p>
+            <p className="mt-2 text-2xl font-black text-app-text">{pageViewsCount}</p>
+          </div>
         </div>
-      </AdminDetailCard>
 
-      <AdminDetailCard title="Security actions">
-        <div className="grid gap-4">
-          <div className="rounded-2xl border border-brand-pink/40 bg-brand-pink/10 px-4 py-4">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl border border-brand-pink/45 bg-brand-pink/15 p-2 text-brand-pink">
-                <AlertTriangle size={18} aria-hidden="true" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-sm font-black text-app-text">High-impact account controls</p>
-                <p className="mt-1 text-sm text-app-text-secondary">
-                  Blocking immediately removes access to the customer app and refresh sessions.
-                </p>
-              </div>
-            </div>
+        <p className="text-sm text-app-text-secondary">
+          Use the section nav to drill into security actions, admin access, playlists, and app activity.
+        </p>
+      </div>
+    </AdminDetailCard>
+  </div>
+);
+
+const UserSecuritySection = ({
+  userDetail,
+  canToggleTestAccount,
+  canRequestDeletion,
+  canResetUserFlow,
+  canToggleBlockedState,
+  blockActionLabel,
+  isSendingPasswordReset,
+  isUpdatingTestAccount,
+  isResettingUserFlow,
+  onOpenBlock,
+  onSendPasswordReset,
+  onOpenDelete,
+  onOpenReset,
+  onToggleTestAccount,
+}: {
+  userDetail: AnalyticsUserDetail;
+  canToggleTestAccount: boolean;
+  canRequestDeletion: boolean;
+  canResetUserFlow: boolean;
+  canToggleBlockedState: boolean;
+  blockActionLabel: string;
+  isSendingPasswordReset: boolean;
+  isUpdatingTestAccount: boolean;
+  isResettingUserFlow: boolean;
+  onOpenBlock: () => void;
+  onSendPasswordReset: () => void;
+  onOpenDelete: () => void;
+  onOpenReset: () => void;
+  onToggleTestAccount: () => void;
+}) => (
+  <AdminDetailCard title="Security actions">
+    <div className="grid gap-4">
+      <div className="rounded-2xl border border-brand-pink/40 bg-brand-pink/10 px-4 py-4">
+        <div className="flex items-start gap-3">
+          <div className="rounded-2xl border border-brand-pink/45 bg-brand-pink/15 p-2 text-brand-pink">
+            <Shield size={18} aria-hidden="true" />
           </div>
+          <div className="min-w-0">
+            <p className="text-sm font-black text-app-text">High-impact account controls</p>
+            <p className="mt-1 text-sm text-app-text-secondary">
+              Blocking removes access immediately. Reset registration flow is for eligible test accounts only.
+            </p>
+          </div>
+        </div>
+      </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-app-border bg-app-bg px-4 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
+            Password
+          </p>
+          <p className="mt-2 text-sm text-app-text-secondary">
+            Sends a reset email without changing account data or access rights.
+          </p>
+          <div className="mt-3 flex">
             <CTAButton
               type="button"
               variant="secondary"
               onClick={onSendPasswordReset}
               disabled={isSendingPasswordReset}
-              className="justify-center"
             >
               <KeyRound size={14} aria-hidden="true" />
               {isSendingPasswordReset ? 'Sending reset email...' : 'Reset password'}
             </CTAButton>
+          </div>
+        </div>
 
-            {canRequestDeletion ? (
+        <div className="rounded-2xl border border-app-border bg-app-bg px-4 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
+            Registration
+          </p>
+          <p className="mt-2 text-sm text-app-text-secondary">
+            Restarts signup from zero and releases the email for a new registration.
+          </p>
+          {canResetUserFlow ? (
+            <div className="mt-3 flex">
               <CTAButton
                 type="button"
                 variant="dangerSoft"
-                onClick={onOpenDelete}
-                className="justify-center"
+                onClick={onOpenReset}
+                disabled={isResettingUserFlow}
               >
+                <RotateCcw size={14} aria-hidden="true" />
+                {isResettingUserFlow ? 'Resetting...' : 'Reset registration flow'}
+              </CTAButton>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-app-text-secondary">
+              Reset registration flow is available only for eligible test accounts.
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-app-border bg-app-bg px-4 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
+            Testing
+          </p>
+          <p className="mt-2 text-sm text-app-text-secondary">
+            Test users can use the registration reset flow. Production users cannot.
+          </p>
+          {canToggleTestAccount ? (
+            <div className="mt-3 flex items-center gap-3">
+              <CTAButton
+                type="button"
+                variant={userDetail.isTestAccount ? 'secondary' : 'primary'}
+                onClick={onToggleTestAccount}
+                disabled={isUpdatingTestAccount}
+              >
+                {isUpdatingTestAccount
+                  ? 'Saving...'
+                  : userDetail.isTestAccount
+                    ? 'Remove test user'
+                    : 'Set as test user'}
+              </CTAButton>
+              <span className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+                {userDetail.isTestAccount ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-app-text-secondary">
+              Test-user controls are unavailable for this account.
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-app-border bg-app-bg px-4 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
+            Deletion
+          </p>
+          <p className="mt-2 text-sm text-app-text-secondary">
+            Schedules deletion, blocks access, and later purges identity data.
+          </p>
+          {canRequestDeletion ? (
+            <div className="mt-3 flex">
+              <CTAButton type="button" variant="dangerSoft" onClick={onOpenDelete}>
                 <Trash2 size={14} aria-hidden="true" />
                 Delete account
               </CTAButton>
-            ) : (
-              <div className="rounded-2xl border border-app-border bg-app-bg px-4 py-3 text-sm text-app-text-secondary">
-                {userDetail.role === 'admin'
-                  ? 'Admin accounts cannot be deleted from this flow.'
-                  : 'Delete account is unavailable for this user.'}
-              </div>
-            )}
-          </div>
-
-          {canToggleBlockedState ? (
-            <CTAButton
-              type="button"
-              variant={userDetail.isBlocked ? 'secondary' : 'danger'}
-              onClick={onOpenBlock}
-              className="justify-center"
-            >
-              <AlertTriangle size={14} aria-hidden="true" />
-              {blockActionLabel}
-            </CTAButton>
+            </div>
           ) : (
-            <p className="text-sm text-app-text-secondary">
+            <p className="mt-3 text-sm text-app-text-secondary">
+              {userDetail.role === 'admin'
+                ? 'Admin accounts cannot be deleted from this flow.'
+                : 'Delete account is unavailable for this user.'}
+            </p>
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-app-border bg-app-bg px-4 py-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
+            Access control
+          </p>
+          <p className="mt-2 text-sm text-app-text-secondary">
+            Immediately blocks or restores access without deleting account history.
+          </p>
+          {canToggleBlockedState ? (
+            <div className="mt-3 flex">
+              <CTAButton
+                type="button"
+                variant={userDetail.isBlocked ? 'secondary' : 'danger'}
+                onClick={onOpenBlock}
+              >
+                <AlertTriangle size={14} aria-hidden="true" />
+                {blockActionLabel}
+              </CTAButton>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-app-text-secondary">
               Security actions are unavailable for this account.
             </p>
           )}
         </div>
-      </AdminDetailCard>
+      </div>
     </div>
-  </div>
+  </AdminDetailCard>
 );
 
 const UserAccessSection = ({
@@ -508,8 +602,11 @@ export const AdminUserDetailsPage = () => {
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [isUpdatingBlockedState, setIsUpdatingBlockedState] = useState(false);
+  const [isUpdatingTestAccount, setIsUpdatingTestAccount] = useState(false);
   const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
+  const [isResettingUserFlow, setIsResettingUserFlow] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
 
   const scopes = useMemo(() => adminPermissionScopeSchema.options, []);
@@ -685,6 +782,16 @@ export const AdminUserDetailsPage = () => {
     currentAdminUserId &&
     userDetail?.userId !== currentAdminUserId,
   );
+  const canToggleTestAccount = Boolean(
+    canManageAdmins && userDetail?.role !== 'admin' && currentAdminUserId,
+  );
+  const canResetUserFlow = Boolean(
+    canManageAdmins &&
+      userDetail?.isTestAccount &&
+      userDetail?.role !== 'admin' &&
+      currentAdminUserId &&
+      userDetail?.userId !== currentAdminUserId,
+  );
   const blockActionLabel = userDetail?.isBlocked ? 'Reactivate account' : 'Block account';
   const blockModalTitle = userDetail?.isBlocked ? 'Reactivate account?' : 'Block account?';
   const blockModalMessage = userDetail?.isBlocked
@@ -693,6 +800,9 @@ export const AdminUserDetailsPage = () => {
   const deleteModalTitle = 'Delete account?';
   const deleteModalMessage =
     'This will schedule the account for deletion, revoke refresh tokens, and block access during the deletion window.';
+  const resetModalTitle = 'Reset registration flow?';
+  const resetModalMessage =
+    'This will remove the local account so the same email can register again from scratch. Existing local history will be lost.';
 
   const sendPasswordReset = useCallback(async () => {
     if (!userDetail) {
@@ -814,6 +924,89 @@ export const AdminUserDetailsPage = () => {
     }
   }, [canRequestDeletion, handleAccessError, loadUserDetail, normalizeDate, showToast, userDetail]);
 
+  const toggleTestAccount = useCallback(async () => {
+    if (!userDetail || !canToggleTestAccount) {
+      return;
+    }
+
+    const nextIsTestAccount = !userDetail.isTestAccount;
+    setIsUpdatingTestAccount(true);
+    setStatus(null);
+
+    try {
+      await callApi(
+        `/v1/admin/users/${userDetail.userId}/test-account`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            isTestAccount: nextIsTestAccount,
+          }),
+        },
+        (payload) => payload,
+      );
+
+      setUserDetail((current) =>
+        current
+          ? {
+              ...current,
+              isTestAccount: nextIsTestAccount,
+            }
+          : current,
+      );
+      const message = nextIsTestAccount
+        ? 'User is now eligible for registration reset.'
+        : 'User is no longer eligible for registration reset.';
+      setStatus(message);
+      showToast(message, { variant: 'success' });
+    } catch (error) {
+      const message = handleAccessError(error);
+      if (message) {
+        setStatus(message);
+        showToast(message, { variant: 'error' });
+      }
+    } finally {
+      setIsUpdatingTestAccount(false);
+    }
+  }, [canToggleTestAccount, handleAccessError, showToast, userDetail]);
+
+  const resetUserFlow = useCallback(async () => {
+    if (!userDetail || !canResetUserFlow) {
+      return;
+    }
+
+    setIsResettingUserFlow(true);
+    setStatus(null);
+
+    try {
+      const result = await callApi(
+        `/v1/admin/users/${userDetail.userId}/reset-user-flow`,
+        {
+          method: 'POST',
+        },
+        (payload) =>
+          payload as {
+            ok: true;
+            reset: true;
+            releasedEmail: string;
+          },
+      );
+
+      const message = `Registration flow reset. ${result.releasedEmail} can register again.`;
+      setStatus(message);
+      showToast(message, { variant: 'success' });
+      setIsResetModalOpen(false);
+      void navigate({ to: '/users' });
+    } catch (error) {
+      const message = handleAccessError(error);
+      if (message) {
+        setStatus(message);
+        showToast(message, { variant: 'error' });
+      }
+    } finally {
+      setIsResettingUserFlow(false);
+    }
+  }, [canResetUserFlow, handleAccessError, navigate, showToast, userDetail]);
+
   useEffect(() => {
     void loadUserDetail();
   }, [loadUserDetail]);
@@ -836,6 +1029,8 @@ export const AdminUserDetailsPage = () => {
 
   const section = pathname.endsWith('/access')
     ? 'access'
+    : pathname.endsWith('/security')
+      ? 'security'
     : pathname.endsWith('/playlists')
       ? 'playlists'
       : pathname.endsWith('/activity')
@@ -844,6 +1039,8 @@ export const AdminUserDetailsPage = () => {
   const sectionTitle =
     section === 'overview'
       ? 'Overview'
+      : section === 'security'
+        ? 'Security'
       : section === 'access'
         ? 'Access'
         : section === 'playlists'
@@ -852,6 +1049,8 @@ export const AdminUserDetailsPage = () => {
   const sectionDescription =
     section === 'overview'
       ? 'Identity, account state, and quick actions.'
+      : section === 'security'
+        ? 'Password reset, block, deletion, and registration reset controls.'
       : section === 'access'
         ? 'Admin role and permission scopes.'
         : section === 'playlists'
@@ -895,14 +1094,26 @@ export const AdminUserDetailsPage = () => {
           userDetail={userDetail}
           normalizeDate={normalizeDate}
           pageViewsCount={pageViewsCount}
+          t={t}
+        />
+      ) : null}
+
+      {section === 'security' ? (
+        <UserSecuritySection
+          userDetail={userDetail}
+          canToggleTestAccount={canToggleTestAccount}
           canRequestDeletion={canRequestDeletion}
+          canResetUserFlow={canResetUserFlow}
           canToggleBlockedState={canToggleBlockedState}
           blockActionLabel={blockActionLabel}
           isSendingPasswordReset={isSendingPasswordReset}
+          isUpdatingTestAccount={isUpdatingTestAccount}
+          isResettingUserFlow={isResettingUserFlow}
           onOpenBlock={() => setIsBlockModalOpen(true)}
           onSendPasswordReset={() => void sendPasswordReset()}
           onOpenDelete={() => setIsDeleteModalOpen(true)}
-          t={t}
+          onOpenReset={() => setIsResetModalOpen(true)}
+          onToggleTestAccount={() => void toggleTestAccount()}
         />
       ) : null}
 
@@ -997,6 +1208,40 @@ export const AdminUserDetailsPage = () => {
               className="w-full justify-center sm:w-auto"
             >
               {isRequestingDeletion ? 'Scheduling deletion...' : 'Confirm deletion'}
+            </CTAButton>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal
+        open={isResetModalOpen}
+        title={resetModalTitle}
+        onClose={() => {
+          if (!isResettingUserFlow) {
+            setIsResetModalOpen(false);
+          }
+        }}
+      >
+        <div className="grid gap-5">
+          <p className="text-sm text-app-text-secondary">{resetModalMessage}</p>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <CTAButton
+              type="button"
+              variant="secondary"
+              onClick={() => setIsResetModalOpen(false)}
+              disabled={isResettingUserFlow}
+              className="w-full justify-center sm:w-auto"
+            >
+              Cancel
+            </CTAButton>
+            <CTAButton
+              type="button"
+              variant="danger"
+              onClick={() => void resetUserFlow()}
+              disabled={isResettingUserFlow}
+              className="w-full justify-center sm:w-auto"
+            >
+              {isResettingUserFlow ? 'Resetting...' : 'Confirm reset'}
             </CTAButton>
           </div>
         </div>

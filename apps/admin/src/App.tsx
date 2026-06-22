@@ -84,6 +84,12 @@ const userDetailAccessRoute = createRoute({
   component: () => null,
 });
 
+const userDetailSecurityRoute = createRoute({
+  getParentRoute: () => userDetailRoute,
+  path: 'security',
+  component: () => null,
+});
+
 const userDetailPlaylistsRoute = createRoute({
   getParentRoute: () => userDetailRoute,
   path: 'playlists',
@@ -116,6 +122,7 @@ const routeTree = rootRoute.addChildren([
   dashboardRoute,
   usersRoute,
   userDetailRoute.addChildren([
+    userDetailSecurityRoute,
     userDetailAccessRoute,
     userDetailPlaylistsRoute,
     userDetailActivityRoute,
