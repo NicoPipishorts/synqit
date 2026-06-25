@@ -938,6 +938,12 @@
       "ctaSync": "Or share a playlist",
       "ctaLogin": "Sign in"
     },
+    "transfer": {
+      "eyebrow": "Playlist transfer",
+      "title": "Switch services, keep your playlists",
+      "description": "Moving from one streaming service to another? Bring your playlists with you. Synqit matches every track and rebuilds them in your new library — Spotify or Apple Music.",
+      "cta": "Transfer a playlist"
+    },
     "nav": {
       "product": "Product",
       "share": "Share a playlist"

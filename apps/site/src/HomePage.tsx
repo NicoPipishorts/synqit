@@ -109,7 +109,7 @@ const CtaOfferCard = ({
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export const HomePage = () => {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [activeTab, setActiveTab] = useState<OfferTab>('event');
   const [heroVariant, setHeroVariant] = useState(0);
   const heroImageRef = useRef<HTMLDivElement | null>(null);
@@ -315,6 +315,49 @@ export const HomePage = () => {
       </RevealSection>
 
       <div>
+        {/* ── Transfer ───────────────────────────────────────────────────── */}
+        <RevealSection
+          trackId="transfer"
+          className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(135deg,rgba(255,46,139,0.07)_0%,transparent_44%,rgba(198,255,0,0.07)_100%)] py-24 sm:py-32 lg:py-36"
+        >
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#ff2e8b,#c6ff00,#7dd3fc)]"
+          />
+          <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 px-6 text-center">
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-app-text-secondary">
+              {t('home.transfer.eyebrow')}
+            </p>
+            <SectionHeading
+              title={t('home.transfer.title')}
+              description={t('home.transfer.description')}
+              align="center"
+              titleClassName="text-shadow-section-title text-3xl font-black tracking-tight sm:text-4xl"
+              descriptionClassName="max-w-xl leading-relaxed"
+            />
+          </div>
+
+          <div className="mt-12 flex w-full flex-col items-center gap-8 px-4">
+            <div className="w-full max-w-[90dvw]">
+              <img
+                src={`/assets/presentation/transfer-light-${locale}.png`}
+                alt={t('home.transfer.title')}
+                loading="lazy"
+                className="block h-auto w-full object-contain dark:hidden"
+              />
+              <img
+                src={`/assets/presentation/transfer-dark-${locale}.png`}
+                alt={t('home.transfer.title')}
+                loading="lazy"
+                className="hidden h-auto w-full object-contain dark:block"
+              />
+            </div>
+            <HeroLink href={buildAppUrl('/transfer')} variant="pink" size="sm">
+              {t('home.transfer.cta')}
+            </HeroLink>
+          </div>
+        </RevealSection>
+
         {/* ── Offer tabs + screenshots ───────────────────────────────────── */}
         <RevealSection
           trackId="showcase"
