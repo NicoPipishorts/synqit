@@ -1,6 +1,6 @@
 import type { ProviderPlaylistItem } from '@synqit/shared';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ListMusic, Music } from 'lucide-react';
+import { Check, ListMusic, Music, Repeat2 } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
 import { CTAButton } from '../ui/cta';
@@ -98,11 +98,29 @@ export const SyncPlaylistPicker = ({
                   </span>
                 </div>
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <p
-                    className={`max-w-full truncate text-sm font-bold transition-colors duration-150 ${isSelected ? 'text-brand-pink' : 'text-brand-dark dark:text-brand-white group-hover:text-brand-pink'}`}
-                  >
-                    {playlist.name}
-                  </p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <p
+                      className={`min-w-0 flex-1 truncate text-sm font-bold transition-colors duration-150 ${isSelected ? 'text-brand-pink' : 'text-brand-dark dark:text-brand-white group-hover:text-brand-pink'}`}
+                    >
+                      {playlist.name}
+                    </p>
+                    {playlist.origin ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-app-border/60 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-app-text-secondary">
+                        <Repeat2 size={11} aria-hidden="true" />
+                        {t('transferPage.originBadge', {
+                          provider:
+                            playlist.origin.provider === 'spotify' ? 'Spotify' : 'Apple Music',
+                        })}
+                      </span>
+                    ) : null}
+                    {playlist.priorTransfer &&
+                    playlist.priorTransfer.destinationProviders.length > 0 ? (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-amber-700 dark:text-amber-300">
+                        <Check size={11} strokeWidth={3} aria-hidden="true" />
+                        {t('transferPage.alreadyTransferredBadge')}
+                      </span>
+                    ) : null}
+                  </div>
                   {isSelected && playlist.trackCount !== null && (
                     <p className="max-w-full truncate text-xs text-app-text-secondary">
                       {t('syncCreatePage.trackCount', { count: playlist.trackCount })}

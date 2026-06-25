@@ -103,6 +103,7 @@ export const AppShell = () => {
     { to: '/dashboard', label: t('accountMenu.dashboard') },
     { to: '/playlists', label: t('accountMenu.myEvents') },
     { to: '/synced-lists', label: t('accountMenu.syncedLists') },
+    { to: '/transfer', label: t('accountMenu.transfer') },
     { to: '/profile', label: t('accountMenu.profile') },
   ] as const;
   const isNavItemActive = (to: string): boolean => {

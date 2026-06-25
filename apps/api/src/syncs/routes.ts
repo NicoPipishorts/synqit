@@ -3,7 +3,9 @@ import {
   importSyncRequestSchema,
   importSyncResponseSchema,
   providerPlaylistListResponseSchema,
+  type ProviderPlaylistItem,
   providerPlaylistTrackCountResponseSchema,
+  providerPlaylistTracksResponseSchema,
   providerSchema,
   syncDetailResponseSchema,
   syncListResponseSchema,
@@ -119,6 +121,45 @@ const toSyncResponse = (sync: Awaited<ReturnType<typeof syncsStore.createSync>>)
     magicLinkUrl: buildSyncMagicLinkUrl(sync.magicLinkToken),
   });
 
+// Decorate a provider's playlists with transfer history so the client can warn
+// about (a) round-trips — the playlist was created by a prior Synqit transfer
+// into this provider — and (b) re-transfers — this same source playlist was
+// already transferred elsewhere before.
+const annotatePlaylistOrigins = async (params: {
+  userId: string;
+  provider: 'spotify' | 'apple';
+  playlists: ReadonlyArray<{
+    providerPlaylistId: string;
+    name: string;
+    trackCount: number | null;
+    coverImageUrl: string | null;
+  }>;
+}): Promise<ProviderPlaylistItem[]> => {
+  const [origins, priorTransfers] = await Promise.all([
+    syncsStore.findRecipientPlaylistOrigins({
+      recipientUserId: params.userId,
+      recipientProvider: params.provider,
+    }),
+    syncsStore.findSenderTransferredPlaylists({
+      senderUserId: params.userId,
+      provider: params.provider,
+    }),
+  ]);
+  return params.playlists.map((playlist) => {
+    const priorTransfer = priorTransfers.get(playlist.providerPlaylistId);
+    return {
+      ...playlist,
+      origin: origins.get(playlist.providerPlaylistId) ?? null,
+      priorTransfer: priorTransfer
+        ? {
+            destinationProviders: priorTransfer.destinationProviders,
+            lastTransferredAt: priorTransfer.lastTransferredAt?.toISOString() ?? null,
+          }
+        : null,
+    };
+  });
+};
+
 export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> => {
   // GET /syncs/provider-playlists?provider=spotify&limit=25&offset=0
   app.get('/syncs/provider-playlists', async (request, reply) => {
@@ -136,16 +177,26 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
 
     if (provider === 'spotify') {
       if (!isSpotifyOauthLiveMode()) {
-        return reply.send(
-          providerPlaylistListResponseSchema.parse({ playlists: MOCK_PLAYLISTS, hasMore: false }),
-        );
+        const playlists = await annotatePlaylistOrigins({
+          userId,
+          provider,
+          playlists: MOCK_PLAYLISTS,
+        });
+        return reply.send(providerPlaylistListResponseSchema.parse({ playlists, hasMore: false }));
       }
       try {
         const { result } = await withSpotifyAccessTokenRetry({
           userId,
           run: (accessToken) => listSpotifyUserPlaylists({ accessToken, limit, offset }),
         });
-        return reply.send(providerPlaylistListResponseSchema.parse(result));
+        const playlists = await annotatePlaylistOrigins({
+          userId,
+          provider,
+          playlists: result.playlists,
+        });
+        return reply.send(
+          providerPlaylistListResponseSchema.parse({ playlists, hasMore: result.hasMore }),
+        );
       } catch (err) {
         if (err instanceof IntegrationError) {
           return reply.status(400).send({ code: err.code, message: err.message });
@@ -160,7 +211,14 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
         userId,
         run: (ctx) => listAppleLibraryPlaylists({ ...ctx, limit, offset }),
       });
-      return reply.send(providerPlaylistListResponseSchema.parse(result));
+      const playlists = await annotatePlaylistOrigins({
+        userId,
+        provider,
+        playlists: result.playlists,
+      });
+      return reply.send(
+        providerPlaylistListResponseSchema.parse({ playlists, hasMore: result.hasMore }),
+      );
     } catch (err) {
       if (err instanceof IntegrationError) {
         return reply.status(400).send({ code: err.code, message: err.message });
@@ -241,6 +299,67 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     }
   });
 
+  app.get('/syncs/provider-playlists/:providerPlaylistId/tracks', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const providerPlaylistId =
+      (request.params as { providerPlaylistId?: string }).providerPlaylistId ?? '';
+    if (!providerPlaylistId) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Provider playlist id is required.',
+      });
+    }
+
+    const query = request.query as Record<string, string>;
+    const providerResult = providerSchema.safeParse(query.provider);
+    if (!providerResult.success) {
+      return reply.status(400).send({ code: 'invalid_provider', message: 'Invalid provider.' });
+    }
+
+    const provider = providerResult.data;
+
+    try {
+      if (provider === 'spotify') {
+        if (!isSpotifyOauthLiveMode()) {
+          return reply.send(providerPlaylistTracksResponseSchema.parse({ tracks: [] }));
+        }
+
+        const { result } = await withSpotifyAccessTokenRetry({
+          userId,
+          run: (accessToken) =>
+            listSpotifyPlaylistTracks({
+              accessToken,
+              providerPlaylistId,
+            }),
+        });
+
+        return reply.send(providerPlaylistTracksResponseSchema.parse({ tracks: result }));
+      }
+
+      const tracks = await withAppleMusicUserToken({
+        userId,
+        run: (ctx) =>
+          listApplePlaylistTracks({
+            ...ctx,
+            providerPlaylistId,
+          }),
+      });
+
+      return reply.send(providerPlaylistTracksResponseSchema.parse({ tracks }));
+    } catch (err) {
+      if (err instanceof IntegrationError) {
+        return reply.status(400).send({ code: err.code, message: err.message });
+      }
+      if (err instanceof ProviderApiError) {
+        const mapped = mapProviderApiError(err);
+        return reply.status(err.statusCode).send(mapped);
+      }
+      throw err;
+    }
+  });
+
   // POST /syncs
   app.post('/syncs', async (request, reply) => {
     const userId = await requireAuthenticatedUserId(request, reply);
@@ -288,6 +407,7 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
       name: body.data.name,
       trackCount,
       syncMode: body.data.syncMode,
+      kind: body.data.kind,
     });
 
     return reply.status(201).send(toSyncResponse(sync));

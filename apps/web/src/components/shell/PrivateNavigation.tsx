@@ -1,10 +1,10 @@
 import { Link } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
-import { CalendarDays, LayoutDashboard, ListMusic, UserRound } from 'lucide-react';
+import { ArrowLeftRight, CalendarDays, LayoutDashboard, ListMusic, UserRound } from 'lucide-react';
 import { useState } from 'react';
 
 type PrivateNavItem = {
-  to: '/dashboard' | '/playlists' | '/synced-lists' | '/profile';
+  to: '/dashboard' | '/playlists' | '/synced-lists' | '/transfer' | '/profile';
   label: string;
 };
 
@@ -18,6 +18,7 @@ const navIconByPath = {
   '/dashboard': LayoutDashboard,
   '/playlists': CalendarDays,
   '/synced-lists': ListMusic,
+  '/transfer': ArrowLeftRight,
   '/profile': UserRound,
 } as const;
 

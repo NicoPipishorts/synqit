@@ -2397,6 +2397,168 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
     assert.match(body.magicLinkUrl, /\/sync\//);
   });
 
+  it('syncs: provider-playlists flags round-trip origin from prior transfers', async () => {
+    const email = `${TEST_EMAIL_PREFIX}sync-origin-${randomUUID()}@synqit.test`;
+    const user = await registerUser(app, email);
+
+    await connectProvider(app, {
+      provider: 'spotify',
+      accessToken: user.tokens.accessToken,
+    });
+
+    // Simulate a prior Apple -> Spotify transfer whose Spotify copy is one of
+    // the listed mock playlists.
+    const originSync = await syncsStore.createSync({
+      senderUserId: user.user.id,
+      provider: 'apple',
+      providerPlaylistId: 'apple-origin-playlist',
+      name: 'My Apple Original',
+      trackCount: 10,
+      syncMode: 'host_only',
+    });
+    await syncsStore.upsertImport({
+      syncId: originSync.id,
+      recipientUserId: user.user.id,
+      recipientProvider: 'spotify',
+      recipientProviderPlaylistId: 'mock-playlist-1',
+      status: 'completed',
+      matchedCount: 10,
+      skippedCount: 0,
+      lastSyncedAt: new Date(),
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/syncs/provider-playlists?provider=spotify',
+      headers: authHeader(user.tokens.accessToken),
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = parseBody(response.body) as {
+      playlists: Array<{
+        providerPlaylistId: string;
+        origin: { provider: string; syncName: string } | null;
+      }>;
+    };
+
+    const flagged = body.playlists.find((p) => p.providerPlaylistId === 'mock-playlist-1');
+    assert.deepEqual(flagged?.origin, { provider: 'apple', syncName: 'My Apple Original' });
+
+    const untouched = body.playlists.find((p) => p.providerPlaylistId === 'mock-playlist-2');
+    assert.equal(untouched?.origin, null);
+  });
+
+  it('syncs: kind defaults to shared and persists transfer, surfaced in listing', async () => {
+    const email = `${TEST_EMAIL_PREFIX}sync-kind-${randomUUID()}@synqit.test`;
+    const user = await registerUser(app, email);
+
+    await connectProvider(app, {
+      provider: 'spotify',
+      accessToken: user.tokens.accessToken,
+    });
+
+    const sharedResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/syncs',
+      headers: authHeader(user.tokens.accessToken),
+      payload: {
+        provider: 'spotify',
+        providerPlaylistId: 'mock-playlist-1',
+        name: 'Shared List',
+        trackCount: null,
+        syncMode: 'host_only',
+      },
+    });
+    assert.equal(sharedResponse.statusCode, 201);
+    assert.equal(
+      (parseBody(sharedResponse.body) as { sync: { kind: string } }).sync.kind,
+      'shared',
+    );
+
+    const transferResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/syncs',
+      headers: authHeader(user.tokens.accessToken),
+      payload: {
+        provider: 'spotify',
+        providerPlaylistId: 'mock-playlist-2',
+        name: 'Moved Playlist',
+        trackCount: null,
+        syncMode: 'host_only',
+        kind: 'transfer',
+      },
+    });
+    assert.equal(transferResponse.statusCode, 201);
+    assert.equal(
+      (parseBody(transferResponse.body) as { sync: { kind: string } }).sync.kind,
+      'transfer',
+    );
+
+    const listResponse = await app.inject({
+      method: 'GET',
+      url: '/v1/syncs',
+      headers: authHeader(user.tokens.accessToken),
+    });
+    assert.equal(listResponse.statusCode, 200);
+    const list = parseBody(listResponse.body) as {
+      ownedSyncs: Array<{ name: string; kind: string }>;
+    };
+    assert.equal(list.ownedSyncs.find((s) => s.name === 'Shared List')?.kind, 'shared');
+    assert.equal(list.ownedSyncs.find((s) => s.name === 'Moved Playlist')?.kind, 'transfer');
+  });
+
+  it('syncs: provider-playlists flags a source already transferred elsewhere', async () => {
+    const email = `${TEST_EMAIL_PREFIX}sync-retransfer-${randomUUID()}@synqit.test`;
+    const user = await registerUser(app, email);
+
+    await connectProvider(app, {
+      provider: 'spotify',
+      accessToken: user.tokens.accessToken,
+    });
+
+    // Prior transfer: this Spotify playlist was already sent to Apple.
+    const transfer = await syncsStore.createSync({
+      senderUserId: user.user.id,
+      provider: 'spotify',
+      providerPlaylistId: 'mock-playlist-1',
+      name: 'Moved Once',
+      trackCount: 8,
+      syncMode: 'host_only',
+      kind: 'transfer',
+    });
+    await syncsStore.upsertImport({
+      syncId: transfer.id,
+      recipientUserId: user.user.id,
+      recipientProvider: 'apple',
+      recipientProviderPlaylistId: 'apple-copy-1',
+      status: 'completed',
+      matchedCount: 8,
+      skippedCount: 0,
+      lastSyncedAt: new Date(),
+    });
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/v1/syncs/provider-playlists?provider=spotify',
+      headers: authHeader(user.tokens.accessToken),
+    });
+
+    assert.equal(response.statusCode, 200);
+    const body = parseBody(response.body) as {
+      playlists: Array<{
+        providerPlaylistId: string;
+        priorTransfer: { destinationProviders: string[]; lastTransferredAt: string | null } | null;
+      }>;
+    };
+
+    const flagged = body.playlists.find((p) => p.providerPlaylistId === 'mock-playlist-1');
+    assert.deepEqual(flagged?.priorTransfer?.destinationProviders, ['apple']);
+    assert.ok(flagged?.priorTransfer?.lastTransferredAt);
+
+    const untouched = body.playlists.find((p) => p.providerPlaylistId === 'mock-playlist-2');
+    assert.equal(untouched?.priorTransfer, null);
+  });
+
   it('syncs: apple-to-apple import reuses source track ids instead of searching', async () => {
     const previousAppleTeamId = process.env.APPLE_TEAM_ID;
     const previousAppleKeyId = process.env.APPLE_KEY_ID;
