@@ -35,8 +35,13 @@ const AccentBar = () => (
 );
 
 const REVEAL_SPRING = { stiffness: 160, damping: 24, mass: 0.4 };
-const CARD_START = 0.24;
-const CARD_STEP = 0.18;
+const CARD_START = 0.16;
+// Scroll-progress allotted to each card. Each card reveals over the first
+// ~42% of its step, then holds static for the rest so it settles and "stops"
+// before the next one starts following — paired with a taller track (trackVh)
+// for more physical scroll distance per card.
+const CARD_STEP = 0.19;
+const CARD_REVEAL = CARD_STEP * 0.42;
 
 const StackCard = ({
   progress,
@@ -51,15 +56,15 @@ const StackCard = ({
 }) => {
   const start = CARD_START + index * CARD_STEP;
   const y = useSpring(
-    useTransform(progress, [start, start + CARD_STEP * 0.52], [184, 0]),
+    useTransform(progress, [start, start + CARD_REVEAL], [184, 0]),
     REVEAL_SPRING,
   );
   const opacity = useSpring(
-    useTransform(progress, [start, start + CARD_STEP * 0.34, start + CARD_STEP], [0, 1, 1]),
+    useTransform(progress, [start, start + CARD_REVEAL * 0.65, start + CARD_STEP], [0, 1, 1]),
     REVEAL_SPRING,
   );
   const scale = useSpring(
-    useTransform(progress, [start, start + CARD_STEP * 0.52], [0.985, 1]),
+    useTransform(progress, [start, start + CARD_REVEAL], [0.985, 1]),
     REVEAL_SPRING,
   );
   const top = `${index * 1.1}rem`;
@@ -151,7 +156,8 @@ export const WhyStackSection = ({
 
   // The track is taller than the viewport; the inner stage is `sticky` + `h-dvh`,
   // so it pins for (trackHeight - 100dvh) of scroll while we scrub the sequence.
-  const trackVh = 388;
+  // Taller track => more physical scroll per card, so they don't rush past.
+  const trackVh = 540;
 
   return (
     <section ref={trackRef} className="relative" style={{ height: `${trackVh}vh` }}>
