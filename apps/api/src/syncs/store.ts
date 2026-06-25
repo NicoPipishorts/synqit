@@ -1,4 +1,11 @@
-import { Provider, providerSchema, syncModeSchema, type SyncMode } from '@synqit/shared';
+import {
+  Provider,
+  providerSchema,
+  syncKindSchema,
+  syncModeSchema,
+  type SyncKind,
+  type SyncMode,
+} from '@synqit/shared';
 import { randomBytes, randomUUID } from 'node:crypto';
 
 import { buildTrackFingerprint, buildTrackIdentityKey } from './track-fingerprint';
@@ -12,6 +19,7 @@ export type SyncRecord = {
   providerPlaylistId: string;
   name: string;
   trackCount: number | null;
+  kind: SyncKind;
   syncMode: SyncMode;
   autoSyncEnabled: boolean;
   nextPollAt: Date | null;
@@ -94,6 +102,7 @@ type SyncRow = {
   provider_playlist_id: string;
   name: string;
   track_count: number | null;
+  kind: string;
   sync_mode: string;
   auto_sync_enabled: boolean;
   next_poll_at: Date | null;
@@ -156,6 +165,7 @@ const mapSyncRow = (row: SyncRow): SyncRecord => ({
   providerPlaylistId: row.provider_playlist_id,
   name: row.name,
   trackCount: row.track_count,
+  kind: syncKindSchema.parse(row.kind),
   syncMode: syncModeSchema.parse(row.sync_mode),
   autoSyncEnabled: row.auto_sync_enabled,
   nextPollAt: row.next_poll_at,
@@ -230,6 +240,7 @@ export const syncsStore = {
     name: string;
     trackCount: number | null;
     syncMode: SyncMode;
+    kind?: SyncKind;
   }): Promise<SyncRecord> {
     const now = new Date();
     const data: Prisma.playlist_syncsUncheckedCreateInput = {
@@ -239,6 +250,7 @@ export const syncsStore = {
       provider_playlist_id: params.providerPlaylistId,
       name: params.name,
       track_count: params.trackCount,
+      kind: params.kind ?? 'shared',
       sync_mode: params.syncMode,
       auto_sync_enabled: true,
       next_poll_at: null,
@@ -297,6 +309,82 @@ export const syncsStore = {
         updatedAt: row.updated_at,
       };
     });
+  },
+
+  // Maps each playlist this user received via a Synqit transfer to where it
+  // originally came from, keyed by the recipient-side provider playlist id.
+  // Used to flag round-trip transfers in the picker.
+  async findRecipientPlaylistOrigins(params: {
+    recipientUserId: string;
+    recipientProvider: Provider;
+  }): Promise<Map<string, { provider: Provider; syncName: string }>> {
+    const rows = await prisma.playlist_sync_imports.findMany({
+      where: {
+        recipient_user_id: params.recipientUserId,
+        recipient_provider: params.recipientProvider,
+        recipient_provider_playlist_id: { not: null },
+      },
+      include: { playlist_syncs: true },
+    });
+
+    const origins = new Map<string, { provider: Provider; syncName: string }>();
+    for (const row of rows as unknown as ImportWithSyncRow[]) {
+      const recipientPlaylistId = row.recipient_provider_playlist_id;
+      if (!recipientPlaylistId) continue;
+      origins.set(recipientPlaylistId, {
+        provider: providerSchema.parse(row.playlist_syncs.provider),
+        syncName: row.playlist_syncs.name,
+      });
+    }
+    return origins;
+  },
+
+  // Maps each source playlist this user has already transferred (kind='transfer')
+  // to the destination provider(s) it was sent to and the most recent time,
+  // keyed by the source provider playlist id. Used to warn about re-transferring
+  // the same playlist.
+  async findSenderTransferredPlaylists(params: {
+    senderUserId: string;
+    provider: Provider;
+  }): Promise<Map<string, { destinationProviders: Provider[]; lastTransferredAt: Date | null }>> {
+    const rows = await prisma.playlist_syncs.findMany({
+      where: {
+        sender_user_id: params.senderUserId,
+        provider: params.provider,
+        kind: 'transfer',
+      },
+      include: { playlist_sync_imports: true },
+    });
+
+    const transferred = new Map<
+      string,
+      { destinationProviders: Set<Provider>; lastTransferredAt: Date | null }
+    >();
+    for (const row of rows as unknown as SyncWithImportsRow[]) {
+      const sourcePlaylistId = row.provider_playlist_id;
+      const entry = transferred.get(sourcePlaylistId) ?? {
+        destinationProviders: new Set<Provider>(),
+        lastTransferredAt: null,
+      };
+      for (const importRow of row.playlist_sync_imports) {
+        entry.destinationProviders.add(providerSchema.parse(importRow.recipient_provider));
+        const transferredAt = importRow.last_synced_at ?? row.created_at;
+        if (!entry.lastTransferredAt || transferredAt > entry.lastTransferredAt) {
+          entry.lastTransferredAt = transferredAt;
+        }
+      }
+      transferred.set(sourcePlaylistId, entry);
+    }
+
+    return new Map(
+      [...transferred].map(([playlistId, entry]) => [
+        playlistId,
+        {
+          destinationProviders: [...entry.destinationProviders],
+          lastTransferredAt: entry.lastTransferredAt,
+        },
+      ]),
+    );
   },
 
   async listSyncsForAutoSync(): Promise<SyncWithImportsRecord[]> {

@@ -812,11 +812,36 @@ export type SyncImportStatus = z.infer<typeof syncImportStatusSchema>;
 export const syncModeSchema = z.enum(['host_only', 'bidirectional']);
 export type SyncMode = z.infer<typeof syncModeSchema>;
 
+// Distinguishes a shared/synced list (created to share via magic link) from a
+// one-time transfer (a playlist moved into the user's own other library).
+export const syncKindSchema = z.enum(['shared', 'transfer']);
+export type SyncKind = z.infer<typeof syncKindSchema>;
+
+// When a playlist on a provider was itself created by a previous Synqit
+// transfer, `origin` records where it came from so the UI can flag a
+// round-trip (transferring it back to the platform it originated on).
+export const providerPlaylistOriginSchema = z.object({
+  provider: providerSchema,
+  syncName: z.string(),
+});
+export type ProviderPlaylistOrigin = z.infer<typeof providerPlaylistOriginSchema>;
+
+// When this same source playlist was already used as the source of a prior
+// transfer, `priorTransfer` records where it was sent (and when) so the UI can
+// warn about transferring it again.
+export const providerPlaylistPriorTransferSchema = z.object({
+  destinationProviders: z.array(providerSchema),
+  lastTransferredAt: z.string().nullable(),
+});
+export type ProviderPlaylistPriorTransfer = z.infer<typeof providerPlaylistPriorTransferSchema>;
+
 export const providerPlaylistItemSchema = z.object({
   providerPlaylistId: z.string().min(1),
   name: z.string(),
   trackCount: z.number().int().nonnegative().nullable(),
   coverImageUrl: z.string().nullable(),
+  origin: providerPlaylistOriginSchema.nullable().optional(),
+  priorTransfer: providerPlaylistPriorTransferSchema.nullable().optional(),
 });
 export type ProviderPlaylistItem = z.infer<typeof providerPlaylistItemSchema>;
 
@@ -833,12 +858,28 @@ export type ProviderPlaylistTrackCountResponse = z.infer<
   typeof providerPlaylistTrackCountResponseSchema
 >;
 
+export const providerPlaylistTrackSchema = z.object({
+  providerTrackId: z.string(),
+  name: z.string(),
+  artist: z.string(),
+  album: z.string(),
+  durationMs: z.number().int().nonnegative(),
+  artworkUrl: z.string().nullable(),
+});
+export type ProviderPlaylistTrack = z.infer<typeof providerPlaylistTrackSchema>;
+
+export const providerPlaylistTracksResponseSchema = z.object({
+  tracks: z.array(providerPlaylistTrackSchema),
+});
+export type ProviderPlaylistTracksResponse = z.infer<typeof providerPlaylistTracksResponseSchema>;
+
 export const createSyncRequestSchema = z.object({
   provider: providerSchema,
   providerPlaylistId: z.string().min(1),
   name: z.string().min(1).max(200),
   trackCount: z.number().int().nonnegative().nullable(),
   syncMode: syncModeSchema,
+  kind: syncKindSchema.optional(),
 });
 export type CreateSyncRequest = z.infer<typeof createSyncRequestSchema>;
 
@@ -858,6 +899,7 @@ export const syncItemSchema = z.object({
   providerPlaylistId: z.string(),
   name: z.string(),
   trackCount: z.number().int().nonnegative().nullable(),
+  kind: syncKindSchema.default('shared'),
   syncMode: syncModeSchema,
   autoSyncEnabled: z.boolean().default(true),
   lastSyncedAt: z.string().nullable().default(null),

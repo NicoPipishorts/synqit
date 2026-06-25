@@ -52,6 +52,16 @@ const SyncCreatePage = createLazyRouteComponent(() =>
     default: module.SyncCreatePage,
   })),
 );
+const TransferPage = createLazyRouteComponent(() =>
+  import('./pages/TransferPage').then((module) => ({
+    default: module.TransferPage,
+  })),
+);
+const TransferDashboardPage = createLazyRouteComponent(() =>
+  import('./pages/TransferDashboardPage').then((module) => ({
+    default: module.TransferDashboardPage,
+  })),
+);
 const SyncDetailsPage = createLazyRouteComponent(() =>
   import('./pages/SyncDetailsPage').then((module) => ({
     default: module.SyncDetailsPage,
@@ -173,6 +183,20 @@ const syncCreateRoute = createRoute({
   path: '/synced-lists/new',
   beforeLoad: requireAuth,
   component: SyncCreatePage,
+});
+
+const transferRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/transfer',
+  beforeLoad: requireAuth,
+  component: TransferDashboardPage,
+});
+
+const transferCreateRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/transfer/new',
+  beforeLoad: requireAuth,
+  component: TransferPage,
 });
 
 const syncDetailsRoute = createRoute({
@@ -366,6 +390,8 @@ const routeTree = rootRoute.addChildren([
   providersRoute,
   syncedListsRoute,
   syncCreateRoute,
+  transferRoute,
+  transferCreateRoute,
   syncDetailsRoute,
   syncPublicRoute,
   eventsRoute,

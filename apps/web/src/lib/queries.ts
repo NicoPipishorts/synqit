@@ -26,6 +26,7 @@ import {
   personalInfoResponseSchema,
   providerPlaylistListResponseSchema,
   providerPlaylistTrackCountResponseSchema,
+  providerPlaylistTracksResponseSchema,
   syncDetailResponseSchema,
   syncListResponseSchema,
   syncPublicResponseSchema,
@@ -38,6 +39,7 @@ import {
   type DashboardSummaryResponse,
   type DashboardTopFollowersResponse,
   type ProviderPlaylistItem,
+  type ProviderPlaylistTrack,
   type PersonalInfo,
   type SyncDetailItem,
   type SyncItem,
@@ -521,6 +523,8 @@ export const syncQueryKeys = {
     ['syncs', 'providerPlaylists', provider, offset] as const,
   providerPlaylistTrackCount: (provider: string, providerPlaylistId: string) =>
     ['syncs', 'providerPlaylistTrackCount', provider, providerPlaylistId] as const,
+  providerPlaylistTracks: (provider: string, providerPlaylistId: string) =>
+    ['syncs', 'providerPlaylistTracks', provider, providerPlaylistId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -655,6 +659,26 @@ export const fetchProviderPlaylistTrackCount = async (params: {
   return result.trackCount;
 };
 
+export const fetchProviderPlaylistTracks = async (params: {
+  provider: 'spotify' | 'apple';
+  providerPlaylistId: string;
+}): Promise<ProviderPlaylistTrack[]> => {
+  const token = requireToken();
+  const url = new URL(
+    `/v1/syncs/provider-playlists/${encodeURIComponent(params.providerPlaylistId)}/tracks`,
+    'http://placeholder',
+  );
+  url.searchParams.set('provider', params.provider);
+
+  const result = await callApi(
+    `${url.pathname}?${url.searchParams.toString()}`,
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => providerPlaylistTracksResponseSchema.parse(payload),
+  );
+
+  return result.tracks;
+};
+
 // ---------------------------------------------------------------------------
 // Sync mutations
 // ---------------------------------------------------------------------------
@@ -665,6 +689,7 @@ export const createSync = async (params: {
   name: string;
   trackCount: number | null;
   syncMode: 'host_only' | 'bidirectional';
+  kind?: 'shared' | 'transfer';
 }): Promise<{ sync: SyncItem; magicLinkUrl: string }> => {
   const token = requireToken();
   const body = createSyncRequestSchema.parse(params);

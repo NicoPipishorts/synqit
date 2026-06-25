@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link2, ListMusic, Plus, Users } from 'lucide-react';
+import { Link2, Plus, Users } from 'lucide-react';
 
 import { AppOnboardingPanel } from '../components/app/AppOnboardingPanel';
 import { AppPageHeader } from '../components/app/AppPageHeader';
@@ -18,8 +18,12 @@ export const SyncedListsPage = () => {
     queryFn: fetchSyncCollections,
   });
 
-  const ownedSyncs = syncsQuery.data?.ownedSyncs ?? [];
-  const subscribedSyncs = syncsQuery.data?.subscribedSyncs ?? [];
+  // Transfers are one-time self-moves and live on their own dashboard
+  // (/transfer); only genuine shared lists belong here.
+  const ownedSyncs = (syncsQuery.data?.ownedSyncs ?? []).filter((sync) => sync.kind === 'shared');
+  const subscribedSyncs = (syncsQuery.data?.subscribedSyncs ?? []).filter(
+    (sync) => sync.kind === 'shared',
+  );
   const hasAny = ownedSyncs.length > 0 || subscribedSyncs.length > 0;
 
   return (
