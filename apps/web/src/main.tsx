@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import App from './App';
+import { bootstrapAuthSession } from './lib/auth';
 import { registerServiceWorker } from './lib/pwa';
 import './styles.css';
 
@@ -35,8 +36,12 @@ if (typeof window !== 'undefined') {
 
 registerServiceWorker();
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+const root = createRoot(document.getElementById('root')!);
+
+void bootstrapAuthSession().finally(() => {
+  root.render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+});

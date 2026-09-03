@@ -1,5 +1,6 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
 
+import { applyAccessTokenFromSessionCookie } from './session-cookies';
 import { authStore, type UserRecord } from './store';
 
 const UNAUTHORIZED_RESPONSE = {
@@ -34,6 +35,7 @@ const sendBlocked = async (
 
 export const requireJwtAuth = async (request: FastifyRequest, reply: FastifyReply) => {
   try {
+    applyAccessTokenFromSessionCookie(request, 'web');
     await request.jwtVerify();
   } catch {
     await sendUnauthorized(reply);
@@ -59,6 +61,7 @@ export const loadAuthenticatedUser = async (
   options: AuthGuardOptions = {},
 ): Promise<UserRecord | null> => {
   try {
+    applyAccessTokenFromSessionCookie(request, 'web');
     await request.jwtVerify();
   } catch {
     await sendUnauthorized(reply);
@@ -89,6 +92,7 @@ export const resolveAuthenticatedUserId = async (
   request: FastifyRequest,
 ): Promise<string | null> => {
   try {
+    applyAccessTokenFromSessionCookie(request, 'web');
     await request.jwtVerify();
   } catch {
     return null;

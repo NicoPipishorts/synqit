@@ -13,7 +13,6 @@ import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
-import { getAccessToken } from '../lib/auth';
 import {
   AppleDeveloperTokenResponse,
   ensureMusicKitInstance,
@@ -100,33 +99,14 @@ export const ProviderConnectionsPage = () => {
     Provider,
     ProviderIntegrationState
   > | null> => {
-    const accessToken = getAccessToken();
-    if (!accessToken) {
-      return null;
-    }
-
     setIsLoadingSnapshot(true);
     try {
       const [integrationResult, eventResult] = await Promise.all([
-        callApi(
-          '/v1/integrations',
-          {
-            method: 'GET',
-            headers: {
-              authorization: `Bearer ${accessToken}`,
-            },
-          },
-          (payload) => integrationListResponseSchema.parse(payload),
+        callApi('/v1/integrations', { method: 'GET' }, (payload) =>
+          integrationListResponseSchema.parse(payload),
         ),
-        callApi(
-          '/v1/playlists',
-          {
-            method: 'GET',
-            headers: {
-              authorization: `Bearer ${accessToken}`,
-            },
-          },
-          (payload) => eventListResponseSchema.parse(payload),
+        callApi('/v1/playlists', { method: 'GET' }, (payload) =>
+          eventListResponseSchema.parse(payload),
         ),
       ]);
 
@@ -172,19 +152,9 @@ export const ProviderConnectionsPage = () => {
   }, [showToast, t]);
 
   const connectAppleMusic = useCallback(async () => {
-    const accessToken = getAccessToken();
-    if (!accessToken) {
-      throw new Error('missing_access_token');
-    }
-
     const tokenResponse = await callApi(
       '/v1/auth/apple/developer-token',
-      {
-        method: 'GET',
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
-      },
+      { method: 'GET' },
       (payload) => {
         const value = payload as Partial<AppleDeveloperTokenResponse>;
         if (
@@ -215,9 +185,6 @@ export const ProviderConnectionsPage = () => {
       '/v1/auth/apple/connect',
       {
         method: 'POST',
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-        },
         body: JSON.stringify({
           musicUserToken,
         }),
@@ -227,26 +194,14 @@ export const ProviderConnectionsPage = () => {
   }, []);
 
   const startSpotifyOauth = useCallback(async (): Promise<ProviderOauthPopupResult> => {
-    const accessToken = getAccessToken();
-    if (!accessToken) {
-      throw new Error('missing_access_token');
-    }
-
     return openProviderOauthPopup({
       provider: 'spotify',
-      accessToken,
       nextPath: '/auth/provider-connected',
     });
   }, []);
 
   const runProviderAction = useCallback(
     async (provider: Provider, action: ProviderAction) => {
-      const accessToken = getAccessToken();
-      if (!accessToken) {
-        showToast(t('profile.notLoggedIn'), { variant: 'error' });
-        return;
-      }
-
       setActiveActionByProvider((current) => ({
         ...current,
         [provider]: action,
@@ -254,15 +209,8 @@ export const ProviderConnectionsPage = () => {
 
       try {
         if (action === 'disconnect') {
-          await callApi(
-            `/v1/auth/${provider}/disconnect`,
-            {
-              method: 'POST',
-              headers: {
-                authorization: `Bearer ${accessToken}`,
-              },
-            },
-            (payload) => integrationDisconnectResponseSchema.parse(payload),
+          await callApi(`/v1/auth/${provider}/disconnect`, { method: 'POST' }, (payload) =>
+            integrationDisconnectResponseSchema.parse(payload),
           );
           showToast(
             t('profile.connectionRemoved', {
@@ -366,25 +314,20 @@ export const ProviderConnectionsPage = () => {
           });
         }
       } catch (error) {
-        const normalized = error as { message?: string };
-        if (normalized.message === 'missing_access_token') {
-          showToast(t('profile.notLoggedIn'), { variant: 'error' });
-        } else {
-          const apiError = toApiError(error);
-          showToast(t('profile.connectionsLoadError', { message: apiError.message }), {
-            variant: 'error',
-          });
-          trackAnalyticsEvent({
-            eventName:
-              action === 'disconnect' ? 'provider_disconnect_failed' : 'provider_connect_failed',
-            target: 'providers',
-            properties: {
-              provider,
-              action,
-              code: apiError.code,
-            },
-          });
-        }
+        const apiError = toApiError(error);
+        showToast(t('profile.connectionsLoadError', { message: apiError.message }), {
+          variant: 'error',
+        });
+        trackAnalyticsEvent({
+          eventName:
+            action === 'disconnect' ? 'provider_disconnect_failed' : 'provider_connect_failed',
+          target: 'providers',
+          properties: {
+            provider,
+            action,
+            code: apiError.code,
+          },
+        });
       } finally {
         setActiveActionByProvider((current) => {
           const next = { ...current };

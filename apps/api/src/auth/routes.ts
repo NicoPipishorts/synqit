@@ -10,7 +10,6 @@ import {
   personalInfoResponseSchema,
   registerCredentialsSchema,
   refreshResponseSchema,
-  refreshTokenRequestSchema,
   resetPasswordRequestSchema,
   resetPasswordResponseSchema,
   updatePersonalInfoRequestSchema,
@@ -35,6 +34,11 @@ import {
   verifyPassword,
 } from './crypto';
 import { loadAuthenticatedUser, requireJwtAuth } from './guards';
+import {
+  clearSessionCookies,
+  getSessionRefreshTokenFromRequest,
+  setSessionCookies,
+} from './session-cookies';
 import { authStore, UserRecord } from './store';
 import {
   enqueuePasswordResetEmail,
@@ -72,6 +76,7 @@ const refreshTokenTtlDays = parsePositiveNumber(
   DEFAULT_REFRESH_TOKEN_TTL_DAYS,
 );
 const refreshTokenTtlMs = refreshTokenTtlDays * 24 * 60 * 60 * 1000;
+const refreshTokenTtlSeconds = refreshTokenTtlDays * 24 * 60 * 60;
 const passwordResetTokenTtlMinutes = parsePositiveNumber(
   process.env.PASSWORD_RESET_TOKEN_TTL_MINUTES,
   DEFAULT_PASSWORD_RESET_TOKEN_TTL_MINUTES,
@@ -251,6 +256,19 @@ const formatPersonalInfo = (
 
 const requireAuth = requireJwtAuth;
 
+const readRefreshTokenFromRequest = (request: FastifyRequest): string | null => {
+  const body =
+    request.body && typeof request.body === 'object'
+      ? (request.body as { refreshToken?: unknown })
+      : null;
+
+  if (body && typeof body.refreshToken === 'string' && body.refreshToken.trim().length > 0) {
+    return body.refreshToken.trim();
+  }
+
+  return getSessionRefreshTokenFromRequest(request, 'web');
+};
+
 const issueTokens = async (app: FastifyInstance, user: UserRecord) => {
   const refreshToken = createRefreshToken();
   const refreshTokenHash = hashToken(refreshToken);
@@ -333,6 +351,12 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     const user = registrationResult.user;
 
     const tokens = await issueTokens(app, user);
+    setSessionCookies(reply, 'web', {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      accessTokenMaxAgeSeconds: accessTokenTtlSeconds,
+      refreshTokenMaxAgeSeconds: refreshTokenTtlSeconds,
+    });
 
     if (isRegistrationConfirmationEmailEnabled()) {
       try {
@@ -408,6 +432,12 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     }
 
     const tokens = await issueTokens(app, user);
+    setSessionCookies(reply, 'web', {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      accessTokenMaxAgeSeconds: accessTokenTtlSeconds,
+      refreshTokenMaxAgeSeconds: refreshTokenTtlSeconds,
+    });
 
     return authResponseSchema.parse({
       user: formatPublicUser(user),
@@ -514,14 +544,19 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
   });
 
   app.post('/auth/refresh', async (request, reply) => {
-    const parsed = refreshTokenRequestSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return sendValidationError(reply, parsed.error.flatten());
+    const refreshToken = readRefreshTokenFromRequest(request);
+    if (!refreshToken) {
+      clearSessionCookies(reply, 'web');
+      return reply.status(401).send({
+        code: 'invalid_refresh_token',
+        message: 'Refresh token is invalid.',
+      });
     }
 
-    const oldTokenHash = hashToken(parsed.data.refreshToken);
+    const oldTokenHash = hashToken(refreshToken);
     const tokenRecord = await authStore.findRefreshTokenByHash(oldTokenHash);
     if (!tokenRecord) {
+      clearSessionCookies(reply, 'web');
       return reply.status(401).send({
         code: 'invalid_refresh_token',
         message: 'Refresh token is invalid.',
@@ -530,6 +565,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
 
     if (tokenRecord.revokedAt || tokenRecord.expiresAt.getTime() <= Date.now()) {
       await authStore.revokeRefreshTokenByHash(oldTokenHash);
+      clearSessionCookies(reply, 'web');
       return reply.status(401).send({
         code: 'invalid_refresh_token',
         message: 'Refresh token is invalid.',
@@ -539,6 +575,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     const user = await authStore.findUserById(tokenRecord.userId);
     if (!user) {
       await authStore.revokeRefreshTokenByHash(oldTokenHash);
+      clearSessionCookies(reply, 'web');
       return reply.status(401).send({
         code: 'invalid_refresh_token',
         message: 'Refresh token is invalid.',
@@ -547,6 +584,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
 
     if (user.isBlocked) {
       await authStore.revokeRefreshTokenByHash(oldTokenHash);
+      clearSessionCookies(reply, 'web');
       return reply.status(403).send({
         code: 'account_blocked',
         message: 'Your account is blocked.',
@@ -562,6 +600,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     });
 
     if (!rotatedTokenRecord) {
+      clearSessionCookies(reply, 'web');
       return reply.status(401).send({
         code: 'invalid_refresh_token',
         message: 'Refresh token is invalid.',
@@ -580,6 +619,12 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     );
 
     const userPreferences = await authStore.findUserPreferencesByUserId(user.id);
+    setSessionCookies(reply, 'web', {
+      accessToken,
+      refreshToken: nextRefreshToken,
+      accessTokenMaxAgeSeconds: accessTokenTtlSeconds,
+      refreshTokenMaxAgeSeconds: refreshTokenTtlSeconds,
+    });
 
     return refreshResponseSchema.parse({
       tokens: {
@@ -597,12 +642,11 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
   });
 
   app.post('/auth/logout', async (request, reply) => {
-    const parsed = refreshTokenRequestSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return sendValidationError(reply, parsed.error.flatten());
+    const refreshToken = readRefreshTokenFromRequest(request);
+    if (refreshToken) {
+      await authStore.revokeRefreshTokenByHash(hashToken(refreshToken));
     }
-
-    await authStore.revokeRefreshTokenByHash(hashToken(parsed.data.refreshToken));
+    clearSessionCookies(reply, 'web');
 
     return reply.status(200).send({
       ok: true,

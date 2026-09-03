@@ -235,11 +235,8 @@ export const SyncCreatePage = () => {
           return;
         }
 
-        const token = (await import('../lib/auth')).getAccessToken();
-        if (!token) throw new Error('missing_access_token');
         const popupResult = await openProviderOauthPopup({
           provider: 'spotify',
-          accessToken: token,
           nextPath: '/auth/provider-connected',
         });
         await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
@@ -265,15 +262,10 @@ export const SyncCreatePage = () => {
           );
         }
       } catch (error) {
-        const normalized = error as { message?: string };
-        if (normalized.message === 'missing_access_token') {
-          showToast(t('profile.notLoggedIn'), { variant: 'error' });
-        } else {
-          const apiError = toApiError(error);
-          showToast(t('syncCreatePage.connectionError', { message: apiError.message }), {
-            variant: 'error',
-          });
-        }
+        const apiError = toApiError(error);
+        showToast(t('syncCreatePage.connectionError', { message: apiError.message }), {
+          variant: 'error',
+        });
       } finally {
         setIsConnectingProvider(false);
       }

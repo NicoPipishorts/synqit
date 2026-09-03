@@ -396,11 +396,8 @@ export const TransferPage = () => {
         if (provider === 'apple') {
           await connectAppleMusic();
         } else {
-          const token = (await import('../lib/auth')).getAccessToken();
-          if (!token) throw new Error('missing_access_token');
           await openProviderOauthPopup({
             provider: 'spotify',
-            accessToken: token,
             nextPath: '/transfer',
           });
         }

@@ -127,15 +127,8 @@ export const ProfilePersonalInfoPage = () => {
 
     setIsLoading(true);
     try {
-      const response = await callApi(
-        '/v1/auth/personal-info',
-        {
-          method: 'GET',
-          headers: {
-            authorization: `Bearer ${auth.accessToken}`,
-          },
-        },
-        (payload) => personalInfoResponseSchema.parse(payload),
+      const response = await callApi('/v1/auth/personal-info', { method: 'GET' }, (payload) =>
+        personalInfoResponseSchema.parse(payload),
       );
       const nextDraft = toDraft(response.personalInfo);
       setDraft(nextDraft);
@@ -212,9 +205,6 @@ export const ProfilePersonalInfoPage = () => {
         '/v1/auth/personal-info',
         {
           method: 'PUT',
-          headers: {
-            authorization: `Bearer ${auth.accessToken}`,
-          },
           body: JSON.stringify({
             displayName: draft.displayName,
             firstName: draft.firstName,

@@ -58,7 +58,9 @@ const isAdminPermission = (value: unknown): value is AdminPermission => {
   return (
     'scope' in value &&
     typeof value.scope === 'string' &&
-    ['dashboard', 'users', 'events', 'integrations', 'emails', 'analytics', 'admin_users'].includes(value.scope) &&
+    ['dashboard', 'users', 'events', 'integrations', 'emails', 'analytics', 'admin_users'].includes(
+      value.scope,
+    ) &&
     'level' in value &&
     (value.level === 'read' || value.level === 'write')
   );
@@ -146,6 +148,51 @@ export const parseAuthResponse = (value: unknown): ParsedAuthResponse => {
       adminPermissions,
     },
     tokens,
+  };
+};
+
+export const parseAuthUser = (
+  value: unknown,
+): {
+  id: string;
+  email: string;
+  createdAt: string;
+  avatarUrl: string | null;
+  role: AccountRole;
+  adminPermissions: AdminPermission[];
+} => {
+  if (!value || typeof value !== 'object') {
+    throw new Error('Invalid auth user.');
+  }
+
+  const adminPermissions =
+    'adminPermissions' in value && Array.isArray(value.adminPermissions)
+      ? value.adminPermissions.filter(isAdminPermission)
+      : [];
+  const role = 'role' in value && isAccountRole(value.role) ? value.role : 'user';
+  const avatarUrl =
+    'avatarUrl' in value && (typeof value.avatarUrl === 'string' || value.avatarUrl === null)
+      ? value.avatarUrl
+      : null;
+
+  if (
+    !('id' in value) ||
+    typeof value.id !== 'string' ||
+    !('email' in value) ||
+    typeof value.email !== 'string' ||
+    !('createdAt' in value) ||
+    typeof value.createdAt !== 'string'
+  ) {
+    throw new Error('Invalid auth user.');
+  }
+
+  return {
+    id: value.id,
+    email: value.email,
+    createdAt: value.createdAt,
+    avatarUrl,
+    role,
+    adminPermissions,
   };
 };
 

@@ -161,11 +161,8 @@ export const ProviderConnections = () => {
         if (provider === 'apple') {
           await connectAppleMusic();
         } else {
-          const token = (await import('../../lib/auth')).getAccessToken();
-          if (!token) throw new Error('missing_access_token');
           popupResult = await openProviderOauthPopup({
             provider: 'spotify',
-            accessToken: token,
             nextPath: '/auth/provider-connected',
           });
         }
@@ -201,20 +198,15 @@ export const ProviderConnections = () => {
           });
         }
       } catch (error) {
-        const normalized = error as { message?: string };
-        if (normalized.message === 'missing_access_token') {
-          showToast(t('profile.notLoggedIn'), { variant: 'error' });
-        } else {
-          const apiError = toApiError(error);
-          showToast(t('profile.connectionsLoadError', { message: apiError.message }), {
-            variant: 'error',
-          });
-          trackAnalyticsEvent({
-            eventName: 'provider_connect_failed',
-            target: 'providers',
-            properties: { provider, action, code: apiError.code },
-          });
-        }
+        const apiError = toApiError(error);
+        showToast(t('profile.connectionsLoadError', { message: apiError.message }), {
+          variant: 'error',
+        });
+        trackAnalyticsEvent({
+          eventName: 'provider_connect_failed',
+          target: 'providers',
+          properties: { provider, action, code: apiError.code },
+        });
       } finally {
         clearBusy(provider);
       }

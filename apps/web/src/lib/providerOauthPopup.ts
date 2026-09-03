@@ -17,7 +17,6 @@ const POPUP_POLL_INTERVAL_MS = 350;
 
 export const openProviderOauthPopup = async (params: {
   provider: Provider;
-  accessToken: string;
   nextPath?: string;
 }): Promise<ProviderOauthPopupResult> => {
   const nextPath = params.nextPath ?? '/auth/provider-connected';
@@ -36,12 +35,7 @@ export const openProviderOauthPopup = async (params: {
 
   const startResponse = await callApi(
     `/v1/auth/${params.provider}/start?next=${encodeURIComponent(nextPath)}`,
-    {
-      method: 'GET',
-      headers: {
-        authorization: `Bearer ${params.accessToken}`,
-      },
-    },
+    { method: 'GET' },
     (payload) => oauthStartResponseSchema.parse(payload),
   );
   popup.location.href = startResponse.authorizationUrl;

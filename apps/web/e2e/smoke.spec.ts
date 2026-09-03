@@ -4,14 +4,26 @@ import { expect, Page, test } from '@playwright/test';
 // Auth fixtures
 // ---------------------------------------------------------------------------
 
+// Sessions are cookie-backed. localStorage only holds a snapshot of the signed-in
+// user; on boot the app calls GET /v1/me (then POST /v1/auth/refresh) to confirm
+// the session, so authenticated tests must mock /v1/me or they get logged out.
 const AUTH_STORAGE_KEY = 'synqit.auth.v1';
 const TEST_AUTH = {
-  accessToken: 'e2e-access-token',
-  refreshToken: 'e2e-refresh-token',
   userId: '00000000-0000-4000-8000-000000000001',
   userEmail: 'regression+e2e@synqit.test',
   avatarUrl: null,
+  role: 'user',
+  adminPermissions: [],
 };
+
+const mockAuthUser = {
+  id: TEST_AUTH.userId,
+  email: TEST_AUTH.userEmail,
+  createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24 * 30).toISOString(),
+  avatarUrl: null,
+  role: 'user',
+  adminPermissions: [],
+} as const;
 
 // ---------------------------------------------------------------------------
 // Mock data
@@ -264,6 +276,28 @@ const installApiMocks = async (
     const url = new URL(route.request().url());
     const method = route.request().method().toUpperCase();
     const path = url.pathname.replace(/^\/api/, '');
+
+    // Session bootstrap (called once on app boot before anything renders)
+    if (path === '/v1/me' && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockAuthUser),
+      });
+      return;
+    }
+
+    if (path === '/v1/auth/refresh' && method === 'POST') {
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 'invalid_refresh_token',
+          message: 'Refresh token is invalid.',
+        }),
+      });
+      return;
+    }
 
     // Preferences (loaded by AppShell on every authenticated page)
     if (path === '/v1/auth/preferences' && method === 'GET') {

@@ -1,4 +1,4 @@
-import { getAccessToken } from './auth';
+import { isAuthenticated } from './auth';
 import { THEME_CHANGED_EVENT } from './constants';
 import { loadAnonymousPreferences, saveAnonymousPreferences } from './preferences';
 import { applyThemeAccent, loadProfileSettings } from './profile-settings';
@@ -38,7 +38,7 @@ export const persistTheme = (theme: Theme): void => {
     window.dispatchEvent(new CustomEvent(THEME_CHANGED_EVENT));
   }
 
-  if (getAccessToken()) {
+  if (isAuthenticated()) {
     void updateUserPreferences({ theme }).catch(() => undefined);
   }
 };

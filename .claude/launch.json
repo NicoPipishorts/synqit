@@ -13,6 +13,12 @@
       "runtimeArgs": ["--cwd", "apps/web", "dev", "--host", "127.0.0.1"],
       "port": 5173,
       "autoPort": true
+    },
+    {
+      "name": "admin",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["--cwd", "apps/admin", "dev", "--host", "127.0.0.1"],
+      "port": 4174
     }
   ]
 }

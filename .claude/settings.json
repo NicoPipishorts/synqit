@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /Users/nicolaspisar/Sites/_Personal/synqit/apps -type f \\\\\\(-name *.fixture.* -o -name *fixture* -o -name *helper* -o -name *page* -o -name *pageobject* \\\\\\))"
+      "Bash(yarn typecheck)",
+      "Bash(yarn lint)",
+      "Bash(yarn i18n:check)",
+      "Bash(yarn build:shared)",
+      "Bash(yarn test:api:regression)",
+      "Bash(yarn infra:up:local)",
+      "Bash(yarn infra:ps)",
+      "Bash(yarn prisma:migrate:deploy)",
+      "Bash(yarn prisma:migrate:status)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)"
     ]
   }
 }

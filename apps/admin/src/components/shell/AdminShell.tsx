@@ -1,5 +1,5 @@
-import { AnimatePresence, motion } from 'framer-motion';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
   Activity,
   ArrowLeft,
@@ -17,7 +17,8 @@ import {
 import { useEffect, useState } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
-import { clearAuth, loadAuth } from '../../lib/auth';
+import { clearAuth, getCsrfToken, loadAuth } from '../../lib/auth';
+import { API_URL } from '../../lib/constants';
 import { BrandLogo } from '../ui/BrandLogo';
 import { CTAButton, CTALink } from '../ui/cta';
 
@@ -85,7 +86,9 @@ export const AdminShell = () => {
   const auth = loadAuth();
   const isLoginRoute = pathname === '/login';
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const userDetailMatch = pathname.match(/^\/users\/([^/]+)(?:\/(security|access|playlists|activity))?$/);
+  const userDetailMatch = pathname.match(
+    /^\/users\/([^/]+)(?:\/(security|access|playlists|activity))?$/,
+  );
   const userDetailUserId = userDetailMatch?.[1] ?? null;
   const userDetailSection = (userDetailMatch?.[2] ?? 'overview') as
     | 'overview'
@@ -113,6 +116,22 @@ export const AdminShell = () => {
       document.body.style.overflow = previousOverflow;
     };
   }, [isMobileNavOpen]);
+
+  const logout = async () => {
+    try {
+      const csrfToken = getCsrfToken();
+      await fetch(`${API_URL}/v1/admin/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: csrfToken ? { 'x-synqit-csrf-token': csrfToken } : undefined,
+      });
+    } catch {
+      // Ignore logout transport errors and still clear local state.
+    } finally {
+      clearAuth();
+      window.location.assign('/login');
+    }
+  };
 
   if (isLoginRoute) {
     return (
@@ -156,11 +175,7 @@ export const AdminShell = () => {
   const renderUserDetailNav = (className?: string) =>
     userDetailUserId ? (
       <div className={className}>
-        <CTALink
-          to="/users"
-          variant="secondary"
-          className="justify-start"
-        >
+        <CTALink to="/users" variant="secondary" className="justify-start">
           <ArrowLeft size={14} aria-hidden="true" />
           Back to users
         </CTALink>
@@ -169,9 +184,7 @@ export const AdminShell = () => {
           <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-app-text-secondary">
             User workspace
           </p>
-          <p className="mt-2 text-sm font-black text-app-text">
-            Focused user view
-          </p>
+          <p className="mt-2 text-sm font-black text-app-text">Focused user view</p>
           <p className="mt-1 text-xs text-app-text-secondary">
             Navigate user-specific sections without leaving the detail flow.
           </p>
@@ -213,7 +226,12 @@ export const AdminShell = () => {
           <div className="inline-flex min-w-0 items-center gap-3">
             {isUserDetailRoute ? (
               <>
-                <CTALink to="/users" variant="secondary" className="h-10 w-10 px-0" aria-label="Back to users">
+                <CTALink
+                  to="/users"
+                  variant="secondary"
+                  className="h-10 w-10 px-0"
+                  aria-label="Back to users"
+                >
                   <ArrowLeft size={16} aria-hidden="true" />
                 </CTALink>
                 <div className="min-w-0">
@@ -293,8 +311,7 @@ export const AdminShell = () => {
                 variant="secondary"
                 className="justify-center"
                 onClick={() => {
-                  clearAuth();
-                  window.location.assign('/login');
+                  void logout();
                 }}
               >
                 <LogOut size={14} aria-hidden="true" />
@@ -332,8 +349,7 @@ export const AdminShell = () => {
               variant="secondary"
               className="justify-center"
               onClick={() => {
-                clearAuth();
-                window.location.assign('/login');
+                void logout();
               }}
             >
               <LogOut size={14} aria-hidden="true" />

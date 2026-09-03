@@ -216,11 +216,8 @@ export const EventCreatePage = () => {
           return;
         }
 
-        const token = (await import('../lib/auth')).getAccessToken();
-        if (!token) throw new Error('missing_access_token');
         const popupResult = await openProviderOauthPopup({
           provider: 'spotify',
-          accessToken: token,
           nextPath: '/auth/provider-connected',
         });
         await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
@@ -256,24 +253,19 @@ export const EventCreatePage = () => {
           });
         }
       } catch (error) {
-        const normalized = error as { message?: string };
-        if (normalized.message === 'missing_access_token') {
-          showToast(t('profile.notLoggedIn'), { variant: 'error' });
-        } else {
-          const apiError = toApiError(error);
-          showToast(t('eventsPage.createFlow.connectionError', { message: apiError.message }), {
-            variant: 'error',
-          });
-          trackAnalyticsEvent({
-            eventName: 'provider_connect_failed',
-            target: 'providers',
-            properties: {
-              provider: selectedProvider,
-              context: 'event_create',
-              code: apiError.code,
-            },
-          });
-        }
+        const apiError = toApiError(error);
+        showToast(t('eventsPage.createFlow.connectionError', { message: apiError.message }), {
+          variant: 'error',
+        });
+        trackAnalyticsEvent({
+          eventName: 'provider_connect_failed',
+          target: 'providers',
+          properties: {
+            provider: selectedProvider,
+            context: 'event_create',
+            code: apiError.code,
+          },
+        });
       } finally {
         setIsConnectingProvider(false);
       }

@@ -2,10 +2,15 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
 import App from './App';
+import { bootstrapAdminAuthSession } from './lib/auth';
 import './styles.css';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+const root = createRoot(document.getElementById('root')!);
+
+void bootstrapAdminAuthSession().finally(() => {
+  root.render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+});

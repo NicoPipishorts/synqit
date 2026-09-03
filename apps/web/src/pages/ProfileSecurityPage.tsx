@@ -52,9 +52,6 @@ export const ProfileSecurityPage = () => {
         '/v1/auth/change-password',
         {
           method: 'POST',
-          headers: {
-            authorization: `Bearer ${auth.accessToken}`,
-          },
           body: JSON.stringify({
             currentPassword,
             newPassword,
