@@ -15,7 +15,8 @@ For your target (`~1,000 visitors/day`), this stack is viable on a properly conf
 - [ ] DB migrations are part of deploy (`prisma migrate deploy`).
 - [ ] API has rate limiting enabled (already present).
 - [ ] API has secure headers enabled (already present via helmet).
-- [ ] Auth tokens and encryption secrets are strong and rotated from `.env.local` into production secrets.
+- [x] Auth tokens and encryption secrets are strong: the API refuses to start in production with missing, placeholder, or <32-char `JWT_ACCESS_SECRET` / `TOKEN_ENC_KEY`.
+- [ ] Rotate `JWT_ACCESS_SECRET`, `TOKEN_ENC_KEY`, `ADMIN_BOOTSTRAP_KEY` in the VPS env file before the first deploy with strict enforcement (rotating `TOKEN_ENC_KEY` invalidates stored provider tokens; users reconnect).
 - [ ] Error handling never leaks internal stack traces (already present).
 - [ ] Worker is running separately from API (already present) and restarts automatically.
 - [ ] Email provider is production-ready (verified domain + SPF/DKIM/DMARC).
@@ -44,7 +45,7 @@ Both layers are needed.
 - Frontend error capture (Sentry or equivalent).
 - Backend exception capture (Sentry or equivalent).
 - Business events tracking (already started via analytics events).
-- Prometheus-compatible API metrics endpoint (`/metrics`) is available.
+- Prometheus-compatible API metrics endpoint (`/metrics`) is available behind `METRICS_TOKEN` (bearer auth) and blocked at the Caddy edge; `/docs` is off in production.
 
 ### Server side
 
@@ -59,10 +60,9 @@ Both layers are needed.
 
 ### Local/Server quick start (Prometheus + Grafana)
 
-- Start stack: `docker compose -f infra/docker-compose.yml up -d api prometheus grafana`
-- Prometheus UI: `http://localhost:9090`
-- Grafana UI: `http://localhost:3000` (default `admin/admin`)
-- API metrics endpoint: `http://localhost:3001/metrics`
+- Note: `prometheus` and `grafana` services are not currently defined in `infra/docker-compose.yml` even though `yarn infra:up:obs` references them; the configs under `infra/observability/` are ready to wire in.
+- Prometheus scrape config expects the token in `/etc/prometheus/metrics_token` (see `infra/observability/prometheus.yml`).
+- API metrics endpoint: `curl -H "Authorization: Bearer $METRICS_TOKEN" http://localhost:3001/metrics`
 
 ### Optional CI load-test
 

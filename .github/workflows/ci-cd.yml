@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - dev
   push:
     branches:
       - main
@@ -74,6 +75,9 @@ jobs:
 
       - name: Apply Prisma migrations
         run: yarn workspace @synqit/api prisma:migrate:deploy
+
+      - name: Fail on schema drift between migrations and schema.prisma
+        run: yarn workspace @synqit/api prisma:drift
 
       - name: Run API regression tests
         run: yarn workspace @synqit/api test

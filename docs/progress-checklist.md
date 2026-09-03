@@ -45,6 +45,10 @@ Use this as the implementation tracker (what is done vs pending).
 - [x] Apple manifest-based no-op detection implemented.
 - [x] Poll log tagging added for sync diagnostics.
 - [x] Web/admin auth session persistence moved from `localStorage` to cookie-backed sessions with CSRF protection.
+- [x] Required secrets enforced at startup (no code fallbacks; weak values fatal in production, warned in dev).
+- [x] `/metrics` behind a bearer token and `/docs` disabled in production; Caddy blocks both at the edge.
+- [x] Admin bootstrap locked down (opt-in flag, strong key, constant-time compare, lock after first super admin, rate limit, audit log).
+- [x] Runtime schema mutation removed from API startup; CI fails on migration/schema drift.
 
 ## Pending (Next)
 
@@ -52,5 +56,4 @@ Use this as the implementation tracker (what is done vs pending).
 - [ ] Add worker-safe locking for sync execution across multiple API/worker processes.
 - [ ] Add `Sync now` action for support and QA.
 - [ ] Add richer synced-playlist diagnostics/status UI.
-- [ ] Add invite revoke/deactivate flow in admin.
-- [ ] Add automated regression coverage for invite lifecycle and cross-user authorization cases.
+- [ ] Add automated regression coverage for cross-user authorization cases.
