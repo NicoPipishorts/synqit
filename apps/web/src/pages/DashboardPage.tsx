@@ -27,8 +27,8 @@ import {
 } from '../components/dashboard/DashboardPlaylistCard';
 import { DashboardStats, type DashboardStat } from '../components/dashboard/DashboardStats';
 import { PwaInstallPrompt } from '../components/dashboard/PwaInstallPrompt';
-import { RouteLoadingScreen } from '../components/ui/RouteLoadingScreen';
 import { CTALink } from '../components/ui/cta';
+import { RouteLoadingScreen } from '../components/ui/RouteLoadingScreen';
 import { useI18n } from '../hooks/useI18n';
 import { useToast } from '../hooks/useToast';
 import {
