@@ -10,6 +10,15 @@ synqit.fr {
 app.synqit.fr {
 	encode gzip zstd
 
+	# Internal operational surfaces must never be reachable from the public edge.
+	# Prometheus scrapes /metrics over the private Docker network instead.
+	handle /api/metrics* {
+		respond 404
+	}
+	handle /api/docs* {
+		respond 404
+	}
+
 	handle_path /api/* {
 		reverse_proxy 127.0.0.1:3001
 	}

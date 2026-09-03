@@ -1,17 +1,19 @@
+import './env';
+
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import jwt from '@fastify/jwt';
 import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import { healthResponseSchema } from '@synqit/shared';
+import { EnvValidationError, healthResponseSchema } from '@synqit/shared';
 import Fastify from 'fastify';
-import { resolve } from 'node:path';
 
 import { registerAdminRoutes } from './admin/routes';
 import { registerAnalyticsRoutes } from './analytics/routes';
 import { registerAuthRoutes } from './auth/routes';
 import { hasValidCsrfToken, shouldEnforceCsrfForRequest } from './auth/session-cookies';
+import { loadApiConfig } from './config';
 import { registerDashboardRoutes } from './dashboard/routes';
 import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
@@ -22,25 +24,9 @@ import { registerMetricsEndpoint } from './observability/metrics';
 import { startAutoSyncScheduler } from './syncs/auto-sync';
 import { registerSyncRoutes } from './syncs/routes';
 
-const loadEnvFileIfPresent = (filePath: string): void => {
-  try {
-    process.loadEnvFile(filePath);
-  } catch (error) {
-    const normalizedError = error as { code?: string } | undefined;
-    if (normalizedError?.code !== 'ENOENT') {
-      throw error;
-    }
-  }
-};
-
-// .env.local takes precedence when both files exist.
-loadEnvFileIfPresent(resolve(process.cwd(), '.env.local'));
-loadEnvFileIfPresent(resolve(process.cwd(), '.env'));
-
 const APP_VERSION = process.env.APP_VERSION ?? '0.1.0';
 const PORT = Number(process.env.PORT ?? 3001);
 const HOST = process.env.HOST ?? '0.0.0.0';
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET ?? 'dev-access-secret';
 
 const parseCorsOrigins = (raw: string | undefined): string[] => {
   if (!raw) {
@@ -54,11 +40,16 @@ const parseCorsOrigins = (raw: string | undefined): string[] => {
 };
 
 export const buildServer = async () => {
+  // Fail fast on missing or weak secrets before touching the database or a port.
+  const config = loadApiConfig();
   await initializeDatabase();
 
   const app = Fastify({
     logger: true,
   });
+  for (const warning of config.warnings) {
+    app.log.warn(warning);
+  }
   const rateLimitMax = Number(process.env.RATE_LIMIT_MAX ?? 150);
   const rateLimitTimeWindow = process.env.RATE_LIMIT_TIME_WINDOW ?? '1 minute';
 
@@ -82,7 +73,7 @@ export const buildServer = async () => {
     timeWindow: rateLimitTimeWindow,
   });
   await app.register(jwt, {
-    secret: JWT_ACCESS_SECRET,
+    secret: config.jwtAccessSecret,
   });
   app.addHook('onRequest', async (request, reply) => {
     const scope = request.url.startsWith('/v1/admin/') ? 'admin' : 'web';
@@ -99,17 +90,20 @@ export const buildServer = async () => {
       message: 'CSRF validation failed.',
     });
   });
-  await app.register(swagger, {
-    openapi: {
-      info: {
-        title: 'Synqit API',
-        version: APP_VERSION,
+  // Interactive API docs are a dev tool. Off in production unless API_DOCS_ENABLED=true.
+  if (config.docsEnabled) {
+    await app.register(swagger, {
+      openapi: {
+        info: {
+          title: 'Synqit API',
+          version: APP_VERSION,
+        },
       },
-    },
-  });
-  await app.register(swaggerUi, {
-    routePrefix: '/docs',
-  });
+    });
+    await app.register(swaggerUi, {
+      routePrefix: '/docs',
+    });
+  }
 
   app.setErrorHandler((error, _request, reply) => {
     const normalizedError =
@@ -165,7 +159,10 @@ export const buildServer = async () => {
     },
   );
 
-  await registerMetricsEndpoint(app);
+  await registerMetricsEndpoint(app, {
+    token: config.metricsToken,
+    exposeWithoutToken: !config.strictSecrets,
+  });
 
   app.register(
     async (v1) => {
@@ -189,7 +186,16 @@ export const buildServer = async () => {
 };
 
 export const start = async () => {
-  const app = await buildServer();
+  let app: Awaited<ReturnType<typeof buildServer>>;
+  try {
+    app = await buildServer();
+  } catch (error) {
+    if (error instanceof EnvValidationError) {
+      console.error(`[api] configuration error: ${error.message}`);
+      process.exit(1);
+    }
+    throw error;
+  }
   let stopAutoSyncScheduler: (() => void) | null = null;
   let stopAccountDeletionScheduler: (() => void) | null = null;
   let stopWeeklyRecapScheduler: (() => void) | null = null;

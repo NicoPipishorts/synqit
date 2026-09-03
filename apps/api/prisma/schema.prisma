@@ -27,7 +27,7 @@ model event_tracks {
 }
 
 model events {
-  id                    String         @id
+  id                    String          @id
   host_user_id          String
   provider              String
   provider_playlist_id  String
@@ -35,31 +35,31 @@ model events {
   close_reason          String?
   name                  String
   description           String
-  magic_link_token      String         @unique
-  magic_link_revoked_at DateTime?      @db.Timestamptz(6)
-  created_at            DateTime       @db.Timestamptz(6)
-  updated_at            DateTime       @db.Timestamptz(6)
-  closed_at             DateTime?      @db.Timestamptz(6)
+  magic_link_token      String          @unique
+  magic_link_revoked_at DateTime?       @db.Timestamptz(6)
+  created_at            DateTime        @db.Timestamptz(6)
+  updated_at            DateTime        @db.Timestamptz(6)
+  closed_at             DateTime?       @db.Timestamptz(6)
   cover_image_url       String?
   event_tracks          event_tracks[]
   event_follows         event_follows[]
   event_visits          event_visits[]
-  users                 users          @relation(fields: [host_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                 users           @relation(fields: [host_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([host_user_id], map: "idx_events_host_user_id")
   @@map("playlists")
 }
 
 model eventDrafts {
-  id          String   @id
+  id           String   @id
   host_user_id String
-  provider    String?
-  name        String
-  description String
-  step        Int      @default(1)
-  created_at  DateTime @db.Timestamptz(6)
-  updated_at  DateTime @db.Timestamptz(6)
-  users       users    @relation(fields: [host_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  provider     String?
+  name         String
+  description  String
+  step         Int      @default(1)
+  created_at   DateTime @db.Timestamptz(6)
+  updated_at   DateTime @db.Timestamptz(6)
+  users        users    @relation(fields: [host_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([host_user_id], map: "idx_event_drafts_host_user_id")
   @@map("playlist_drafts")
@@ -153,48 +153,52 @@ model user_auth_identities {
 }
 
 model users {
-  id             String           @id
-  email          String           @unique
-  role           String           @default("user")
-  is_blocked     Boolean          @default(false)
-  blocked_at     DateTime?        @db.Timestamptz(6)
-  account_state  String           @default("active")
-  is_test_account Boolean         @default(false)
-  deletion_requested_at DateTime? @db.Timestamptz(6)
-  deletion_scheduled_for DateTime? @db.Timestamptz(6)
-  deleted_at     DateTime?        @db.Timestamptz(6)
-  deletion_reason String?
-  test_reset_at  DateTime?        @db.Timestamptz(6)
-  password_hash  String?
-  avatar_url     String?
-  created_at     DateTime         @db.Timestamptz(6)
-  auth_identities user_auth_identities[]
-  admin_permissions user_admin_permissions[]
-  analytics_events analyticsEvents[]
-  event_drafts   eventDrafts[]
-  events         events[]
-  event_follows  event_follows[]
-  event_visits   event_visits[]
-  integrations   integrations[]
-  oauth_states   oauth_states[]
-  password_reset_tokens password_reset_tokens[]
-  refresh_tokens refresh_tokens[]
-  user_profile   user_profiles?
-  user_preferences user_preferences?
-  playlist_syncs playlist_syncs[]
-  playlist_sync_imports playlist_sync_imports[]
+  id                     String                   @id
+  email                  String                   @unique
+  role                   String                   @default("user")
+  is_blocked             Boolean                  @default(false)
+  blocked_at             DateTime?                @db.Timestamptz(6)
+  account_state          String                   @default("active")
+  is_test_account        Boolean                  @default(false)
+  deletion_requested_at  DateTime?                @db.Timestamptz(6)
+  deletion_scheduled_for DateTime?                @db.Timestamptz(6)
+  deleted_at             DateTime?                @db.Timestamptz(6)
+  deletion_reason        String?
+  test_reset_at          DateTime?                @db.Timestamptz(6)
+  password_hash          String?
+  avatar_url             String?
+  created_at             DateTime                 @db.Timestamptz(6)
+  auth_identities        user_auth_identities[]
+  admin_permissions      user_admin_permissions[]
+  analytics_events       analyticsEvents[]
+  event_drafts           eventDrafts[]
+  events                 events[]
+  event_follows          event_follows[]
+  event_visits           event_visits[]
+  integrations           integrations[]
+  oauth_states           oauth_states[]
+  password_reset_tokens  password_reset_tokens[]
+  refresh_tokens         refresh_tokens[]
+  user_profile           user_profiles?
+  user_preferences       user_preferences?
+  playlist_syncs         playlist_syncs[]
+  playlist_sync_imports  playlist_sync_imports[]
+
+  @@index([account_state], map: "idx_users_account_state")
+  @@index([deletion_scheduled_for], map: "idx_users_deletion_scheduled_for")
+  @@index([is_test_account], map: "idx_users_is_test_account")
 }
 
 model admin_audit_logs {
-  id            String   @id
-  actor_user_id String?
-  actor_email   String?
+  id             String   @id
+  actor_user_id  String?
+  actor_email    String?
   target_user_id String?
-  target_email  String?
-  action        String
-  reason        String?
-  metadata_json Json?
-  created_at    DateTime @db.Timestamptz(6)
+  target_email   String?
+  action         String
+  reason         String?
+  metadata_json  Json?
+  created_at     DateTime @db.Timestamptz(6)
 
   @@index([action], map: "idx_admin_audit_logs_action")
   @@index([created_at], map: "idx_admin_audit_logs_created_at")
@@ -232,51 +236,52 @@ model event_visits {
 }
 
 model playlist_syncs {
-  id                    String                  @id
-  sender_user_id        String
-  provider              String
-  provider_playlist_id  String
-  name                  String
-  track_count           Int?
-  kind                  String                  @default("shared")
-  sync_mode             String                  @default("host_only")
-  auto_sync_enabled     Boolean                 @default(true)
-  next_poll_at          DateTime?               @db.Timestamptz(6)
-  unchanged_poll_streak Int                     @default(0)
-  last_source_snapshot_id String?
-  last_source_fingerprint String?
-  last_polled_at        DateTime?               @db.Timestamptz(6)
-  last_synced_at        DateTime?               @db.Timestamptz(6)
-  last_error            String?
-  magic_link_token      String                  @unique
-  magic_link_revoked_at DateTime?               @db.Timestamptz(6)
-  created_at            DateTime                @db.Timestamptz(6)
-  updated_at            DateTime                @db.Timestamptz(6)
-  users                 users                   @relation(fields: [sender_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  playlist_sync_imports playlist_sync_imports[]
+  id                           String                         @id
+  sender_user_id               String
+  provider                     String
+  provider_playlist_id         String
+  name                         String
+  track_count                  Int?
+  kind                         String                         @default("shared")
+  sync_mode                    String                         @default("host_only")
+  auto_sync_enabled            Boolean                        @default(true)
+  next_poll_at                 DateTime?                      @db.Timestamptz(6)
+  unchanged_poll_streak        Int                            @default(0)
+  last_source_snapshot_id      String?
+  last_source_fingerprint      String?
+  last_polled_at               DateTime?                      @db.Timestamptz(6)
+  last_synced_at               DateTime?                      @db.Timestamptz(6)
+  last_error                   String?
+  magic_link_token             String                         @unique
+  magic_link_revoked_at        DateTime?                      @db.Timestamptz(6)
+  created_at                   DateTime                       @db.Timestamptz(6)
+  updated_at                   DateTime                       @db.Timestamptz(6)
+  users                        users                          @relation(fields: [sender_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  playlist_sync_imports        playlist_sync_imports[]
   playlist_sync_track_activity playlist_sync_track_activity[]
 
   @@index([sender_user_id], map: "idx_playlist_syncs_sender_user_id")
+  @@index([kind], map: "idx_playlist_syncs_kind")
 }
 
 model playlist_sync_imports {
-  id                 String          @id
-  sync_id            String
-  recipient_user_id  String
-  recipient_provider String
-  recipient_provider_playlist_id String?
-  last_recipient_snapshot_id String?
-  synced_source_track_fingerprints String[] @default([])
-  synced_recipient_track_fingerprints String[] @default([])
-  status             String          @default("pending")
-  matched_count      Int?
-  skipped_count      Int?
-  last_synced_at     DateTime?       @db.Timestamptz(6)
-  last_error         String?
-  created_at         DateTime        @db.Timestamptz(6)
-  updated_at         DateTime        @db.Timestamptz(6)
-  playlist_syncs     playlist_syncs  @relation(fields: [sync_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  users              users           @relation(fields: [recipient_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id                                  String         @id
+  sync_id                             String
+  recipient_user_id                   String
+  recipient_provider                  String
+  recipient_provider_playlist_id      String?
+  last_recipient_snapshot_id          String?
+  synced_source_track_fingerprints    String[]       @default([])
+  synced_recipient_track_fingerprints String[]       @default([])
+  status                              String         @default("pending")
+  matched_count                       Int?
+  skipped_count                       Int?
+  last_synced_at                      DateTime?      @db.Timestamptz(6)
+  last_error                          String?
+  created_at                          DateTime       @db.Timestamptz(6)
+  updated_at                          DateTime       @db.Timestamptz(6)
+  playlist_syncs                      playlist_syncs @relation(fields: [sync_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users                               users          @relation(fields: [recipient_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([sync_id, recipient_user_id])
   @@index([sync_id], map: "idx_playlist_sync_imports_sync_id")
@@ -284,18 +289,18 @@ model playlist_sync_imports {
 }
 
 model playlist_sync_track_activity {
-  id               String         @id
-  sync_id          String
+  id                String         @id
+  sync_id           String
   track_fingerprint String
   provider_track_id String
-  name             String
-  artist           String
-  album            String
-  artwork_url      String?
-  first_seen_at    DateTime       @db.Timestamptz(6)
-  created_at       DateTime       @db.Timestamptz(6)
-  updated_at       DateTime       @db.Timestamptz(6)
-  playlist_syncs   playlist_syncs @relation(fields: [sync_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  name              String
+  artist            String
+  album             String
+  artwork_url       String?
+  first_seen_at     DateTime       @db.Timestamptz(6)
+  created_at        DateTime       @db.Timestamptz(6)
+  updated_at        DateTime       @db.Timestamptz(6)
+  playlist_syncs    playlist_syncs @relation(fields: [sync_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@unique([sync_id, track_fingerprint])
   @@index([sync_id], map: "idx_playlist_sync_track_activity_sync_id")

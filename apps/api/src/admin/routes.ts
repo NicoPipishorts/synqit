@@ -18,6 +18,9 @@ import {
   adminUserTestAccountUpdateSchema,
   authResponseSchema,
   authUserSchema,
+  DEFAULT_MIN_SECRET_LENGTH,
+  describeSecretWeakness,
+  parseBooleanEnv,
   personalInfoSchema,
   QUEUES,
   type AccountRole,
@@ -27,6 +30,7 @@ import {
 } from '@synqit/shared';
 import { Queue } from 'bullmq';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
 import { buildAvatarUrl, deleteAvatarImage } from '../auth/avatar-storage';
@@ -2053,65 +2057,148 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.post('/admin/bootstrap/promote', async (request, reply) => {
-    const expectedKey = process.env.ADMIN_BOOTSTRAP_KEY?.trim();
-    if (!expectedKey) {
-      return reply.status(503).send({
-        code: 'admin_bootstrap_not_configured',
-        message: 'Admin bootstrap key is not configured.',
-      });
-    }
-
-    const providedKey = request.headers['x-admin-bootstrap-key'];
-    if (typeof providedKey !== 'string' || providedKey.trim() !== expectedKey) {
-      return reply.status(403).send({
-        code: 'forbidden',
-        message: 'Bootstrap key is invalid.',
-      });
-    }
-
-    const body = bootstrapAdminRequestSchema.safeParse(request.body);
-    if (!body.success) {
-      return reply.status(400).send({
-        code: 'validation_error',
-        message: 'Request payload is invalid.',
-        details: body.error.flatten(),
-      });
-    }
-
-    const user = await authStore.findUserByEmail(body.data.email);
-    if (!user) {
-      return reply.status(404).send({
-        code: 'user_not_found',
-        message: 'User not found for this email.',
-      });
-    }
-
-    await authStore.setUserRoleById(user.id, 'admin');
-    await authStore.replaceUserAdminPermissionsByUserId(
-      user.id,
-      defaultAdminPermissionsForEmail(user.email),
-    );
-
-    const refreshed = await authStore.findUserById(user.id);
-    if (!refreshed) {
-      return reply.status(500).send({
-        code: 'admin_bootstrap_failed',
-        message: 'Unable to load updated admin user.',
-      });
-    }
-
-    return reply.status(200).send({
-      ok: true,
-      user: {
-        id: refreshed.id,
-        email: refreshed.email,
-        role: refreshed.role,
-        createdAt: refreshed.createdAt.toISOString(),
-        adminPermissions: refreshed.adminPermissions,
+  // Emergency path to mint the first admin. Locked down on purpose:
+  //  - off unless ADMIN_BOOTSTRAP_ENABLED=true
+  //  - key must be strong (>= 32 chars, no placeholder) and is compared in constant time
+  //  - refuses once a super admin exists unless ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS=true
+  //  - route-level rate limit, and every attempt is written to the admin audit log
+  app.post(
+    '/admin/bootstrap/promote',
+    {
+      config: {
+        rateLimit: {
+          max: 20,
+          timeWindow: '15 minutes',
+        },
       },
-    });
-  });
+    },
+    async (request, reply) => {
+      const clientIp = request.ip;
+      const rejectAndAudit = async (
+        statusCode: number,
+        code: string,
+        message: string,
+        reason: string,
+        target: UserRecord | null = null,
+      ) => {
+        request.log.warn({ reason, ip: clientIp }, 'admin bootstrap attempt rejected');
+        await auditAdminAction({
+          actor: null,
+          target,
+          action: 'admin_bootstrap_rejected',
+          reason,
+          metadata: { ip: clientIp },
+        });
+        return reply.status(statusCode).send({ code, message });
+      };
+
+      if (!parseBooleanEnv(process.env.ADMIN_BOOTSTRAP_ENABLED, false)) {
+        return reply.status(404).send({
+          code: 'admin_bootstrap_disabled',
+          message: 'Not found.',
+        });
+      }
+
+      const expectedKey = process.env.ADMIN_BOOTSTRAP_KEY?.trim() ?? '';
+      const keyWeakness = expectedKey
+        ? describeSecretWeakness(expectedKey, DEFAULT_MIN_SECRET_LENGTH)
+        : 'missing';
+      if (keyWeakness) {
+        request.log.error(
+          { keyWeakness },
+          'ADMIN_BOOTSTRAP_KEY is not usable; bootstrap route refuses to run',
+        );
+        return reply.status(503).send({
+          code: 'admin_bootstrap_not_configured',
+          message: 'Admin bootstrap key is not configured or is too weak.',
+        });
+      }
+
+      const providedKeyHeader = request.headers['x-admin-bootstrap-key'];
+      const providedKey = typeof providedKeyHeader === 'string' ? providedKeyHeader.trim() : '';
+      const providedBuffer = Buffer.from(providedKey, 'utf8');
+      const expectedBuffer = Buffer.from(expectedKey, 'utf8');
+      const keyMatches =
+        providedBuffer.length === expectedBuffer.length &&
+        timingSafeEqual(providedBuffer, expectedBuffer);
+      if (!keyMatches) {
+        return rejectAndAudit(403, 'forbidden', 'Bootstrap key is invalid.', 'invalid_key');
+      }
+
+      const body = bootstrapAdminRequestSchema.safeParse(request.body);
+      if (!body.success) {
+        return reply.status(400).send({
+          code: 'validation_error',
+          message: 'Request payload is invalid.',
+          details: body.error.flatten(),
+        });
+      }
+
+      const activeSuperAdminCount = await authStore.countActiveSuperAdmins();
+      const allowWhenSuperAdminExists = parseBooleanEnv(
+        process.env.ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS,
+        false,
+      );
+      if (activeSuperAdminCount > 0 && !allowWhenSuperAdminExists) {
+        return rejectAndAudit(
+          409,
+          'admin_bootstrap_locked',
+          'A super admin already exists. Promote admins from the admin app, or set ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS=true to re-enable bootstrap.',
+          'super_admin_exists',
+        );
+      }
+
+      const user = await authStore.findUserByEmail(body.data.email);
+      if (!user) {
+        return rejectAndAudit(
+          404,
+          'user_not_found',
+          'User not found for this email.',
+          'user_not_found',
+        );
+      }
+
+      await authStore.setUserRoleById(user.id, 'admin');
+      await authStore.replaceUserAdminPermissionsByUserId(
+        user.id,
+        defaultAdminPermissionsForEmail(user.email),
+      );
+
+      const refreshed = await authStore.findUserById(user.id);
+      if (!refreshed) {
+        return reply.status(500).send({
+          code: 'admin_bootstrap_failed',
+          message: 'Unable to load updated admin user.',
+        });
+      }
+
+      await auditAdminAction({
+        actor: null,
+        target: refreshed,
+        action: 'admin_bootstrap_promote',
+        metadata: {
+          ip: clientIp,
+          grantedPermissions: refreshed.adminPermissions,
+          superAdminExistedBefore: activeSuperAdminCount > 0,
+        },
+      });
+      request.log.warn(
+        { targetUserId: refreshed.id, ip: clientIp },
+        'admin bootstrap promoted a user to admin',
+      );
+
+      return reply.status(200).send({
+        ok: true,
+        user: {
+          id: refreshed.id,
+          email: refreshed.email,
+          role: refreshed.role,
+          createdAt: refreshed.createdAt.toISOString(),
+          adminPermissions: refreshed.adminPermissions,
+        },
+      });
+    },
+  );
 
   app.post('/admin/email/preview', async (request, reply) => {
     const access = await resolveAdminAccess(request, reply, {
