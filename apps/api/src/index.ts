@@ -11,6 +11,7 @@ import { resolve } from 'node:path';
 import { registerAdminRoutes } from './admin/routes';
 import { registerAnalyticsRoutes } from './analytics/routes';
 import { registerAuthRoutes } from './auth/routes';
+import { hasValidCsrfToken, shouldEnforceCsrfForRequest } from './auth/session-cookies';
 import { registerDashboardRoutes } from './dashboard/routes';
 import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
@@ -82,6 +83,21 @@ export const buildServer = async () => {
   });
   await app.register(jwt, {
     secret: JWT_ACCESS_SECRET,
+  });
+  app.addHook('onRequest', async (request, reply) => {
+    const scope = request.url.startsWith('/v1/admin/') ? 'admin' : 'web';
+    if (!shouldEnforceCsrfForRequest(request, scope)) {
+      return;
+    }
+
+    if (hasValidCsrfToken(request, scope)) {
+      return;
+    }
+
+    return reply.status(403).send({
+      code: 'csrf_invalid',
+      message: 'CSRF validation failed.',
+    });
   });
   await app.register(swagger, {
     openapi: {

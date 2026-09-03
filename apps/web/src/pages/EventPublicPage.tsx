@@ -45,7 +45,7 @@ export const EventPublicPage = () => {
     loadTracks,
     isTrackMutationPending,
     toggleTracked,
-  } = usePublicEvent(params.magicLinkToken, auth?.accessToken ?? null);
+  } = usePublicEvent(params.magicLinkToken);
 
   // Prevent indexing of this page
   useEffect(() => {

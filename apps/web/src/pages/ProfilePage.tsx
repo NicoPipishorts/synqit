@@ -78,9 +78,6 @@ export const ProfilePage = () => {
         '/v1/auth/avatar',
         {
           method: 'POST',
-          headers: {
-            authorization: `Bearer ${auth.accessToken}`,
-          },
           body: JSON.stringify({
             imageDataUrl,
           }),
@@ -126,9 +123,6 @@ export const ProfilePage = () => {
         '/v1/auth/avatar',
         {
           method: 'DELETE',
-          headers: {
-            authorization: `Bearer ${auth.accessToken}`,
-          },
         },
         (payload) => authUserSchema.parse((payload as { user: unknown }).user),
       );

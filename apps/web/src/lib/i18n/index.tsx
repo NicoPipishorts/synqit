@@ -3,7 +3,7 @@ import { ReactNode, startTransition, useEffect, useMemo, useState } from 'react'
 import { I18nContext, I18nContextValue } from './context';
 import { loadLocaleMessages, Locale, type MessageDictionary } from './messages';
 import { RouteLoadingScreen } from '../../components/ui/RouteLoadingScreen';
-import { getAccessToken } from '../auth';
+import { isAuthenticated } from '../auth';
 import { loadAnonymousPreferences, saveAnonymousPreferences } from '../preferences';
 import { updateUserPreferences } from '../queries';
 
@@ -99,7 +99,7 @@ export const I18nProvider = ({ children }: { children: ReactNode }) => {
           setLocaleState(nextLocale);
         });
         saveAnonymousPreferences({ locale: nextLocale });
-        if (getAccessToken()) {
+        if (isAuthenticated()) {
           void updateUserPreferences({ locale: nextLocale }).catch(() => undefined);
         }
       })

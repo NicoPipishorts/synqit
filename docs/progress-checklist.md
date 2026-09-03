@@ -44,6 +44,7 @@ Use this as the implementation tracker (what is done vs pending).
 - [x] Spotify snapshot-based change detection implemented.
 - [x] Apple manifest-based no-op detection implemented.
 - [x] Poll log tagging added for sync diagnostics.
+- [x] Web/admin auth session persistence moved from `localStorage` to cookie-backed sessions with CSRF protection.
 
 ## Pending (Next)
 

@@ -32,6 +32,63 @@ const parseBody = (rawBody: string): unknown => {
   }
 };
 
+const getSetCookieHeaders = (response: { headers: Record<string, unknown> }): string[] => {
+  const value = response.headers['set-cookie'];
+  if (Array.isArray(value)) {
+    return value.map(String);
+  }
+  return value ? [String(value)] : [];
+};
+
+const getCookieHeader = (response: {
+  cookies?: Array<{ name: string; value: string }>;
+  headers: Record<string, unknown>;
+}): string => {
+  if (Array.isArray(response.cookies) && response.cookies.length > 0) {
+    return response.cookies.map((cookie) => `${cookie.name}=${cookie.value}`).join('; ');
+  }
+
+  return getSetCookieHeaders(response)
+    .flatMap((cookie) => cookie.split(/,(?=\s*[^;=]+=[^;]+)/))
+    .map((cookie) => cookie.split(';', 1)[0])
+    .join('; ');
+};
+
+const getCookieValue = (
+  response: { cookies?: Array<{ name: string; value: string }>; headers: Record<string, unknown> },
+  name: string,
+): string | null => {
+  if (Array.isArray(response.cookies)) {
+    const match = response.cookies.find((cookie) => cookie.name === name);
+    if (match) {
+      return match.value;
+    }
+  }
+
+  for (const cookie of getSetCookieHeaders(response)) {
+    for (const segment of cookie.split(/,(?=\s*[^;=]+=[^;]+)/)) {
+      const [pair] = segment.split(';', 1);
+      const separatorIndex = pair.indexOf('=');
+      if (separatorIndex <= 0) {
+        continue;
+      }
+
+      if (pair.slice(0, separatorIndex) !== name) {
+        continue;
+      }
+
+      const rawValue = pair.slice(separatorIndex + 1);
+      try {
+        return decodeURIComponent(rawValue);
+      } catch {
+        return rawValue;
+      }
+    }
+  }
+
+  return null;
+};
+
 const cleanupTestData = async (): Promise<void> => {
   await prisma.users.deleteMany({
     where: {
@@ -198,9 +255,16 @@ describe('API regression', () => {
       },
     });
     assert.equal(loginGoodResponse.statusCode, 200);
+    const loginSetCookies = getSetCookieHeaders(loginGoodResponse);
+    assert.ok(loginSetCookies.some((value) => value.startsWith('synqit_web_access=')));
+    assert.ok(loginSetCookies.some((value) => value.startsWith('synqit_web_refresh=')));
+    assert.ok(loginSetCookies.some((value) => value.startsWith('synqit_web_csrf=')));
     const loginGoodBody = parseBody(loginGoodResponse.body) as {
       tokens: { accessToken: string; refreshToken: string };
     };
+    const sessionCookieHeader = getCookieHeader(loginGoodResponse);
+    const csrfToken = getCookieValue(loginGoodResponse, 'synqit_web_csrf');
+    assert.ok(csrfToken);
 
     const meResponse = await app.inject({
       method: 'GET',
@@ -211,14 +275,32 @@ describe('API regression', () => {
     const meBody = parseBody(meResponse.body) as { email: string };
     assert.equal(meBody.email, email);
 
+    const cookieRefreshResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      headers: {
+        cookie: sessionCookieHeader,
+        'x-synqit-csrf-token': csrfToken,
+      },
+    });
+    assert.equal(cookieRefreshResponse.statusCode, 200);
+    const cookieRefreshBody = parseBody(cookieRefreshResponse.body) as {
+      tokens: { refreshToken: string };
+    };
+    const cookieRefreshSetCookies = getSetCookieHeaders(cookieRefreshResponse);
+    assert.ok(cookieRefreshSetCookies.some((value) => value.startsWith('synqit_web_csrf=')));
+
     const refreshResponse = await app.inject({
       method: 'POST',
       url: '/v1/auth/refresh',
       payload: {
-        refreshToken: loginGoodBody.tokens.refreshToken,
+        refreshToken: cookieRefreshBody.tokens.refreshToken,
       },
     });
     assert.equal(refreshResponse.statusCode, 200);
+    const refreshSetCookies = getSetCookieHeaders(refreshResponse);
+    assert.ok(refreshSetCookies.some((value) => value.startsWith('synqit_web_access=')));
+    assert.ok(refreshSetCookies.some((value) => value.startsWith('synqit_web_refresh=')));
     const refreshBody = parseBody(refreshResponse.body) as {
       tokens: { refreshToken: string };
     };
@@ -232,6 +314,15 @@ describe('API regression', () => {
     });
     assert.equal(oldRefreshAgainResponse.statusCode, 401);
 
+    const cookieRefreshWithoutCsrfResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/refresh',
+      headers: {
+        cookie: sessionCookieHeader,
+      },
+    });
+    assert.equal(cookieRefreshWithoutCsrfResponse.statusCode, 403);
+
     const logoutResponse = await app.inject({
       method: 'POST',
       url: '/v1/auth/logout',
@@ -240,6 +331,19 @@ describe('API regression', () => {
       },
     });
     assert.equal(logoutResponse.statusCode, 200);
+    const logoutSetCookies = getSetCookieHeaders(logoutResponse);
+    assert.ok(logoutSetCookies.some((value) => value.startsWith('synqit_web_access=')));
+    assert.ok(logoutSetCookies.some((value) => value.startsWith('synqit_web_refresh=')));
+
+    const cookieLogoutResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/logout',
+      headers: {
+        cookie: sessionCookieHeader,
+        'x-synqit-csrf-token': csrfToken,
+      },
+    });
+    assert.equal(cookieLogoutResponse.statusCode, 200);
 
     const refreshAfterLogoutResponse = await app.inject({
       method: 'POST',

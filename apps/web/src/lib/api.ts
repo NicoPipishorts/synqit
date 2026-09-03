@@ -1,4 +1,4 @@
-import { clearAuth, loadAuth, updateStoredAuthTokens, updateStoredAuthUser } from './auth';
+import { clearAuth, getCsrfToken, setAccessToken, updateStoredAuthUser } from './auth';
 import { type ApiError, parseRefreshResponse } from './client-models';
 import { API_URL, THEME_CHANGED_EVENT } from './constants';
 import { loadAnonymousPreferences, saveAnonymousPreferences } from './preferences';
@@ -34,26 +34,31 @@ export const callApi = async <TResponse>(
   parser: (payload: unknown) => TResponse,
 ): Promise<TResponse> => {
   const hasBody = init.body !== undefined && init.body !== null;
-  const buildHeaders = (overrideAccessToken?: string): Headers => {
+  const method = (init.method ?? 'GET').toUpperCase();
+  const requiresCsrf = method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS';
+  const buildHeaders = (): Headers => {
     const headers = new Headers(init.headers ?? {});
     const preferredLocale = loadAnonymousPreferences().locale;
-    const currentAccessToken = overrideAccessToken ?? loadAuth()?.accessToken ?? null;
     if (hasBody && !headers.has('content-type')) {
       headers.set('content-type', 'application/json');
     }
     if (preferredLocale && !headers.has('x-synqit-locale')) {
       headers.set('x-synqit-locale', preferredLocale);
     }
-    if (currentAccessToken && !headers.has('authorization')) {
-      headers.set('authorization', `Bearer ${currentAccessToken}`);
+    if (requiresCsrf) {
+      const csrfToken = getCsrfToken();
+      if (csrfToken && !headers.has('x-synqit-csrf-token')) {
+        headers.set('x-synqit-csrf-token', csrfToken);
+      }
     }
     return headers;
   };
 
-  const execute = async (overrideAccessToken?: string) => {
+  const execute = async () => {
     const response = await fetch(`${API_URL}${path}`, {
       ...init,
-      headers: buildHeaders(overrideAccessToken),
+      credentials: 'include',
+      headers: buildHeaders(),
     });
     const payload = (await response.json().catch(() => ({}))) as unknown;
     return { response, payload };
@@ -80,38 +85,26 @@ export const callApi = async <TResponse>(
     window.location.assign(isAdminPath ? '/admin/login' : '/auth/login');
   };
 
-  const refreshAccessToken = async (): Promise<string | null> => {
+  const refreshAccessToken = async (): Promise<boolean> => {
     if (refreshInFlightPromise) {
       return refreshInFlightPromise;
     }
 
     refreshInFlightPromise = (async () => {
-      const currentAuth = loadAuth();
-      if (!currentAuth) {
-        return null;
-      }
-
       try {
+        const csrfToken = getCsrfToken();
         const refreshResponse = await fetch(`${API_URL}/v1/auth/refresh`, {
           method: 'POST',
-          headers: {
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
-            refreshToken: currentAuth.refreshToken,
-          }),
+          credentials: 'include',
+          headers: csrfToken ? { 'x-synqit-csrf-token': csrfToken } : undefined,
         });
         const refreshPayload = (await refreshResponse.json().catch(() => ({}))) as unknown;
         if (!refreshResponse.ok) {
-          return null;
+          return false;
         }
 
         const parsedRefresh = parseRefreshResponse(refreshPayload);
-        updateStoredAuthTokens({
-          accessToken: parsedRefresh.tokens.accessToken,
-          refreshToken: parsedRefresh.tokens.refreshToken,
-        });
-
+        setAccessToken(parsedRefresh.tokens.accessToken);
         if (parsedRefresh.snapshot) {
           const { avatarUrl, theme, locale } = parsedRefresh.snapshot;
           updateStoredAuthUser({ avatarUrl });
@@ -128,9 +121,9 @@ export const callApi = async <TResponse>(
           }
         }
 
-        return parsedRefresh.tokens.accessToken;
+        return true;
       } catch {
-        return null;
+        return false;
       } finally {
         refreshInFlightPromise = null;
       }
@@ -147,12 +140,13 @@ export const callApi = async <TResponse>(
   if (shouldTryRefresh(firstAttempt.response.status)) {
     const refreshedAccessToken = await refreshAccessToken();
     if (refreshedAccessToken) {
-      const retryAttempt = await execute(refreshedAccessToken);
+      const retryAttempt = await execute();
       if (retryAttempt.response.ok) {
         return parser(retryAttempt.payload);
       }
 
       if (retryAttempt.response.status === 401) {
+        setAccessToken(null);
         clearAuth();
         redirectToLoginIfNeeded();
       }
@@ -160,10 +154,11 @@ export const callApi = async <TResponse>(
     }
 
     clearAuth();
+    setAccessToken(null);
     redirectToLoginIfNeeded();
   }
 
   throw toApiError(firstAttempt.payload);
 };
 
-let refreshInFlightPromise: Promise<string | null> | null = null;
+let refreshInFlightPromise: Promise<boolean> | null = null;

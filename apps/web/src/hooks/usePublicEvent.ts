@@ -12,6 +12,7 @@ import { useToast } from './useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { toApiAssetUrl } from '../lib/apiAssetUrl';
+import { isAuthenticated } from '../lib/auth';
 import {
   EventCloseReason,
   EventProvider,
@@ -49,7 +50,7 @@ const MAX_SEARCH_RESULTS = 50;
 
 export { ADDED_TRACKS_PAGE_SIZE };
 
-export const usePublicEvent = (magicLinkToken: string, accessToken?: string | null) => {
+export const usePublicEvent = (magicLinkToken: string) => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
@@ -127,10 +128,7 @@ export const usePublicEvent = (magicLinkToken: string, accessToken?: string | nu
         const [eventResult, tracksResult] = await Promise.all([
           callApi(
             `/v1/playlists/link/${encodeURIComponent(magicLinkToken)}`,
-            {
-              method: 'GET',
-              headers: accessToken ? { authorization: `Bearer ${accessToken}` } : undefined,
-            },
+            { method: 'GET' },
             (payload) => eventPublicResponseSchema.parse(payload),
           ),
           callApi(
@@ -177,13 +175,7 @@ export const usePublicEvent = (magicLinkToken: string, accessToken?: string | nu
       }
     };
     void load();
-  }, [
-    accessToken,
-    applyProviderPlaylistMissingState,
-    getPublicErrorMessage,
-    magicLinkToken,
-    showToast,
-  ]);
+  }, [applyProviderPlaylistMissingState, getPublicErrorMessage, magicLinkToken, showToast]);
 
   const fetchSearchBatch = useCallback(
     async (queryText: string, offset: number): Promise<SearchTrackResult[]> => {
@@ -356,7 +348,7 @@ export const usePublicEvent = (magicLinkToken: string, accessToken?: string | nu
   };
 
   const toggleTracked = async () => {
-    if (!accessToken || !event || event.isOwner || isTrackMutationPending) {
+    if (!isAuthenticated() || !event || event.isOwner || isTrackMutationPending) {
       return;
     }
 

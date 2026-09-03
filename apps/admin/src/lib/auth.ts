@@ -1,8 +1,39 @@
-import { type AdminPermissionLevel, type AdminPermissionScope } from '@synqit/shared';
-import { authResponseSchema } from '@synqit/shared';
+import {
+  adminMeResponseSchema,
+  authResponseSchema,
+  type AdminPermissionLevel,
+  type AdminPermissionScope,
+} from '@synqit/shared';
 
-import { AUTH_CHANGED_EVENT, AUTH_STORAGE_KEY } from './constants';
+import { API_URL, AUTH_CHANGED_EVENT, AUTH_STORAGE_KEY } from './constants';
 import { StoredAuth } from './types';
+
+const COOKIE_SESSION_SENTINEL = '__cookie_session__';
+const ADMIN_CSRF_COOKIE_NAME = 'synqit_admin_csrf';
+let accessTokenMemory: string | null = null;
+
+const readCookieValue = (name: string): string | null => {
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  const prefix = `${name}=`;
+  for (const segment of document.cookie.split(';')) {
+    const trimmed = segment.trim();
+    if (!trimmed.startsWith(prefix)) {
+      continue;
+    }
+
+    const rawValue = trimmed.slice(prefix.length);
+    try {
+      return decodeURIComponent(rawValue);
+    } catch {
+      return rawValue;
+    }
+  }
+
+  return null;
+};
 
 export const emitAuthChanged = (): void => {
   window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
@@ -17,8 +48,6 @@ export const loadAuth = (): StoredAuth | null => {
   try {
     const parsed = JSON.parse(raw) as Partial<StoredAuth>;
     if (
-      typeof parsed.accessToken !== 'string' ||
-      typeof parsed.refreshToken !== 'string' ||
       typeof parsed.userId !== 'string' ||
       typeof parsed.userEmail !== 'string' ||
       !(typeof parsed.avatarUrl === 'string' || parsed.avatarUrl === null)
@@ -27,8 +56,6 @@ export const loadAuth = (): StoredAuth | null => {
     }
 
     return {
-      accessToken: parsed.accessToken,
-      refreshToken: parsed.refreshToken,
       userId: parsed.userId,
       userEmail: parsed.userEmail,
       avatarUrl: parsed.avatarUrl,
@@ -40,21 +67,25 @@ export const loadAuth = (): StoredAuth | null => {
   }
 };
 
-export const storeAuth = (authResponse: unknown): StoredAuth => {
-  const parsed = authResponseSchema.parse(authResponse);
+const storeAuthUser = (userPayload: unknown): StoredAuth => {
+  const parsedUser = adminMeResponseSchema.parse({ user: userPayload }).user;
   const nextAuth: StoredAuth = {
-    accessToken: parsed.tokens.accessToken,
-    refreshToken: parsed.tokens.refreshToken,
-    userId: parsed.user.id,
-    userEmail: parsed.user.email,
-    avatarUrl: parsed.user.avatarUrl,
-    role: parsed.user.role,
-    adminPermissions: parsed.user.adminPermissions,
+    userId: parsedUser.id,
+    userEmail: parsedUser.email,
+    avatarUrl: parsedUser.avatarUrl,
+    role: parsedUser.role,
+    adminPermissions: parsedUser.adminPermissions,
   };
 
   localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextAuth));
   emitAuthChanged();
   return nextAuth;
+};
+
+export const storeAuth = (authResponse: unknown): StoredAuth => {
+  const parsed = authResponseSchema.parse(authResponse);
+  accessTokenMemory = parsed.tokens.accessToken;
+  return storeAuthUser(parsed.user);
 };
 
 export const updateStoredAuthUser = (patch: {
@@ -81,36 +112,68 @@ export const updateStoredAuthUser = (patch: {
   return next;
 };
 
-export const updateStoredAuthTokens = (patch: {
-  accessToken: string;
-  refreshToken: string;
-}): StoredAuth | null => {
-  const current = loadAuth();
-  if (!current) {
-    return null;
-  }
-
-  const next: StoredAuth = {
-    ...current,
-    accessToken: patch.accessToken,
-    refreshToken: patch.refreshToken,
-  };
-
-  localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(next));
-  emitAuthChanged();
-  return next;
-};
-
 export const clearAuth = (): void => {
+  accessTokenMemory = null;
   localStorage.removeItem(AUTH_STORAGE_KEY);
   emitAuthChanged();
 };
 
-export const getAccessToken = (): string | null => loadAuth()?.accessToken ?? null;
+export const setAccessToken = (accessToken: string | null): void => {
+  accessTokenMemory = accessToken;
+};
 
-export const isAuthenticated = (): boolean => Boolean(loadAuth()?.accessToken);
+export const getAccessToken = (): string | null =>
+  accessTokenMemory ?? (loadAuth() ? COOKIE_SESSION_SENTINEL : null);
+
+export const getCsrfToken = (): string | null => readCookieValue(ADMIN_CSRF_COOKIE_NAME);
+
+export const isAuthenticated = (): boolean => Boolean(loadAuth());
 
 export const isAdminAuthenticated = (): boolean => loadAuth()?.role === 'admin';
+
+export const bootstrapAdminAuthSession = async (): Promise<void> => {
+  const syncFromMe = async (): Promise<boolean> => {
+    const meResponse = await fetch(`${API_URL}/v1/admin/me`, {
+      method: 'GET',
+      credentials: 'include',
+    });
+    if (!meResponse.ok) {
+      return false;
+    }
+
+    const mePayload = (await meResponse.json().catch(() => ({}))) as unknown;
+    storeAuthUser(adminMeResponseSchema.parse(mePayload).user);
+    return true;
+  };
+
+  try {
+    if (await syncFromMe()) {
+      return;
+    }
+
+    const refreshResponse = await fetch(`${API_URL}/v1/admin/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: getCsrfToken() ? { 'x-synqit-csrf-token': getCsrfToken() as string } : undefined,
+    });
+    if (!refreshResponse.ok) {
+      clearAuth();
+      return;
+    }
+
+    const refreshPayload = (await refreshResponse.json().catch(() => ({}))) as unknown;
+    const parsedRefresh = authResponseSchema.shape.tokens.parse(
+      (refreshPayload as { tokens?: unknown }).tokens,
+    );
+    accessTokenMemory = parsedRefresh.accessToken;
+
+    if (!(await syncFromMe())) {
+      clearAuth();
+    }
+  } catch {
+    clearAuth();
+  }
+};
 
 export const hasAdminPermission = (
   scope: AdminPermissionScope,

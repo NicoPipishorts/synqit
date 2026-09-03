@@ -1,4 +1,4 @@
-import { loadAuth } from './auth';
+import { getCsrfToken, loadAuth } from './auth';
 import { API_URL, ANALYTICS_SESSION_STORAGE_KEY } from './constants';
 import { loadAnonymousPreferences } from './preferences';
 
@@ -81,11 +81,7 @@ const getCurrentPath = (): string => {
   return currentPath.slice(0, 512) || '/';
 };
 
-const enqueueViaFetch = (params: {
-  body: string;
-  accessToken: string | null;
-  locale: 'en' | 'fr' | null;
-}) => {
+const enqueueViaFetch = (params: { body: string; locale: 'en' | 'fr' | null }) => {
   const headers: Record<string, string> = {
     'content-type': 'application/json',
   };
@@ -93,12 +89,14 @@ const enqueueViaFetch = (params: {
   if (params.locale) {
     headers['x-synqit-locale'] = params.locale;
   }
-  if (params.accessToken) {
-    headers.authorization = `Bearer ${params.accessToken}`;
+  const csrfToken = getCsrfToken();
+  if (csrfToken) {
+    headers['x-synqit-csrf-token'] = csrfToken;
   }
 
   void fetch(`${API_URL}/v1/analytics/events`, {
     method: 'POST',
+    credentials: 'include',
     headers,
     body: params.body,
     keepalive: true,
@@ -139,7 +137,7 @@ export const trackAnalyticsEvent = (params: {
   }
 
   const locale = loadAnonymousPreferences().locale ?? null;
-  const accessToken = loadAuth()?.accessToken ?? null;
+  const isAuthenticated = Boolean(loadAuth());
 
   let payload: string;
   try {
@@ -156,13 +154,12 @@ export const trackAnalyticsEvent = (params: {
     return;
   }
 
-  if (!accessToken && enqueueViaBeacon(payload)) {
+  if (!isAuthenticated && enqueueViaBeacon(payload)) {
     return;
   }
 
   enqueueViaFetch({
     body: payload,
-    accessToken,
     locale,
   });
 };

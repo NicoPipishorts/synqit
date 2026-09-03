@@ -64,9 +64,6 @@ export const AccountMenu = () => {
         '/v1/auth/logout',
         {
           method: 'POST',
-          body: JSON.stringify({
-            refreshToken: auth.refreshToken,
-          }),
         },
         (payload) => payload,
       ).catch(() => undefined);

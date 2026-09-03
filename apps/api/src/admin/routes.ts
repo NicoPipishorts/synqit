@@ -31,6 +31,12 @@ import { z } from 'zod';
 
 import { buildAvatarUrl, deleteAvatarImage } from '../auth/avatar-storage';
 import { createRefreshToken, hashToken, verifyPassword } from '../auth/crypto';
+import {
+  applyAccessTokenFromSessionCookie,
+  clearSessionCookies,
+  getSessionRefreshTokenFromRequest,
+  setSessionCookies,
+} from '../auth/session-cookies';
 import { authStore, type UserRecord } from '../auth/store';
 import { prisma } from '../db/prisma';
 import { enqueuePasswordResetEmailPreview } from '../jobs/password-reset-email';
@@ -121,6 +127,7 @@ const refreshTokenTtlDays = parsePositiveNumber(
   DEFAULT_REFRESH_TOKEN_TTL_DAYS,
 );
 const refreshTokenTtlMs = refreshTokenTtlDays * 24 * 60 * 60 * 1000;
+const refreshTokenTtlSeconds = refreshTokenTtlDays * 24 * 60 * 60;
 
 const fullAdminPermissions = (): AdminPermission[] =>
   adminPermissionScopeSchema.options.map((scope) => ({
@@ -252,6 +259,7 @@ const loadJwtAdminUser = async (
   reply: FastifyReply,
 ): Promise<UserRecord | null> => {
   try {
+    applyAccessTokenFromSessionCookie(request, 'admin');
     await request.jwtVerify();
   } catch {
     await reply.status(401).send({
@@ -296,6 +304,19 @@ const loadJwtAdminUser = async (
   }
 
   return user;
+};
+
+const readRefreshTokenFromRequest = (request: FastifyRequest): string | null => {
+  const body =
+    request.body && typeof request.body === 'object'
+      ? (request.body as { refreshToken?: unknown })
+      : null;
+
+  if (body && typeof body.refreshToken === 'string' && body.refreshToken.trim().length > 0) {
+    return body.refreshToken.trim();
+  }
+
+  return getSessionRefreshTokenFromRequest(request, 'admin');
 };
 
 const isAdminKeyValid = (request: FastifyRequest): boolean => {
@@ -366,13 +387,6 @@ const issueTokens = async (app: FastifyInstance, user: UserRecord) => {
     expiresInSeconds: accessTokenTtlSeconds,
   };
 };
-
-const isEffectiveSuperAdmin = (user: UserRecord): boolean =>
-  user.role === 'admin' &&
-  !user.isBlocked &&
-  user.accountState !== 'pending_deletion' &&
-  user.accountState !== 'deleted' &&
-  isSuperAdminIdentity(user.email);
 
 const auditAdminAction = async (params: {
   actor: UserRecord | null;
@@ -476,9 +490,127 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const tokens = await issueTokens(app, user);
+    setSessionCookies(reply, 'admin', {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      accessTokenMaxAgeSeconds: accessTokenTtlSeconds,
+      refreshTokenMaxAgeSeconds: refreshTokenTtlSeconds,
+    });
     return authResponseSchema.parse({
       user: formatPublicUser(user),
       tokens,
+    });
+  });
+
+  app.post('/admin/auth/refresh', async (request, reply) => {
+    const refreshToken = readRefreshTokenFromRequest(request);
+    if (!refreshToken) {
+      clearSessionCookies(reply, 'admin');
+      return reply.status(401).send({
+        code: 'invalid_refresh_token',
+        message: 'Refresh token is invalid.',
+      });
+    }
+
+    const oldTokenHash = hashToken(refreshToken);
+    const tokenRecord = await authStore.findRefreshTokenByHash(oldTokenHash);
+    if (!tokenRecord) {
+      clearSessionCookies(reply, 'admin');
+      return reply.status(401).send({
+        code: 'invalid_refresh_token',
+        message: 'Refresh token is invalid.',
+      });
+    }
+
+    if (tokenRecord.revokedAt || tokenRecord.expiresAt.getTime() <= Date.now()) {
+      await authStore.revokeRefreshTokenByHash(oldTokenHash);
+      clearSessionCookies(reply, 'admin');
+      return reply.status(401).send({
+        code: 'invalid_refresh_token',
+        message: 'Refresh token is invalid.',
+      });
+    }
+
+    const user = await authStore.findUserById(tokenRecord.userId);
+    if (!user) {
+      await authStore.revokeRefreshTokenByHash(oldTokenHash);
+      clearSessionCookies(reply, 'admin');
+      return reply.status(401).send({
+        code: 'invalid_refresh_token',
+        message: 'Refresh token is invalid.',
+      });
+    }
+
+    if (user.isBlocked) {
+      await authStore.revokeRefreshTokenByHash(oldTokenHash);
+      clearSessionCookies(reply, 'admin');
+      return reply.status(403).send({
+        code: 'account_blocked',
+        message: 'This account has been blocked.',
+      });
+    }
+
+    if (user.role !== 'admin') {
+      await authStore.revokeRefreshTokenByHash(oldTokenHash);
+      clearSessionCookies(reply, 'admin');
+      return reply.status(403).send({
+        code: 'forbidden',
+        message: 'Admin access required.',
+      });
+    }
+
+    const nextRefreshToken = createRefreshToken();
+    const rotatedTokenRecord = await authStore.rotateRefreshToken({
+      oldTokenHash,
+      newTokenHash: hashToken(nextRefreshToken),
+      expiresAt: new Date(Date.now() + refreshTokenTtlMs),
+    });
+
+    if (!rotatedTokenRecord) {
+      clearSessionCookies(reply, 'admin');
+      return reply.status(401).send({
+        code: 'invalid_refresh_token',
+        message: 'Refresh token is invalid.',
+      });
+    }
+
+    const accessToken = app.jwt.sign(
+      {
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      {
+        expiresIn: accessTokenTtlSeconds,
+      },
+    );
+
+    setSessionCookies(reply, 'admin', {
+      accessToken,
+      refreshToken: nextRefreshToken,
+      accessTokenMaxAgeSeconds: accessTokenTtlSeconds,
+      refreshTokenMaxAgeSeconds: refreshTokenTtlSeconds,
+    });
+
+    return reply.status(200).send({
+      tokens: {
+        accessToken,
+        refreshToken: nextRefreshToken,
+        tokenType: 'Bearer',
+        expiresInSeconds: accessTokenTtlSeconds,
+      },
+    });
+  });
+
+  app.post('/admin/auth/logout', async (request, reply) => {
+    const refreshToken = readRefreshTokenFromRequest(request);
+    if (refreshToken) {
+      await authStore.revokeRefreshTokenByHash(hashToken(refreshToken));
+    }
+    clearSessionCookies(reply, 'admin');
+
+    return reply.status(200).send({
+      ok: true,
     });
   });
 
@@ -1779,9 +1911,7 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    const scheduledFor = new Date(
-      Date.now() + accountDeletionGraceDays * 24 * 60 * 60 * 1000,
-    );
+    const scheduledFor = new Date(Date.now() + accountDeletionGraceDays * 24 * 60 * 60 * 1000);
 
     if (
       await denyLastSuperAdminMutationIfNeeded(reply, existing, {
@@ -1817,15 +1947,13 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       },
     });
 
-    return reply
-      .status(200)
-      .send(
-        adminUserDeletionResponseSchema.parse({
-          ok: true,
-          scheduled: true,
-          deletionScheduledFor: scheduledFor.toISOString(),
-        }),
-      );
+    return reply.status(200).send(
+      adminUserDeletionResponseSchema.parse({
+        ok: true,
+        scheduled: true,
+        deletionScheduledFor: scheduledFor.toISOString(),
+      }),
+    );
   });
 
   app.put('/admin/users/:userId/block', async (request, reply) => {
