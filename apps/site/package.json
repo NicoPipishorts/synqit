@@ -12,6 +12,8 @@
     "test": "echo \"No tests yet for @synqit/site\""
   },
   "dependencies": {
+    "@synqit/shared": "0.1.0",
+    "@synqit/ui": "0.1.0",
     "framer-motion": "^12.34.0",
     "lucide-react": "^1.7.0",
     "react": "^19.0.0",

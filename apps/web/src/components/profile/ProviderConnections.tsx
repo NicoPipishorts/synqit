@@ -1,11 +1,11 @@
 import { providerSchema } from '@synqit/shared';
+import { useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouterState } from '@tanstack/react-router';
 import { RefreshCcw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
-import { useToast } from '../../hooks/useToast';
 import { trackAnalyticsEvent } from '../../lib/analytics';
 import { toApiError } from '../../lib/api';
 import { connectAppleMusic } from '../../lib/appleMusic';

@@ -1,3 +1,4 @@
+import { OnboardingPanel, RouteLoadingScreen, useToast } from '@synqit/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   CalendarDays,
@@ -13,7 +14,6 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 
-import { AppOnboardingPanel } from '../components/app/AppOnboardingPanel';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import {
   DashboardActivityFeed,
@@ -28,9 +28,7 @@ import {
 import { DashboardStats, type DashboardStat } from '../components/dashboard/DashboardStats';
 import { PwaInstallPrompt } from '../components/dashboard/PwaInstallPrompt';
 import { CTALink } from '../components/ui/cta';
-import { RouteLoadingScreen } from '../components/ui/RouteLoadingScreen';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import {
   fetchDashboardSummary,
   fetchDashboardTopFollowers,
@@ -445,7 +443,7 @@ export const DashboardPage = () => {
 
       {!isResolvingEmptyState && !hasDashboardContent && !isInitialLoad ? (
         <div className="grid min-h-[60vh] items-center">
-          <AppOnboardingPanel
+          <OnboardingPanel
             eyebrow={t('dashboard.onboardingEyebrow')}
             title={t('dashboard.onboardingTitle')}
             body={t('dashboard.onboardingBody')}

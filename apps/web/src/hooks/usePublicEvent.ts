@@ -4,11 +4,11 @@ import {
   eventTrackSearchResponseSchema,
   eventTracksResponseSchema,
 } from '@synqit/shared';
+import { useToast } from '@synqit/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 
 import { useI18n } from './useI18n';
-import { useToast } from './useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import { toApiAssetUrl } from '../lib/apiAssetUrl';

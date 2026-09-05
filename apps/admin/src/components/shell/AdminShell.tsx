@@ -1,3 +1,4 @@
+import { BrandLogo } from '@synqit/ui';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -19,7 +20,6 @@ import { useEffect, useState } from 'react';
 import { useI18n } from '../../hooks/useI18n';
 import { clearAuth, getCsrfToken, loadAuth } from '../../lib/auth';
 import { API_URL } from '../../lib/constants';
-import { BrandLogo } from '../ui/BrandLogo';
 import { CTAButton, CTALink } from '../ui/cta';
 
 const NAV_ITEMS = [

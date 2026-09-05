@@ -7,6 +7,7 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
 import { analyticsStore } from './store';
 import { authStore } from '../auth/store';
+import { buildRouteRateLimiters } from '../security/rate-limits';
 
 const normalizeLocaleHeader = (headerValue: string | string[] | undefined): EmailLocale | null => {
   const raw = Array.isArray(headerValue) ? headerValue[0] : headerValue;
@@ -77,7 +78,9 @@ const resolveOptionalUserId = async (request: FastifyRequest): Promise<string | 
 };
 
 export const registerAnalyticsRoutes = async (app: FastifyInstance): Promise<void> => {
-  app.post('/analytics/events', async (request, reply) => {
+  const limiters = buildRouteRateLimiters();
+
+  app.post('/analytics/events', { preHandler: limiters.analytics }, async (request, reply) => {
     const parsed = analyticsTrackRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return sendValidationError(reply, parsed.error.flatten());

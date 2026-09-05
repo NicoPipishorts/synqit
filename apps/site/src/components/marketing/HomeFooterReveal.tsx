@@ -1,6 +1,7 @@
+import { BrandLogo } from '@synqit/ui';
+
 import { buildAppUrl } from '../../lib/app-url';
 import { useI18n } from '../../lib/i18n';
-import { BrandLogo } from '../ui/BrandLogo';
 import { LanguageToggle } from '../ui/LanguageToggle';
 import { ThemeToggle } from '../ui/ThemeToggle';
 

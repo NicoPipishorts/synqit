@@ -41,16 +41,16 @@ import {
   getSessionRefreshTokenFromRequest,
   setSessionCookies,
 } from '../auth/session-cookies';
-import { authStore, type UserRecord } from '../auth/store';
+import { authStore, isSuperAdminIdentity, type UserRecord } from '../auth/store';
 import { prisma } from '../db/prisma';
 import { enqueuePasswordResetEmailPreview } from '../jobs/password-reset-email';
 import { enqueueRegistrationConfirmationEmailPreview } from '../jobs/registration-email';
 import { enqueueWeeklyRecapEmailPreview } from '../jobs/weekly-recap-email';
+import { buildRouteRateLimiters } from '../security/rate-limits';
 
 const DEFAULT_REDIS_URL = 'redis://localhost:6380';
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
-const DEFAULT_SUPER_ADMIN_IDENTITIES = 'shamanproto';
 const DEFAULT_ACCOUNT_DELETION_GRACE_DAYS = 30;
 
 const previewEmailRequestSchema = z.object({
@@ -146,21 +146,6 @@ const standardAdminPermissions = (): AdminPermission[] =>
       scope,
       level: 'write',
     }));
-
-const readSuperAdminIdentities = (): Set<string> =>
-  new Set(
-    (process.env.ADMIN_SUPER_USERS ?? DEFAULT_SUPER_ADMIN_IDENTITIES)
-      .split(',')
-      .map((value) => value.trim().toLowerCase())
-      .filter(Boolean),
-  );
-
-const isSuperAdminIdentity = (email: string): boolean => {
-  const normalizedEmail = email.trim().toLowerCase();
-  const localPart = normalizedEmail.split('@')[0] ?? normalizedEmail;
-  const identifiers = readSuperAdminIdentities();
-  return identifiers.has(normalizedEmail) || identifiers.has(localPart);
-};
 
 const defaultAdminPermissionsForEmail = (email: string): AdminPermission[] =>
   isSuperAdminIdentity(email) ? fullAdminPermissions() : standardAdminPermissions();
@@ -442,7 +427,9 @@ const denyLastSuperAdminMutationIfNeeded = async (
 };
 
 export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> => {
-  app.post('/admin/auth/login', async (request, reply) => {
+  const limiters = buildRouteRateLimiters();
+
+  app.post('/admin/auth/login', { preHandler: limiters.authAttempt }, async (request, reply) => {
     const parsed = adminLoginRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return reply.status(400).send({

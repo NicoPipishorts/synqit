@@ -1,7 +1,7 @@
+import { BrandLogo } from '@synqit/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { FormEvent, useState } from 'react';
 
-import { BrandLogo } from '../components/ui/BrandLogo';
 import { CTAButton } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { callApi, toApiError } from '../lib/api';

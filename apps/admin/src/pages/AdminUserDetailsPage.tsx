@@ -5,6 +5,7 @@ import {
   type AdminPermissionLevel,
   type AdminPermissionScope,
 } from '@synqit/shared';
+import { useToast } from '@synqit/ui';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { AlertTriangle, KeyRound, RotateCcw, Shield, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -14,7 +15,6 @@ import { PermissionLevelSlider } from '../components/admin/PermissionLevelSlider
 import { CTAButton } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import { isDisplayableAnalyticsPath } from '../lib/analytics-display';
 import { callApi, toApiError } from '../lib/api';
 import { clearAuth, hasAdminPermission, loadAuth } from '../lib/auth';

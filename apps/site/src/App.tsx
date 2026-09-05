@@ -1,10 +1,14 @@
+import {
+  BrandLogo,
+  PublicMobileNav,
+  type PublicMobileNavItem,
+  PublicNav,
+  type PublicNavItem as PublicNavComponentItem,
+} from '@synqit/ui';
 import { Home, LogIn, Share2, Tag } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BlurSpotLayer } from './components/ui/BlurSpotLayer';
-import { BrandLogo } from './components/ui/BrandLogo';
-import { PublicMobileNav, type PublicMobileNavItem } from './components/ui/PublicMobileNav';
-import { PublicNav, type PublicNavItem as PublicNavComponentItem } from './components/ui/PublicNav';
 import { HomePage } from './HomePage';
 import { trackSiteEvent } from './lib/analytics';
 import { buildAppUrl, getAppOrigin, shouldRedirectToApp } from './lib/app-url';
@@ -65,10 +69,30 @@ const AppShell = () => {
   ];
 
   const mobileNavItems: PublicMobileNavItem[] = [
-    { id: 'product', href: '/', label: t('home.nav.product'), icon: Home },
-    { id: 'pricing', href: '/pricing', label: t('home.pricing.navLink'), icon: Tag },
-    { id: 'share', href: buildAppUrl('/auth/register'), label: t('home.nav.share'), icon: Share2 },
-    { id: 'login', href: buildAppUrl('/auth/login'), label: t('accountMenu.login'), icon: LogIn },
+    {
+      id: 'product',
+      href: '/',
+      label: t('home.nav.product'),
+      icon: <Home size={18} aria-hidden="true" />,
+    },
+    {
+      id: 'pricing',
+      href: '/pricing',
+      label: t('home.pricing.navLink'),
+      icon: <Tag size={18} aria-hidden="true" />,
+    },
+    {
+      id: 'share',
+      href: buildAppUrl('/auth/register'),
+      label: t('home.nav.share'),
+      icon: <Share2 size={18} aria-hidden="true" />,
+    },
+    {
+      id: 'login',
+      href: buildAppUrl('/auth/login'),
+      label: t('accountMenu.login'),
+      icon: <LogIn size={18} aria-hidden="true" />,
+    },
   ];
 
   const handleNavActivate = (id: string) => {

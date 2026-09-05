@@ -1,8 +1,8 @@
+import { RouteLoadingScreen } from '@synqit/ui';
 import { ReactNode, startTransition, useEffect, useMemo, useState } from 'react';
 
 import { I18nContext, I18nContextValue } from './context';
 import { loadLocaleMessages, Locale, type MessageDictionary } from './messages';
-import { RouteLoadingScreen } from '../../components/ui/RouteLoadingScreen';
 import { isAuthenticated } from '../auth';
 import { loadAnonymousPreferences, saveAnonymousPreferences } from '../preferences';
 import { updateUserPreferences } from '../queries';

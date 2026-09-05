@@ -155,7 +155,11 @@ type UserPreferencesRow = {
   updated_at: Date;
 };
 
-const DEFAULT_SUPER_ADMIN_IDENTITIES = 'shamanproto';
+// Full email addresses only. Set ADMIN_SUPER_USERS in every environment; it is
+// required in production (see config.ts). Matching on the local part was removed
+// because anyone could register `<local-part>@other-domain` and inherit super
+// admin permissions.
+const DEFAULT_SUPER_ADMIN_IDENTITIES = 'shamanproto@gmail.com';
 
 type RefreshTokenRow = {
   id: string;
@@ -199,20 +203,20 @@ const toUserRecord = (row: UserRow): UserRecord => ({
   createdAt: new Date(row.created_at),
 });
 
-const readSuperAdminIdentities = (): Set<string> =>
+/** Parses a comma-separated ADMIN_SUPER_USERS value into lower-cased full email addresses. */
+export const parseSuperAdminIdentities = (raw: string | undefined): Set<string> =>
   new Set(
-    (process.env.ADMIN_SUPER_USERS ?? DEFAULT_SUPER_ADMIN_IDENTITIES)
+    (raw ?? DEFAULT_SUPER_ADMIN_IDENTITIES)
       .split(',')
       .map((value) => value.trim().toLowerCase())
-      .filter(Boolean),
+      .filter((value) => value.includes('@')),
   );
 
-const isSuperAdminIdentity = (email: string): boolean => {
-  const normalizedEmail = email.trim().toLowerCase();
-  const localPart = normalizedEmail.split('@')[0] ?? normalizedEmail;
-  const identifiers = readSuperAdminIdentities();
-  return identifiers.has(normalizedEmail) || identifiers.has(localPart);
-};
+const readSuperAdminIdentities = (): Set<string> =>
+  parseSuperAdminIdentities(process.env.ADMIN_SUPER_USERS);
+
+export const isSuperAdminIdentity = (email: string): boolean =>
+  readSuperAdminIdentities().has(email.trim().toLowerCase());
 
 const toAdminAuditLogRecord = (row: AdminAuditLogRow): AdminAuditLogRecord => ({
   id: row.id,
@@ -671,7 +675,9 @@ export const authStore = {
     userId: string,
     permissions: AdminPermission[],
   ): Promise<void> {
-    const storablePermissions = permissions.filter((permission) => permission.scope !== 'admin_users');
+    const storablePermissions = permissions.filter(
+      (permission) => permission.scope !== 'admin_users',
+    );
 
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw`
@@ -835,7 +841,9 @@ export const authStore = {
     );
   },
 
-  async anonymizeUserForDeletionById(userId: string): Promise<{ ok: boolean; avatarPath: string | null }> {
+  async anonymizeUserForDeletionById(
+    userId: string,
+  ): Promise<{ ok: boolean; avatarPath: string | null }> {
     return prisma.$transaction(async (tx) => {
       const existing = await tx.$queryRaw<UserRow[]>`
         SELECT id, email, role, is_blocked, blocked_at, account_state, is_test_account, deletion_requested_at, deletion_scheduled_for, deleted_at, deletion_reason, test_reset_at, password_hash, avatar_url, created_at

@@ -1,4 +1,5 @@
 import type { SyncItem } from '@synqit/shared';
+import { useToast, IconButton } from '@synqit/ui';
 import {
   Copy,
   ExternalLink,
@@ -12,9 +13,7 @@ import {
 import { useState } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
-import { useToast } from '../../hooks/useToast';
 import { CTAButton, CTALink } from '../ui/cta';
-import { IconButton } from '../ui/IconButton';
 import { Modal } from '../ui/Modal';
 
 type SyncCardProps = {

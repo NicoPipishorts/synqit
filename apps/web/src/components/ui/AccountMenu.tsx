@@ -1,10 +1,10 @@
+import { NotificationDot } from '@synqit/ui';
 import { Link } from '@tanstack/react-router';
 import { UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { CTAButton, CTALink } from './cta';
 import { HeroCtaLink } from './HeroCtaLink';
-import { NotificationDot } from './NotificationDot';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
 import { useProfileCompletion } from '../../hooks/useProfileCompletion';

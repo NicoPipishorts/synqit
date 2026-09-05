@@ -1,7 +1,7 @@
+import { PublicNav, BrandLogo } from '@synqit/ui';
 import { Link, Outlet, useMatchRoute, useRouterState } from '@tanstack/react-router';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
-import { PublicNav } from './PublicNav';
 import { useAuthSession } from '../../hooks/useAuthSession';
 import { useI18n } from '../../hooks/useI18n';
 import { trackPageView } from '../../lib/analytics';
@@ -10,7 +10,6 @@ import { saveAnonymousPreferences } from '../../lib/preferences';
 import { fetchUserPreferences } from '../../lib/queries';
 import { applyTheme, loadTheme } from '../../lib/theme';
 import { AccountMenu } from '../ui/AccountMenu';
-import { BrandLogo } from '../ui/BrandLogo';
 
 const PrivateDesktopNavigation = lazy(() =>
   import('./PrivateNavigation').then((module) => ({

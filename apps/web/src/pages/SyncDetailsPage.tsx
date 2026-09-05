@@ -1,14 +1,13 @@
+import { SurfaceCard, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { Link2, ListMusic, Pencil, Users } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
-import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { SyncMagicLinkCard } from '../components/syncs/SyncMagicLinkCard';
 import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import { toApiError } from '../lib/api';
 import {
   fetchSyncDetail,
@@ -123,20 +122,20 @@ export const SyncDetailsPage = () => {
 
         {syncQuery.isLoading ? (
           <div className="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
-            <AppSurfaceCard className="grid gap-4">
+            <SurfaceCard className="grid gap-4">
               <div className="h-6 w-2/3 animate-pulse rounded bg-app-border" />
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="h-24 animate-pulse rounded-2xl bg-app-border" />
                 <div className="h-24 animate-pulse rounded-2xl bg-app-border" />
                 <div className="h-24 animate-pulse rounded-2xl bg-app-border" />
               </div>
-            </AppSurfaceCard>
-            <AppSurfaceCard className="grid gap-3">
+            </SurfaceCard>
+            <SurfaceCard className="grid gap-3">
               <div className="h-5 w-40 animate-pulse rounded bg-app-border" />
               {Array.from({ length: 5 }).map((_, index) => (
                 <div key={index} className="h-17 animate-pulse rounded-xl bg-app-border" />
               ))}
-            </AppSurfaceCard>
+            </SurfaceCard>
           </div>
         ) : sync ? (
           <>
@@ -231,7 +230,7 @@ export const SyncDetailsPage = () => {
               <div className="flex flex-col gap-4">
                 {activeTab === 'edit' ? (
                   <>
-                    <AppSurfaceCard className="grid gap-4">
+                    <SurfaceCard className="grid gap-4">
                       <div className="grid gap-1">
                         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary">
                           {t('syncedListsPage.syncOverview')}
@@ -285,7 +284,7 @@ export const SyncDetailsPage = () => {
                           </div>
                         </div>
                       </div>
-                    </AppSurfaceCard>
+                    </SurfaceCard>
                   </>
                 ) : activeTab === 'share' ? (
                   <div className="mx-auto w-full">

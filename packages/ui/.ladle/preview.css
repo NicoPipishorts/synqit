@@ -1,0 +1,16 @@
+@import 'tailwindcss';
+@import '../src/tokens.css';
+@source '../src';
+
+body {
+  margin: 0;
+  background: var(--syn-bg);
+  color: var(--syn-text);
+  font-family:
+    'General Sans',
+    'Satoshi',
+    'Manrope',
+    'Avenir Next',
+    'Segoe UI',
+    sans-serif;
+}

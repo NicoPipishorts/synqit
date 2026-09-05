@@ -6,14 +6,15 @@ split domains into services (see `docs/architecture.md`).
 
 ## Layout
 
-| Path              | What it is                                                                                                                   | Local port |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| `apps/site`       | Marketing site + pricing page (React/Vite)                                                                                   | 4180       |
-| `apps/web`        | Product app (React, TanStack Router/Query)                                                                                   | 5173       |
-| `apps/admin`      | Back office (React/Vite)                                                                                                     | 4174       |
-| `apps/api`        | Fastify + Prisma + PostgreSQL. Domains: `auth`, `integrations`, `events`, `syncs`, `admin`, `analytics`, `dashboard`, `jobs` | 3001       |
-| `apps/worker`     | BullMQ worker (email notifications today; sync jobs planned)                                                                 | —          |
-| `packages/shared` | Zod schemas, shared types, queue names. Build it before api/web: `yarn build:shared`                                         | —          |
+| Path              | What it is                                                                                                                                                                                                 | Local port    |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `apps/site`       | Marketing site + pricing page (React/Vite)                                                                                                                                                                 | 4180          |
+| `apps/web`        | Product app (React, TanStack Router/Query)                                                                                                                                                                 | 5173          |
+| `apps/admin`      | Back office (React/Vite)                                                                                                                                                                                   | 4174          |
+| `apps/api`        | Fastify + Prisma + PostgreSQL. Domains: `auth`, `integrations`, `events`, `syncs`, `admin`, `analytics`, `dashboard`, `jobs`                                                                               | 3001          |
+| `apps/worker`     | BullMQ worker (email notifications today; sync jobs planned)                                                                                                                                               | —             |
+| `packages/shared` | Zod schemas, shared types, queue names. Build it before api/web: `yarn build:shared`                                                                                                                       | —             |
+| `packages/ui`     | Design tokens (`tokens.css`) + shared React primitives for site/web/admin. Consumed as source via Vite aliases; `yarn workspace @synqit/ui ladle` for stories, `yarn workspace @synqit/ui test` for Vitest | 61000 (Ladle) |
 
 ## Everyday commands
 
@@ -63,6 +64,10 @@ yarn test:web:e2e            # Playwright smoke test
   first, then use them in both api and web.
 - DB: snake_case tables/columns, `@db.Timestamptz(6)`, UUID ids. Schema changes only via Prisma
   migrations, never at runtime.
+- Shared UI lives in `packages/ui`. Components there take labels and callbacks as props (no
+  router, i18n, or theme imports); apps keep thin wrappers in `components/ui/` that bind those.
+  Brand tokens and the `dark` variant come from `@synqit/ui/tokens.css`; app stylesheets keep only
+  `body` and app-specific utilities.
 - Web copy is translated: every string goes in `apps/web/src/locales/{en,fr}/common.json`.
 - Sync UX stays one-way in the frontend even though the backend supports bidirectional.
 

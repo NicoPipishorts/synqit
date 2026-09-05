@@ -8,10 +8,15 @@ export default defineConfig({
     alias: {
       // Treat shared workspace code as source during web dev to avoid dep-optimizer churn.
       '@synqit/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
+      // Order matters: the stylesheet alias must precede the package alias.
+      '@synqit/ui/tokens.css': path.resolve(__dirname, '../../packages/ui/src/tokens.css'),
+      // Order matters: the stylesheet alias must precede the package alias.
+      '@synqit/ui/tokens.css': path.resolve(__dirname, '../../packages/ui/src/tokens.css'),
+      '@synqit/ui': path.resolve(__dirname, '../../packages/ui/src/index.ts'),
     },
   },
   optimizeDeps: {
-    exclude: ['@synqit/shared'],
+    exclude: ['@synqit/shared', '@synqit/ui'],
   },
   build: {
     rollupOptions: {

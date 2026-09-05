@@ -1,6 +1,5 @@
+import { RouteLoadingScreen } from '@synqit/ui';
 import { type ComponentType, type LazyExoticComponent, Suspense, lazy } from 'react';
-
-import { RouteLoadingScreen } from '../components/ui/RouteLoadingScreen';
 
 type ModuleWithDefault<TProps extends object> = {
   default: ComponentType<TProps>;

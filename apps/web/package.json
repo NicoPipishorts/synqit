@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@synqit/shared": "0.1.0",
+    "@synqit/ui": "0.1.0",
     "@tanstack/react-query": "^5.66.0",
     "@tanstack/react-router": "^1.98.0",
     "framer-motion": "^12.34.0",
