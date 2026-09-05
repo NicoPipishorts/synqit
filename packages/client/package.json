@@ -1,0 +1,27 @@
+{
+  "name": "@synqit/client",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Browser client shared by the Synqit frontends: API fetch with cookie sessions and CSRF, auth session store, analytics tracker, preferences and theme persistence.",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --ext .ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@synqit/shared": "0.1.0"
+  },
+  "devDependencies": {
+    "jsdom": "^26.1.0",
+    "vitest": "^3.2.4"
+  }
+}

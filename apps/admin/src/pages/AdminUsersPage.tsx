@@ -1,24 +1,24 @@
-import {
-  adminAnalyticsUsersListResponseSchema,
-  type AdminAnalyticsUserSummary,
-} from '@synqit/shared';
+import { type AdminAnalyticsUserSummary } from '@synqit/shared';
 import { DataTable } from '@synqit/ui';
+import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AdminSectionHeader } from '../components/admin/AdminSectionHeader';
 import { CTAButton } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
-import { callApi, toApiError } from '../lib/api';
+import { toApiError } from '../lib/api';
 import { clearAuth } from '../lib/auth';
+import { adminUsersQueryOptions } from '../lib/queries';
 
 type AnalyticsUserSummary = AdminAnalyticsUserSummary;
 
 export const AdminUsersPage = () => {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
-  const [users, setUsers] = useState<AnalyticsUserSummary[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const usersQuery = useQuery(adminUsersQueryOptions());
+  const users: AnalyticsUserSummary[] = usersQuery.data?.users ?? [];
+  const isLoadingUsers = usersQuery.isPending;
   const [usersStatus, setUsersStatus] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -56,31 +56,13 @@ export const AdminUsersPage = () => {
     [navigate],
   );
 
-  const loadUsers = useCallback(async () => {
-    setIsLoadingUsers(true);
-    setUsersStatus(null);
-    try {
-      const result = await callApi(
-        '/v1/admin/analytics/users',
-        {
-          method: 'GET',
-        },
-        (payload) => adminAnalyticsUsersListResponseSchema.parse(payload),
-      );
-      setUsers(result.users);
-    } catch (error) {
-      const message = handleAccessError(error);
-      if (message) {
-        setUsersStatus(message);
-      }
-    } finally {
-      setIsLoadingUsers(false);
-    }
-  }, [handleAccessError]);
-
   useEffect(() => {
-    void loadUsers();
-  }, [loadUsers]);
+    if (usersQuery.error) {
+      setUsersStatus(handleAccessError(usersQuery.error));
+    } else if (usersQuery.isSuccess) {
+      setUsersStatus(null);
+    }
+  }, [handleAccessError, usersQuery.error, usersQuery.isSuccess]);
 
   const filteredUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -104,7 +86,7 @@ export const AdminUsersPage = () => {
             placeholder={t('admin.analyticsSearchPlaceholder')}
             className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text outline-none transition focus:border-brand-lime sm:w-72"
           />
-          <CTAButton type="button" variant="secondary" onClick={() => void loadUsers()}>
+          <CTAButton type="button" variant="secondary" onClick={() => void usersQuery.refetch()}>
             {t('admin.analyticsRefresh')}
           </CTAButton>
         </div>

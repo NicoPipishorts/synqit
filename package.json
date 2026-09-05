@@ -35,7 +35,7 @@
     "dev:local": "yarn infra:up:local && yarn dev",
     "build": "yarn workspaces run build",
     "lint": "yarn workspaces run lint",
-    "i18n:check": "yarn workspace @synqit/web i18n:check",
+    "i18n:check": "node packages/i18n/scripts/check-locales.mjs --locales apps/web/src/locales --usage apps/web/src --usage apps/admin/src --usage-warn apps/site/src",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "typecheck": "yarn workspaces run typecheck",

@@ -1,7 +1,4 @@
 import {
-  adminAnalyticsOverviewResponseSchema,
-  adminAnalyticsUserDetailResponseSchema,
-  adminAnalyticsUsersListResponseSchema,
   adminPermissionScopeSchema,
   analyticsTargetSchema,
   type AdminAnalyticsOverviewRange,
@@ -12,6 +9,7 @@ import {
   type AdminPermissionScope,
 } from '@synqit/shared';
 import { AccordionSection, SlideOverPanel } from '@synqit/ui';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -28,6 +26,12 @@ import { useI18n } from '../hooks/useI18n';
 import { isDisplayableAnalyticsPath } from '../lib/analytics-display';
 import { callApi, toApiError } from '../lib/api';
 import { clearAuth, hasAdminPermission } from '../lib/auth';
+import {
+  adminAnalyticsOverviewQueryOptions,
+  adminQueryKeys,
+  adminUserDetailQueryOptions,
+  adminUsersQueryOptions,
+} from '../lib/queries';
 
 type AnalyticsUserSummary = AdminAnalyticsUserSummary;
 type AnalyticsUserDetail = AdminAnalyticsUserDetailResponse['user'];
@@ -65,10 +69,7 @@ const providerLabel = (provider: 'spotify' | 'apple'): string =>
 export const AdminAnalyticsPage = () => {
   const { t, locale } = useI18n();
   const navigate = useNavigate();
-  const [users, setUsers] = useState<AnalyticsUserSummary[]>([]);
-  const [overview, setOverview] = useState<AdminAnalyticsOverviewResponse | null>(null);
-  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  const [isLoadingOverview, setIsLoadingOverview] = useState(true);
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<string | null>(null);
   const [appliedFilters, setAppliedFilters] = useState<AnalyticsFilters>({
     range: '24h',
@@ -78,10 +79,22 @@ export const AdminAnalyticsPage = () => {
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [selectedUserDetail, setSelectedUserDetail] = useState<AnalyticsUserDetail | null>(null);
-  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [accessEditor, setAccessEditor] = useState<AccessEditorState | null>(null);
+
+  const usersQuery = useQuery(adminUsersQueryOptions());
+  const overviewQuery = useQuery(adminAnalyticsOverviewQueryOptions(appliedFilters));
+  const detailQuery = useQuery({
+    ...adminUserDetailQueryOptions(selectedUserId ?? ''),
+    enabled: selectedUserId !== null,
+  });
+  const users: AnalyticsUserSummary[] = usersQuery.data?.users ?? [];
+  const overview: AdminAnalyticsOverviewResponse | null = overviewQuery.data ?? null;
+  const isLoadingUsers = usersQuery.isPending;
+  const isLoadingOverview = overviewQuery.isPending;
+  const selectedUserDetail: AnalyticsUserDetail | null =
+    selectedUserId !== null ? (detailQuery.data?.user ?? null) : null;
+  const isLoadingDetail = selectedUserId !== null && detailQuery.isPending;
 
   const scopes = useMemo(() => adminPermissionScopeSchema.options, []);
   const canManageAdmins = useMemo(() => hasAdminPermission('admin_users', 'write'), []);
@@ -120,89 +133,35 @@ export const AdminAnalyticsPage = () => {
     [navigate],
   );
 
-  const loadUsers = useCallback(async () => {
-    setIsLoadingUsers(true);
-    try {
-      const result = await callApi(
-        '/v1/admin/analytics/users',
-        {
-          method: 'GET',
-        },
-        (payload) => adminAnalyticsUsersListResponseSchema.parse(payload),
-      );
-      setUsers(result.users);
-    } catch (error) {
-      const message = handleAccessError(error);
-      if (message) {
-        setStatus(message);
-      }
-    } finally {
-      setIsLoadingUsers(false);
-    }
-  }, [handleAccessError]);
-
-  const loadOverview = useCallback(async () => {
-    setIsLoadingOverview(true);
-    try {
-      const search = new URLSearchParams({ range: appliedFilters.range });
-      if (appliedFilters.source) search.set('source', appliedFilters.source);
-      if (appliedFilters.target) search.set('target', appliedFilters.target);
-      if (appliedFilters.page) search.set('page', appliedFilters.page);
-      if (appliedFilters.locale) search.set('locale', appliedFilters.locale);
-      if (appliedFilters.visitor) search.set('visitor', appliedFilters.visitor);
-      const result = await callApi(
-        `/v1/admin/analytics/overview?${search.toString()}`,
-        {
-          method: 'GET',
-        },
-        (payload) => adminAnalyticsOverviewResponseSchema.parse(payload),
-      );
-      setOverview(result);
-    } catch (error) {
-      const message = handleAccessError(error);
-      if (message) {
-        setStatus(message);
-      }
-    } finally {
-      setIsLoadingOverview(false);
-    }
-  }, [handleAccessError, appliedFilters]);
-
-  const openUserDetails = useCallback(
-    async (userId: string) => {
-      setSelectedUserId(userId);
-      setSelectedUserDetail(null);
-      setAccessEditor(null);
-      setIsLoadingDetail(true);
-      setStatus(null);
-
-      try {
-        const result = await callApi(
-          `/v1/admin/analytics/users/${userId}`,
-          {
-            method: 'GET',
-          },
-          (payload) => adminAnalyticsUserDetailResponseSchema.parse(payload),
-        );
-
-        setSelectedUserDetail(result.user);
-        setAccessEditor(toAccessEditorState(result.user.role, result.user.adminPermissions));
-      } catch (error) {
-        const message = handleAccessError(error);
-        if (message) {
-          setStatus(message);
-        }
-      } finally {
-        setIsLoadingDetail(false);
-      }
-    },
-    [handleAccessError],
-  );
+  const openUserDetails = useCallback((userId: string) => {
+    setSelectedUserId(userId);
+    setAccessEditor(null);
+    setStatus(null);
+  }, []);
 
   const refreshData = useCallback(async () => {
     setStatus(null);
-    await Promise.all([loadOverview(), loadUsers()]);
-  }, [loadOverview, loadUsers]);
+    await queryClient.invalidateQueries({ queryKey: adminQueryKeys.all });
+  }, [queryClient]);
+
+  // Mirror server state into the access editor whenever a user detail loads.
+  useEffect(() => {
+    if (selectedUserId !== null && detailQuery.data) {
+      setAccessEditor(
+        toAccessEditorState(detailQuery.data.user.role, detailQuery.data.user.adminPermissions),
+      );
+    }
+  }, [detailQuery.data, selectedUserId]);
+
+  useEffect(() => {
+    const error = usersQuery.error ?? overviewQuery.error ?? detailQuery.error;
+    if (error) {
+      const message = handleAccessError(error);
+      if (message) {
+        setStatus(message);
+      }
+    }
+  }, [detailQuery.error, handleAccessError, overviewQuery.error, usersQuery.error]);
 
   const saveAccess = useCallback(async () => {
     if (!selectedUserDetail || !accessEditor) {
@@ -240,7 +199,7 @@ export const AdminAnalyticsPage = () => {
         (payload) => payload,
       );
 
-      await Promise.all([refreshData(), openUserDetails(selectedUserDetail.userId)]);
+      await refreshData();
       setStatus(t('admin.accessUpdated'));
     } catch (error) {
       const message = handleAccessError(error);
@@ -259,10 +218,6 @@ export const AdminAnalyticsPage = () => {
     selectedUserDetail,
     t,
   ]);
-
-  useEffect(() => {
-    void refreshData();
-  }, [refreshData]);
 
   const overviewRangeOptions = useMemo(
     () =>
@@ -878,7 +833,6 @@ export const AdminAnalyticsPage = () => {
         open={Boolean(selectedUserId)}
         onClose={() => {
           setSelectedUserId(null);
-          setSelectedUserDetail(null);
           setAccessEditor(null);
         }}
         title={selectedUserDetail?.email ?? t('admin.analyticsUserDetailTitle')}

@@ -1,11 +1,11 @@
 import {
-  adminAnalyticsUserDetailResponseSchema,
   adminPermissionScopeSchema,
   type AdminAnalyticsUserDetailResponse,
   type AdminPermissionLevel,
   type AdminPermissionScope,
 } from '@synqit/shared';
 import { useToast } from '@synqit/ui';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { AlertTriangle, KeyRound, RotateCcw, Shield, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -18,6 +18,7 @@ import { useI18n } from '../hooks/useI18n';
 import { isDisplayableAnalyticsPath } from '../lib/analytics-display';
 import { callApi, toApiError } from '../lib/api';
 import { clearAuth, hasAdminPermission, loadAuth } from '../lib/auth';
+import { adminQueryKeys, adminUserDetailQueryOptions } from '../lib/queries';
 
 type AnalyticsUserDetail = AdminAnalyticsUserDetailResponse['user'];
 type AccessLevelUi = AdminPermissionLevel | 'none';
@@ -600,9 +601,22 @@ export const AdminUserDetailsPage = () => {
   });
   const { userId } = useParams({ from: '/users/$userId' });
 
-  const [userDetail, setUserDetail] = useState<AnalyticsUserDetail | null>(null);
+  const queryClient = useQueryClient();
+  const detailQuery = useQuery(adminUserDetailQueryOptions(userId));
+  const userDetail: AnalyticsUserDetail | null = detailQuery.data?.user ?? null;
+  const isLoading = detailQuery.isPending;
+  /** Optimistically patches the cached user after a successful mutation. */
+  const patchUserDetail = useCallback(
+    (patch: Partial<AnalyticsUserDetail>) => {
+      queryClient.setQueryData(
+        adminQueryKeys.userDetail(userId),
+        (current: AdminAnalyticsUserDetailResponse | undefined) =>
+          current ? { ...current, user: { ...current.user, ...patch } } : current,
+      );
+    },
+    [queryClient, userId],
+  );
   const [accessEditor, setAccessEditor] = useState<AccessEditorState | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSavingAccess, setIsSavingAccess] = useState(false);
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [isBlockModalOpen, setIsBlockModalOpen] = useState(false);
@@ -653,30 +667,23 @@ export const AdminUserDetailsPage = () => {
     [navigate],
   );
 
-  const loadUserDetail = useCallback(async () => {
-    setIsLoading(true);
-    setStatus(null);
-
-    try {
-      const result = await callApi(
-        `/v1/admin/analytics/users/${userId}`,
-        {
-          method: 'GET',
-        },
-        (payload) => adminAnalyticsUserDetailResponseSchema.parse(payload),
+  // Mirror server state into the access editor whenever the user detail (re)loads.
+  useEffect(() => {
+    if (detailQuery.data) {
+      setAccessEditor(
+        toAccessEditorState(detailQuery.data.user.role, detailQuery.data.user.adminPermissions),
       );
+    }
+  }, [detailQuery.data]);
 
-      setUserDetail(result.user);
-      setAccessEditor(toAccessEditorState(result.user.role, result.user.adminPermissions));
-    } catch (error) {
-      const message = handleAccessError(error);
+  useEffect(() => {
+    if (detailQuery.error) {
+      const message = handleAccessError(detailQuery.error);
       if (message) {
         setStatus(message);
       }
-    } finally {
-      setIsLoading(false);
     }
-  }, [handleAccessError, userId]);
+  }, [detailQuery.error, handleAccessError]);
 
   const saveAccess = useCallback(async () => {
     if (
@@ -734,15 +741,7 @@ export const AdminUserDetailsPage = () => {
 
       const persistedAccess = toAccessEditorState(result.user.role, result.user.adminPermissions);
       setAccessEditor(persistedAccess);
-      setUserDetail((current) =>
-        current
-          ? {
-              ...current,
-              role: result.user.role,
-              adminPermissions: result.user.adminPermissions,
-            }
-          : current,
-      );
+      patchUserDetail({ role: result.user.role, adminPermissions: result.user.adminPermissions });
       setStatus(t('admin.accessUpdated'));
       showToast(t('admin.accessUpdated'), { variant: 'success' });
     } catch (error) {
@@ -864,15 +863,10 @@ export const AdminUserDetailsPage = () => {
         (payload) => payload,
       );
 
-      setUserDetail((current) =>
-        current
-          ? {
-              ...current,
-              isBlocked: nextBlocked,
-              blockedAt: nextBlocked ? new Date().toISOString() : null,
-            }
-          : current,
-      );
+      patchUserDetail({
+        isBlocked: nextBlocked,
+        blockedAt: nextBlocked ? new Date().toISOString() : null,
+      });
       const message = nextBlocked ? 'Account blocked.' : 'Account reactivated.';
       setStatus(message);
       showToast(message, { variant: 'success' });
@@ -917,7 +911,7 @@ export const AdminUserDetailsPage = () => {
       setStatus(message);
       showToast(message, { variant: 'success' });
       setIsDeleteModalOpen(false);
-      await loadUserDetail();
+      await queryClient.invalidateQueries({ queryKey: adminQueryKeys.all });
     } catch (error) {
       const message = handleAccessError(error);
       if (message) {
@@ -927,7 +921,7 @@ export const AdminUserDetailsPage = () => {
     } finally {
       setIsRequestingDeletion(false);
     }
-  }, [canRequestDeletion, handleAccessError, loadUserDetail, normalizeDate, showToast, userDetail]);
+  }, [canRequestDeletion, handleAccessError, normalizeDate, queryClient, showToast, userDetail]);
 
   const toggleTestAccount = useCallback(async () => {
     if (!userDetail || !canToggleTestAccount) {
@@ -950,14 +944,7 @@ export const AdminUserDetailsPage = () => {
         (payload) => payload,
       );
 
-      setUserDetail((current) =>
-        current
-          ? {
-              ...current,
-              isTestAccount: nextIsTestAccount,
-            }
-          : current,
-      );
+      patchUserDetail({ isTestAccount: nextIsTestAccount });
       const message = nextIsTestAccount
         ? 'User is now eligible for registration reset.'
         : 'User is no longer eligible for registration reset.';
@@ -1011,10 +998,6 @@ export const AdminUserDetailsPage = () => {
       setIsResettingUserFlow(false);
     }
   }, [canResetUserFlow, handleAccessError, navigate, showToast, userDetail]);
-
-  useEffect(() => {
-    void loadUserDetail();
-  }, [loadUserDetail]);
 
   if (isLoading) {
     return (
