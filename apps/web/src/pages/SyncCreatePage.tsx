@@ -1,5 +1,6 @@
 import type { ProviderPlaylistItem, SyncItem } from '@synqit/shared';
 import { providerSchema } from '@synqit/shared';
+import { useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
@@ -21,7 +22,6 @@ import { SyncCard } from '../components/syncs/SyncCard';
 import { SyncPlaylistPicker } from '../components/syncs/SyncPlaylistPicker';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';

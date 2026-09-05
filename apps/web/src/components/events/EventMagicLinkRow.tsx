@@ -1,3 +1,4 @@
+import { useToast, IconButton } from '@synqit/ui';
 import {
   ArrowUpRight,
   Copy,
@@ -10,10 +11,8 @@ import {
 import { useState } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
-import { useToast } from '../../hooks/useToast';
 import { getPublicEventPath, getPublicEventUrl } from '../../lib/events';
 import { CTAButton } from '../ui/cta';
-import { IconButton } from '../ui/IconButton';
 import { Modal } from '../ui/Modal';
 
 type EventMagicLinkRowProps = {

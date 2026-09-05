@@ -1,3 +1,4 @@
+import { IconButton } from '@synqit/ui';
 import { ExternalLink, Music2, Settings2 } from 'lucide-react';
 
 import { EventMagicLinkRow } from './EventMagicLinkRow';
@@ -6,7 +7,6 @@ import { useI18n } from '../../hooks/useI18n';
 import { toApiAssetUrl } from '../../lib/apiAssetUrl';
 import { getPublicEventPath, HostEvent } from '../../lib/events';
 import { CTALink } from '../ui/cta';
-import { IconButton } from '../ui/IconButton';
 
 type HostEventCardProps = {
   event: HostEvent;

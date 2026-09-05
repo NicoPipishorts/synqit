@@ -11,6 +11,7 @@ import {
   type AdminPermissionLevel,
   type AdminPermissionScope,
 } from '@synqit/shared';
+import { AccordionSection, SlideOverPanel } from '@synqit/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -22,9 +23,7 @@ import {
   type AnalyticsFilters,
 } from '../components/admin/AnalyticsFilterDrawer';
 import { PermissionLevelSlider } from '../components/admin/PermissionLevelSlider';
-import { AccordionSection } from '../components/ui/AccordionSection';
 import { CTAButton } from '../components/ui/cta';
-import { SlideOverPanel } from '../components/ui/SlideOverPanel';
 import { useI18n } from '../hooks/useI18n';
 import { isDisplayableAnalyticsPath } from '../lib/analytics-display';
 import { callApi, toApiError } from '../lib/api';

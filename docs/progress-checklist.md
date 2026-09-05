@@ -49,6 +49,7 @@ Use this as the implementation tracker (what is done vs pending).
 - [x] `/metrics` behind a bearer token and `/docs` disabled in production; Caddy blocks both at the edge.
 - [x] Admin bootstrap locked down (opt-in flag, strong key, constant-time compare, lock after first super admin, rate limit, audit log).
 - [x] Runtime schema mutation removed from API startup; CI fails on migration/schema drift.
+- [x] `@synqit/ui` package: single `tokens.css`, 22 shared primitives (CTA, Modal, Toast, nav, forms, StatGrid, DataTable, EmptyState, OnboardingPanel), Ladle stories, Vitest suite; site/web/admin migrated.
 
 ## Pending (Next)
 

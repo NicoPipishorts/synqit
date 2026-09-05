@@ -148,3 +148,6 @@ apps/web/playwright-report/
 # Local deployment notes
 docs/vps-deploy-ubuntu24.md
 docs/screenshots
+
+# Ladle static build output
+packages/ui/build/

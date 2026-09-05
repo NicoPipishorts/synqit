@@ -1,5 +1,6 @@
 import type { SyncPublicTrack } from '@synqit/shared';
 import { providerSchema } from '@synqit/shared';
+import { useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -14,7 +15,6 @@ import { CTAButton, CTALink } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { isAuthenticated } from '../lib/auth';

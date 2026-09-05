@@ -1,10 +1,10 @@
+import { PublicMobileNav, type PublicMobileNavItem } from '@synqit/ui';
 import { Home, LogIn, Share2, Tag } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 
 import { AuthHeroImage } from './AuthHeroImage';
 import { useI18n } from '../../hooks/useI18n';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
-import { PublicMobileNav, type PublicMobileNavItem } from '../ui/PublicMobileNav';
 
 type AuthPageLayoutProps = {
   title: string;
@@ -52,10 +52,30 @@ export const AuthPageLayout = ({
   }, [mobileNavActiveId]);
 
   const mobileNavItems: PublicMobileNavItem[] = [
-    { id: 'product', href: `${siteOrigin}/`, label: t('home.nav.product'), icon: Home },
-    { id: 'pricing', href: `${siteOrigin}/pricing`, label: t('home.pricing.navLink'), icon: Tag },
-    { id: 'share', href: '/auth/register', label: t('home.nav.share'), icon: Share2 },
-    { id: 'login', href: '/auth/login', label: t('home.hero.ctaLogin'), icon: LogIn },
+    {
+      id: 'product',
+      href: `${siteOrigin}/`,
+      label: t('home.nav.product'),
+      icon: <Home size={18} aria-hidden="true" />,
+    },
+    {
+      id: 'pricing',
+      href: `${siteOrigin}/pricing`,
+      label: t('home.pricing.navLink'),
+      icon: <Tag size={18} aria-hidden="true" />,
+    },
+    {
+      id: 'share',
+      href: '/auth/register',
+      label: t('home.nav.share'),
+      icon: <Share2 size={18} aria-hidden="true" />,
+    },
+    {
+      id: 'login',
+      href: '/auth/login',
+      label: t('home.hero.ctaLogin'),
+      icon: <LogIn size={18} aria-hidden="true" />,
+    },
   ];
 
   return (

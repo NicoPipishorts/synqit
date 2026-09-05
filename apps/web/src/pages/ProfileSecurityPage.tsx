@@ -1,17 +1,16 @@
 import { isPasswordStrong, PASSWORD_MIN_LENGTH } from '@synqit/shared';
+import { SurfaceCard, useToast } from '@synqit/ui';
 import { Trash2 } from 'lucide-react';
 import { FormEvent, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
-import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { CTAButton, CTAMobileIconLabel } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { PasswordField } from '../components/ui/PasswordField';
 import { PasswordStrengthMeter } from '../components/ui/PasswordStrengthMeter';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 
 export const ProfileSecurityPage = () => {
@@ -103,7 +102,7 @@ export const ProfileSecurityPage = () => {
         description={t('profile.securityDescription')}
       />
 
-      <AppSurfaceCard>
+      <SurfaceCard>
         <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
           {t('profile.changePassword')}
         </h2>
@@ -141,9 +140,9 @@ export const ProfileSecurityPage = () => {
             </CTAButton>
           </div>
         </form>
-      </AppSurfaceCard>
+      </SurfaceCard>
 
-      <AppSurfaceCard className="flex flex-col">
+      <SurfaceCard className="flex flex-col">
         <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
           {t('profile.otpTitle')}
         </h2>
@@ -156,7 +155,7 @@ export const ProfileSecurityPage = () => {
         >
           {t('profile.otpCta')}
         </CTAButton>
-      </AppSurfaceCard>
+      </SurfaceCard>
 
       <article className="flex flex-col rounded-2xl border border-brand-pink/40 bg-brand-pink/5 p-5 shadow-soft-lift dark:bg-brand-pink/10">
         <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">

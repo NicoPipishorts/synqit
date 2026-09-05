@@ -1,8 +1,8 @@
+import { useToast } from '@synqit/ui';
 import { Download, Share, Smartphone } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
-import { useToast } from '../../hooks/useToast';
 import { CTAButton } from '../ui/cta';
 import { Modal } from '../ui/Modal';
 

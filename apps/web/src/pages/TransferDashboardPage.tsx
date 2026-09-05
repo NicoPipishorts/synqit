@@ -1,7 +1,7 @@
+import { OnboardingPanel } from '@synqit/ui';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeftRight, ListMusic, Plus, Search } from 'lucide-react';
 
-import { AppOnboardingPanel } from '../components/app/AppOnboardingPanel';
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { AppSectionHeading } from '../components/app/AppSectionHeading';
@@ -43,7 +43,7 @@ export const TransferDashboardPage = () => {
 
       {!hasAny ? (
         <div className="grid min-h-[calc(100svh-24rem)] items-start pt-8 sm:pt-12">
-          <AppOnboardingPanel
+          <OnboardingPanel
             eyebrow={t('transferDashboardPage.onboardingEyebrow')}
             title={t('transferDashboardPage.onboardingTitle')}
             body={t('transferDashboardPage.onboardingBody')}

@@ -1,4 +1,5 @@
 import { personalInfoResponseSchema } from '@synqit/shared';
+import { SurfaceCard, NotificationDot, useToast } from '@synqit/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import countries from 'i18n-iso-countries';
 import enCountryNames from 'i18n-iso-countries/langs/en.json';
@@ -7,12 +8,9 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
-import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { CTAButton, CTALink } from '../components/ui/cta';
-import { NotificationDot } from '../components/ui/NotificationDot';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { isPersonalInfoIdentityComplete } from '../lib/personal-info';
 import { queryKeys } from '../lib/queries';
@@ -245,7 +243,7 @@ export const ProfilePersonalInfoPage = () => {
         description={t('profile.personalInfoDescription')}
       />
 
-      <AppSurfaceCard
+      <SurfaceCard
         className={`w-full ${showCompletionPrompt ? 'border-brand-pink/45 bg-brand-pink/5 dark:bg-brand-pink/10' : ''}`}
       >
         {showCompletionPrompt ? (
@@ -390,7 +388,7 @@ export const ProfilePersonalInfoPage = () => {
             </CTALink>
           </div>
         </form>
-      </AppSurfaceCard>
+      </SurfaceCard>
     </AppPageLayout>
   );
 };
