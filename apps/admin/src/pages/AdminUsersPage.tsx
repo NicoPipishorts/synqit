@@ -2,6 +2,7 @@ import {
   adminAnalyticsUsersListResponseSchema,
   type AdminAnalyticsUserSummary,
 } from '@synqit/shared';
+import { DataTable } from '@synqit/ui';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -148,50 +149,39 @@ export const AdminUsersPage = () => {
               ))}
             </div>
 
-            <div className="hidden overflow-x-auto rounded-2xl border border-app-border md:block">
-              <table className="w-full min-w-[760px] border-collapse text-left">
-                <thead className="bg-app-surface dark:bg-app-card">
-                  <tr className="border-b border-app-border text-[11px] uppercase tracking-wide text-app-text-secondary">
-                    <th className="px-3 py-2 font-black">{t('auth.email')}</th>
-                    <th className="px-3 py-2 font-black">{t('admin.roleLabel')}</th>
-                    <th className="px-3 py-2 font-black">{t('admin.analyticsColCreated')}</th>
-                    <th className="px-3 py-2 font-black">
-                      {t('admin.analyticsMetricEventsShort')}
-                    </th>
-                    <th className="px-3 py-2 font-black">
-                      {t('admin.analyticsMetricSharedShort')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.map((user) => (
-                    <tr
-                      key={user.userId}
-                      className="cursor-pointer border-b border-app-border last:border-b-0 hover:bg-app-surface/70 dark:hover:bg-app-card"
-                      onClick={() =>
-                        void navigate({ to: '/users/$userId', params: { userId: user.userId } })
-                      }
-                    >
-                      <td className="max-w-[18rem] truncate px-3 py-2 text-sm font-black text-app-text">
-                        {user.email}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                        {user.role}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                        {normalizeDate(user.createdAt)}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                        {user.eventPlaylistsCount}
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold text-app-text-secondary">
-                        {user.sharedPlaylistsCount}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              className="hidden md:block"
+              caption={t('admin.usersTitle')}
+              rows={filteredUsers}
+              getRowKey={(user) => user.userId}
+              onRowClick={(user) =>
+                void navigate({ to: '/users/$userId', params: { userId: user.userId } })
+              }
+              columns={[
+                {
+                  id: 'email',
+                  header: t('auth.email'),
+                  cell: (user) => user.email,
+                  className: 'max-w-[18rem] truncate text-sm font-black text-app-text',
+                },
+                { id: 'role', header: t('admin.roleLabel'), cell: (user) => user.role },
+                {
+                  id: 'created',
+                  header: t('admin.analyticsColCreated'),
+                  cell: (user) => normalizeDate(user.createdAt),
+                },
+                {
+                  id: 'events',
+                  header: t('admin.analyticsMetricEventsShort'),
+                  cell: (user) => user.eventPlaylistsCount,
+                },
+                {
+                  id: 'shared',
+                  header: t('admin.analyticsMetricSharedShort'),
+                  cell: (user) => user.sharedPlaylistsCount,
+                },
+              ]}
+            />
           </>
         )}
 

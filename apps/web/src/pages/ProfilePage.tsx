@@ -1,21 +1,17 @@
 import { authUserSchema } from '@synqit/shared';
+import { OnboardingPanel, SurfaceCard, CircularImage, NotificationDot, useToast } from '@synqit/ui';
 import { ImagePlus, Pencil, ShieldCheck, UserRound } from 'lucide-react';
 import { ChangeEvent, DragEvent, useRef, useState } from 'react';
 
-import { AppOnboardingPanel } from '../components/app/AppOnboardingPanel';
 import { AppPageLayout } from '../components/app/AppPageLayout';
-import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
-import { CircularImage } from '../components/ui/CircularImage';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { Modal } from '../components/ui/Modal';
-import { NotificationDot } from '../components/ui/NotificationDot';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useAuthSession } from '../hooks/useAuthSession';
 import { useI18n } from '../hooks/useI18n';
 import { useProfileCompletion } from '../hooks/useProfileCompletion';
 import { useProfileSettings } from '../hooks/useProfileSettings';
-import { useToast } from '../hooks/useToast';
 import { callApi, toApiError } from '../lib/api';
 import { updateStoredAuthUser } from '../lib/auth';
 
@@ -200,7 +196,7 @@ export const ProfilePage = () => {
       </article>
 
       {needsProfileOnboarding ? (
-        <AppOnboardingPanel
+        <OnboardingPanel
           eyebrow={t('profile.onboardingEyebrow')}
           title={t('profile.onboardingTitle')}
           body={t('profile.onboardingBody')}
@@ -255,7 +251,7 @@ export const ProfilePage = () => {
         />
       ) : null}
 
-      <AppSurfaceCard>
+      <SurfaceCard>
         <div className="grid gap-1">
           <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
             {t('profile.preferencesTitle')}
@@ -281,10 +277,10 @@ export const ProfilePage = () => {
             </div>
           </div>
         </div>
-      </AppSurfaceCard>
+      </SurfaceCard>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        <AppSurfaceCard
+        <SurfaceCard
           className={`flex flex-col ${showPersonalInfoPrompt ? 'border-brand-pink/45 bg-brand-pink/5 dark:bg-brand-pink/10' : ''}`}
         >
           <div className="flex items-start justify-between gap-3">
@@ -315,9 +311,9 @@ export const ProfilePage = () => {
                 : 'profile.personalInfoCardCta',
             )}
           </CTALink>
-        </AppSurfaceCard>
+        </SurfaceCard>
 
-        <AppSurfaceCard className="flex flex-col">
+        <SurfaceCard className="flex flex-col">
           <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
             {t('profile.platformsCardTitle')}
           </h2>
@@ -329,9 +325,9 @@ export const ProfilePage = () => {
           <CTALink to="/profile/platforms" variant="secondary" className="mt-auto self-end">
             {t('profile.platformsCardCta')}
           </CTALink>
-        </AppSurfaceCard>
+        </SurfaceCard>
 
-        <AppSurfaceCard className="flex flex-col">
+        <SurfaceCard className="flex flex-col">
           <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
             {t('profile.securityCardTitle')}
           </h2>
@@ -339,7 +335,7 @@ export const ProfilePage = () => {
           <CTALink to="/profile/security" variant="secondary" className="mt-auto self-end">
             {t('profile.securityCardCta')}
           </CTALink>
-        </AppSurfaceCard>
+        </SurfaceCard>
       </div>
 
       <Modal

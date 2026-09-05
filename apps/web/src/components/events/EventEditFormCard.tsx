@@ -1,8 +1,8 @@
+import { SurfaceCard } from '@synqit/ui';
 import { FormEvent } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
 import { EventProvider } from '../../lib/events';
-import { AppSurfaceCard } from '../app/AppSurfaceCard';
 import { CTAButton } from '../ui/cta';
 
 type EventEditFormCardProps = {
@@ -35,17 +35,17 @@ export const EventEditFormCard = ({
 
   if (provider === 'apple') {
     return (
-      <AppSurfaceCard className="flex h-full flex-col gap-3">
+      <SurfaceCard className="flex h-full flex-col gap-3">
         <p className="text-sm font-bold text-brand-dark dark:text-brand-white">
           {t('eventsPage.appleEditDisabledTitle')}
         </p>
         <p className="text-sm text-app-text-secondary">{t('eventsPage.appleEditDisabledBody')}</p>
-      </AppSurfaceCard>
+      </SurfaceCard>
     );
   }
 
   return (
-    <AppSurfaceCard>
+    <SurfaceCard>
       <form onSubmit={onSubmit} className="grid gap-4">
         <label className="grid gap-1 text-sm">
           <span>{t('eventsPage.eventName')}</span>
@@ -75,6 +75,6 @@ export const EventEditFormCard = ({
           </CTAButton>
         </div>
       </form>
-    </AppSurfaceCard>
+    </SurfaceCard>
   );
 };

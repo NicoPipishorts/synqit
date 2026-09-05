@@ -1,9 +1,9 @@
 import type { AdminAnalyticsOverviewRange } from '@synqit/shared';
+import { SlideOverPanel } from '@synqit/ui';
 import { type ReactNode } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
 import { CTAButton } from '../ui/cta';
-import { SlideOverPanel } from '../ui/SlideOverPanel';
 
 export type AnalyticsFilters = {
   range: AdminAnalyticsOverviewRange;

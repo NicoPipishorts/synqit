@@ -1,67 +1,14 @@
+import { ctaClassName, type CtaSize, type CtaVariant } from '@synqit/ui';
 import { Link } from '@tanstack/react-router';
-import { ButtonHTMLAttributes, ComponentPropsWithoutRef, ReactNode } from 'react';
+import type { ComponentPropsWithoutRef } from 'react';
 
-export type CtaVariant = 'primary' | 'secondary' | 'danger' | 'dangerSoft' | 'ghost';
-
-// CTA color rules:
-// - primary: main positive action on a screen (one per section when possible).
-// - secondary: navigation or non-destructive alternatives.
-// - danger: destructive action that needs strong emphasis.
-// - dangerSoft: low-risk destructive/cleanup action.
-// - ghost: subtle inline utility action.
-const CTA_BASE =
-  'inline-flex cursor-pointer appearance-none items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border-solid font-extrabold leading-none no-underline transition select-none focus-ring-brand disabled:cursor-not-allowed disabled:opacity-60';
-
-const CTA_SIZES = {
-  md: 'px-3 py-2 text-xs',
-  lg: 'px-5 py-3.5 text-sm',
-};
-
-const CTA_VARIANTS: Record<CtaVariant, string> = {
-  primary:
-    'border border-[#9fce00] bg-brand-lime text-brand-dark hover:bg-[#b2e600] dark:border-[#8bb900] dark:bg-[#aee000] dark:text-brand-dark dark:hover:bg-[#9fd100]',
-  secondary:
-    'border border-app-border bg-app-surface text-app-text hover:border-brand-lime dark:border-app-border dark:bg-app-elevated dark:text-app-text',
-  danger: 'border border-brand-pink bg-brand-pink text-brand-white hover:bg-[#d12074]',
-  dangerSoft:
-    'border border-brand-pink/60 bg-brand-pink/10 text-[#b41563] hover:border-brand-pink dark:text-[#ff8ac0]',
-  ghost:
-    'border border-app-border bg-transparent text-app-text hover:border-brand-pink dark:border-app-border dark:text-app-text',
-};
-
-const ctaClassName = (
-  variant: CtaVariant = 'secondary',
-  size: 'md' | 'lg' = 'md',
-  withShadow = true,
-): string => {
-  return `${CTA_BASE} ${withShadow ? 'shadow-soft-lift' : ''} ${CTA_SIZES[size]} ${CTA_VARIANTS[variant]}`.trim();
-};
-
-type CTAButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: CtaVariant;
-  size?: 'md' | 'lg';
-  withShadow?: boolean;
-};
-
-export const CTAButton = ({
-  variant = 'secondary',
-  size = 'md',
-  withShadow = true,
-  className,
-  ...props
-}: CTAButtonProps) => {
-  return (
-    <button
-      type={props.type ?? 'button'}
-      className={`${ctaClassName(variant, size, withShadow)} ${className ?? ''}`.trim()}
-      {...props}
-    />
-  );
-};
+// Framework-agnostic CTA primitives live in @synqit/ui. This module adds the
+// router-bound `CTALink` so pages keep importing everything from './cta'.
+export { CTAButton, CTAMobileIconLabel, ctaClassName, type CtaVariant } from '@synqit/ui';
 
 type CTALinkProps = Omit<ComponentPropsWithoutRef<typeof Link>, 'className'> & {
   variant?: CtaVariant;
-  size?: 'md' | 'lg';
+  size?: CtaSize;
   className?: string;
   disabled?: boolean;
   withShadow?: boolean;
@@ -93,21 +40,5 @@ export const CTALink = ({
         props.onClick?.(event);
       }}
     />
-  );
-};
-
-type CTAMobileIconLabelProps = {
-  icon: ReactNode;
-  label: string;
-};
-
-export const CTAMobileIconLabel = ({ icon, label }: CTAMobileIconLabelProps) => {
-  return (
-    <>
-      <span className="sm:hidden" aria-hidden="true">
-        {icon}
-      </span>
-      <span className="sr-only sm:not-sr-only sm:inline">{label}</span>
-    </>
   );
 };

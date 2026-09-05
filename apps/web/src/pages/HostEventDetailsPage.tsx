@@ -1,10 +1,10 @@
+import { SurfaceCard, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ImagePlus, Link2, ListMusic, Pencil } from 'lucide-react';
 import { FormEvent, useEffect, useRef, useState } from 'react';
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
-import { AppSurfaceCard } from '../components/app/AppSurfaceCard';
 import { EventEditFormCard } from '../components/events/EventEditFormCard';
 import { EventMagicLinkCard } from '../components/events/EventMagicLinkCard';
 import { EventProviderIcon } from '../components/events/EventProviderIcon';
@@ -14,7 +14,6 @@ import { HostEventDetailsHeader } from '../components/events/HostEventDetailsHea
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { HostEvent } from '../lib/events';
@@ -423,7 +422,7 @@ export const HostEventDetailsPage = () => {
           <div className={`grid gap-4 ${showEditMetaCard ? 'sm:grid-cols-[1fr_2fr]' : ''}`}>
             {/* Left col — status, streaming service, close CTA */}
             {showEditMetaCard ? (
-              <AppSurfaceCard className="flex flex-col gap-4">
+              <SurfaceCard className="flex flex-col gap-4">
                 {/* Streaming service */}
                 <div className="grid gap-1.5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
@@ -489,7 +488,7 @@ export const HostEventDetailsPage = () => {
                         : t('eventsPage.reopenEvent')}
                   </CTAButton>
                 </div>
-              </AppSurfaceCard>
+              </SurfaceCard>
             ) : null}
 
             {/* Right col — disconnected warning + tab panel */}

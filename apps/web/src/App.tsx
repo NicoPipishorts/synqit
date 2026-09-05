@@ -1,3 +1,4 @@
+import { ToastProvider } from '@synqit/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
   createRootRoute,
@@ -8,7 +9,6 @@ import {
 } from '@tanstack/react-router';
 import { useEffect } from 'react';
 
-import { ToastProvider } from './components/ui/ToastProvider';
 import { buildAdminAppUrl } from './lib/admin-url';
 import { isAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';

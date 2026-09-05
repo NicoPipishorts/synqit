@@ -1,9 +1,9 @@
 import type { SyncItem } from '@synqit/shared';
+import { SurfaceCard } from '@synqit/ui';
 import { Link2, RefreshCcw, ShieldBan } from 'lucide-react';
 
 import { SyncMagicLinkRow } from './SyncMagicLinkRow';
 import { useI18n } from '../../hooks/useI18n';
-import { AppSurfaceCard } from '../app/AppSurfaceCard';
 import { CTAButton } from '../ui/cta';
 
 type SyncMagicLinkCardProps = {
@@ -23,7 +23,7 @@ export const SyncMagicLinkCard = ({
   const isRevoked = Boolean(sync.magicLinkRevokedAt);
 
   return (
-    <AppSurfaceCard className="relative overflow-hidden">
+    <SurfaceCard className="relative overflow-hidden">
       <div className="pointer-events-none absolute right-7 top-3 opacity-5 ">
         <Link2 className="h-16 w-16 text-brand-pink sm:h-20 sm:w-20" aria-hidden="true" />
       </div>
@@ -68,6 +68,6 @@ export const SyncMagicLinkCard = ({
           </CTAButton>
         </div>
       </div>
-    </AppSurfaceCard>
+    </SurfaceCard>
   );
 };

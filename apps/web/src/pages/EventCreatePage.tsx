@@ -1,4 +1,5 @@
 import { providerSchema } from '@synqit/shared';
+import { useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Eye } from 'lucide-react';
@@ -19,7 +20,6 @@ import { EventMagicLinkRow } from '../components/events/EventMagicLinkRow';
 import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';

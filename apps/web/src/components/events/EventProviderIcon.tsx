@@ -1,5 +1,6 @@
+import { CircularImage } from '@synqit/ui';
+
 import { EventProvider, getEventProviderAsset } from '../../lib/events';
-import { CircularImage } from '../ui/CircularImage';
 
 type EventProviderIconProps = {
   provider: EventProvider;

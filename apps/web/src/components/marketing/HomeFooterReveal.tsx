@@ -1,7 +1,7 @@
+import { BrandLogo } from '@synqit/ui';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '../../hooks/useI18n';
-import { BrandLogo } from '../ui/BrandLogo';
 import { HeroCtaLink } from '../ui/HeroCtaLink';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { ThemeToggle } from '../ui/ThemeToggle';

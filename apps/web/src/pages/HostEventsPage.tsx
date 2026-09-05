@@ -1,8 +1,8 @@
+import { OnboardingPanel, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ListMusic, Plus, Radio, Share2, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
-import { AppOnboardingPanel } from '../components/app/AppOnboardingPanel';
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { AppSectionHeading } from '../components/app/AppSectionHeading';
@@ -11,7 +11,6 @@ import { HostEventDraftCard } from '../components/events/HostEventDraftCard';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import { toApiError } from '../lib/api';
 import { HostEventDraft } from '../lib/events';
 import { deleteDraft, fetchDrafts, fetchEvents, queryKeys } from '../lib/queries';
@@ -131,7 +130,7 @@ export const HostEventsPage = () => {
       {/* ── List / Empty ── */}
       {!hasAny ? (
         <div className="grid min-h-[calc(100svh-24rem)] items-start pt-8 sm:pt-12">
-          <AppOnboardingPanel
+          <OnboardingPanel
             eyebrow={t('eventsPage.onboardingEyebrow')}
             title={t('eventsPage.onboardingTitle')}
             body={t('eventsPage.onboardingBody')}

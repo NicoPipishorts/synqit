@@ -1,3 +1,4 @@
+import { ToastProvider } from '@synqit/ui';
 import {
   createRootRoute,
   createRoute,
@@ -7,7 +8,6 @@ import {
 } from '@tanstack/react-router';
 
 import { AdminShell } from './components/shell/AdminShell';
-import { ToastProvider } from './components/ui/ToastProvider';
 import { useI18n } from './hooks/useI18n';
 import { isAdminAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';

@@ -5,12 +5,12 @@ import {
   oauthCallbackResponseSchema,
   providerSchema,
 } from '@synqit/shared';
+import { useToast } from '@synqit/ui';
 import { RefreshCcw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CTAButton, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
-import { useToast } from '../hooks/useToast';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { callApi, toApiError } from '../lib/api';
 import {
