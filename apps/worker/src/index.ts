@@ -1,6 +1,9 @@
 import {
+  EnvValidationError,
   JOBS,
   QUEUES,
+  isStrictSecretsMode,
+  readRequiredEnv,
   passwordResetEmailJobSchema,
   passwordResetEmailPreviewJobSchema,
   registrationConfirmationEmailJobSchema,
@@ -32,7 +35,31 @@ const loadEnvFileIfPresent = (filePath: string): void => {
 loadEnvFileIfPresent(resolve(process.cwd(), '.env.local'));
 loadEnvFileIfPresent(resolve(process.cwd(), '.env'));
 
-const REDIS_URL = process.env.REDIS_URL ?? 'redis://localhost:6380';
+// Fail fast on missing configuration instead of running against defaults.
+const validateWorkerEnv = (): { redisUrl: string } => {
+  const strict = isStrictSecretsMode(process.env);
+  const redisUrl = strict
+    ? readRequiredEnv(process.env, 'REDIS_URL')
+    : process.env.REDIS_URL?.trim() || 'redis://localhost:6380';
+
+  const emailProvider = (process.env.EMAIL_PROVIDER ?? 'log').trim().toLowerCase();
+  if (emailProvider === 'resend') {
+    readRequiredEnv(process.env, 'RESEND_API_KEY');
+  }
+
+  return { redisUrl };
+};
+
+let REDIS_URL: string;
+try {
+  REDIS_URL = validateWorkerEnv().redisUrl;
+} catch (error) {
+  if (error instanceof EnvValidationError) {
+    console.error(`[worker] configuration error: ${error.message}`);
+    process.exit(1);
+  }
+  throw error;
+}
 
 const redisUrl = new URL(REDIS_URL);
 

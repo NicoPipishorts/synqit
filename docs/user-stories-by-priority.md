@@ -15,9 +15,15 @@ Priority meanings:
 
 ### US-001 Enforce Required Runtime Secrets
 
-**As an** operator  
-**I want** the API and worker to fail fast when required secrets are missing  
-**So that** the system never runs with predictable fallback credentials
+**Status as of September 3, 2026**
+
+- Implemented
+- `JWT_ACCESS_SECRET`, `TOKEN_ENC_KEY`, and `DATABASE_URL` are required; placeholder or short (<32 chars) secrets fail startup when `NODE_ENV=production` or `SECRETS_STRICT=true` and warn otherwise
+- Worker requires `REDIS_URL` in strict mode and `RESEND_API_KEY` when `EMAIL_PROVIDER=resend`
+- No fallback credentials remain in source (`dev-access-secret`, `replace-me`, default `DATABASE_URL` removed)
+  **As an** operator  
+  **I want** the API and worker to fail fast when required secrets are missing  
+  **So that** the system never runs with predictable fallback credentials
 
 **Why this matters**
 
@@ -53,9 +59,16 @@ Priority meanings:
 
 ### US-003 Restrict Operational Endpoints
 
-**As an** operator  
-**I want** internal operational surfaces protected  
-**So that** public users cannot access metrics or internal API documentation
+**Status as of September 3, 2026**
+
+- Implemented
+- `/metrics` requires `Authorization: Bearer $METRICS_TOKEN`; disabled in production until the token is set
+- `/docs` is not mounted in production unless `API_DOCS_ENABLED=true`
+- Caddy returns 404 for `/api/metrics*` and `/api/docs*` at the public edge
+- Production verification after deploy is still pending
+  **As an** operator  
+  **I want** internal operational surfaces protected  
+  **So that** public users cannot access metrics or internal API documentation
 
 **Acceptance criteria**
 
@@ -66,9 +79,16 @@ Priority meanings:
 
 ### US-004 Lock Down Admin Bootstrap
 
-**As an** operator  
-**I want** emergency admin bootstrap to be tightly controlled  
-**So that** privilege escalation paths are minimized
+**Status as of September 3, 2026**
+
+- Implemented
+- Route is off unless `ADMIN_BOOTSTRAP_ENABLED=true`; key must be >=32 chars and non-placeholder, compared in constant time
+- Refuses once a super admin exists unless `ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS=true`
+- Route-level rate limit (20 per 15 minutes per IP); successes and rejections are written to `admin_audit_logs`
+- Key rotation procedure is documented in `apps/api/.env.example`
+  **As an** operator  
+  **I want** emergency admin bootstrap to be tightly controlled  
+  **So that** privilege escalation paths are minimized
 
 **Acceptance criteria**
 
@@ -79,9 +99,15 @@ Priority meanings:
 
 ### US-005 Remove Runtime Schema Mutation
 
-**As a** backend maintainer  
-**I want** schema changes to happen only through migrations  
-**So that** deploys are deterministic and auditable
+**Status as of September 3, 2026**
+
+- Implemented
+- Startup no longer runs `ALTER TABLE` / `CREATE TABLE` / `CREATE INDEX`; the API only checks connectivity
+- Indexes that existed only in migrations were added to `schema.prisma`
+- CI fails on drift via `yarn workspace @synqit/api prisma:drift`
+  **As a** backend maintainer  
+  **I want** schema changes to happen only through migrations  
+  **So that** deploys are deterministic and auditable
 
 **Acceptance criteria**
 
@@ -287,14 +313,10 @@ Current state:
 
 - Good early-stage modular monolith with worker support
 - Reasonable local/dev and single-VPS deployment shape
-- Not yet production-secure by default
+- P0 security hardening (US-001 to US-005) is implemented; production verification of the operational endpoints is pending the next deploy
 - Not yet ready for confident horizontal scaling of backend job/sync workloads
 
 What is missing before calling it secure and scalable:
 
-- secret enforcement
-- safer session handling
-- protected operational surfaces
-- migration-only schema control
 - worker-safe sync orchestration
 - backup, alerting, and error monitoring discipline

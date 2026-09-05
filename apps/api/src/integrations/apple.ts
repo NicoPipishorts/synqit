@@ -1,14 +1,16 @@
 const DEFAULT_APPLE_STOREFRONT = 'us';
 const APPLE_DEVELOPER_TOKEN_TTL_SECONDS = 60 * 60;
 
+type SignJwtBuilder = {
+  setProtectedHeader(header: { alg: string; kid: string; typ: string }): SignJwtBuilder;
+  setIssuer(issuer: string): SignJwtBuilder;
+  setIssuedAt(issuedAt: number): SignJwtBuilder;
+  setExpirationTime(expirationTime: number): SignJwtBuilder;
+  sign(key: unknown): Promise<string>;
+};
+
 type JoseModule = {
-  SignJWT: new (payload: Record<string, never>) => {
-    setProtectedHeader(header: { alg: string; kid: string; typ: string }): any;
-    setIssuer(issuer: string): any;
-    setIssuedAt(issuedAt: number): any;
-    setExpirationTime(expirationTime: number): any;
-    sign(key: unknown): Promise<string>;
-  };
+  SignJWT: new (payload: Record<string, never>) => SignJwtBuilder;
   importPKCS8: (pkcs8: string, alg: string) => Promise<unknown>;
 };
 

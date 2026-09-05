@@ -6,7 +6,7 @@ import {
   type AdminPermissionScope,
 } from '@synqit/shared';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
-import { AlertTriangle, ArrowLeft, KeyRound, RotateCcw, Shield, Trash2 } from 'lucide-react';
+import { AlertTriangle, KeyRound, RotateCcw, Shield, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AdminDetailCard } from '../components/admin/AdminDetailCard';
@@ -21,7 +21,6 @@ import { clearAuth, hasAdminPermission, loadAuth } from '../lib/auth';
 
 type AnalyticsUserDetail = AdminAnalyticsUserDetailResponse['user'];
 type AccessLevelUi = AdminPermissionLevel | 'none';
-type UserDetailSection = 'overview' | 'security' | 'access' | 'playlists' | 'activity';
 
 type AccessEditorState = {
   role: 'user' | 'admin';
@@ -160,13 +159,17 @@ const UserOverviewSection = ({
             <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
               {t('admin.analyticsMetricEventsShort')}
             </p>
-            <p className="mt-2 text-2xl font-black text-app-text">{userDetail.eventPlaylistsCount}</p>
+            <p className="mt-2 text-2xl font-black text-app-text">
+              {userDetail.eventPlaylistsCount}
+            </p>
           </div>
           <div className="rounded-2xl border border-app-border bg-app-bg px-3 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
               {t('admin.analyticsMetricSharedShort')}
             </p>
-            <p className="mt-2 text-2xl font-black text-app-text">{userDetail.sharedPlaylistsCount}</p>
+            <p className="mt-2 text-2xl font-black text-app-text">
+              {userDetail.sharedPlaylistsCount}
+            </p>
           </div>
           <div className="rounded-2xl border border-app-border bg-app-bg px-3 py-3">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-app-text-secondary">
@@ -177,7 +180,8 @@ const UserOverviewSection = ({
         </div>
 
         <p className="text-sm text-app-text-secondary">
-          Use the section nav to drill into security actions, admin access, playlists, and app activity.
+          Use the section nav to drill into security actions, admin access, playlists, and app
+          activity.
         </p>
       </div>
     </AdminDetailCard>
@@ -225,7 +229,8 @@ const UserSecuritySection = ({
           <div className="min-w-0">
             <p className="text-sm font-black text-app-text">High-impact account controls</p>
             <p className="mt-1 text-sm text-app-text-secondary">
-              Blocking removes access immediately. Reset registration flow is for eligible test accounts only.
+              Blocking removes access immediately. Reset registration flow is for eligible test
+              accounts only.
             </p>
           </div>
         </div>
@@ -787,10 +792,10 @@ export const AdminUserDetailsPage = () => {
   );
   const canResetUserFlow = Boolean(
     canManageAdmins &&
-      userDetail?.isTestAccount &&
-      userDetail?.role !== 'admin' &&
-      currentAdminUserId &&
-      userDetail?.userId !== currentAdminUserId,
+    userDetail?.isTestAccount &&
+    userDetail?.role !== 'admin' &&
+    currentAdminUserId &&
+    userDetail?.userId !== currentAdminUserId,
   );
   const blockActionLabel = userDetail?.isBlocked ? 'Reactivate account' : 'Block account';
   const blockModalTitle = userDetail?.isBlocked ? 'Reactivate account?' : 'Block account?';
@@ -1031,31 +1036,31 @@ export const AdminUserDetailsPage = () => {
     ? 'access'
     : pathname.endsWith('/security')
       ? 'security'
-    : pathname.endsWith('/playlists')
-      ? 'playlists'
-      : pathname.endsWith('/activity')
-        ? 'activity'
-        : 'overview';
+      : pathname.endsWith('/playlists')
+        ? 'playlists'
+        : pathname.endsWith('/activity')
+          ? 'activity'
+          : 'overview';
   const sectionTitle =
     section === 'overview'
       ? 'Overview'
       : section === 'security'
         ? 'Security'
-      : section === 'access'
-        ? 'Access'
-        : section === 'playlists'
-          ? 'Playlists'
-          : 'Activity';
+        : section === 'access'
+          ? 'Access'
+          : section === 'playlists'
+            ? 'Playlists'
+            : 'Activity';
   const sectionDescription =
     section === 'overview'
       ? 'Identity, account state, and quick actions.'
       : section === 'security'
         ? 'Password reset, block, deletion, and registration reset controls.'
-      : section === 'access'
-        ? 'Admin role and permission scopes.'
-        : section === 'playlists'
-          ? 'Owned playlists and sync state.'
-          : 'Visited app routes and usage volume.';
+        : section === 'access'
+          ? 'Admin role and permission scopes.'
+          : section === 'playlists'
+            ? 'Owned playlists and sync state.'
+            : 'Visited app routes and usage volume.';
 
   return (
     <section className="grid content-start gap-6">

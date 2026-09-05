@@ -1,4 +1,4 @@
-import { providerSchema } from '@synqit/shared';
+import { EnvValidationError, providerSchema } from '@synqit/shared';
 import type { FastifyInstance } from 'fastify';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -6,16 +6,22 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 
 import { createRefreshToken, hashPassword, hashToken } from './auth/crypto';
 import { authStore } from './auth/store';
+import { loadApiConfig } from './config';
 import { closeDatabase } from './db';
 import { prisma } from './db/prisma';
 import { eventsStore } from './events/store';
 import { buildServer } from './index';
+import { decryptToken, encryptToken } from './integrations/crypto';
 import { notificationRunsStore } from './jobs/notification-runs-store';
 import { buildWeeklyRecapDigests } from './jobs/weekly-recap-digests';
 import { syncsStore } from './syncs/store';
 
 const TEST_EMAIL_PREFIX = 'regression+';
 const TEST_PASSWORD = 'Password123!';
+// Bootstrap keys and metrics tokens must be >= 32 chars and not look like placeholders.
+const REGRESSION_BOOTSTRAP_KEY = 'regression-bootstrap-key-0123456789abcdef';
+const REGRESSION_METRICS_TOKEN = 'regression-metrics-token-0123456789abcdef';
+const STRONG_TEST_SECRET = 'regression-strong-secret-0123456789abcdefghij';
 const UPDATED_TEST_PASSWORD = 'NewPassword456@';
 const TINY_PNG_DATA_URL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+lm7YAAAAASUVORK5CYII=';
@@ -177,11 +183,22 @@ describe('API regression', () => {
   let previousRegistrationEmailEnabled: string | undefined;
   let previousPasswordResetEmailEnabled: string | undefined;
   let previousRateLimitMax: string | undefined;
+  const previousOpsEnv: Record<string, string | undefined> = {};
+  const OPS_ENV_KEYS = ['ADMIN_BOOTSTRAP_ENABLED', 'METRICS_TOKEN', 'API_DOCS_ENABLED'] as const;
 
   before(async () => {
     previousRegistrationEmailEnabled = process.env.AUTH_REGISTRATION_EMAIL_ENABLED;
     previousPasswordResetEmailEnabled = process.env.AUTH_PASSWORD_RESET_EMAIL_ENABLED;
     previousRateLimitMax = process.env.RATE_LIMIT_MAX;
+    for (const key of OPS_ENV_KEYS) {
+      previousOpsEnv[key] = process.env[key];
+    }
+
+    // Exercise the hardened operational surfaces: bootstrap on, metrics behind a
+    // token, docs off (the production defaults, minus the bootstrap switch).
+    process.env.ADMIN_BOOTSTRAP_ENABLED = 'true';
+    process.env.METRICS_TOKEN = REGRESSION_METRICS_TOKEN;
+    process.env.API_DOCS_ENABLED = 'false';
 
     // Regression must never enqueue real emails, even if local env enables them.
     process.env.AUTH_REGISTRATION_EMAIL_ENABLED = 'false';
@@ -220,6 +237,13 @@ describe('API regression', () => {
       delete process.env.RATE_LIMIT_MAX;
     } else {
       process.env.RATE_LIMIT_MAX = previousRateLimitMax;
+    }
+    for (const key of OPS_ENV_KEYS) {
+      if (previousOpsEnv[key] === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = previousOpsEnv[key];
+      }
     }
 
     await cleanupTestData();
@@ -605,6 +629,217 @@ describe('API regression', () => {
     assert.equal(eventsResponse.statusCode, 401);
   });
 
+  it('config: env validation rejects missing and weak secrets in strict mode', () => {
+    const baseEnv = {
+      DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
+      JWT_ACCESS_SECRET: STRONG_TEST_SECRET,
+      TOKEN_ENC_KEY: STRONG_TEST_SECRET,
+    };
+    const isEnvError = (variable: string) => (error: unknown) =>
+      error instanceof EnvValidationError && error.variable === variable;
+
+    // Missing secrets are always fatal, strict or not.
+    assert.throws(
+      () => loadApiConfig({ ...baseEnv, JWT_ACCESS_SECRET: undefined }),
+      isEnvError('JWT_ACCESS_SECRET'),
+    );
+    assert.throws(
+      () => loadApiConfig({ ...baseEnv, DATABASE_URL: undefined }),
+      isEnvError('DATABASE_URL'),
+    );
+
+    // Placeholders and short values are warnings in dev...
+    const lenient = loadApiConfig({ ...baseEnv, TOKEN_ENC_KEY: 'replace-me' });
+    assert.equal(lenient.strictSecrets, false);
+    assert.equal(lenient.docsEnabled, true);
+    assert.ok(lenient.warnings.some((warning) => warning.includes('TOKEN_ENC_KEY')));
+
+    // ...and fatal in production or when SECRETS_STRICT=true.
+    assert.throws(
+      () => loadApiConfig({ ...baseEnv, NODE_ENV: 'production', TOKEN_ENC_KEY: 'replace-me' }),
+      isEnvError('TOKEN_ENC_KEY'),
+    );
+    assert.throws(
+      () => loadApiConfig({ ...baseEnv, SECRETS_STRICT: 'true', JWT_ACCESS_SECRET: 'short' }),
+      isEnvError('JWT_ACCESS_SECRET'),
+    );
+    assert.throws(
+      () => loadApiConfig({ ...baseEnv, NODE_ENV: 'production', METRICS_TOKEN: 'replace-me' }),
+      isEnvError('METRICS_TOKEN'),
+    );
+
+    // Production defaults: docs off, metrics disabled (with a warning) until a token exists.
+    const production = loadApiConfig({ ...baseEnv, NODE_ENV: 'production' });
+    assert.equal(production.strictSecrets, true);
+    assert.equal(production.docsEnabled, false);
+    assert.equal(production.metricsToken, null);
+    assert.ok(production.warnings.some((warning) => warning.includes('METRICS_TOKEN')));
+
+    const productionWithDocs = loadApiConfig({
+      ...baseEnv,
+      NODE_ENV: 'production',
+      API_DOCS_ENABLED: 'true',
+      METRICS_TOKEN: REGRESSION_METRICS_TOKEN,
+    });
+    assert.equal(productionWithDocs.docsEnabled, true);
+    assert.equal(productionWithDocs.metricsToken, REGRESSION_METRICS_TOKEN);
+  });
+
+  it('config: TOKEN_ENC_KEY rotation decrypts old tokens via TOKEN_ENC_KEY_PREVIOUS', () => {
+    const previousKey = process.env.TOKEN_ENC_KEY;
+    const previousPreviousKey = process.env.TOKEN_ENC_KEY_PREVIOUS;
+    const oldSecret = `${STRONG_TEST_SECRET}-old`;
+    const newSecret = `${STRONG_TEST_SECRET}-new`;
+    try {
+      process.env.TOKEN_ENC_KEY = oldSecret;
+      delete process.env.TOKEN_ENC_KEY_PREVIOUS;
+      const encryptedWithOld = encryptToken('provider-access-token');
+      assert.equal(decryptToken(encryptedWithOld), 'provider-access-token');
+
+      // Rotate: new key active, old key kept for reads only.
+      process.env.TOKEN_ENC_KEY = newSecret;
+      assert.throws(
+        () => decryptToken(encryptedWithOld),
+        'old ciphertext must not decrypt without the previous key',
+      );
+
+      process.env.TOKEN_ENC_KEY_PREVIOUS = oldSecret;
+      assert.equal(decryptToken(encryptedWithOld), 'provider-access-token');
+
+      const encryptedWithNew = encryptToken('refreshed-token');
+      delete process.env.TOKEN_ENC_KEY_PREVIOUS;
+      assert.equal(decryptToken(encryptedWithNew), 'refreshed-token', 'new writes use the new key');
+    } finally {
+      if (previousKey === undefined) {
+        delete process.env.TOKEN_ENC_KEY;
+      } else {
+        process.env.TOKEN_ENC_KEY = previousKey;
+      }
+      if (previousPreviousKey === undefined) {
+        delete process.env.TOKEN_ENC_KEY_PREVIOUS;
+      } else {
+        process.env.TOKEN_ENC_KEY_PREVIOUS = previousPreviousKey;
+      }
+    }
+  });
+
+  it('ops: /metrics requires the bearer token and /docs is not mounted when disabled', async () => {
+    const anonymousMetricsResponse = await app.inject({ method: 'GET', url: '/metrics' });
+    assert.equal(anonymousMetricsResponse.statusCode, 401);
+
+    const wrongTokenResponse = await app.inject({
+      method: 'GET',
+      url: '/metrics',
+      headers: { authorization: 'Bearer not-the-token' },
+    });
+    assert.equal(wrongTokenResponse.statusCode, 401);
+
+    const metricsResponse = await app.inject({
+      method: 'GET',
+      url: '/metrics',
+      headers: { authorization: `Bearer ${REGRESSION_METRICS_TOKEN}` },
+    });
+    assert.equal(metricsResponse.statusCode, 200);
+    assert.match(metricsResponse.body, /synqit_http_requests_total/);
+
+    const docsResponse = await app.inject({ method: 'GET', url: '/docs' });
+    assert.equal(docsResponse.statusCode, 404);
+    const docsJsonResponse = await app.inject({ method: 'GET', url: '/docs/json' });
+    assert.equal(docsJsonResponse.statusCode, 404);
+
+    const healthResponse = await app.inject({ method: 'GET', url: '/healthz' });
+    assert.equal(healthResponse.statusCode, 200);
+  });
+
+  it('admin: bootstrap is gated, key-checked, audited, and locks once a super admin exists', async () => {
+    const superAdminEmail = `${TEST_EMAIL_PREFIX}bootstrap-super@synqit.test`;
+    const otherEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    await createUserAndLogin(app, superAdminEmail);
+    await createUserAndLogin(app, otherEmail);
+
+    const previousEnv = {
+      ADMIN_BOOTSTRAP_ENABLED: process.env.ADMIN_BOOTSTRAP_ENABLED,
+      ADMIN_BOOTSTRAP_KEY: process.env.ADMIN_BOOTSTRAP_KEY,
+      ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS:
+        process.env.ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS,
+      ADMIN_SUPER_USERS: process.env.ADMIN_SUPER_USERS,
+    };
+    const restoreEnv = () => {
+      for (const [key, value] of Object.entries(previousEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    };
+
+    const promote = (email: string, key: string | undefined) =>
+      app.inject({
+        method: 'POST',
+        url: '/v1/admin/bootstrap/promote',
+        headers: key ? { 'x-admin-bootstrap-key': key } : undefined,
+        payload: { email },
+      });
+    const codeOf = (body: string) => (parseBody(body) as { code: string }).code;
+
+    try {
+      process.env.ADMIN_SUPER_USERS = superAdminEmail;
+      process.env.ADMIN_BOOTSTRAP_KEY = REGRESSION_BOOTSTRAP_KEY;
+      delete process.env.ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS;
+
+      // Disabled by default: the route hides itself.
+      process.env.ADMIN_BOOTSTRAP_ENABLED = 'false';
+      const disabledResponse = await promote(superAdminEmail, REGRESSION_BOOTSTRAP_KEY);
+      assert.equal(disabledResponse.statusCode, 404);
+      assert.equal(codeOf(disabledResponse.body), 'admin_bootstrap_disabled');
+
+      process.env.ADMIN_BOOTSTRAP_ENABLED = 'true';
+
+      // A placeholder or short key is refused even if the caller knows it.
+      process.env.ADMIN_BOOTSTRAP_KEY = 'replace-me';
+      const weakKeyResponse = await promote(superAdminEmail, 'replace-me');
+      assert.equal(weakKeyResponse.statusCode, 503);
+      assert.equal(codeOf(weakKeyResponse.body), 'admin_bootstrap_not_configured');
+
+      process.env.ADMIN_BOOTSTRAP_KEY = REGRESSION_BOOTSTRAP_KEY;
+      const wrongKeyResponse = await promote(
+        superAdminEmail,
+        'definitely-not-the-right-key-000000',
+      );
+      assert.equal(wrongKeyResponse.statusCode, 403);
+      const missingKeyResponse = await promote(superAdminEmail, undefined);
+      assert.equal(missingKeyResponse.statusCode, 403);
+
+      // First super admin promotion succeeds and is audited.
+      const promotedResponse = await promote(superAdminEmail, REGRESSION_BOOTSTRAP_KEY);
+      assert.equal(promotedResponse.statusCode, 200);
+      const promotedAudit = await prisma.admin_audit_logs.findFirst({
+        where: { action: 'admin_bootstrap_promote', target_email: superAdminEmail },
+      });
+      assert.ok(promotedAudit, 'expected an audit log row for the bootstrap promotion');
+      const rejectedAudit = await prisma.admin_audit_logs.findFirst({
+        where: { action: 'admin_bootstrap_rejected', reason: 'invalid_key' },
+      });
+      assert.ok(rejectedAudit, 'expected rejected bootstrap attempts to be audited');
+
+      // Once a super admin exists, bootstrap locks itself.
+      const lockedResponse = await promote(otherEmail, REGRESSION_BOOTSTRAP_KEY);
+      assert.equal(lockedResponse.statusCode, 409);
+      assert.equal(codeOf(lockedResponse.body), 'admin_bootstrap_locked');
+
+      // ...unless explicitly re-enabled by the operator.
+      process.env.ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS = 'true';
+      const reenabledResponse = await promote(otherEmail, REGRESSION_BOOTSTRAP_KEY);
+      assert.equal(reenabledResponse.statusCode, 200);
+    } finally {
+      restoreEnv();
+      await prisma.admin_audit_logs.deleteMany({
+        where: { action: { in: ['admin_bootstrap_promote', 'admin_bootstrap_rejected'] } },
+      });
+    }
+  });
+
   it('admin: login requires admin role and RBAC blocks unauthorized actions', async () => {
     const hostEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
     await registerUser(app, hostEmail);
@@ -622,7 +857,7 @@ describe('API regression', () => {
     const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
     const previousSuperUsers = process.env.ADMIN_SUPER_USERS;
     const superAdminEmail = `${TEST_EMAIL_PREFIX}super-admin@synqit.test`;
-    process.env.ADMIN_BOOTSTRAP_KEY = 'regression-bootstrap-key';
+    process.env.ADMIN_BOOTSTRAP_KEY = REGRESSION_BOOTSTRAP_KEY;
     process.env.ADMIN_SUPER_USERS = superAdminEmail;
     try {
       await createUserAndLogin(app, superAdminEmail);
@@ -733,7 +968,7 @@ describe('API regression', () => {
 
     const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
     const previousSuperUsers = process.env.ADMIN_SUPER_USERS;
-    process.env.ADMIN_BOOTSTRAP_KEY = 'regression-bootstrap-key';
+    process.env.ADMIN_BOOTSTRAP_KEY = REGRESSION_BOOTSTRAP_KEY;
     process.env.ADMIN_SUPER_USERS = superAdminEmail;
 
     try {
@@ -913,7 +1148,11 @@ describe('API regression', () => {
     });
 
     const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
-    process.env.ADMIN_BOOTSTRAP_KEY = 'regression-bootstrap-key';
+    const previousAllowWhenSuperAdminExists =
+      process.env.ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS;
+    process.env.ADMIN_BOOTSTRAP_KEY = REGRESSION_BOOTSTRAP_KEY;
+    // This test only needs an admin; a super admin may already exist in the local DB.
+    process.env.ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS = 'true';
     try {
       const bootstrapResponse = await app.inject({
         method: 'POST',
@@ -1132,6 +1371,12 @@ describe('API regression', () => {
         delete process.env.ADMIN_BOOTSTRAP_KEY;
       } else {
         process.env.ADMIN_BOOTSTRAP_KEY = previousBootstrapKey;
+      }
+      if (previousAllowWhenSuperAdminExists === undefined) {
+        delete process.env.ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS;
+      } else {
+        process.env.ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS =
+          previousAllowWhenSuperAdminExists;
       }
     }
   });
