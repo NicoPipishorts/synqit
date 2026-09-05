@@ -122,6 +122,9 @@ jobs:
       - name: Build shared package
         run: yarn build:shared
 
+      - name: Run UI package unit tests
+        run: yarn workspace @synqit/ui test
+
       - name: Install Playwright browser
         run: |
           cd apps/web
