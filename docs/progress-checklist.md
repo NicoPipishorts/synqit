@@ -50,6 +50,7 @@ Use this as the implementation tracker (what is done vs pending).
 - [x] Admin bootstrap locked down (opt-in flag, strong key, constant-time compare, lock after first super admin, rate limit, audit log).
 - [x] Runtime schema mutation removed from API startup; CI fails on migration/schema drift.
 - [x] `@synqit/ui` package: single `tokens.css`, 22 shared primitives (CTA, Modal, Toast, nav, forms, StatGrid, DataTable, EmptyState, OnboardingPanel), Ladle stories, Vitest suite; site/web/admin migrated.
+- [x] `@synqit/client` (API client, auth store, analytics tracker, preferences/theme) and `@synqit/i18n` (provider, hook, interpolation, parity + usage checker) packages; web/admin/site migrated; admin data loading on TanStack Query.
 
 ## Pending (Next)
 

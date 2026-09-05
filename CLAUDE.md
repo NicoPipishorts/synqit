@@ -6,15 +6,17 @@ split domains into services (see `docs/architecture.md`).
 
 ## Layout
 
-| Path              | What it is                                                                                                                                                                                                 | Local port    |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `apps/site`       | Marketing site + pricing page (React/Vite)                                                                                                                                                                 | 4180          |
-| `apps/web`        | Product app (React, TanStack Router/Query)                                                                                                                                                                 | 5173          |
-| `apps/admin`      | Back office (React/Vite)                                                                                                                                                                                   | 4174          |
-| `apps/api`        | Fastify + Prisma + PostgreSQL. Domains: `auth`, `integrations`, `events`, `syncs`, `admin`, `analytics`, `dashboard`, `jobs`                                                                               | 3001          |
-| `apps/worker`     | BullMQ worker (email notifications today; sync jobs planned)                                                                                                                                               | —             |
-| `packages/shared` | Zod schemas, shared types, queue names. Build it before api/web: `yarn build:shared`                                                                                                                       | —             |
-| `packages/ui`     | Design tokens (`tokens.css`) + shared React primitives for site/web/admin. Consumed as source via Vite aliases; `yarn workspace @synqit/ui ladle` for stories, `yarn workspace @synqit/ui test` for Vitest | 61000 (Ladle) |
+| Path              | What it is                                                                                                                                                                                                                    | Local port    |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `apps/site`       | Marketing site + pricing page (React/Vite)                                                                                                                                                                                    | 4180          |
+| `apps/web`        | Product app (React, TanStack Router/Query)                                                                                                                                                                                    | 5173          |
+| `apps/admin`      | Back office (React/Vite)                                                                                                                                                                                                      | 4174          |
+| `apps/api`        | Fastify + Prisma + PostgreSQL. Domains: `auth`, `integrations`, `events`, `syncs`, `admin`, `analytics`, `dashboard`, `jobs`                                                                                                  | 3001          |
+| `apps/worker`     | BullMQ worker (email notifications today; sync jobs planned)                                                                                                                                                                  | —             |
+| `packages/shared` | Zod schemas, shared types, queue names. Build it before api/web: `yarn build:shared`                                                                                                                                          | —             |
+| `packages/ui`     | Design tokens (`tokens.css`) + shared React primitives for site/web/admin. Consumed as source via Vite aliases; `yarn workspace @synqit/ui ladle` for stories, `yarn workspace @synqit/ui test` for Vitest                    | 61000 (Ladle) |
+| `packages/client` | Browser client shared by the frontends: `createApiClient` (cookie session + CSRF + one shared refresh), `createAuthStore` (web/admin scope), `createAnalyticsTracker`, preferences and theme persistence. Vitest suite.       | —             |
+| `packages/i18n`   | `I18nProvider` / `useI18nContext` / `translate` with `{{vars}}` and `_one/_other` plurals; locale JSON stays per app. `scripts/check-locales.mjs` checks parity and that every literal `t('key')` exists (`yarn i18n:check`). | —             |
 
 ## Everyday commands
 
@@ -24,7 +26,7 @@ yarn prisma:migrate:deploy   # apply migrations to the local DB
 yarn dev                     # everything; or dev:api / dev:web / dev:admin / dev:site / dev:worker
 yarn typecheck               # all workspaces
 yarn lint
-yarn i18n:check              # en/fr locale parity, run after any copy change in apps/web
+yarn i18n:check              # en/fr parity + every literal t('key') in web/admin exists (site warns)
 yarn test:api:regression     # needs the DB up + migrated
 yarn test:web:e2e            # Playwright smoke test
 ```
@@ -68,6 +70,11 @@ yarn test:web:e2e            # Playwright smoke test
   router, i18n, or theme imports); apps keep thin wrappers in `components/ui/` that bind those.
   Brand tokens and the `dark` variant come from `@synqit/ui/tokens.css`; app stylesheets keep only
   `body` and app-specific utilities.
+- Frontend infrastructure lives in `packages/client` (API/auth/analytics/preferences) and
+  `packages/i18n`; apps keep thin `lib/*.ts` modules that instantiate them with their scope and
+  base URL. Admin data loading goes through TanStack Query (`apps/admin/src/lib/queries.ts`).
+- When two sessions work in the same checkout, use `git worktree add` instead: concurrent edits in
+  one working tree produce interleaved commits and iCloud "name 2.ext" duplicates.
 - Web copy is translated: every string goes in `apps/web/src/locales/{en,fr}/common.json`.
 - Sync UX stays one-way in the frontend even though the backend supports bidirectional.
 
