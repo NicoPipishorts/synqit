@@ -1,4 +1,5 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
+import { timingSafeEqual } from 'node:crypto';
 
 const REQUEST_DURATION_BUCKETS = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10] as const;
 
@@ -114,7 +115,36 @@ const renderMetrics = (): string => {
   return `${lines.join('\n')}\n`;
 };
 
-export const registerMetricsEndpoint = async (app: FastifyInstance): Promise<void> => {
+export type MetricsEndpointOptions = {
+  /** Bearer token required on `GET /metrics`. */
+  token: string | null;
+  /** Serve `/metrics` unauthenticated when no token is configured (dev only). */
+  exposeWithoutToken: boolean;
+};
+
+const hasValidBearerToken = (authorization: unknown, expectedToken: string): boolean => {
+  if (typeof authorization !== 'string') {
+    return false;
+  }
+
+  const [scheme, ...rest] = authorization.trim().split(/\s+/);
+  const provided = rest.join(' ');
+  if (scheme?.toLowerCase() !== 'bearer' || provided.length === 0) {
+    return false;
+  }
+
+  const providedBuffer = Buffer.from(provided, 'utf8');
+  const expectedBuffer = Buffer.from(expectedToken, 'utf8');
+  return (
+    providedBuffer.length === expectedBuffer.length &&
+    timingSafeEqual(providedBuffer, expectedBuffer)
+  );
+};
+
+export const registerMetricsEndpoint = async (
+  app: FastifyInstance,
+  options: MetricsEndpointOptions,
+): Promise<void> => {
   app.addHook('onRequest', async (request) => {
     requestStartTimes.set(request, process.hrtime.bigint());
   });
@@ -134,7 +164,19 @@ export const registerMetricsEndpoint = async (app: FastifyInstance): Promise<voi
     observeRequest(labels, durationSeconds);
   });
 
-  app.get('/metrics', async (_request, reply) => {
+  if (!options.token && !options.exposeWithoutToken) {
+    app.log.warn('METRICS_TOKEN is not configured; /metrics endpoint is disabled.');
+    return;
+  }
+
+  app.get('/metrics', async (request, reply) => {
+    if (options.token && !hasValidBearerToken(request.headers.authorization, options.token)) {
+      return reply.status(401).send({
+        code: 'unauthorized',
+        message: 'A valid metrics bearer token is required.',
+      });
+    }
+
     const body = renderMetrics();
     reply.header('content-type', 'text/plain; version=0.0.4; charset=utf-8');
     return reply.send(body);

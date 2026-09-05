@@ -25,7 +25,7 @@ export const AppOnboardingPanel = ({
   body,
   icon,
   actions,
-  note,
+  note: _note,
   steps: _steps,
   className,
 }: AppOnboardingPanelProps) => (

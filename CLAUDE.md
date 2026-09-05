@@ -36,6 +36,14 @@ yarn test:web:e2e            # Playwright smoke test
   `prisma migrate diff` to generate SQL, write the migration file by hand, then `migrate deploy`.
 - An empty directory under `apps/api/prisma/migrations/` breaks `migrate deploy` (P3015). Git does
   not track empty dirs, so this only shows up locally; delete the directory.
+- Secrets are validated at startup (`apps/api/src/config.ts`, shared helpers in
+  `packages/shared/src/env.ts`). Missing `JWT_ACCESS_SECRET`, `TOKEN_ENC_KEY`, or `DATABASE_URL` is
+  always fatal; placeholder or short values are fatal with `NODE_ENV=production` or
+  `SECRETS_STRICT=true` and only warn in dev. `.env` is loaded by `apps/api/src/env.ts`, which must
+  stay the first import of `index.ts`.
+- Schema changes go through Prisma migrations only. CI runs `yarn workspace @synqit/api prisma:drift`
+  and fails if `schema.prisma` and the migrations disagree, so add `@@index` lines for any index a
+  migration creates.
 - macOS Finder "copy" artefacts (`Something 2.tsx`) and `.DS_Store` files must not be committed.
 
 ## Branch flow
@@ -43,8 +51,9 @@ yarn test:web:e2e            # Playwright smoke test
 - `main` is production. A push to `main` runs CI, builds Docker images, and deploys to the VPS
   over SSH. Never commit directly to `main`.
 - `dev` is the integration branch. Feature work goes on `feat/*` branches off `dev`.
-- PRs go `feat/* -> dev` and `dev -> main`. CI only runs on PRs to `main` and pushes to `main`,
-  so run `yarn typecheck` and `yarn test:api:regression` locally before opening a PR.
+- PRs go `feat/* -> dev` and `dev -> main`. CI tests run on PRs to `dev` and `main`; build and
+  deploy run only on pushes to `main`. Still run `yarn typecheck` and `yarn test:api:regression`
+  locally before opening a PR.
 - Use the `/ship` skill to land the working tree.
 
 ## Conventions
