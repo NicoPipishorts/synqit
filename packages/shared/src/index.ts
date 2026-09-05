@@ -488,6 +488,30 @@ export const analyticsTargetSchema = z.enum([
 ]);
 export type AnalyticsTarget = z.infer<typeof analyticsTargetSchema>;
 
+export const ANALYTICS_PROPERTIES_MAX_KEYS = 20;
+export const ANALYTICS_PROPERTIES_MAX_KEY_LENGTH = 64;
+export const ANALYTICS_PROPERTIES_MAX_BYTES = 2_048;
+
+/**
+ * Free-form event properties are written straight to the database by an
+ * unauthenticated endpoint, so they are bounded in shape and size.
+ */
+export const analyticsPropertiesSchema = z
+  .record(z.string().max(ANALYTICS_PROPERTIES_MAX_KEY_LENGTH), z.unknown())
+  .refine((value) => Object.keys(value).length <= ANALYTICS_PROPERTIES_MAX_KEYS, {
+    message: `properties may contain at most ${ANALYTICS_PROPERTIES_MAX_KEYS} keys`,
+  })
+  .refine(
+    (value) => {
+      try {
+        return JSON.stringify(value).length <= ANALYTICS_PROPERTIES_MAX_BYTES;
+      } catch {
+        return false;
+      }
+    },
+    { message: `properties must serialize to at most ${ANALYTICS_PROPERTIES_MAX_BYTES} bytes` },
+  );
+
 export const analyticsTrackRequestSchema = z.object({
   eventName: analyticsEventNameSchema,
   target: analyticsTargetSchema,
@@ -495,7 +519,7 @@ export const analyticsTrackRequestSchema = z.object({
   path: z.string().min(1).max(512),
   locale: z.enum(['en', 'fr']).optional(),
   source: z.enum(['web', 'site']).default('web'),
-  properties: z.record(z.string(), z.unknown()).default({}),
+  properties: analyticsPropertiesSchema.default({}),
 });
 export type AnalyticsTrackRequest = z.infer<typeof analyticsTrackRequestSchema>;
 

@@ -45,21 +45,45 @@ export const NOTIFICATION_PREVIEW_JOB_OPTIONS: JobsOptions = {
 
 export const resolveWebAppUrl = (): string => process.env.WEB_APP_URL ?? DEFAULT_WEB_APP_URL;
 
+let cachedQueue: { redisUrl: string; queue: Queue } | null = null;
+
 /**
- * Adds a job to the shared notifications queue, opening and closing a
- * short-lived connection per enqueue. Centralizes Redis connection handling so
- * individual email producers stay thin.
+ * Returns the process-wide notifications queue, creating it on first use and
+ * recreating it if REDIS_URL changes. Reusing one connection avoids a Redis
+ * handshake per enqueued email.
  */
+const getNotificationsQueue = (): Queue => {
+  const redisUrl = process.env.REDIS_URL ?? DEFAULT_REDIS_URL;
+  if (cachedQueue && cachedQueue.redisUrl === redisUrl) {
+    return cachedQueue.queue;
+  }
+
+  const stale = cachedQueue;
+  cachedQueue = null;
+  if (stale) {
+    void stale.queue.close().catch(() => undefined);
+  }
+
+  const queue = new Queue(QUEUES.notifications, { connection: createConnection() });
+  cachedQueue = { redisUrl, queue };
+  return queue;
+};
+
+/** Adds a job to the shared notifications queue. */
 export const enqueueNotificationJob = async (
   jobName: string,
   payload: unknown,
   options: JobsOptions,
 ): Promise<string | undefined> => {
-  const queue = new Queue(QUEUES.notifications, { connection: createConnection() });
-  try {
-    const job = await queue.add(jobName, payload, options);
-    return job.id;
-  } finally {
-    await queue.close();
+  const job = await getNotificationsQueue().add(jobName, payload, options);
+  return job.id;
+};
+
+/** Closes the shared queue connection; call during graceful shutdown. */
+export const closeNotificationsQueue = async (): Promise<void> => {
+  const current = cachedQueue;
+  cachedQueue = null;
+  if (current) {
+    await current.queue.close();
   }
 };
