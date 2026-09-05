@@ -19,6 +19,7 @@ import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
 import { startAccountDeletionScheduler } from './jobs/account-deletion';
+import { closeNotificationsQueue } from './jobs/notifications-queue';
 import { startWeeklyRecapScheduler } from './jobs/weekly-recap';
 import { registerMetricsEndpoint } from './observability/metrics';
 import { startAutoSyncScheduler } from './syncs/auto-sync';
@@ -215,6 +216,7 @@ export const start = async () => {
     stopAccountDeletionScheduler?.();
     stopWeeklyRecapScheduler?.();
     await app.close();
+    await closeNotificationsQueue().catch(() => undefined);
   };
 
   process.on('SIGINT', () => {

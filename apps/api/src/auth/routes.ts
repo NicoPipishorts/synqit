@@ -48,6 +48,7 @@ import {
   enqueueRegistrationConfirmationEmail,
   isRegistrationConfirmationEmailEnabled,
 } from '../jobs/registration-email';
+import { buildRouteRateLimiters } from '../security/rate-limits';
 
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
@@ -299,6 +300,8 @@ const issueTokens = async (app: FastifyInstance, user: UserRecord) => {
 };
 
 export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> => {
+  const limiters = buildRouteRateLimiters();
+
   app.get('/public/avatars/:fileName', async (request, reply) => {
     const params = avatarPublicParamsSchema.safeParse(request.params);
     if (!params.success) {
@@ -319,7 +322,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     return reply.type(resolved.contentType).send(createAvatarReadStream(resolved.filePath));
   });
 
-  app.post('/auth/register', async (request, reply) => {
+  app.post('/auth/register', { preHandler: limiters.register }, async (request, reply) => {
     const parsed = registerCredentialsSchema.safeParse(request.body);
     if (!parsed.success) {
       const details = parsed.error.flatten();
@@ -383,7 +386,7 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     });
   });
 
-  app.post('/auth/login', async (request, reply) => {
+  app.post('/auth/login', { preHandler: limiters.authAttempt }, async (request, reply) => {
     const parsed = authCredentialsSchema.safeParse(request.body);
     if (!parsed.success) {
       return sendValidationError(reply, parsed.error.flatten());
@@ -445,51 +448,55 @@ export const registerAuthRoutes = async (app: FastifyInstance): Promise<void> =>
     });
   });
 
-  app.post('/auth/forgot-password', async (request, reply) => {
-    const parsed = forgotPasswordRequestSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return sendValidationError(reply, parsed.error.flatten());
-    }
+  app.post(
+    '/auth/forgot-password',
+    { preHandler: limiters.authAttempt },
+    async (request, reply) => {
+      const parsed = forgotPasswordRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return sendValidationError(reply, parsed.error.flatten());
+      }
 
-    const user = await authStore.findUserByEmail(parsed.data.email);
-    if (!user || !isPasswordResetEmailEnabled()) {
-      return sendForgotPasswordAccepted(reply);
-    }
-
-    try {
-      const resetToken = createOpaqueToken();
-      const tokenRecord = await authStore.createPasswordResetToken({
-        userId: user.id,
-        tokenHash: hashToken(resetToken),
-        expiresAt: new Date(Date.now() + passwordResetTokenTtlMs),
-      });
-
-      if (!tokenRecord) {
-        request.log.warn({ userId: user.id }, 'password reset token storage unavailable');
+      const user = await authStore.findUserByEmail(parsed.data.email);
+      if (!user || !isPasswordResetEmailEnabled()) {
         return sendForgotPasswordAccepted(reply);
       }
 
-      await enqueuePasswordResetEmail({
-        userId: user.id,
-        toEmail: user.email,
-        locale: await resolveUserPreferredEmailLocale(user.id, request),
-        resetToken,
-      });
-    } catch (error) {
-      request.log.warn(
-        {
-          err: error,
+      try {
+        const resetToken = createOpaqueToken();
+        const tokenRecord = await authStore.createPasswordResetToken({
           userId: user.id,
-          email: user.email,
-        },
-        'failed to enqueue password reset email',
-      );
-    }
+          tokenHash: hashToken(resetToken),
+          expiresAt: new Date(Date.now() + passwordResetTokenTtlMs),
+        });
 
-    return sendForgotPasswordAccepted(reply);
-  });
+        if (!tokenRecord) {
+          request.log.warn({ userId: user.id }, 'password reset token storage unavailable');
+          return sendForgotPasswordAccepted(reply);
+        }
 
-  app.post('/auth/reset-password', async (request, reply) => {
+        await enqueuePasswordResetEmail({
+          userId: user.id,
+          toEmail: user.email,
+          locale: await resolveUserPreferredEmailLocale(user.id, request),
+          resetToken,
+        });
+      } catch (error) {
+        request.log.warn(
+          {
+            err: error,
+            userId: user.id,
+            email: user.email,
+          },
+          'failed to enqueue password reset email',
+        );
+      }
+
+      return sendForgotPasswordAccepted(reply);
+    },
+  );
+
+  app.post('/auth/reset-password', { preHandler: limiters.authAttempt }, async (request, reply) => {
     const parsed = resetPasswordRequestSchema.safeParse(request.body);
     if (!parsed.success) {
       return sendValidationError(reply, parsed.error.flatten());
