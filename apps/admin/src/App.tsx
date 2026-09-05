@@ -1,4 +1,5 @@
 import { ToastProvider } from '@synqit/ui';
+import { QueryClientProvider } from '@tanstack/react-query';
 import {
   createRootRoute,
   createRoute,
@@ -11,6 +12,7 @@ import { AdminShell } from './components/shell/AdminShell';
 import { useI18n } from './hooks/useI18n';
 import { isAdminAuthenticated } from './lib/auth';
 import { I18nProvider } from './lib/i18n';
+import { queryClient } from './lib/queryClient';
 import { AdminAnalyticsPage } from './pages/AdminAnalyticsPage';
 import { AdminEmailsPage } from './pages/AdminEmailsPage';
 import { AdminLoginPage } from './pages/AdminLoginPage';
@@ -153,8 +155,10 @@ const AdminApp = () => {
 
 export default function App() {
   return (
-    <I18nProvider>
-      <AdminApp />
-    </I18nProvider>
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <AdminApp />
+      </I18nProvider>
+    </QueryClientProvider>
   );
 }

@@ -13,10 +13,12 @@ export default defineConfig({
       // Order matters: the stylesheet alias must precede the package alias.
       '@synqit/ui/tokens.css': path.resolve(__dirname, '../../packages/ui/src/tokens.css'),
       '@synqit/ui': path.resolve(__dirname, '../../packages/ui/src/index.ts'),
+      '@synqit/client': path.resolve(__dirname, '../../packages/client/src/index.ts'),
+      '@synqit/i18n': path.resolve(__dirname, '../../packages/i18n/src/index.ts'),
     },
   },
   optimizeDeps: {
-    exclude: ['@synqit/shared', '@synqit/ui'],
+    exclude: ['@synqit/shared', '@synqit/ui', '@synqit/client', '@synqit/i18n'],
   },
   publicDir: path.resolve(__dirname, '../web/public'),
   server: {
