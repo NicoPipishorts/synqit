@@ -58,6 +58,7 @@ import {
   searchSpotifyTracks,
 } from '../integrations/spotify-tracks';
 import { integrationStore } from '../integrations/store';
+import { buildRouteRateLimiters } from '../security/rate-limits';
 
 const DEFAULT_EVENT_LINK_BASE_URL = 'http://127.0.0.1:5173';
 const MOCK_TRACKS = [
@@ -437,6 +438,8 @@ const syncEventTracksFromProvider = async (params: {
 };
 
 export const registerEventRoutes = async (app: FastifyInstance): Promise<void> => {
+  const limiters = buildRouteRateLimiters();
+
   app.get('/playlists/drafts', async (request, reply) => {
     const userId = await requireAuthenticatedUserId(request, reply);
     if (!userId) return;
@@ -766,69 +769,77 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.post('/playlists/link/:magicLinkToken/track', async (request, reply) => {
-    const userId = await requireAuthenticatedUserId(request, reply);
-    if (!userId) {
-      return;
-    }
+  app.post(
+    '/playlists/link/:magicLinkToken/track',
+    { preHandler: limiters.publicWrite },
+    async (request, reply) => {
+      const userId = await requireAuthenticatedUserId(request, reply);
+      if (!userId) {
+        return;
+      }
 
-    const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
-    if (!event) {
-      return;
-    }
+      const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
+      const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
+      if (!event) {
+        return;
+      }
 
-    if (event.hostUserId === userId) {
-      return reply.status(409).send({
-        code: 'owner_cannot_track_event',
-        message: 'Hosts already manage this playlist and cannot track it as a guest.',
+      if (event.hostUserId === userId) {
+        return reply.status(409).send({
+          code: 'owner_cannot_track_event',
+          message: 'Hosts already manage this playlist and cannot track it as a guest.',
+        });
+      }
+
+      const tracked = await eventsStore.trackEvent({
+        eventId: event.id,
+        userId,
       });
-    }
 
-    const tracked = await eventsStore.trackEvent({
-      eventId: event.id,
-      userId,
-    });
+      return reply.send(
+        eventTrackingResponseSchema.parse({
+          ok: true,
+          trackedAt: tracked.updatedAt.toISOString(),
+        }),
+      );
+    },
+  );
 
-    return reply.send(
-      eventTrackingResponseSchema.parse({
-        ok: true,
-        trackedAt: tracked.updatedAt.toISOString(),
-      }),
-    );
-  });
+  app.delete(
+    '/playlists/link/:magicLinkToken/track',
+    { preHandler: limiters.publicWrite },
+    async (request, reply) => {
+      const userId = await requireAuthenticatedUserId(request, reply);
+      if (!userId) {
+        return;
+      }
 
-  app.delete('/playlists/link/:magicLinkToken/track', async (request, reply) => {
-    const userId = await requireAuthenticatedUserId(request, reply);
-    if (!userId) {
-      return;
-    }
+      const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
+      const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
+      if (!event) {
+        return;
+      }
 
-    const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
-    if (!event) {
-      return;
-    }
+      if (event.hostUserId === userId) {
+        return reply.status(409).send({
+          code: 'owner_cannot_track_event',
+          message: 'Hosts already manage this playlist and cannot track it as a guest.',
+        });
+      }
 
-    if (event.hostUserId === userId) {
-      return reply.status(409).send({
-        code: 'owner_cannot_track_event',
-        message: 'Hosts already manage this playlist and cannot track it as a guest.',
+      await eventsStore.untrackEvent({
+        eventId: event.id,
+        userId,
       });
-    }
 
-    await eventsStore.untrackEvent({
-      eventId: event.id,
-      userId,
-    });
-
-    return reply.send(
-      eventTrackingResponseSchema.parse({
-        ok: true,
-        trackedAt: null,
-      }),
-    );
-  });
+      return reply.send(
+        eventTrackingResponseSchema.parse({
+          ok: true,
+          trackedAt: null,
+        }),
+      );
+    },
+  );
 
   app.get('/playlists/link/:magicLinkToken/tracks', async (request, reply) => {
     const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
@@ -1031,274 +1042,278 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     });
   });
 
-  app.post('/playlists/link/:magicLinkToken/tracks', async (request, reply) => {
-    const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
-    const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
-    if (!event) {
-      return;
-    }
+  app.post(
+    '/playlists/link/:magicLinkToken/tracks',
+    { preHandler: limiters.publicWrite },
+    async (request, reply) => {
+      const magicLinkToken = (request.params as { magicLinkToken?: string }).magicLinkToken ?? '';
+      const event = await requireActiveMagicLinkEvent(reply, magicLinkToken);
+      if (!event) {
+        return;
+      }
 
-    if (event.status !== 'open') {
-      return reply.status(409).send({
-        code: 'event_closed',
-        message: 'This playlist is closed and no longer accepts new tracks.',
+      if (event.status !== 'open') {
+        return reply.status(409).send({
+          code: 'event_closed',
+          message: 'This playlist is closed and no longer accepts new tracks.',
+        });
+      }
+
+      const parsedBody = addEventTrackRequestSchema.safeParse(request.body);
+      if (!parsedBody.success) {
+        return reply.status(400).send({
+          code: 'validation_error',
+          message: 'Track payload is invalid.',
+          details: parsedBody.error.flatten(),
+        });
+      }
+
+      if (
+        await eventsStore.hasTrack({
+          eventId: event.id,
+          providerTrackId: parsedBody.data.providerTrackId,
+        })
+      ) {
+        return reply.status(409).send({
+          code: 'duplicate_track',
+          message: 'Track is already in this playlist.',
+        });
+      }
+
+      const integration = await integrationStore.findIntegration({
+        userId: event.hostUserId,
+        provider: event.provider,
       });
-    }
+      if (!integration) {
+        return reply.status(400).send({
+          code: 'provider_not_connected',
+          message: 'Host provider is not connected.',
+        });
+      }
 
-    const parsedBody = addEventTrackRequestSchema.safeParse(request.body);
-    if (!parsedBody.success) {
-      return reply.status(400).send({
-        code: 'validation_error',
-        message: 'Track payload is invalid.',
-        details: parsedBody.error.flatten(),
-      });
-    }
+      if (event.provider === 'spotify' && isSpotifyOauthLiveMode()) {
+        let providerAccessTokenForDiagnostics: string | null = null;
+        try {
+          await withSpotifyAccessTokenRetry({
+            userId: event.hostUserId,
+            run: async (accessToken) => {
+              providerAccessTokenForDiagnostics = accessToken;
+              await addSpotifyTrackToPlaylist({
+                accessToken,
+                providerPlaylistId: event.providerPlaylistId,
+                providerTrackId: parsedBody.data.providerTrackId,
+              });
+            },
+          });
+        } catch (error) {
+          if (error instanceof IntegrationError) {
+            return sendIntegrationError(reply, error);
+          }
 
-    if (
-      await eventsStore.hasTrack({
+          if (error instanceof ProviderApiError) {
+            app.log.warn(
+              {
+                provider: error.provider,
+                providerStatusCode: error.statusCode,
+                providerError: error.details,
+                eventId: event.id,
+                magicLinkToken,
+                providerPlaylistId: event.providerPlaylistId,
+                providerTrackId: parsedBody.data.providerTrackId,
+              },
+              'provider add track failed',
+            );
+
+            if (error.statusCode === 404) {
+              await reconcileMissingProviderPlaylist({
+                app,
+                event,
+                operation: 'add_track',
+                providerTrackId: parsedBody.data.providerTrackId,
+                providerStatusCode: error.statusCode,
+                providerError: error.details,
+                magicLinkToken,
+              });
+
+              return reply.status(409).send({
+                code: 'provider_playlist_missing',
+                message:
+                  'The linked Spotify playlist no longer exists. This event was closed. Ask the host to create a new event.',
+              });
+            }
+
+            if (error.statusCode === 403 && providerAccessTokenForDiagnostics) {
+              try {
+                const [currentUser, playlist] = await Promise.all([
+                  getSpotifyCurrentUser({
+                    accessToken: providerAccessTokenForDiagnostics,
+                  }),
+                  getSpotifyPlaylistSummary({
+                    accessToken: providerAccessTokenForDiagnostics,
+                    providerPlaylistId: event.providerPlaylistId,
+                  }),
+                ]);
+
+                app.log.warn(
+                  {
+                    eventId: event.id,
+                    hostUserId: event.hostUserId,
+                    providerPlaylistId: event.providerPlaylistId,
+                    spotifyCurrentUserId: currentUser.id,
+                    spotifyPlaylistOwnerId: playlist.ownerId,
+                    spotifyPlaylistPublic: playlist.isPublic,
+                    spotifyPlaylistCollaborative: playlist.collaborative,
+                    integrationScopes: integration.scopes,
+                  },
+                  'provider add track forbidden diagnostics',
+                );
+
+                if (playlist.ownerId !== currentUser.id && !playlist.collaborative) {
+                  return reply.status(502).send({
+                    code: 'provider_playlist_owner_mismatch',
+                    message:
+                      'Spotify playlist is owned by a different account than the connected host. Reconnect host Spotify and create a new event.',
+                  });
+                }
+
+                const requiredScope = playlist.isPublic
+                  ? 'playlist-modify-public'
+                  : 'playlist-modify-private';
+                if (!integration.scopes.includes(requiredScope)) {
+                  return reply.status(502).send({
+                    code: 'provider_scope_missing',
+                    message: `Spotify token is missing required scope: ${requiredScope}. Reconnect Spotify and approve all requested scopes.`,
+                  });
+                }
+              } catch (diagnosticsError) {
+                const diagnosticsMessage =
+                  diagnosticsError instanceof Error
+                    ? diagnosticsError.message
+                    : 'Unknown diagnostics failure.';
+                app.log.warn(
+                  {
+                    eventId: event.id,
+                    providerPlaylistId: event.providerPlaylistId,
+                    diagnosticsError: diagnosticsMessage,
+                  },
+                  'provider add track diagnostics lookup failed',
+                );
+              }
+            }
+
+            const mapped = mapProviderApiError(error, {
+              403: {
+                code: 'provider_forbidden',
+                message:
+                  'Spotify denied this track add. Try a different track; if it still fails, reconnect Spotify and create a new event.',
+              },
+            });
+            return reply.status(502).send(mapped);
+          }
+
+          const message = error instanceof Error ? error.message : 'Provider API error.';
+          return reply.status(502).send({
+            code: 'provider_add_track_failed',
+            message,
+          });
+        }
+      }
+
+      if (event.provider === 'apple' && isAppleLiveMode()) {
+        try {
+          await withAppleMusicUserToken({
+            userId: event.hostUserId,
+            run: async ({ developerToken, musicUserToken }) => {
+              await addAppleTrackToPlaylist({
+                developerToken,
+                musicUserToken,
+                providerPlaylistId: event.providerPlaylistId,
+                providerTrackId: parsedBody.data.providerTrackId,
+              });
+            },
+          });
+        } catch (error) {
+          if (error instanceof IntegrationError) {
+            return sendIntegrationError(reply, error);
+          }
+
+          if (error instanceof ProviderApiError) {
+            app.log.warn(
+              {
+                provider: error.provider,
+                providerStatusCode: error.statusCode,
+                providerError: error.details,
+                eventId: event.id,
+                magicLinkToken,
+                providerPlaylistId: event.providerPlaylistId,
+                providerTrackId: parsedBody.data.providerTrackId,
+              },
+              'provider add track failed',
+            );
+
+            if (error.statusCode === 404) {
+              await reconcileMissingProviderPlaylist({
+                app,
+                event,
+                operation: 'add_track',
+                providerTrackId: parsedBody.data.providerTrackId,
+                providerStatusCode: error.statusCode,
+                providerError: error.details,
+                magicLinkToken,
+              });
+
+              return reply.status(409).send({
+                code: 'provider_playlist_missing',
+                message:
+                  'The linked provider playlist no longer exists. This event was closed. Ask the host to create a new event.',
+              });
+            }
+
+            const mapped = mapProviderApiError(error, {
+              500: {
+                code: 'provider_playlist_update_failed',
+                message:
+                  'Apple Music could not update this playlist right now. Please try again in a moment.',
+              },
+            });
+            return reply.status(502).send(mapped);
+          }
+
+          const message = error instanceof Error ? error.message : 'Provider API error.';
+          return reply.status(502).send({
+            code: 'provider_add_track_failed',
+            message,
+          });
+        }
+      }
+
+      const addedTrack = await eventsStore.addTrackToEvent({
         eventId: event.id,
         providerTrackId: parsedBody.data.providerTrackId,
-      })
-    ) {
-      return reply.status(409).send({
-        code: 'duplicate_track',
-        message: 'Track is already in this playlist.',
+        name: parsedBody.data.name,
+        artist: parsedBody.data.artist,
+        album: parsedBody.data.album,
+        durationMs: parsedBody.data.durationMs,
+        artworkUrl: parsedBody.data.artworkUrl,
+        addedBy: 'guest',
       });
-    }
 
-    const integration = await integrationStore.findIntegration({
-      userId: event.hostUserId,
-      provider: event.provider,
-    });
-    if (!integration) {
-      return reply.status(400).send({
-        code: 'provider_not_connected',
-        message: 'Host provider is not connected.',
-      });
-    }
-
-    if (event.provider === 'spotify' && isSpotifyOauthLiveMode()) {
-      let providerAccessTokenForDiagnostics: string | null = null;
-      try {
-        await withSpotifyAccessTokenRetry({
-          userId: event.hostUserId,
-          run: async (accessToken) => {
-            providerAccessTokenForDiagnostics = accessToken;
-            await addSpotifyTrackToPlaylist({
-              accessToken,
-              providerPlaylistId: event.providerPlaylistId,
-              providerTrackId: parsedBody.data.providerTrackId,
-            });
-          },
-        });
-      } catch (error) {
-        if (error instanceof IntegrationError) {
-          return sendIntegrationError(reply, error);
-        }
-
-        if (error instanceof ProviderApiError) {
-          app.log.warn(
-            {
-              provider: error.provider,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-              eventId: event.id,
-              magicLinkToken,
-              providerPlaylistId: event.providerPlaylistId,
-              providerTrackId: parsedBody.data.providerTrackId,
-            },
-            'provider add track failed',
-          );
-
-          if (error.statusCode === 404) {
-            await reconcileMissingProviderPlaylist({
-              app,
-              event,
-              operation: 'add_track',
-              providerTrackId: parsedBody.data.providerTrackId,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-              magicLinkToken,
-            });
-
-            return reply.status(409).send({
-              code: 'provider_playlist_missing',
-              message:
-                'The linked Spotify playlist no longer exists. This event was closed. Ask the host to create a new event.',
-            });
-          }
-
-          if (error.statusCode === 403 && providerAccessTokenForDiagnostics) {
-            try {
-              const [currentUser, playlist] = await Promise.all([
-                getSpotifyCurrentUser({
-                  accessToken: providerAccessTokenForDiagnostics,
-                }),
-                getSpotifyPlaylistSummary({
-                  accessToken: providerAccessTokenForDiagnostics,
-                  providerPlaylistId: event.providerPlaylistId,
-                }),
-              ]);
-
-              app.log.warn(
-                {
-                  eventId: event.id,
-                  hostUserId: event.hostUserId,
-                  providerPlaylistId: event.providerPlaylistId,
-                  spotifyCurrentUserId: currentUser.id,
-                  spotifyPlaylistOwnerId: playlist.ownerId,
-                  spotifyPlaylistPublic: playlist.isPublic,
-                  spotifyPlaylistCollaborative: playlist.collaborative,
-                  integrationScopes: integration.scopes,
-                },
-                'provider add track forbidden diagnostics',
-              );
-
-              if (playlist.ownerId !== currentUser.id && !playlist.collaborative) {
-                return reply.status(502).send({
-                  code: 'provider_playlist_owner_mismatch',
-                  message:
-                    'Spotify playlist is owned by a different account than the connected host. Reconnect host Spotify and create a new event.',
-                });
-              }
-
-              const requiredScope = playlist.isPublic
-                ? 'playlist-modify-public'
-                : 'playlist-modify-private';
-              if (!integration.scopes.includes(requiredScope)) {
-                return reply.status(502).send({
-                  code: 'provider_scope_missing',
-                  message: `Spotify token is missing required scope: ${requiredScope}. Reconnect Spotify and approve all requested scopes.`,
-                });
-              }
-            } catch (diagnosticsError) {
-              const diagnosticsMessage =
-                diagnosticsError instanceof Error
-                  ? diagnosticsError.message
-                  : 'Unknown diagnostics failure.';
-              app.log.warn(
-                {
-                  eventId: event.id,
-                  providerPlaylistId: event.providerPlaylistId,
-                  diagnosticsError: diagnosticsMessage,
-                },
-                'provider add track diagnostics lookup failed',
-              );
-            }
-          }
-
-          const mapped = mapProviderApiError(error, {
-            403: {
-              code: 'provider_forbidden',
-              message:
-                'Spotify denied this track add. Try a different track; if it still fails, reconnect Spotify and create a new event.',
-            },
-          });
-          return reply.status(502).send(mapped);
-        }
-
-        const message = error instanceof Error ? error.message : 'Provider API error.';
-        return reply.status(502).send({
-          code: 'provider_add_track_failed',
-          message,
+      if (!addedTrack) {
+        return reply.status(409).send({
+          code: 'duplicate_track',
+          message: 'Track is already in this playlist.',
         });
       }
-    }
 
-    if (event.provider === 'apple' && isAppleLiveMode()) {
-      try {
-        await withAppleMusicUserToken({
-          userId: event.hostUserId,
-          run: async ({ developerToken, musicUserToken }) => {
-            await addAppleTrackToPlaylist({
-              developerToken,
-              musicUserToken,
-              providerPlaylistId: event.providerPlaylistId,
-              providerTrackId: parsedBody.data.providerTrackId,
-            });
-          },
-        });
-      } catch (error) {
-        if (error instanceof IntegrationError) {
-          return sendIntegrationError(reply, error);
-        }
-
-        if (error instanceof ProviderApiError) {
-          app.log.warn(
-            {
-              provider: error.provider,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-              eventId: event.id,
-              magicLinkToken,
-              providerPlaylistId: event.providerPlaylistId,
-              providerTrackId: parsedBody.data.providerTrackId,
-            },
-            'provider add track failed',
-          );
-
-          if (error.statusCode === 404) {
-            await reconcileMissingProviderPlaylist({
-              app,
-              event,
-              operation: 'add_track',
-              providerTrackId: parsedBody.data.providerTrackId,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-              magicLinkToken,
-            });
-
-            return reply.status(409).send({
-              code: 'provider_playlist_missing',
-              message:
-                'The linked provider playlist no longer exists. This event was closed. Ask the host to create a new event.',
-            });
-          }
-
-          const mapped = mapProviderApiError(error, {
-            500: {
-              code: 'provider_playlist_update_failed',
-              message:
-                'Apple Music could not update this playlist right now. Please try again in a moment.',
-            },
-          });
-          return reply.status(502).send(mapped);
-        }
-
-        const message = error instanceof Error ? error.message : 'Provider API error.';
-        return reply.status(502).send({
-          code: 'provider_add_track_failed',
-          message,
-        });
-      }
-    }
-
-    const addedTrack = await eventsStore.addTrackToEvent({
-      eventId: event.id,
-      providerTrackId: parsedBody.data.providerTrackId,
-      name: parsedBody.data.name,
-      artist: parsedBody.data.artist,
-      album: parsedBody.data.album,
-      durationMs: parsedBody.data.durationMs,
-      artworkUrl: parsedBody.data.artworkUrl,
-      addedBy: 'guest',
-    });
-
-    if (!addedTrack) {
-      return reply.status(409).send({
-        code: 'duplicate_track',
-        message: 'Track is already in this playlist.',
+      return addEventTrackResponseSchema.parse({
+        ok: true,
+        track: {
+          ...addedTrack,
+          addedAt: addedTrack.addedAt.toISOString(),
+        },
       });
-    }
-
-    return addEventTrackResponseSchema.parse({
-      ok: true,
-      track: {
-        ...addedTrack,
-        addedAt: addedTrack.addedAt.toISOString(),
-      },
-    });
-  });
+    },
+  );
 
   app.get('/playlists/:eventId', async (request, reply) => {
     const eventId = (request.params as { eventId?: string }).eventId ?? '';

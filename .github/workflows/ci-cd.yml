@@ -70,6 +70,21 @@ jobs:
       - name: Build shared package
         run: yarn build:shared
 
+      - name: Lint
+        run: yarn lint
+
+      - name: Audit dependencies (fail on high or critical)
+        run: |
+          set +e
+          yarn audit --groups dependencies
+          code=$?
+          set -e
+          # yarn audit exit code is a bitmask: 1 info, 2 low, 4 moderate, 8 high, 16 critical
+          if [ "$code" -ge 8 ]; then
+            echo "High or critical vulnerabilities found (exit code $code)"
+            exit 1
+          fi
+
       - name: Generate Prisma client
         run: yarn workspace @synqit/api prisma:generate
 

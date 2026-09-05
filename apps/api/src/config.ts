@@ -21,8 +21,21 @@ export type ApiConfig = {
   metricsToken: string | null;
   /** Whether Swagger UI is mounted at `/docs`. Defaults to off in strict mode. */
   docsEnabled: boolean;
+  /** Lower-cased full email addresses granted super admin permissions. */
+  superAdminEmails: string[];
   /** Non-fatal findings to log once the server logger exists. */
   warnings: string[];
+};
+
+const parseSuperAdminEmails = (raw: string | undefined): { valid: string[]; invalid: string[] } => {
+  const entries = (raw ?? '')
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  return {
+    valid: entries.filter((entry) => entry.includes('@')),
+    invalid: entries.filter((entry) => !entry.includes('@')),
+  };
 };
 
 /**
@@ -63,6 +76,28 @@ export const loadApiConfig = (env: EnvSource = process.env): ApiConfig => {
 
   const docsEnabled = parseBooleanEnv(env.API_DOCS_ENABLED, !strictSecrets);
 
+  // Super admins are identified by full email only. Production must set the list
+  // explicitly instead of relying on the development default.
+  const superAdmins = parseSuperAdminEmails(env.ADMIN_SUPER_USERS);
+  if (superAdmins.invalid.length > 0) {
+    const message = `ADMIN_SUPER_USERS entries must be full email addresses; ignoring: ${superAdmins.invalid.join(', ')}`;
+    if (strictSecrets) {
+      throw new EnvValidationError('ADMIN_SUPER_USERS', message);
+    }
+    warnings.push(message);
+  }
+  if (superAdmins.valid.length === 0) {
+    if (strictSecrets) {
+      throw new EnvValidationError(
+        'ADMIN_SUPER_USERS',
+        'ADMIN_SUPER_USERS must list at least one full email address in production.',
+      );
+    }
+    if (env.ADMIN_SUPER_USERS === undefined) {
+      warnings.push('ADMIN_SUPER_USERS is not set; falling back to the development default.');
+    }
+  }
+
   return {
     strictSecrets,
     jwtAccessSecret: jwtAccessSecret.value,
@@ -70,6 +105,7 @@ export const loadApiConfig = (env: EnvSource = process.env): ApiConfig => {
     databaseUrl,
     metricsToken,
     docsEnabled,
+    superAdminEmails: superAdmins.valid,
     warnings,
   };
 };

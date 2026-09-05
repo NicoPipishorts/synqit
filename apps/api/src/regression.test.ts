@@ -184,7 +184,14 @@ describe('API regression', () => {
   let previousPasswordResetEmailEnabled: string | undefined;
   let previousRateLimitMax: string | undefined;
   const previousOpsEnv: Record<string, string | undefined> = {};
-  const OPS_ENV_KEYS = ['ADMIN_BOOTSTRAP_ENABLED', 'METRICS_TOKEN', 'API_DOCS_ENABLED'] as const;
+  const OPS_ENV_KEYS = [
+    'ADMIN_BOOTSTRAP_ENABLED',
+    'METRICS_TOKEN',
+    'API_DOCS_ENABLED',
+    'REGISTER_RATE_LIMIT_MAX',
+    'PUBLIC_WRITE_RATE_LIMIT_MAX',
+    'ANALYTICS_RATE_LIMIT_MAX',
+  ] as const;
 
   before(async () => {
     previousRegistrationEmailEnabled = process.env.AUTH_REGISTRATION_EMAIL_ENABLED;
@@ -199,6 +206,12 @@ describe('API regression', () => {
     process.env.ADMIN_BOOTSTRAP_ENABLED = 'true';
     process.env.METRICS_TOKEN = REGRESSION_METRICS_TOKEN;
     process.env.API_DOCS_ENABLED = 'false';
+    // The suite registers dozens of accounts and fires many events from one IP;
+    // relax the per-IP limiters. The per-account login limiter keeps its default
+    // and is exercised directly below.
+    process.env.REGISTER_RATE_LIMIT_MAX = '1000';
+    process.env.PUBLIC_WRITE_RATE_LIMIT_MAX = '1000';
+    process.env.ANALYTICS_RATE_LIMIT_MAX = '1000';
 
     // Regression must never enqueue real emails, even if local env enables them.
     process.env.AUTH_REGISTRATION_EMAIL_ENABLED = 'false';
@@ -629,11 +642,150 @@ describe('API regression', () => {
     assert.equal(eventsResponse.statusCode, 401);
   });
 
+  it('security: login attempts are throttled per account', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    await registerUser(app, email);
+
+    const attempt = () =>
+      app.inject({
+        method: 'POST',
+        url: '/v1/auth/login',
+        payload: { email, password: 'definitely-wrong-password' },
+      });
+
+    // Default AUTH_RATE_LIMIT_MAX is 10 per IP + email per 15 minutes.
+    for (let index = 0; index < 10; index += 1) {
+      const response = await attempt();
+      assert.equal(response.statusCode, 401, `attempt ${index + 1} should still be evaluated`);
+    }
+
+    const throttled = await attempt();
+    assert.equal(throttled.statusCode, 429);
+    assert.equal((parseBody(throttled.body) as { code: string }).code, 'rate_limited');
+
+    // A different account from the same IP is unaffected.
+    const otherEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    await registerUser(app, otherEmail);
+    const otherResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/auth/login',
+      payload: { email: otherEmail, password: TEST_PASSWORD },
+    });
+    assert.equal(otherResponse.statusCode, 200);
+  });
+
+  it('security: super admin identity requires a full email match', async () => {
+    const superEmail = `${TEST_EMAIL_PREFIX}fullmatch@synqit.test`;
+    await createUserAndLogin(app, superEmail);
+
+    const previousEnv = {
+      ADMIN_SUPER_USERS: process.env.ADMIN_SUPER_USERS,
+      ADMIN_BOOTSTRAP_KEY: process.env.ADMIN_BOOTSTRAP_KEY,
+      ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS:
+        process.env.ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS,
+    };
+    const promote = () =>
+      app.inject({
+        method: 'POST',
+        url: '/v1/admin/bootstrap/promote',
+        headers: { 'x-admin-bootstrap-key': REGRESSION_BOOTSTRAP_KEY },
+        payload: { email: superEmail },
+      });
+    const scopesOf = (body: string) =>
+      (
+        parseBody(body) as { user: { adminPermissions: { scope: string }[] } }
+      ).user.adminPermissions.map((permission) => permission.scope);
+
+    try {
+      process.env.ADMIN_BOOTSTRAP_KEY = REGRESSION_BOOTSTRAP_KEY;
+      process.env.ADMIN_BOOTSTRAP_ALLOW_WHEN_SUPER_ADMIN_EXISTS = 'true';
+
+      // Local-part only: previously matched any domain, now grants standard permissions.
+      process.env.ADMIN_SUPER_USERS = `${TEST_EMAIL_PREFIX}fullmatch`;
+      const localPartResponse = await promote();
+      assert.equal(localPartResponse.statusCode, 200);
+      assert.ok(!scopesOf(localPartResponse.body).includes('admin_users'));
+
+      // Same local part on another domain must not match either.
+      process.env.ADMIN_SUPER_USERS = `${TEST_EMAIL_PREFIX}fullmatch@evil.example`;
+      const otherDomainResponse = await promote();
+      assert.equal(otherDomainResponse.statusCode, 200);
+      assert.ok(!scopesOf(otherDomainResponse.body).includes('admin_users'));
+
+      // Full email match grants super admin permissions.
+      process.env.ADMIN_SUPER_USERS = superEmail;
+      const fullMatchResponse = await promote();
+      assert.equal(fullMatchResponse.statusCode, 200);
+      assert.ok(scopesOf(fullMatchResponse.body).includes('admin_users'));
+
+      // Config validation refuses local-part entries in strict mode.
+      assert.throws(
+        () =>
+          loadApiConfig({
+            NODE_ENV: 'production',
+            DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
+            JWT_ACCESS_SECRET: STRONG_TEST_SECRET,
+            TOKEN_ENC_KEY: STRONG_TEST_SECRET,
+            METRICS_TOKEN: REGRESSION_METRICS_TOKEN,
+            ADMIN_SUPER_USERS: 'shamanproto',
+          }),
+        (error: unknown) =>
+          error instanceof EnvValidationError && error.variable === 'ADMIN_SUPER_USERS',
+      );
+    } finally {
+      for (const [key, value] of Object.entries(previousEnv)) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+      await prisma.admin_audit_logs.deleteMany({
+        where: { action: { in: ['admin_bootstrap_promote', 'admin_bootstrap_rejected'] } },
+      });
+    }
+  });
+
+  it('security: analytics properties are bounded in keys and size', async () => {
+    const base = {
+      eventName: 'app_page_view',
+      target: 'navigation',
+      sessionId: `session-${randomUUID()}`,
+      path: '/dashboard',
+      source: 'web',
+    };
+
+    const tooManyKeys = Object.fromEntries(
+      Array.from({ length: 21 }, (_, index) => [`key_${index}`, index]),
+    );
+    const tooManyKeysResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/analytics/events',
+      payload: { ...base, properties: tooManyKeys },
+    });
+    assert.equal(tooManyKeysResponse.statusCode, 400);
+
+    const tooLargeResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/analytics/events',
+      payload: { ...base, properties: { blob: 'x'.repeat(2_100) } },
+    });
+    assert.equal(tooLargeResponse.statusCode, 400);
+
+    const okResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/analytics/events',
+      payload: { ...base, properties: { provider: 'spotify', step: 2 } },
+    });
+    assert.equal(okResponse.statusCode, 202);
+  });
+
   it('config: env validation rejects missing and weak secrets in strict mode', () => {
     const baseEnv = {
       DATABASE_URL: 'postgresql://user:pass@localhost:5432/db',
       JWT_ACCESS_SECRET: STRONG_TEST_SECRET,
       TOKEN_ENC_KEY: STRONG_TEST_SECRET,
+      ADMIN_SUPER_USERS: 'ops@synqit.test',
     };
     const isEnvError = (variable: string) => (error: unknown) =>
       error instanceof EnvValidationError && error.variable === variable;
@@ -666,6 +818,12 @@ describe('API regression', () => {
     assert.throws(
       () => loadApiConfig({ ...baseEnv, NODE_ENV: 'production', METRICS_TOKEN: 'replace-me' }),
       isEnvError('METRICS_TOKEN'),
+    );
+
+    // Production requires an explicit super admin list of full emails.
+    assert.throws(
+      () => loadApiConfig({ ...baseEnv, NODE_ENV: 'production', ADMIN_SUPER_USERS: undefined }),
+      isEnvError('ADMIN_SUPER_USERS'),
     );
 
     // Production defaults: docs off, metrics disabled (with a warning) until a token exists.
