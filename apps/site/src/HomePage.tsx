@@ -31,7 +31,7 @@ const SHOT = '/assets/presentation';
 // Screens that rotate inside the hero phone (captions reuse the flow-step copy).
 const HERO_SCREENS = [
   { src: `${SHOT}/Events-step-1.png`, captionKey: 'home.how.event.step1' },
-  { src: `${SHOT}/Events-step-3.png`, captionKey: 'home.how.event.step3' },
+  { src: `${SHOT}/Events-step-3.png`, captionKey: 'home.how.event.step4' },
   { src: `${SHOT}/Sync-step-2-2.png`, captionKey: 'home.how.share.step3' },
   { src: `${SHOT}/Events-step-4-2.png`, captionKey: 'home.how.event.step6' },
   { src: `${SHOT}/Sync-step-3.png`, captionKey: 'home.how.share.step4' },
@@ -111,8 +111,8 @@ export const HomePage = () => {
       stepsKey: 'home.how.event',
       images: [
         `${SHOT}/Events-step-1.png`,
-        `${SHOT}/Events-step-2-2.png`,
         `${SHOT}/Events-step-2-1.png`,
+        `${SHOT}/Events-step-2-2.png`,
         `${SHOT}/Events-step-3.png`,
         `${SHOT}/Events-step-4-1.png`,
         `${SHOT}/Events-step-4-2.png`,

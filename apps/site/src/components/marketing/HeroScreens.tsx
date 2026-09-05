@@ -1,4 +1,4 @@
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
 type HeroScreensProps = {
@@ -53,20 +53,21 @@ export const HeroScreens = ({
       transition={{ type: 'spring', stiffness: 55, damping: 15, mass: 0.9 }}
       className={`relative aspect-[9/19.5] overflow-hidden rounded-[2.6rem] border-2 border-app-text bg-app-card shadow-sticker ${className ?? ''}`.trim()}
     >
-      <AnimatePresence initial={false}>
+      {images.map((src, i) => (
         <motion.img
-          key={images[index]}
-          src={images[index]}
-          alt={captions[index] ?? ''}
+          key={src}
+          src={src}
+          alt={i === index ? (captions[i] ?? '') : ''}
+          aria-hidden={i !== index}
           draggable={false}
-          fetchPriority={index === 0 ? 'high' : 'auto'}
-          initial={{ opacity: 0, scale: 1.04 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          fetchPriority={i === 0 ? 'high' : 'auto'}
+          initial={false}
+          animate={{ opacity: i === index ? 1 : 0, scale: i === index ? 1 : 1.03 }}
+          transition={{ duration: 0.8, ease: 'easeInOut' }}
+          style={{ zIndex: i === index ? 2 : 1 }}
           className="absolute inset-0 h-full w-full object-cover"
         />
-      </AnimatePresence>
+      ))}
     </motion.div>
   );
 };

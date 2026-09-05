@@ -192,7 +192,6 @@ const Branch = ({
 const FlowPhone = ({ service }: { service: Service }) => {
   const { t } = useI18n();
   const [step, setStep] = useState(0);
-  const [direction, setDirection] = useState<1 | -1>(1);
   const [paused, setPaused] = useState(false);
   const total = service.images.length;
   const tone = TONE[service.tone];
@@ -200,25 +199,20 @@ const FlowPhone = ({ service }: { service: Service }) => {
   // New flow → back to its first screen.
   useEffect(() => {
     setStep(0);
-    setDirection(1);
   }, [service.id]);
 
   useEffect(() => {
     if (paused || prefersReducedMotion()) return;
     const id = window.setInterval(() => {
-      setDirection(1);
       setStep((current) => (current + 1) % total);
     }, AUTOPLAY_MS);
     return () => window.clearInterval(id);
   }, [paused, total, service.id]);
 
-  const goTo = (next: number, dir: 1 | -1) => {
-    setDirection(dir);
-    setStep(((next % total) + total) % total);
-  };
+  const goTo = (next: number) => setStep(((next % total) + total) % total);
   const onDragEnd = (_: unknown, info: PanInfo) => {
-    if (info.offset.x < -SWIPE_DISTANCE || info.velocity.x < -SWIPE_VELOCITY) goTo(step + 1, 1);
-    else if (info.offset.x > SWIPE_DISTANCE || info.velocity.x > SWIPE_VELOCITY) goTo(step - 1, -1);
+    if (info.offset.x < -SWIPE_DISTANCE || info.velocity.x < -SWIPE_VELOCITY) goTo(step + 1);
+    else if (info.offset.x > SWIPE_DISTANCE || info.velocity.x > SWIPE_VELOCITY) goTo(step - 1);
   };
   const safeStep = Math.min(step, total - 1);
   const caption = t(`${service.stepsKey}.step${safeStep + 1}`);
@@ -239,26 +233,28 @@ const FlowPhone = ({ service }: { service: Service }) => {
         style={{ touchAction: 'pan-y' }}
         className="relative aspect-[9/19.5] w-[15rem] cursor-grab overflow-hidden rounded-[2.4rem] border-2 border-app-text bg-app-card shadow-sticker active:cursor-grabbing sm:w-[16.5rem]"
       >
-        <AnimatePresence initial={false}>
+        {/* Every screen stays mounted; only opacity changes, so swaps never flash or slide. */}
+        {service.images.map((src, i) => (
           <motion.img
-            key={`${service.id}-${safeStep}`}
-            src={service.images[safeStep]}
-            alt={caption}
+            key={src + i}
+            src={src}
+            alt={i === safeStep ? caption : ''}
+            aria-hidden={i !== safeStep}
             draggable={false}
-            initial={{ opacity: 0, x: direction * 40 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: direction * -40 }}
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+            initial={false}
+            animate={{ opacity: i === safeStep ? 1 : 0 }}
+            transition={{ duration: 0.55, ease: 'easeInOut' }}
+            style={{ zIndex: i === safeStep ? 2 : 1 }}
             className="pointer-events-none absolute inset-0 h-full w-full object-cover"
           />
-        </AnimatePresence>
+        ))}
       </motion.div>
 
       <div className="flex flex-col items-center gap-3">
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => goTo(safeStep - 1, -1)}
+            onClick={() => goTo(safeStep - 1)}
             aria-label={t('home.how.prev')}
             className="focus-ring-brand inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-app-text bg-app-elevated shadow-sticker-sm transition hover:-translate-y-0.5 dark:bg-app-card"
           >
@@ -272,7 +268,7 @@ const FlowPhone = ({ service }: { service: Service }) => {
                 role="tab"
                 aria-selected={i === safeStep}
                 aria-label={t(`${service.stepsKey}.step${i + 1}`)}
-                onClick={() => goTo(i, i > safeStep ? 1 : -1)}
+                onClick={() => goTo(i)}
                 className={`h-2.5 rounded-full border border-app-text transition-all duration-300 ${
                   i === safeStep ? `w-7 ${tone.dot}` : 'w-2.5 bg-transparent hover:bg-app-text/30'
                 }`}
@@ -281,7 +277,7 @@ const FlowPhone = ({ service }: { service: Service }) => {
           </div>
           <button
             type="button"
-            onClick={() => goTo(safeStep + 1, 1)}
+            onClick={() => goTo(safeStep + 1)}
             aria-label={t('home.how.next')}
             className="focus-ring-brand inline-flex h-9 w-9 items-center justify-center rounded-full border-2 border-app-text bg-app-elevated shadow-sticker-sm transition hover:-translate-y-0.5 dark:bg-app-card"
           >
