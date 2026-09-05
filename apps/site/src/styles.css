@@ -1,14 +1,22 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 /* Brand tokens, dark variant, and shared utilities come from the UI package. */
-@import "@synqit/ui/tokens.css";
+@import '@synqit/ui/tokens.css';
 /* Generate utilities for classes used inside the shared components. */
 @source "../../../packages/ui/src";
 
-@layer utilities {
-  .text-shadow-section-title {
-    text-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.55),
-      0 10px 28px rgba(34, 34, 34, 0.12);
+@utility text-shadow-section-title {
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.55),
+    0 10px 28px rgba(34, 34, 34, 0.12);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }
 
@@ -17,11 +25,5 @@ body {
   min-height: 100vh;
   background: var(--syn-bg);
   color: var(--syn-text);
-  font-family:
-    "General Sans",
-    "Satoshi",
-    "Manrope",
-    "Avenir Next",
-    "Segoe UI",
-    sans-serif;
+  font-family: 'General Sans', 'Satoshi', 'Manrope', 'Avenir Next', 'Segoe UI', sans-serif;
 }

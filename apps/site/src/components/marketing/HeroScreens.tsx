@@ -1,0 +1,72 @@
+import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useState } from 'react';
+
+type HeroScreensProps = {
+  /** Phone screenshots (9:19.5), shown in order and looped. */
+  images: string[];
+  /** Accessible captions, one per image. */
+  captions: string[];
+  intervalMs?: number;
+  className?: string;
+};
+
+// Phone tilt per screen: the frame swings to a new angle with every swap.
+const TILTS = [-3, 2.5, -4.5, 3.5, -2];
+const LIFTS = [0, -8, 4, -6, 2];
+
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Framed phone that crossfades through real app screens. Images are pre-warmed
+// so the first swap never flashes; reduced-motion users get a single still.
+export const HeroScreens = ({
+  images,
+  captions,
+  intervalMs = 3600,
+  className,
+}: HeroScreensProps) => {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    images.forEach((src) => {
+      const img = new Image();
+      img.src = src;
+    });
+  }, [images]);
+
+  useEffect(() => {
+    if (images.length < 2 || prefersReducedMotion()) return;
+    const id = window.setInterval(() => {
+      setIndex((current) => (current + 1) % images.length);
+    }, intervalMs);
+    return () => window.clearInterval(id);
+  }, [images.length, intervalMs]);
+
+  const still = prefersReducedMotion();
+
+  return (
+    <motion.div
+      animate={
+        still ? undefined : { rotate: TILTS[index % TILTS.length], y: LIFTS[index % LIFTS.length] }
+      }
+      initial={{ rotate: TILTS[0], y: LIFTS[0] }}
+      transition={{ type: 'spring', stiffness: 55, damping: 15, mass: 0.9 }}
+      className={`relative aspect-[9/19.5] overflow-hidden rounded-[2.6rem] border-2 border-app-text bg-app-card shadow-sticker ${className ?? ''}`.trim()}
+    >
+      <AnimatePresence initial={false}>
+        <motion.img
+          key={images[index]}
+          src={images[index]}
+          alt={captions[index] ?? ''}
+          draggable={false}
+          fetchPriority={index === 0 ? 'high' : 'auto'}
+          initial={{ opacity: 0, scale: 1.04 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      </AnimatePresence>
+    </motion.div>
+  );
+};

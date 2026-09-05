@@ -1,30 +1,12 @@
-import {
-  AnimatePresence,
-  motion,
-  type Variants,
-  useScroll,
-  useSpring,
-  useTransform,
-} from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
+import { Sticker, type StickerTone } from '@synqit/ui';
+import { motion, type Variants } from 'framer-motion';
+import { ArrowDown, ArrowLeftRight, PartyPopper, Share2 } from 'lucide-react';
+import { type ReactNode } from 'react';
 
-import { AccentInfoCard } from './components/marketing/AccentInfoCard';
-import { HeroBackdrop, HostWorkspaceBackdrop } from './components/marketing/HeroMockup';
-import {
-  PhoneIcon3D,
-  ShieldIcon3D,
-  SparkIcon3D,
-  SparkleIcon3D,
-  SwapIcon3D,
-} from './components/marketing/Icon3D';
+import { HeroScreens } from './components/marketing/HeroScreens';
 import { MarketingPageShell } from './components/marketing/MarketingPageShell';
-import { PricingTeaserCards } from './components/marketing/PricingTeaserCards';
 import { RevealSection } from './components/marketing/RevealSection';
-import { ScreenshotCarousel } from './components/marketing/ScreenshotCarousel';
-import { SectionCta } from './components/marketing/SectionCta';
-import { SectionHeading } from './components/marketing/SectionHeading';
-import { SegmentedToggle } from './components/marketing/SegmentedToggle';
-import { WhyStackSection } from './components/marketing/WhyStackSection';
+import { type Service, ServiceShowcase } from './components/marketing/ServiceShowcase';
 import { HeroLink } from './components/ui/HeroLink';
 import { buildAppUrl } from './lib/app-url';
 import { useI18n } from './lib/i18n';
@@ -34,185 +16,136 @@ import { isTouchDevice } from './lib/motion';
 
 const STAGGER: Variants = {
   hidden: {},
-  visible: { transition: { staggerChildren: 0.1, delayChildren: 0.08 } },
-};
-
-const TAB_SLIDE: Variants = {
-  enter: (d: number) => ({ x: `${d * 40}%`, opacity: 0 }),
-  center: { x: '0%', opacity: 1 },
-  exit: (d: number) => ({ x: `${d * -40}%`, opacity: 0 }),
+  visible: { transition: { staggerChildren: 0.09, delayChildren: 0.05 } },
 };
 
 const FADE_UP: Variants = {
-  hidden: { opacity: 0, y: 22 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.7, ease: [0.22, 1, 0.36, 1] } },
+  hidden: { opacity: 0, y: 18 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: [0.22, 1, 0.36, 1] } },
 };
 
-// Rotating above-the-fold taglines: event playlist ↔ existing/shared playlist.
-const HERO_VARIANTS = [
-  { title: 'home.hero.title', description: 'home.hero.description' },
-  { title: 'home.hero.titleSync', description: 'home.hero.descriptionSync' },
-] as const;
+// ─── Static content ────────────────────────────────────────────────────────────
 
-const HERO_ROTATE_MS = 12000;
+const SHOT = '/assets/presentation';
 
-// ─── Offer tabs ────────────────────────────────────────────────────────────────
-
-type OfferTab = 'event' | 'sync';
-
-const EVENT_IMAGES = [
-  '/assets/presentation/Events-step-1.png',
-  '/assets/presentation/Events-step-2-1.png',
-  '/assets/presentation/Events-step-2-2.png',
-  '/assets/presentation/Events-step-3.png',
-  '/assets/presentation/Events-step-4-1.png',
-  '/assets/presentation/Events-step-4-2.png',
+// Screens that rotate inside the hero phone (captions reuse the flow-step copy).
+const HERO_SCREENS = [
+  { src: `${SHOT}/Events-step-1.png`, captionKey: 'home.how.event.step1' },
+  { src: `${SHOT}/Events-step-3.png`, captionKey: 'home.how.event.step3' },
+  { src: `${SHOT}/Sync-step-2-2.png`, captionKey: 'home.how.share.step3' },
+  { src: `${SHOT}/Events-step-4-2.png`, captionKey: 'home.how.event.step6' },
+  { src: `${SHOT}/Sync-step-3.png`, captionKey: 'home.how.share.step4' },
 ];
 
-const SYNC_IMAGES = [
-  '/assets/presentation/Sync-step-1.png',
-  '/assets/presentation/Sync-step-2-1.png',
-  '/assets/presentation/Sync-step-2-2.png',
-  '/assets/presentation/Sync-step-3.png',
-];
+// ─── Small building blocks ─────────────────────────────────────────────────────
 
-// ─── CTA offer card ────────────────────────────────────────────────────────────
+const Container = ({ children, className }: { children: ReactNode; className?: string }) => (
+  <div className={`mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8 ${className ?? ''}`.trim()}>
+    {children}
+  </div>
+);
 
-const CtaOfferCard = ({
-  accent,
+const SectionIntro = ({
+  eyebrow,
   title,
-  body,
-  action,
+  tone = 'paper',
+  align = 'left',
 }: {
-  accent: 'lime' | 'pink';
+  eyebrow: string;
   title: string;
-  body: string;
-  action: string;
+  tone?: StickerTone;
+  align?: 'left' | 'center';
 }) => (
   <div
-    className={`flex flex-col items-center gap-4 rounded-2xl border p-6 text-center ${
-      accent === 'lime'
-        ? 'border-brand-lime/30 bg-brand-lime/5'
-        : 'border-brand-pink/30 bg-brand-pink/5'
-    }`}
+    className={`flex flex-col gap-4 ${align === 'center' ? 'items-center text-center' : 'items-start'}`}
   >
-    <div className="flex flex-col gap-1">
-      <p className="font-black text-brand-dark dark:text-brand-white">{title}</p>
-      <p className="text-sm leading-relaxed text-app-text-secondary">{body}</p>
-    </div>
-    <HeroLink href={buildAppUrl('/auth/register')} variant={accent} size="sm">
-      {action}
-    </HeroLink>
+    <Sticker tone={tone} tilt="-rotate-2">
+      {eyebrow}
+    </Sticker>
+    <h2 className="max-w-2xl text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+      {title}
+    </h2>
+  </div>
+);
+
+const ProviderLogos = ({ label }: { label: string }) => (
+  <div className="flex items-center gap-3">
+    <span className="text-xs font-bold uppercase tracking-[0.16em] text-app-text-muted">
+      {label}
+    </span>
+    <img
+      src="/assets/logos/Providers/Spotify.png"
+      alt="Spotify"
+      className="h-8 w-8 rounded-xl object-contain"
+    />
+    <img
+      src="/assets/logos/Providers/AppleMusic.png"
+      alt="Apple Music"
+      className="h-8 w-8 rounded-xl object-contain"
+    />
   </div>
 );
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
 export const HomePage = () => {
-  const { t, locale } = useI18n();
-  const [activeTab, setActiveTab] = useState<OfferTab>('event');
-  const [heroVariant, setHeroVariant] = useState(0);
-  const heroImageRef = useRef<HTMLDivElement | null>(null);
-  const { scrollYProgress: heroScrollProgress } = useScroll({
-    target: heroImageRef,
-    offset: ['start start', 'end start'],
-  });
-  const heroTilt = useSpring(useTransform(heroScrollProgress, [0, 1], [0, 16]), {
-    stiffness: 120,
-    damping: 18,
-  });
-  const heroShift = useSpring(useTransform(heroScrollProgress, [0, 1], [0, 30]), {
-    stiffness: 120,
-    damping: 18,
-  });
-  const heroScale = useSpring(useTransform(heroScrollProgress, [0, 1], [1, 0.965]), {
-    stiffness: 120,
-    damping: 18,
-  });
+  const { t } = useI18n();
+  const registerHref = buildAppUrl('/auth/register');
+  const vibeWords = t('home.vibe.words')
+    .split('|')
+    .map((word) => word.trim())
+    .filter(Boolean);
 
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      setHeroVariant((index) => (index + 1) % HERO_VARIANTS.length);
-    }, HERO_ROTATE_MS);
-    return () => window.clearInterval(id);
-  }, []);
-
-  const eventSteps = [
-    t('home.offer.eventStep1'),
-    t('home.offer.eventStep2'),
-    t('home.offer.eventStep3'),
-    t('home.offer.eventStep4'),
-    t('home.offer.eventStep5'),
-    t('home.offer.eventStep6'),
-  ];
-
-  const syncSteps = [
-    t('home.offer.syncStep1'),
-    t('home.offer.syncStep2'),
-    t('home.offer.syncStep3'),
-    t('home.offer.syncStep4'),
-  ];
-
-  const showcaseTabs = [
-    { value: 'event' as const, label: t('home.offer.tabEvent'), activeVariant: 'lime' as const },
-    { value: 'sync' as const, label: t('home.offer.tabSync'), activeVariant: 'pink' as const },
-  ];
-
-  const featureCards = [
+  // Transfer has no phone captures yet, so it reuses the provider and playlist
+  // screens from the sharing flow.
+  const services: [Service, Service, Service] = [
     {
-      icon: PhoneIcon3D,
-      title: t('home.features.nativeTitle'),
-      body: t('home.features.nativeShortBody'),
-      accent: 'lime' as const,
+      id: 'event',
+      tone: 'lime',
+      icon: PartyPopper,
+      tag: t('home.services.event.tag'),
+      title: t('home.services.event.title'),
+      body: t('home.services.event.body'),
+      cta: t('home.services.event.cta'),
+      href: registerHref,
+      stepsKey: 'home.how.event',
+      images: [
+        `${SHOT}/Events-step-1.png`,
+        `${SHOT}/Events-step-2-2.png`,
+        `${SHOT}/Events-step-2-1.png`,
+        `${SHOT}/Events-step-3.png`,
+        `${SHOT}/Events-step-4-1.png`,
+        `${SHOT}/Events-step-4-2.png`,
+      ],
     },
     {
-      icon: SparkleIcon3D,
-      title: t('home.features.magicLinkTitle'),
-      body: t('home.features.magicLinkShortBody'),
-      accent: 'pink' as const,
+      id: 'share',
+      tone: 'pink',
+      icon: Share2,
+      tag: t('home.services.share.tag'),
+      title: t('home.services.share.title'),
+      body: t('home.services.share.body'),
+      cta: t('home.services.share.cta'),
+      href: registerHref,
+      stepsKey: 'home.how.share',
+      images: [
+        `${SHOT}/Sync-step-1.png`,
+        `${SHOT}/Sync-step-2-1.png`,
+        `${SHOT}/Sync-step-2-2.png`,
+        `${SHOT}/Sync-step-3.png`,
+      ],
     },
     {
-      icon: SwapIcon3D,
-      title: t('home.features.crossPlatformTitle'),
-      body: t('home.features.crossPlatformShortBody'),
-      accent: 'lime' as const,
-    },
-    {
-      icon: ShieldIcon3D,
-      title: t('home.features.moderationTitle'),
-      body: t('home.features.moderationShortBody'),
-      accent: 'pink' as const,
-    },
-  ];
-
-  const reasonCards = [
-    {
-      number: '01',
-      icon: SparkIcon3D,
-      title: t('home.why.reason1Title'),
-      body: t('home.why.reason1Body'),
-      accent: 'lime' as const,
-    },
-    {
-      number: '02',
-      icon: PhoneIcon3D,
-      title: t('home.why.reason2Title'),
-      body: t('home.why.reason2Body'),
-      accent: 'pink' as const,
-    },
-    {
-      number: '03',
-      icon: SwapIcon3D,
-      title: t('home.why.reason3Title'),
-      body: t('home.why.reason3Body'),
-      accent: 'lime' as const,
-    },
-    {
-      number: '04',
-      icon: ShieldIcon3D,
-      title: t('home.why.reason4Title'),
-      body: t('home.why.reason4Body'),
-      accent: 'pink' as const,
+      id: 'transfer',
+      tone: 'ink',
+      icon: ArrowLeftRight,
+      tag: t('home.services.transfer.tag'),
+      title: t('home.services.transfer.title'),
+      body: t('home.services.transfer.body'),
+      cta: t('home.services.transfer.cta'),
+      href: buildAppUrl('/transfer'),
+      stepsKey: 'home.how.transfer',
+      images: [`${SHOT}/Sync-step-1.png`, `${SHOT}/Sync-step-2-1.png`, `${SHOT}/Sync-step-2-2.png`],
     },
   ];
 
@@ -222,332 +155,192 @@ export const HomePage = () => {
       <RevealSection
         revealOnScroll={false}
         trackId="hero"
-        className="relative flex min-h-svh flex-col justify-center pb-12 pt-32 sm:min-h-[calc(100svh-6rem)] sm:pb-20 sm:pt-40"
+        className="relative overflow-hidden pb-14 pt-28 sm:pb-24 sm:pt-40"
       >
-        <motion.div
-          initial={isTouchDevice ? false : 'hidden'}
-          animate="visible"
-          variants={STAGGER}
-          className="relative grid w-full items-center gap-8 lg:grid-cols-2 lg:gap-12"
-        >
-          <motion.div
-            ref={heroImageRef}
-            variants={FADE_UP}
-            className="order-2 relative flex min-h-80 justify-center overflow-hidden sm:h-[52svh] lg:order-1 lg:h-[75svh] lg:min-h-140 lg:justify-end"
-            style={{ perspective: '1400px' }}
-          >
-            <motion.div
-              className="h-full w-[175%] shrink-0 sm:w-[150%] lg:w-[125%]"
-              style={{
-                x: heroShift,
-                rotateY: heroTilt,
-                scale: heroScale,
-                transformStyle: 'preserve-3d',
-                transformOrigin: 'center center',
-              }}
-            >
-              <HeroBackdrop />
-            </motion.div>
-          </motion.div>
-
-          <motion.div
-            variants={FADE_UP}
-            className="order-1 relative flex w-full flex-col items-center justify-center gap-4 px-4 text-center sm:min-h-[280px] sm:gap-6 sm:px-0 lg:order-2 lg:min-h-[75svh]"
-          >
-            <div
-              aria-hidden="true"
-              className="absolute left-1/2 top-1/2 hidden h-[78%] w-[min(38rem,48vw)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-app-bg blur-[96px] lg:block"
-            />
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div
-                key={heroVariant}
-                initial={{ opacity: 0, y: -28 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 28 }}
-                transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-                className="relative flex w-full flex-col items-center gap-4 sm:gap-6"
-              >
-                <h1 className="max-w-xs whitespace-normal text-3xl font-black leading-[1.06] tracking-tight text-brand-dark dark:text-brand-white sm:max-w-xl sm:text-5xl lg:text-6xl">
-                  {t(HERO_VARIANTS[heroVariant].title)}
-                </h1>
-                <p className="max-w-xs text-sm leading-relaxed text-app-text-secondary sm:max-w-xl sm:text-lg">
-                  {t(HERO_VARIANTS[heroVariant].description)}
-                </p>
-              </motion.div>
-            </AnimatePresence>
-
-            <div className="relative flex flex-col items-center gap-3 sm:gap-4">
-              <div className="flex w-full items-center justify-center gap-2 sm:w-auto sm:gap-3">
-                <HeroLink
-                  href={buildAppUrl('/auth/register')}
-                  variant="lime"
-                  size="sm"
-                  className="min-h-9 px-3 py-2 text-xs sm:min-h-11 sm:px-5 sm:py-3 sm:text-base"
-                >
-                  {t('home.hero.ctaEvent')}
-                </HeroLink>
-                <HeroLink
-                  href={buildAppUrl('/auth/register')}
-                  variant="outline"
-                  size="sm"
-                  className="min-h-9 px-3 py-2 text-xs sm:min-h-11 sm:px-5 sm:py-3 sm:text-base"
-                >
-                  {t('home.hero.ctaSync')}
-                </HeroLink>
-              </div>
-              {/* platform compatibility */}
-              <div className="mt-4 flex items-center gap-3 sm:mt-6">
-                <span className="text-xs text-app-text-muted">{t('home.hero.worksWith')}</span>
-                <img
-                  src="/assets/logos/Providers/Spotify.png"
-                  alt="Spotify"
-                  className="h-7 w-7 rounded-xl object-contain sm:h-10 sm:w-10"
-                />
-                <img
-                  src="/assets/logos/Providers/AppleMusic.png"
-                  alt="Apple Music"
-                  className="h-7 w-7 rounded-xl object-contain sm:h-10 sm:w-10"
-                />
-              </div>
-            </div>
-          </motion.div>
-        </motion.div>
-      </RevealSection>
-
-      <div>
-        {/* ── Transfer ───────────────────────────────────────────────────── */}
-        <RevealSection
-          trackId="transfer"
-          className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(135deg,rgba(255,46,139,0.07)_0%,transparent_44%,rgba(198,255,0,0.07)_100%)] py-24 sm:py-32 lg:py-36"
-        >
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#ff2e8b,#c6ff00,#7dd3fc)]"
-          />
-          <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-4 px-6 text-center">
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-app-text-secondary">
-              {t('home.transfer.eyebrow')}
-            </p>
-            <SectionHeading
-              title={t('home.transfer.title')}
-              description={t('home.transfer.description')}
-              align="center"
-              titleClassName="text-shadow-section-title text-3xl font-black tracking-tight sm:text-4xl"
-              descriptionClassName="max-w-xl leading-relaxed"
-            />
-          </div>
-
-          <div className="mt-12 flex w-full flex-col items-center gap-8 px-4">
-            <div className="w-full max-w-[90dvw]">
-              <img
-                src={`/assets/presentation/transfer-light-${locale}.png`}
-                alt={t('home.transfer.title')}
-                loading="lazy"
-                className="block h-auto w-full object-contain dark:hidden"
-              />
-              <img
-                src={`/assets/presentation/transfer-dark-${locale}.png`}
-                alt={t('home.transfer.title')}
-                loading="lazy"
-                className="hidden h-auto w-full object-contain dark:block"
-              />
-            </div>
-            <HeroLink href={buildAppUrl('/transfer')} variant="pink" size="sm">
-              {t('home.transfer.cta')}
-            </HeroLink>
-          </div>
-        </RevealSection>
-
-        {/* ── Offer tabs + screenshots ───────────────────────────────────── */}
-        <RevealSection
-          trackId="showcase"
-          className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(135deg,rgba(198,255,0,0.08)_0%,transparent_42%,rgba(255,46,139,0.06)_100%)] py-24 sm:py-32 lg:py-36"
-        >
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#c6ff00,#ff2e8b,#7dd3fc)]"
-          />
-          <div className="mx-auto w-full max-w-6xl px-6 sm:px-6 lg:px-8">
-            <div className="mb-12 flex flex-col items-center gap-6">
-              <SegmentedToggle
-                value={activeTab}
-                onChange={setActiveTab}
-                options={showcaseTabs}
-                layoutId="showcase-tab-pill"
-              />
-
-              {/* tab description */}
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.22 }}
-                  className="max-w-lg text-center"
-                >
-                  <h2 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl">
-                    {t(`home.offer.${activeTab}Title`)}
-                  </h2>
-                  <p className="mt-3 text-sm leading-relaxed text-app-text-secondary sm:text-base">
-                    {t(`home.offer.${activeTab}Description`)}
-                  </p>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* screenshot carousel — full-bleed; slides in from left (event) or right (sync) */}
-          <div className="flex w-full justify-center overflow-hidden">
-            <AnimatePresence mode="popLayout" custom={activeTab === 'event' ? -1 : 1}>
-              <motion.div
-                key={activeTab}
-                custom={activeTab === 'event' ? -1 : 1}
-                variants={TAB_SLIDE}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                transition={{ duration: 0.15, ease: [0.25, 0, 0, 1] }}
-                style={{ willChange: 'transform, opacity' }}
-                className="w-full"
-              >
-                {activeTab === 'event' ? (
-                  <ScreenshotCarousel steps={eventSteps} images={EVENT_IMAGES} accent="lime" />
-                ) : (
-                  <ScreenshotCarousel steps={syncSteps} images={SYNC_IMAGES} accent="pink" />
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </div>
-          <div className="mt-10 flex justify-center">
-            <HeroLink
-              href={buildAppUrl('/auth/register')}
-              variant={activeTab === 'event' ? 'lime' : 'pink'}
-              size="sm"
-            >
-              {t(activeTab === 'event' ? 'home.offer.eventCta' : 'home.offer.syncCta')}
-            </HeroLink>
-          </div>
-        </RevealSection>
-
-        {/* ── Features ──────────────────────────────────────────────────── */}
-        <RevealSection
-          trackId="features"
-          className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(145deg,rgba(198,255,0,0.14)_0%,rgba(245,245,245,0.72)_46%,rgba(125,211,252,0.12)_100%)] py-24 dark:bg-[linear-gradient(145deg,rgba(198,255,0,0.10)_0%,rgba(26,26,26,0.88)_46%,rgba(125,211,252,0.10)_100%)] sm:py-32 lg:py-36"
-        >
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#c6ff00,#7dd3fc,#c6ff00)]"
-          />
-          <div className="grid w-full lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] lg:items-center">
-            <div className="px-6 sm:px-6 lg:px-8">
-              <div className="ml-auto flex w-full max-w-2xl flex-col gap-8">
-                <SectionHeading
-                  title={t('home.features.title')}
-                  description={t('home.features.description')}
-                  titleClassName="text-shadow-section-title text-3xl font-black tracking-tight sm:text-4xl"
-                  descriptionClassName="leading-relaxed"
-                />
-                <div className="grid gap-4 sm:grid-cols-2">
-                  {featureCards.map((card) => (
-                    <AccentInfoCard key={card.title} {...card} />
-                  ))}
-                </div>
-                <SectionCta
-                  href="/pricing"
-                  variant="outline"
-                  label={t('home.features.cta')}
-                  className="justify-start"
-                />
-              </div>
-            </div>
-            <div className="relative min-h-104 overflow-hidden lg:min-h-216">
-              <div className="pointer-events-none absolute inset-0 left-0 w-full lg:flex lg:items-center lg:justify-start">
-                <div className="mx-auto w-[120%] -translate-x-[10%] scale-[1.06] sm:w-[205%] sm:translate-x-[8%] sm:scale-[1.14] lg:mx-0 lg:w-[235%] lg:translate-x-[10%] lg:scale-[1.18]">
-                  <HostWorkspaceBackdrop />
-                </div>
-              </div>
-            </div>
-          </div>
-        </RevealSection>
-
-        {/* ── Why Synqit ────────────────────────────────────────────────── */}
-        <WhyStackSection
-          title={t('home.why.title')}
-          description={t('home.why.description')}
-          cards={reasonCards}
-          ctaHref={buildAppUrl('/auth/register')}
-          ctaLabel={t('home.why.cta')}
+        <div
+          aria-hidden="true"
+          className="bg-halftone pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_75%)]"
         />
+        <Container>
+          <motion.div
+            initial={isTouchDevice ? false : 'hidden'}
+            animate="visible"
+            variants={STAGGER}
+            className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-6"
+          >
+            <div className="flex flex-col items-start gap-6 sm:gap-7">
+              <motion.div variants={FADE_UP}>
+                <Sticker tone="paper" tilt="-rotate-2">
+                  {t('home.hero.eyebrow')}
+                </Sticker>
+              </motion.div>
+              <motion.h1
+                variants={FADE_UP}
+                className="text-[2.75rem] font-black leading-[0.98] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-6xl lg:text-[4.25rem]"
+              >
+                {t('home.hero.titleLead')}{' '}
+                <span className="relative inline-block px-1">
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 inset-y-[6%] -skew-x-6 -rotate-1 rounded-md bg-brand-lime"
+                  />
+                  <span className="relative text-brand-dark">{t('home.hero.titleHighlight')}</span>
+                </span>
+              </motion.h1>
+              <motion.p
+                variants={FADE_UP}
+                className="max-w-md text-base leading-relaxed text-app-text-secondary sm:text-lg"
+              >
+                {t('home.hero.description')}
+              </motion.p>
+              <motion.div variants={FADE_UP} className="flex flex-wrap items-center gap-4">
+                <HeroLink href={registerHref} variant="lime" size="md">
+                  {t('home.hero.ctaPrimary')}
+                </HeroLink>
+                <a
+                  href="#how"
+                  className="focus-ring-brand inline-flex items-center gap-1.5 rounded-full py-2 text-sm font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-base"
+                >
+                  {t('home.hero.ctaSecondary')}
+                  <ArrowDown size={16} aria-hidden className="motion-safe:animate-bounce" />
+                </a>
+              </motion.div>
+              <motion.div variants={FADE_UP}>
+                <ProviderLogos label={t('home.hero.worksWith')} />
+              </motion.div>
+            </div>
 
-        {/* ── Pricing teaser ────────────────────────────────────────────── */}
-        <RevealSection
-          trackId="pricing"
-          className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(140deg,rgba(125,211,252,0.14)_0%,rgba(245,245,245,0.70)_48%,rgba(255,46,139,0.10)_100%)] py-24 dark:bg-[linear-gradient(140deg,rgba(125,211,252,0.10)_0%,rgba(26,26,26,0.88)_48%,rgba(255,46,139,0.09)_100%)] sm:py-32 lg:py-36"
-        >
-          <div
-            aria-hidden="true"
-            className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,#7dd3fc,#ff2e8b,#c6ff00)]"
-          />
-          <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-5 px-6 text-center sm:px-6 lg:px-8">
-            <SectionHeading
-              title={t('home.pricing.title')}
-              description={t('home.pricing.description')}
-              align="center"
-              titleClassName="text-shadow-section-title text-3xl font-black tracking-tight sm:text-4xl"
-              descriptionClassName="max-w-xl leading-relaxed"
-            />
-            <PricingTeaserCards />
-            <HeroLink href="/pricing" variant="lime" size="sm">
-              {t('home.pricing.teaserCta')}
-            </HeroLink>
-          </div>
-        </RevealSection>
-
-        {/* ── Final CTA ──────────────────────────────────────────────────── */}
-        <RevealSection
-          trackId="final_cta"
-          className="relative overflow-hidden border-t border-app-border/60 bg-[linear-gradient(180deg,rgba(198,255,0,0.08)_0%,transparent_42%,rgba(255,46,139,0.08)_100%)] px-4 pb-32 pt-24 sm:px-0 sm:pb-44 sm:pt-32 lg:pb-48 lg:pt-36"
-        >
-          <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1 bg-brand-gradient" />
-          <div className="relative mx-auto w-full max-w-6xl overflow-hidden rounded-[2rem] border border-app-border bg-brand-gradient p-[1px] shadow-soft-lift">
-            <div className="relative overflow-hidden rounded-[calc(2rem-1px)] bg-app-elevated px-6 py-14 dark:bg-app-card sm:px-10 sm:py-16">
+            <motion.div
+              variants={FADE_UP}
+              className="relative mx-auto flex w-full max-w-[19rem] justify-center py-6 sm:max-w-sm lg:max-w-md lg:py-10"
+            >
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0"
-                style={{
-                  background:
-                    'radial-gradient(ellipse at center, rgba(198,255,0,0.07) 0%, transparent 65%)',
-                }}
+                className="absolute left-[4%] top-[12%] h-[55%] w-[70%] rounded-full bg-brand-lime/35 blur-3xl dark:bg-brand-lime/20"
               />
-              <div className="relative flex flex-col items-center gap-8 text-center">
-                <div className="flex flex-col gap-3">
-                  <h2 className="text-2xl font-black leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-3xl lg:text-4xl">
-                    {t('home.finalCta.title')}
-                  </h2>
-                </div>
-                <div className="grid w-full max-w-2xl gap-4 sm:grid-cols-2">
-                  <CtaOfferCard
-                    accent="lime"
-                    title={t('home.finalCta.eventCtaTitle')}
-                    body={t('home.finalCta.eventCtaBody')}
-                    action={t('home.finalCta.eventCtaAction')}
-                  />
-                  <CtaOfferCard
-                    accent="pink"
-                    title={t('home.finalCta.syncCtaTitle')}
-                    body={t('home.finalCta.syncCtaBody')}
-                    action={t('home.finalCta.syncCtaAction')}
-                  />
-                </div>
-                <HeroLink href={buildAppUrl('/auth/login')} variant="outline" size="sm">
-                  {t('home.finalCta.login')}
-                </HeroLink>
+              <div
+                aria-hidden="true"
+                className="absolute bottom-[8%] right-[0%] h-[45%] w-[62%] rounded-full bg-brand-pink/30 blur-3xl dark:bg-brand-pink/20"
+              />
+              <HeroScreens
+                images={HERO_SCREENS.map((screen) => screen.src)}
+                captions={HERO_SCREENS.map((screen) => t(screen.captionKey))}
+                className="relative z-10 w-[13.5rem] sm:w-[15.5rem] lg:w-[17.5rem]"
+              />
+            </motion.div>
+          </motion.div>
+        </Container>
+      </RevealSection>
+
+      {/* ── Services + how it works (one interactive section) ─────────── */}
+      <RevealSection id="how" trackId="services" className="relative scroll-mt-24 py-16 sm:py-24">
+        <Container className="flex flex-col gap-4">
+          <SectionIntro eyebrow={t('home.services.eyebrow')} title={t('home.services.title')} />
+          <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
+            {t('home.how.lead')}
+          </p>
+        </Container>
+        <div className="mx-auto mt-12 w-full max-w-6xl px-5 sm:px-6 lg:mt-20 lg:px-8">
+          <ServiceShowcase services={services} swipeHint={t('home.services.swipeHint')} />
+        </div>
+      </RevealSection>
+
+      {/* ── Statement + marquee ───────────────────────────────────────── */}
+      <section className="relative py-12 sm:py-20">
+        <Container>
+          <p className="text-center text-2xl font-black leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl lg:text-5xl">
+            {t('home.vibe.statement')}
+          </p>
+        </Container>
+        <div className="mt-10 -mx-6 -rotate-1 border-y-2 border-app-text bg-brand-dark py-3 text-brand-white dark:bg-brand-white dark:text-brand-dark sm:mt-14">
+          <div className="overflow-hidden">
+            <div aria-hidden="true" className="flex w-max motion-safe:animate-marquee">
+              {[...vibeWords, ...vibeWords].map((word, i) => (
+                <span
+                  key={`${word}-${i}`}
+                  className="flex items-center gap-5 whitespace-nowrap px-2.5 text-sm font-black uppercase tracking-[0.22em] sm:text-base"
+                >
+                  {word}
+                  <span className={i % 2 === 0 ? 'text-brand-lime' : 'text-brand-pink'}>✦</span>
+                </span>
+              ))}
+            </div>
+            <ul className="sr-only">
+              {vibeWords.map((word) => (
+                <li key={word}>{word}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing teaser ────────────────────────────────────────────── */}
+      <RevealSection trackId="pricing" className="relative py-16 sm:py-24">
+        <Container className="max-w-4xl">
+          <div className="rounded-3xl border-2 border-app-text bg-app-elevated p-6 shadow-sticker dark:bg-app-card sm:p-10">
+            <h2 className="text-center text-2xl font-black leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
+              {t('home.pricing.teaserTitle')}
+            </h2>
+            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-3 rounded-2xl border border-app-border bg-app-surface p-5">
+                <Sticker tone="lime" tilt="-rotate-1">
+                  {t('home.pricing.teaserEvents')}
+                </Sticker>
+                <p className="text-sm leading-relaxed text-app-text-secondary">
+                  {t('home.pricing.teaserEventsBody')}
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 rounded-2xl border border-app-border bg-app-surface p-5">
+                <Sticker tone="pink" tilt="rotate-1">
+                  {t('home.pricing.teaserSharing')}
+                </Sticker>
+                <p className="text-sm leading-relaxed text-app-text-secondary">
+                  {t('home.pricing.teaserSharingBody')}
+                </p>
               </div>
             </div>
+            <div className="mt-8 flex justify-center">
+              <HeroLink href="/pricing" variant="outline" size="sm">
+                {t('home.pricing.teaserCta')}
+              </HeroLink>
+            </div>
           </div>
-        </RevealSection>
-      </div>
+        </Container>
+      </RevealSection>
+
+      {/* ── Final CTA ─────────────────────────────────────────────────── */}
+      <RevealSection trackId="final_cta" className="relative pb-28 pt-6 sm:pb-32 sm:pt-10">
+        <Container className="max-w-5xl">
+          <div className="relative overflow-hidden rounded-[2.5rem] bg-brand-dark px-6 py-14 text-center text-brand-white dark:bg-brand-white dark:text-brand-dark sm:px-12 sm:py-20">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 opacity-50 [background-image:radial-gradient(rgba(254,254,254,0.16)_1px,transparent_1px)] [background-size:14px_14px] dark:[background-image:radial-gradient(rgba(34,34,34,0.16)_1px,transparent_1px)]"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-10 -top-10 h-48 w-48 rounded-full bg-brand-lime/35 blur-3xl"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -bottom-12 -right-8 h-52 w-52 rounded-full bg-brand-pink/40 blur-3xl"
+            />
+            <h2 className="relative text-3xl font-black leading-[1.02] tracking-tight sm:text-5xl">
+              {t('home.finalCta.title')}
+            </h2>
+            <div className="relative mt-8 flex flex-col items-center gap-4">
+              <HeroLink href={registerHref} variant="lime" size="md">
+                {t('home.finalCta.cta')}
+              </HeroLink>
+              <a
+                href={buildAppUrl('/auth/login')}
+                className="focus-ring-brand rounded-full text-sm font-bold underline decoration-2 underline-offset-4 opacity-80 transition hover:opacity-100"
+              >
+                {t('home.finalCta.login')}
+              </a>
+            </div>
+          </div>
+        </Container>
+      </RevealSection>
     </MarketingPageShell>
   );
 };
