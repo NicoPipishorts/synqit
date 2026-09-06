@@ -15,7 +15,7 @@ FROM node:22-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN yarn workspace @synqit/site build
+RUN yarn workspace @synqit/shared build && yarn workspace @synqit/site build
 
 FROM node:22-alpine AS runtime
 WORKDIR /app
