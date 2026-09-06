@@ -128,8 +128,6 @@ export const MarketingPageShell = ({ children, contentClassName }: MarketingPage
 
   return (
     <div className="relative bg-brand-dark dark:bg-brand-white">
-      <HomeFooterReveal />
-
       <div ref={ref} className="relative z-10">
         <div className="relative overflow-clip rounded-b-[2.75rem] bg-app-bg shadow-[0_34px_64px_-20px_rgba(0,0,0,0.55)] sm:rounded-b-[3.5rem] lg:rounded-b-[4.5rem]">
           <div className={contentClassName ?? 'relative z-10 mx-auto w-full'}>{children}</div>
@@ -137,7 +135,9 @@ export const MarketingPageShell = ({ children, contentClassName }: MarketingPage
         <MarkerSeam width={width} />
       </div>
 
-      <div aria-hidden className="h-[30rem] sm:h-96 lg:h-104" />
+      {/* Phones: footer in flow right under the sheet. md+: fixed footer + spacer that reveals it. */}
+      <HomeFooterReveal />
+      <div aria-hidden className="hidden md:block md:h-96 lg:h-104" />
     </div>
   );
 };
