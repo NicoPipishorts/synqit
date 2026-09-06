@@ -33,7 +33,7 @@ export const PrivateDesktopNavigation = ({
     <nav className="hidden items-center gap-2 sm:flex" aria-label={ariaLabel}>
       <div
         onMouseLeave={() => setHoveredNavPath(null)}
-        className="flex items-center gap-1.5 rounded-full border border-app-border/70 bg-app-elevated/85 px-2 py-1.5 shadow-soft-lift backdrop-blur-md"
+        className="flex items-center gap-1 rounded-full border-2 border-app-text bg-app-elevated px-2 py-1.5 shadow-sticker dark:bg-app-card"
       >
         {navItems.map((item) => {
           const isActive = isNavItemActive(item.to);
@@ -49,21 +49,19 @@ export const PrivateDesktopNavigation = ({
                 <motion.span
                   layoutId="desktop-nav-hover-indicator"
                   transition={{ type: 'spring', stiffness: 430, damping: 35, mass: 0.85 }}
-                  className="absolute inset-0 z-0 rounded-full bg-app-surface dark:bg-app-card"
+                  className="absolute inset-0 z-0 rounded-full bg-app-surface dark:bg-app-elevated"
                 />
               ) : null}
               {isActive ? (
                 <motion.span
                   layoutId="desktop-nav-active-indicator"
                   transition={{ type: 'spring', stiffness: 430, damping: 35, mass: 0.85 }}
-                  className="absolute inset-0 z-[1] rounded-full bg-brand-dark dark:bg-brand-white"
+                  className="absolute inset-0 z-[1] rounded-full border-2 border-app-text bg-brand-lime shadow-sticker-sm"
                 />
               ) : null}
               <span
                 className={`relative z-10 ${
-                  isActive
-                    ? 'text-brand-white dark:text-brand-dark'
-                    : 'text-app-text-secondary hover:text-app-text'
+                  isActive ? 'text-brand-dark' : 'text-app-text-secondary hover:text-app-text'
                 }`}
               >
                 {item.label}
@@ -84,7 +82,7 @@ export const PrivateMobileNavigation = ({
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center sm:hidden">
       <nav
-        className="pointer-events-auto relative flex items-center gap-1 rounded-full border border-app-border/70 bg-app-elevated/90 px-2 py-1.5 shadow-soft-lift backdrop-blur-md"
+        className="pointer-events-auto relative flex items-center gap-1 rounded-full border-2 border-app-text bg-app-elevated px-2 py-1.5 shadow-sticker dark:bg-app-card"
         aria-label={ariaLabel}
       >
         {navItems.map((item) => {
@@ -101,15 +99,11 @@ export const PrivateMobileNavigation = ({
                 <motion.span
                   layoutId="mobile-nav-pill-indicator"
                   transition={{ type: 'spring', stiffness: 430, damping: 35, mass: 0.85 }}
-                  className="absolute inset-0 rounded-full bg-brand-dark dark:bg-brand-white"
+                  className="absolute inset-0 rounded-full border-2 border-app-text bg-brand-lime shadow-sticker-sm"
                 />
               ) : null}
-              <span
-                className={`relative z-10 ${
-                  isActive ? 'text-brand-white dark:text-brand-dark' : 'text-app-text-secondary'
-                }`}
-              >
-                <Icon size={16} aria-hidden="true" />
+              <span className={`relative z-10 ${isActive ? 'text-brand-dark' : 'text-app-text'}`}>
+                <Icon size={18} aria-hidden="true" />
               </span>
               <span className="sr-only">{item.label}</span>
             </Link>

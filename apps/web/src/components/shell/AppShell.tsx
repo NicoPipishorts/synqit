@@ -1,4 +1,4 @@
-import { PublicNav, BrandLogo } from '@synqit/ui';
+import { BrandLogo, PageBackdrop, PublicNav } from '@synqit/ui';
 import { Link, Outlet, useMatchRoute, useRouterState } from '@tanstack/react-router';
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 
@@ -194,6 +194,7 @@ export const AppShell = () => {
 
   return (
     <div className="relative min-h-screen overflow-x-clip text-app-text transition-colors">
+      {isPrivateRoute ? <PageBackdrop /> : null}
       <header className="fixed inset-x-0 top-0 z-50">
         {isNavBlurActive && (
           <div

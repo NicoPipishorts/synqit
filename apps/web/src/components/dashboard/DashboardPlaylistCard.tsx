@@ -17,10 +17,10 @@ type DashboardPlaylistCardProps = {
 };
 
 const roleStyles: Record<PlaylistCardRole, string> = {
-  owner: 'bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]',
-  visited: 'bg-sky-400/15 text-sky-700 dark:text-sky-300',
-  tracked: 'bg-teal-400/15 text-teal-700 dark:text-teal-300',
-  subscriber: 'bg-purple-400/15 text-purple-700 dark:text-purple-300',
+  owner: 'bg-brand-lime text-brand-dark',
+  visited: 'bg-[#7dd3fc] text-brand-dark',
+  tracked: 'bg-app-text text-app-bg',
+  subscriber: 'bg-brand-pink text-brand-white',
 };
 
 export const DashboardPlaylistCard = ({
@@ -54,11 +54,11 @@ export const DashboardPlaylistCard = ({
       tabIndex={0}
       onClick={activate}
       onKeyDown={onKeyDown}
-      className="group flex cursor-pointer items-center gap-3 border-b border-app-border px-4 py-3.5 transition-colors hover:bg-brand-pink/5 focus:bg-brand-pink/5 focus:outline-none last:border-b-0"
+      className="group flex cursor-pointer items-center gap-3 border-b border-app-border px-4 py-3.5 transition-colors hover:bg-brand-lime/10 focus:bg-brand-lime/10 focus:outline-none last:border-b-0"
     >
       <span
         aria-hidden="true"
-        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${roleStyles[role]}`}
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-2 border-app-text ${roleStyles[role]}`}
       >
         <TypeIcon size={18} />
       </span>
@@ -85,7 +85,7 @@ export const DashboardPlaylistCard = ({
       </div>
 
       <span
-        className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${roleStyles[role]}`}
+        className={`shrink-0 rounded-full border border-app-text px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${roleStyles[role]}`}
       >
         {roleLabel}
       </span>

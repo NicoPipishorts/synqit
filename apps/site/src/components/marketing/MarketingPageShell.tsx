@@ -1,7 +1,7 @@
+import { PageBackdrop } from '@synqit/ui';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { HomeFooterReveal } from './HomeFooterReveal';
-import { PageBackdrop } from './PageBackdrop';
 
 type MarketingPageShellProps = {
   children: ReactNode;

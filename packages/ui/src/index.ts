@@ -56,3 +56,5 @@ export { PublicMobileNav, type PublicMobileNavItem } from './components/PublicMo
 export { Sticker, type StickerProps, type StickerTone } from './components/Sticker';
 export { CircularImage } from './components/CircularImage';
 export { DotPatternOverlay } from './components/DotPatternOverlay';
+export { PageBackdrop } from './components/PageBackdrop';
+export { TapeStrip, type TapeTone } from './components/TapeStrip';
