@@ -1,180 +1,20 @@
+import { createAnalyticsTracker, parseBooleanFlag } from '@synqit/client';
+
 import { getCsrfToken, loadAuth } from './auth';
-import { API_URL, ANALYTICS_SESSION_STORAGE_KEY } from './constants';
+import { ANALYTICS_SESSION_STORAGE_KEY, API_URL } from './constants';
 import { loadAnonymousPreferences } from './preferences';
 
-type AnalyticsProperties = Record<string, unknown>;
-type AnalyticsEventName = string;
-type AnalyticsTarget = string;
+const tracker = createAnalyticsTracker({
+  baseUrl: API_URL,
+  source: 'web',
+  sessionStorageKey: ANALYTICS_SESSION_STORAGE_KEY,
+  enabled: parseBooleanFlag(import.meta.env.VITE_ANALYTICS_ENABLED, true),
+  allowLocal: parseBooleanFlag(import.meta.env.VITE_ANALYTICS_ALLOW_LOCAL, false),
+  getLocale: () => loadAnonymousPreferences().locale,
+  getCsrfToken,
+  isAuthenticated: () => Boolean(loadAuth()),
+});
 
-const parseBoolean = (value: string | undefined, fallback: boolean): boolean => {
-  if (!value) {
-    return fallback;
-  }
+export const trackAnalyticsEvent = tracker.track;
 
-  const normalized = value.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
-    return true;
-  }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
-    return false;
-  }
-
-  return fallback;
-};
-
-const isAnalyticsEnabled = parseBoolean(import.meta.env.VITE_ANALYTICS_ENABLED, true);
-const isLocalAnalyticsAllowed = parseBoolean(import.meta.env.VITE_ANALYTICS_ALLOW_LOCAL, false);
-
-let inMemorySessionId: string | null = null;
-
-const createSessionId = (): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-
-  return `anon-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
-};
-
-const isLocalOrigin = (): boolean => {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-
-  const hostname = window.location.hostname.trim().toLowerCase();
-  return (
-    hostname === 'localhost' ||
-    hostname === '127.0.0.1' ||
-    hostname === '0.0.0.0' ||
-    hostname === '::1' ||
-    hostname.endsWith('.local')
-  );
-};
-
-const getSessionId = (): string | null => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    const existing = window.sessionStorage.getItem(ANALYTICS_SESSION_STORAGE_KEY);
-    if (existing && existing.length >= 8) {
-      return existing;
-    }
-
-    const generated = createSessionId();
-    window.sessionStorage.setItem(ANALYTICS_SESSION_STORAGE_KEY, generated);
-    return generated;
-  } catch {
-    if (!inMemorySessionId) {
-      inMemorySessionId = createSessionId();
-    }
-    return inMemorySessionId;
-  }
-};
-
-const getCurrentPath = (): string => {
-  if (typeof window === 'undefined') {
-    return '/';
-  }
-
-  const currentPath = `${window.location.pathname}${window.location.search}`;
-  return currentPath.slice(0, 512) || '/';
-};
-
-const enqueueViaFetch = (params: { body: string; locale: 'en' | 'fr' | null }) => {
-  const headers: Record<string, string> = {
-    'content-type': 'application/json',
-  };
-
-  if (params.locale) {
-    headers['x-synqit-locale'] = params.locale;
-  }
-  const csrfToken = getCsrfToken();
-  if (csrfToken) {
-    headers['x-synqit-csrf-token'] = csrfToken;
-  }
-
-  void fetch(`${API_URL}/v1/analytics/events`, {
-    method: 'POST',
-    credentials: 'include',
-    headers,
-    body: params.body,
-    keepalive: true,
-  }).catch(() => undefined);
-};
-
-const enqueueViaBeacon = (body: string): boolean => {
-  if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') {
-    return false;
-  }
-
-  try {
-    return navigator.sendBeacon(
-      `${API_URL}/v1/analytics/events`,
-      new Blob([body], { type: 'application/json' }),
-    );
-  } catch {
-    return false;
-  }
-};
-
-export const trackAnalyticsEvent = (params: {
-  eventName: AnalyticsEventName;
-  target: AnalyticsTarget;
-  properties?: AnalyticsProperties;
-  pathOverride?: string;
-}): void => {
-  if (!isAnalyticsEnabled || typeof window === 'undefined') {
-    return;
-  }
-  if (isLocalOrigin() && !isLocalAnalyticsAllowed) {
-    return;
-  }
-
-  const sessionId = getSessionId();
-  if (!sessionId) {
-    return;
-  }
-
-  const locale = loadAnonymousPreferences().locale ?? null;
-  const isAuthenticated = Boolean(loadAuth());
-
-  let payload: string;
-  try {
-    payload = JSON.stringify({
-      eventName: params.eventName,
-      target: params.target,
-      sessionId,
-      path: (params.pathOverride ?? getCurrentPath()).slice(0, 512),
-      locale: locale ?? undefined,
-      source: 'web',
-      properties: params.properties ?? {},
-    });
-  } catch {
-    return;
-  }
-
-  if (!isAuthenticated && enqueueViaBeacon(payload)) {
-    return;
-  }
-
-  enqueueViaFetch({
-    body: payload,
-    locale,
-  });
-};
-
-let lastTrackedPagePath: string | null = null;
-
-export const trackPageView = (path: string): void => {
-  if (lastTrackedPagePath === path) {
-    return;
-  }
-
-  lastTrackedPagePath = path;
-  trackAnalyticsEvent({
-    eventName: 'app_page_view',
-    target: 'navigation',
-    pathOverride: path,
-  });
-};
+export const trackPageView = (path: string): void => tracker.trackPageView(path, 'app_page_view');

@@ -12,6 +12,8 @@
     "test": "echo \"No tests yet for @synqit/site\""
   },
   "dependencies": {
+    "@synqit/client": "0.1.0",
+    "@synqit/i18n": "0.1.0",
     "@synqit/shared": "0.1.0",
     "@synqit/ui": "0.1.0",
     "framer-motion": "^12.34.0",

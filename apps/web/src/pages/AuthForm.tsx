@@ -143,6 +143,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
 
   return (
     <AuthPageLayout
+      eyebrow={title}
       title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
       description={isLogin ? undefined : t('auth.registerLead')}
       showMobileNav
@@ -163,7 +164,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
             spellCheck={false}
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text shadow-soft-lift outline-none transition focus:border-brand-lime"
+            className="w-full rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text outline-none transition focus:border-app-text focus:shadow-[3px_3px_0_0_var(--color-brand-lime)]"
             placeholder={t('auth.emailPlaceholder')}
           />
         </label>
@@ -184,7 +185,7 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
                 setStatusType(null);
               }
             }}
-            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text shadow-soft-lift outline-none transition focus:border-brand-pink"
+            inputClassName="w-full rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2.5 pr-10 text-base leading-6 text-app-text outline-none transition focus:border-app-text focus:shadow-[3px_3px_0_0_var(--color-brand-pink)]"
             placeholder={t('auth.passwordPlaceholder')}
           />
           {!isLogin ? (

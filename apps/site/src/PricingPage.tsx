@@ -1,7 +1,8 @@
+import { Sticker } from '@synqit/ui';
+
 import { MarketingPageShell } from './components/marketing/MarketingPageShell';
 import { type PricingTable } from './components/marketing/PricingComparison';
 import { PricingTableBlock } from './components/marketing/PricingTableBlock';
-import { SectionHeading } from './components/marketing/SectionHeading';
 import { HeroLink } from './components/ui/HeroLink';
 import { useI18n } from './lib/i18n';
 
@@ -63,30 +64,41 @@ export const PricingPage = () => {
   const { t } = useI18n();
 
   return (
-    <MarketingPageShell contentClassName="mx-auto w-full max-w-6xl px-4 pb-24 pt-32 sm:px-6 sm:pt-40 lg:px-8">
-      <div className="mb-14 text-center">
-        <SectionHeading
-          title={t('home.pricing.pageTitle')}
-          description={t('home.pricing.pageSubtitle')}
-          align="center"
-          titleClassName="text-4xl font-black tracking-tight sm:text-5xl"
-          descriptionClassName="mx-auto mt-4 max-w-xl leading-relaxed"
-        />
-      </div>
+    <MarketingPageShell contentClassName="relative mx-auto w-full max-w-6xl px-5 pb-28 pt-28 sm:px-6 sm:pt-40 lg:px-8">
+      <div
+        aria-hidden="true"
+        className="bg-halftone pointer-events-none absolute inset-0 [mask-image:linear-gradient(to_bottom,black_0%,black_75%,transparent_100%)]"
+      />
+
+      <header className="relative mb-14 flex flex-col items-center gap-4 text-center sm:mb-20">
+        <Sticker tone="paper" tilt="-rotate-2">
+          {t('home.pricing.pill')}
+        </Sticker>
+        <h1 className="text-4xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-6xl">
+          {t('home.pricing.pageTitle')}
+        </h1>
+        <p className="max-w-xl text-base leading-relaxed text-app-text-secondary sm:text-lg">
+          {t('home.pricing.pageSubtitle')}
+        </p>
+      </header>
 
       <PricingTableBlock
+        index="01"
+        tone="lime"
         title={t('home.pricing.eventsTitle')}
         subtitle={t('home.pricing.eventsSubtitle')}
         table={EVENTS_TABLE}
       />
       <PricingTableBlock
+        index="02"
+        tone="pink"
         title={t('home.pricing.sharingTitle')}
         subtitle={t('home.pricing.sharingSubtitle')}
         table={SHARING_TABLE}
       />
 
-      <p className="mt-2 text-center text-xs text-app-text-muted">{t('home.pricing.footnote')}</p>
-      <div className="mt-10 text-center">
+      <p className="text-center text-xs text-app-text-muted">{t('home.pricing.footnote')}</p>
+      <div className="mt-8 text-center">
         <HeroLink href="/" variant="outline" size="sm">
           ← {t('home.pricing.backHome')}
         </HeroLink>

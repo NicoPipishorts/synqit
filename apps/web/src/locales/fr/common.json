@@ -928,91 +928,83 @@
     "trackError": "Impossible de mettre à jour le suivi du dashboard : {{message}}"
   },
   "home": {
-    "hero": {
-      "worksWith": "Compatible avec",
-      "title": "La fête où\nchacun est le DJ.",
-      "description": "Crée une playlist, partage un seul lien, et laisse tes invités ajouter des titres depuis leur téléphone — sans appli, sans compte, sans friction.",
-      "titleSync": "Ta playlist,\nsur chaque plateforme.",
-      "descriptionSync": "Partage une playlist une seule fois. Tes abonnés ont toujours les derniers titres — qu’ils soient sur Spotify ou Apple Music.",
-      "ctaEvent": "Créer ton événement",
-      "ctaSync": "Ou partager une playlist",
-      "ctaLogin": "Se connecter"
-    },
-    "transfer": {
-      "eyebrow": "Transfert de playlist",
-      "title": "Change de service, garde tes playlists",
-      "description": "Tu passes d'un service de streaming à un autre ? Emporte tes playlists. Synqit associe chaque titre et les reconstruit dans ta nouvelle bibliothèque — Spotify ou Apple Music.",
-      "cta": "Transférer une playlist"
-    },
     "nav": {
       "product": "Le Produit",
       "share": "Partager une playlist"
     },
-    "offer": {
-      "tabEvent": "Événement",
-      "tabSync": "Partage",
-      "eventTitle": "Laisse tes invités composer la playlist",
-      "eventDescription": "Crée une playlist, génère un lien magique, et laisse les invités ajouter des titres depuis leur téléphone — sans téléchargement, sans compte.",
-      "syncTitle": "Ta playlist suit tes abonnés, même hors plateforme",
-      "syncDescription": "Partage un seul lien. Tes abonnés reçoivent toujours les derniers titres sur Spotify ou Apple Music, même s’ils n’utilisent pas le même service que toi.",
-      "eventCta": "Créer un lien pour mes invités",
-      "syncCta": "Partager à mes abonnés",
-      "eventStep1": "Choisis ton service de streaming",
-      "eventStep2": "Service de streaming sélectionné",
-      "eventStep3": "Nomme ton événement",
-      "eventStep4": "Ajoute une description",
-      "eventStep5": "Valide la création",
-      "eventStep6": "Partage le lien magique",
-      "syncStep1": "Choisis ton service de streaming",
-      "syncStep2": "Service de streaming sélectionné",
-      "syncStep3": "Sélectionne ta playlist",
-      "syncStep4": "Partage le lien magique"
+    "hero": {
+      "eyebrow": "La musique sans frontières",
+      "titleLead": "Des playlists qui vont",
+      "titleHighlight": "partout.",
+      "description": "Laisse tes invités choisir les titres de la soirée, partage une playlist entre Spotify et Apple Music, ou déménage ta bibliothèque vers une nouvelle appli. Un seul lien suffit.",
+      "ctaPrimary": "Commencer gratuitement",
+      "ctaSecondary": "Voir comment ça marche",
+      "ctaLogin": "Se connecter",
+      "worksWith": "Compatible avec"
     },
-    "features": {
-      "pill": "Fonctionnalités",
-      "title": "Pour l’hôte, tout reste simple",
-      "description": "Synqit ne remplace pas ton app de streaming. Il t’ajoute juste les bons outils pour lancer, modérer et partager sans bricoler.",
-      "nativeTitle": "Gère depuis ton appli native",
-      "nativeBody": "Toutes les modifications se synchronisent automatiquement. Modère les titres, réordonne ou clôture un événement directement dans Spotify ou Apple Music — Synqit garde tout à jour.",
-      "nativeShortBody": "Garde la main depuis Spotify ou Apple Music.",
-      "magicLinkTitle": "Pages invité via lien magique",
-      "magicLinkBody": "Les invités arrivent sur une page épurée, optimisée mobile. Ils recherchent un titre dans ton catalogue, le sélectionnent, et il apparaît dans ta playlist en quelques secondes.",
-      "magicLinkShortBody": "Partage un lien clair, prêt pour mobile.",
-      "crossPlatformTitle": "Multi-plateforme dès le départ",
-      "crossPlatformBody": "Compatible Spotify et Apple Music. Héberge sur l’un, les invités rejoignent depuis l’autre. Les titres sont routés vers ton service.",
-      "crossPlatformShortBody": "Spotify et Apple Music fonctionnent ensemble.",
-      "moderationTitle": "Modération réservée à l’hôte",
-      "moderationBody": "Tu décides ce qui reste. Consulte chaque suggestion, supprime des titres et clôture l’événement quand tu es prêt — sans quitter l’appli.",
-      "moderationShortBody": "Approuve, retire ou ferme au bon moment.",
-      "cta": "Comparer les offres"
+    "services": {
+      "eyebrow": "Ce que fait Synqit",
+      "title": "Une appli, trois services !",
+      "event": {
+        "tag": "Événements",
+        "title": "Laisse la foule choisir la musique",
+        "body": "Crée une playlist d’événement et partage le lien. Tes invités ajoutent des titres depuis leur téléphone, sans appli ni compte. Tu gardes le dernier mot.",
+        "cta": "Créer un événement"
+      },
+      "share": {
+        "tag": "Partage",
+        "title": "Une playlist, deux plateformes",
+        "body": "Partage une playlist une seule fois. Tes abonnés reçoivent chaque nouveau titre sur Spotify ou Apple Music, selon leur appli.",
+        "cta": "Partager une playlist"
+      },
+      "transfer": {
+        "tag": "Transfert",
+        "title": "Change d’appli, garde tes playlists",
+        "body": "Tu passes à un nouveau service de streaming ? Synqit associe chaque titre et reconstruit tes playlists dans ta nouvelle bibliothèque.",
+        "cta": "Transférer une playlist"
+      },
+      "swipeHint": "Glisse pour voir la suite"
     },
-    "why": {
-      "pill": "Pourquoi Synqit",
-      "title": "Pourquoi ça marche mieux qu’un simple lien",
-      "description": "Le but n’est pas juste de partager une playlist. Le but, c’est que les gens participent vraiment, sans se perdre en route.",
-      "reason1Title": "Zéro friction pour les invités d'un événement",
-      "reason1Body": "Pour les playlists d'événement, les invités contribuent en quelques secondes via le lien magique — aucun compte Synqit, aucune installation.",
-      "reason2Title": "Une page claire sur mobile",
-      "reason2Body": "Les invités n’atterrissent pas dans une interface confuse. Ils comprennent quoi faire tout de suite et ajoutent un titre en quelques gestes.",
-      "reason3Title": "Spotify ou Apple Music, peu importe",
-      "reason3Body": "Tu partages une fois. Chacun suit la playlist depuis son service, sans te demander de dupliquer quoi que ce soit.",
-      "reason4Title": "Ton événement garde sa cadence",
-      "reason4Body": "La playlist reste vivante pendant la soirée, sans te faire perdre le contrôle ni casser ton organisation.",
-      "cta": "Tester sur ma prochaine soirée"
+    "how": {
+      "lead": "Touche une carte pour parcourir les vrais écrans, étape par étape.",
+      "stepLabel": "Étape {{n}} sur {{total}}",
+      "stepsCount": "{{count}} étapes",
+      "prev": "Étape précédente",
+      "next": "Étape suivante",
+      "event": {
+        "label": "Playlist d’événement",
+        "step1": "Choisis ton service de streaming",
+        "step2": "Spotify ou Apple Music, connecté",
+        "step3": "Nomme l’événement",
+        "step4": "Ajoute un mot pour tes invités",
+        "step5": "Vérifie et crée",
+        "step6": "Partage le lien magique"
+      },
+      "share": {
+        "label": "Playlist partagée",
+        "step1": "Choisis ton service de streaming",
+        "step2": "Connecte ton compte",
+        "step3": "Choisis la playlist à partager",
+        "step4": "Partage le lien magique"
+      },
+      "transfer": {
+        "label": "Transfert",
+        "step1": "Choisis le service que tu quittes",
+        "step2": "Connecte celui vers lequel tu vas",
+        "step3": "Choisis la playlist à déménager"
+      }
+    },
+    "vibe": {
+      "statement": "Sans appli. Sans compte. Sans friction.",
+      "words": "Anniversaires|Soirées|Mariages|Road trips|Playlists de bureau|Soirées bar|Festivals|Spotify|Apple Music"
     },
     "finalCta": {
-      "pill": "Prêt à commencer ?",
-      "title": "Choisis le mode qui colle à ton moment.",
-      "eventCtaTitle": "Playlist d’événement",
-      "eventCtaBody": "Laisse les invités ajouter des titres via lien magique — sans inscription.",
-      "eventCtaAction": "Lancer un événement",
-      "syncCtaTitle": "Playlist pour tes abonnés",
-      "syncCtaBody": "Partage ta sélection une fois. Tes abonnés la retrouvent sur leur plateforme et reçoivent les nouveaux titres automatiquement.",
-      "syncCtaAction": "Partager à mes abonnés",
+      "title": "Ta prochaine playlist commence ici.",
+      "cta": "Créer un compte gratuit",
       "login": "J’ai déjà un compte"
     },
     "pricing": {
-      "pill": "Tarifs",
+      "pill": "Simple et sans surprise",
       "title": "Des tarifs simples. Payez quand ça compte.",
       "description": "Les événements sont à coût unique. Le partage commence gratuitement. Compare ce qui est inclus et débloque seulement ce dont tu as besoin.",
       "tabEvents": "Événement",
@@ -1132,7 +1124,12 @@
           "feat3": "Analyses de croissance",
           "feat4": "Playlists et sièges illimités"
         }
-      }
+      },
+      "teaserTitle": "Gratuit pour commencer. Paie seulement quand ça compte.",
+      "teaserEvents": "Événements",
+      "teaserEventsBody": "Gratuit jusqu’à 25 invités, puis un prix unique par événement.",
+      "teaserSharing": "Partage",
+      "teaserSharingBody": "Gratuit pour les petits cercles. 5 € débloquent une playlist pour toujours."
     }
   },
   "modal": {

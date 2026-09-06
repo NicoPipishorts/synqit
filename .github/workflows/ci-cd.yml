@@ -73,6 +73,9 @@ jobs:
       - name: Lint
         run: yarn lint
 
+      - name: Locale parity and translation key usage
+        run: yarn i18n:check
+
       - name: Audit dependencies (fail on high or critical)
         run: |
           set +e
@@ -122,8 +125,11 @@ jobs:
       - name: Build shared package
         run: yarn build:shared
 
-      - name: Run UI package unit tests
-        run: yarn workspace @synqit/ui test
+      - name: Run shared package unit tests
+        run: |
+          yarn workspace @synqit/ui test
+          yarn workspace @synqit/client test
+          yarn workspace @synqit/i18n test
 
       - name: Install Playwright browser
         run: |

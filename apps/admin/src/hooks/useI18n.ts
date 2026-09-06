@@ -1,12 +1,5 @@
-import { useContext } from 'react';
+import { useI18nContext } from '@synqit/i18n';
 
-import { I18nContext } from '../lib/i18n/context';
+import type { Locale } from '../lib/i18n/messages';
 
-export const useI18n = () => {
-  const context = useContext(I18nContext);
-  if (!context) {
-    throw new Error('useI18n must be used inside I18nProvider');
-  }
-
-  return context;
-};
+export const useI18n = () => useI18nContext<Locale>();
