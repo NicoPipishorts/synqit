@@ -10,7 +10,7 @@ export const HomeFooterReveal = () => {
 
   return (
     <footer className="fixed inset-x-0 bottom-0 z-0 bg-brand-dark text-brand-white dark:bg-brand-white dark:text-brand-dark sm:h-96 lg:h-104">
-      <div className="mx-auto flex h-full w-full max-w-7xl flex-col justify-between px-4 pb-28 pt-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
+      <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-10 px-4 pb-28 pt-12 sm:justify-center sm:gap-12 sm:px-6 sm:py-14 lg:gap-14 lg:px-8 lg:py-16">
         <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr] lg:gap-10">
           <div className="grid content-start gap-3">
             <div className="flex items-center justify-between">
@@ -137,7 +137,7 @@ export const HomeFooterReveal = () => {
           </div>
         </div>
 
-        <div className="flex items-center justify-center sm:border-t border-brand-white/20 pt-3 dark:border-brand-dark/20">
+        <div className="flex items-center justify-center gap-4 border-brand-white/20 pt-5 dark:border-brand-dark/20 sm:border-t">
           <p className="text-xs text-brand-white/55 dark:text-brand-dark/55">
             {t('footer.copyright', { year: new Date().getFullYear() })}
           </p>

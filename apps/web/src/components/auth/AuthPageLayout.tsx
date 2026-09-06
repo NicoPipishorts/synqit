@@ -1,4 +1,4 @@
-import { PublicMobileNav, type PublicMobileNavItem } from '@synqit/ui';
+import { PublicMobileNav, type PublicMobileNavItem, Sticker } from '@synqit/ui';
 import { Home, LogIn, Share2, Tag } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 
@@ -7,6 +7,8 @@ import { useI18n } from '../../hooks/useI18n';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 
 type AuthPageLayoutProps = {
+  /** Short sticker label above the title, e.g. "Login". */
+  eyebrow?: string;
   title: string;
   description?: string;
   children: ReactNode;
@@ -35,6 +37,7 @@ const getSiteOrigin = (): string => {
 };
 
 export const AuthPageLayout = ({
+  eyebrow,
   title,
   description,
   children,
@@ -81,19 +84,40 @@ export const AuthPageLayout = ({
   return (
     <section className="relative min-h-dvh w-full">
       <div className="grid min-h-dvh w-full lg:grid-cols-2">
-        {/* Form — centered horizontally + vertically */}
-        <div className="flex min-h-dvh flex-col items-center justify-center px-6 pb-[max(7rem,calc(env(safe-area-inset-bottom)+5.5rem))] pt-[max(7rem,calc(env(safe-area-inset-top)+6rem))] lg:px-12">
-          <div className="grid w-full max-w-md gap-6">
-            <div className="grid w-full gap-2 text-center">
-              <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
+        {/* Form — sticker card, centered */}
+        <div className="relative flex min-h-dvh flex-col items-center justify-center px-5 pb-[max(7rem,calc(env(safe-area-inset-bottom)+5.5rem))] pt-[max(7rem,calc(env(safe-area-inset-top)+6rem))] sm:px-6 lg:px-12">
+          <div
+            aria-hidden="true"
+            className="bg-halftone pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,black_35%,transparent_85%)]"
+          />
+          <div className="relative grid w-full max-w-md gap-6">
+            <div className="flex flex-col items-center gap-3 text-center">
+              {eyebrow ? (
+                <Sticker tone="paper" tilt="-rotate-2">
+                  {eyebrow}
+                </Sticker>
+              ) : null}
+              <h1 className="text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
                 {title}
               </h1>
               {description ? (
-                <p className="text-sm text-app-text-secondary">{description}</p>
+                <p className="max-w-sm text-sm leading-relaxed text-app-text-secondary">
+                  {description}
+                </p>
               ) : null}
             </div>
 
-            {children}
+            <div className="relative rounded-3xl border-2 border-app-text bg-app-elevated p-5 shadow-[5px_5px_0_0_var(--syn-text),10px_10px_0_0_var(--color-brand-lime)] dark:bg-app-card sm:p-7">
+              <span
+                aria-hidden="true"
+                className="absolute -top-3 left-8 h-5 w-16 -rotate-6 rounded-sm bg-brand-lime/80"
+              />
+              <span
+                aria-hidden="true"
+                className="absolute -bottom-3 right-10 h-5 w-14 rotate-3 rounded-sm bg-brand-pink/70"
+              />
+              {children}
+            </div>
 
             <div className="flex w-full justify-center">
               <div className="flex items-center rounded-full border border-app-border/70 bg-app-elevated/90 px-2 py-1.5 shadow-soft-lift backdrop-blur-md dark:bg-app-card/90">
@@ -103,15 +127,17 @@ export const AuthPageLayout = ({
           </div>
         </div>
 
-        {/* Skewed product screen grab — larger on the right, receding toward the center */}
+        {/* Product shot in a tilted sticker frame — same language as the site hero.
+            Oversized on purpose: it bleeds off the right edge of the panel. */}
         <div
           aria-hidden="true"
-          className="relative hidden overflow-hidden lg:block"
-          style={{ perspective: '1200px' }}
+          className="relative hidden items-center overflow-hidden py-16 pl-8 lg:flex xl:pl-14"
         >
-          <div className="absolute inset-0 flex items-end -bottom-20">
-            <div className="h-[78%] w-[120%]">
-              <div className="h-full w-full overflow-hidden">
+          <div className="absolute left-[5%] top-[10%] h-[55%] w-[60%] rounded-full bg-brand-lime/35 blur-3xl dark:bg-brand-lime/20" />
+          <div className="absolute bottom-[8%] right-[-5%] h-[50%] w-[55%] rounded-full bg-brand-pink/30 blur-3xl dark:bg-brand-pink/20" />
+          <div className="relative w-[112%] max-w-none shrink-0 -rotate-1">
+            <div className="aspect-[17/12] overflow-hidden rounded-3xl border-2 border-app-text bg-app-card shadow-[6px_6px_0_0_var(--syn-text),12px_12px_0_0_var(--color-brand-pink)]">
+              <div className="h-full w-full scale-[1.06]">
                 <AuthHeroImage />
               </div>
             </div>

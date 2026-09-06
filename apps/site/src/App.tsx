@@ -218,6 +218,10 @@ const AppShell = () => {
         if (!INTERNAL_ROUTES.has(target)) {
           return;
         }
+        // In-page anchor (e.g. "#how") on the current route: let the browser scroll.
+        if (url.hash && target === pathname) {
+          return;
+        }
         event.preventDefault();
         navigate(target);
         return;
@@ -235,7 +239,7 @@ const AppShell = () => {
 
     document.addEventListener('click', onClick);
     return () => document.removeEventListener('click', onClick);
-  }, [navigate, appOrigin]);
+  }, [navigate, appOrigin, pathname]);
 
   if (isLeavingToApp) {
     return <AppHandoffScreen />;

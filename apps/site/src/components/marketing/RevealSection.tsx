@@ -59,6 +59,7 @@ const useSectionViewRef = (trackId?: string) => {
 type RevealSectionProps = {
   children: ReactNode;
   className?: string;
+  id?: string;
   revealOnScroll?: boolean;
   trackId?: string;
 };
@@ -66,6 +67,7 @@ type RevealSectionProps = {
 export const RevealSection = ({
   children,
   className,
+  id,
   revealOnScroll = true,
   trackId,
 }: RevealSectionProps) => {
@@ -73,7 +75,7 @@ export const RevealSection = ({
 
   if (isTouchDevice) {
     return (
-      <section ref={sectionViewRef} className={className}>
+      <section ref={sectionViewRef} id={id} className={className}>
         {children}
       </section>
     );
@@ -83,6 +85,7 @@ export const RevealSection = ({
     return (
       <motion.section
         ref={sectionViewRef}
+        id={id}
         initial="hidden"
         whileInView="visible"
         viewport={{ once: true, amount: 0.1, margin: '0px 0px -10% 0px' }}
@@ -97,6 +100,7 @@ export const RevealSection = ({
   return (
     <motion.section
       ref={sectionViewRef}
+      id={id}
       initial="hidden"
       animate="visible"
       variants={SECTION_REVEAL_VARIANTS}

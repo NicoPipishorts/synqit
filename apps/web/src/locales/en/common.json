@@ -928,91 +928,83 @@
     "trackError": "Could not update dashboard tracking: {{message}}"
   },
   "home": {
-    "hero": {
-      "worksWith": "Works with",
-      "title": "For the party where\neveryone's the DJ.",
-      "description": "Create a playlist, share one link, and let your guests add songs right from their phone — no app, no account, no friction.",
-      "titleSync": "Your playlist,\non every platform.",
-      "descriptionSync": "Share a playlist once. Your followers always get the latest tracks — whether they're on Spotify or Apple Music.",
-      "ctaEvent": "Start an event playlist",
-      "ctaSync": "Or share a playlist",
-      "ctaLogin": "Sign in"
-    },
-    "transfer": {
-      "eyebrow": "Playlist transfer",
-      "title": "Switch services, keep your playlists",
-      "description": "Moving from one streaming service to another? Bring your playlists with you. Synqit matches every track and rebuilds them in your new library — Spotify or Apple Music.",
-      "cta": "Transfer a playlist"
-    },
     "nav": {
       "product": "Product",
       "share": "Share a playlist"
     },
-    "offer": {
-      "tabEvent": "Event playlist",
-      "tabSync": "Sharing",
-      "eventTitle": "Crowd-source your event soundtrack",
-      "eventDescription": "Create a playlist, generate a magic link, and let guests add tracks directly from their phone — no app download, no account required.",
-      "syncTitle": "Your playlist follows your audience across platforms",
-      "syncDescription": "Share one link. Your followers keep getting the latest tracks on Spotify or Apple Music, even if they do not use the same service as you.",
-      "eventCta": "Create a guest link",
-      "syncCta": "Share with my followers",
-      "eventStep1": "Select your service provider",
-      "eventStep2": "Selected streaming service",
-      "eventStep3": "Name your event",
-      "eventStep4": "Add a description",
-      "eventStep5": "Approve the creation",
-      "eventStep6": "Share the magic link",
-      "syncStep1": "Select your service provider",
-      "syncStep2": "Selected streaming service",
-      "syncStep3": "Select your playlist",
-      "syncStep4": "Share the magic link"
+    "hero": {
+      "eyebrow": "Music without borders",
+      "titleLead": "Playlists that go",
+      "titleHighlight": "anywhere.",
+      "description": "Let guests pick the tracks at your party, share one playlist across Spotify and Apple Music, or move your library to a new app. One link does it.",
+      "ctaPrimary": "Get started free",
+      "ctaSecondary": "See how it works",
+      "ctaLogin": "Sign in",
+      "worksWith": "Works with"
     },
-    "features": {
-      "pill": "Built-in features",
-      "title": "For the host, everything stays simple",
-      "description": "Synqit does not replace your streaming app. It adds the right tools to launch, moderate, and share without duct-taping a workflow together.",
-      "nativeTitle": "Manage from your native app",
-      "nativeBody": "All changes sync automatically. Moderate tracks, reorder, or close an event directly in Spotify or Apple Music — Synqit keeps everything in step.",
-      "nativeShortBody": "Stay in control from Spotify or Apple Music.",
-      "magicLinkTitle": "Magic link guest pages",
-      "magicLinkBody": "Guests land on a clean, mobile-first page. They search your catalog, pick a track, and it appears in your playlist in seconds — zero friction.",
-      "magicLinkShortBody": "Share one clear link built for mobile guests.",
-      "crossPlatformTitle": "Cross-platform from day one",
-      "crossPlatformBody": "Works with Spotify and Apple Music. Host on one, guests join from the other. Tracks route seamlessly to your provider.",
-      "crossPlatformShortBody": "Spotify and Apple Music work side by side.",
-      "moderationTitle": "Host-only moderation",
-      "moderationBody": "You decide what stays. Review every suggestion, remove tracks, and close the event when you're done — all without leaving the app.",
-      "moderationShortBody": "Approve, remove, or close exactly when needed.",
-      "cta": "Compare plans"
+    "services": {
+      "eyebrow": "What Synqit does",
+      "title": "One app, three services!",
+      "event": {
+        "tag": "Events",
+        "title": "Let the crowd pick the music",
+        "body": "Create an event playlist and share the link. Guests add songs from their phone, no app or account needed. You keep the final say.",
+        "cta": "Start an event"
+      },
+      "share": {
+        "tag": "Sharing",
+        "title": "One playlist, both platforms",
+        "body": "Share a playlist once. Followers get every new track on Spotify or Apple Music, whichever they use.",
+        "cta": "Share a playlist"
+      },
+      "transfer": {
+        "tag": "Transfer",
+        "title": "Switch apps, keep your playlists",
+        "body": "Moving to a new streaming service? Synqit matches every track and rebuilds your playlists in the new library.",
+        "cta": "Transfer a playlist"
+      },
+      "swipeHint": "Swipe for the next one"
     },
-    "why": {
-      "pill": "Why Synqit",
-      "title": "Why it works better than a plain playlist",
-      "description": "The point is not just to share a playlist. The point is to get people participating without losing them on the way.",
-      "reason1Title": "Zero friction for event guests",
-      "reason1Body": "For event playlists, guests contribute in seconds via the magic link — no Synqit account, no app install.",
-      "reason2Title": "A mobile page people instantly understand",
-      "reason2Body": "Guests do not land in a confusing interface. They know what to do straight away and add a track in a few taps.",
-      "reason3Title": "Spotify or Apple Music, it still works",
-      "reason3Body": "You share once. Everyone follows from their own service without asking you to rebuild the playlist somewhere else.",
-      "reason4Title": "Your event keeps its flow",
-      "reason4Body": "The playlist stays active through the whole event without making you lose control or break your hosting rhythm.",
-      "cta": "Try it for my next event"
+    "how": {
+      "lead": "Tap a card to walk through the real screens, step by step.",
+      "stepLabel": "Step {{n}} of {{total}}",
+      "stepsCount": "{{count}} steps",
+      "prev": "Previous step",
+      "next": "Next step",
+      "event": {
+        "label": "Event playlist",
+        "step1": "Pick your streaming service",
+        "step2": "Spotify or Apple Music, connected",
+        "step3": "Name the event",
+        "step4": "Add a note for your guests",
+        "step5": "Review and create",
+        "step6": "Share the magic link"
+      },
+      "share": {
+        "label": "Shared playlist",
+        "step1": "Pick your streaming service",
+        "step2": "Connect your account",
+        "step3": "Choose the playlist to share",
+        "step4": "Share the magic link"
+      },
+      "transfer": {
+        "label": "Transfer",
+        "step1": "Pick the service you are leaving",
+        "step2": "Connect the one you are moving to",
+        "step3": "Choose the playlist to move"
+      }
+    },
+    "vibe": {
+      "statement": "No app. No account. No friction.",
+      "words": "Birthdays|House parties|Weddings|Road trips|Office playlists|Bar nights|Festivals|Spotify|Apple Music"
     },
     "finalCta": {
-      "pill": "Ready to start?",
-      "title": "Pick the mode that fits the moment.",
-      "eventCtaTitle": "Event playlist",
-      "eventCtaBody": "Let guests add tracks via magic link — no signup required.",
-      "eventCtaAction": "Start an event playlist",
-      "syncCtaTitle": "Playlist for your followers",
-      "syncCtaBody": "Share your selection once. Followers get it on their platform and receive new tracks automatically.",
-      "syncCtaAction": "Share with my followers",
+      "title": "Your next playlist starts here.",
+      "cta": "Create a free account",
       "login": "I already have an account"
     },
     "pricing": {
-      "pill": "Pricing",
+      "pill": "Simple, no surprises",
       "title": "Simple pricing. Pay when it matters.",
       "description": "Events are a one-time cost. Sharing starts free. Compare what is included and unlock only what you actually need.",
       "tabEvents": "Event",
@@ -1132,7 +1124,12 @@
           "feat3": "Growth analytics",
           "feat4": "Unlimited playlists & seats"
         }
-      }
+      },
+      "teaserTitle": "Free to start. Pay only when it matters.",
+      "teaserEvents": "Events",
+      "teaserEventsBody": "Free up to 25 guests, then a one-time price per event.",
+      "teaserSharing": "Sharing",
+      "teaserSharingBody": "Free for small circles. €5 unlocks a playlist for good."
     }
   },
   "modal": {
