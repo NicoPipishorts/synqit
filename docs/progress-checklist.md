@@ -51,6 +51,7 @@ Use this as the implementation tracker (what is done vs pending).
 - [x] Runtime schema mutation removed from API startup; CI fails on migration/schema drift.
 - [x] `@synqit/ui` package: single `tokens.css`, 22 shared primitives (CTA, Modal, Toast, nav, forms, StatGrid, DataTable, EmptyState, OnboardingPanel), Ladle stories, Vitest suite; site/web/admin migrated.
 - [x] `@synqit/client` (API client, auth store, analytics tracker, preferences/theme) and `@synqit/i18n` (provider, hook, interpolation, parity + usage checker) packages; web/admin/site migrated; admin data loading on TanStack Query.
+- [x] Link imports for the transfer funnel: public Deezer (ISRC exact match) and YouTube (title parsing, needs `YOUTUBE_API_KEY`) playlists imported into Spotify/Apple Music in the background with live progress; ISRC-first matching now also improves Spotify/Apple transfers.
 - [x] Marketing site redesigned around the three services (hero with rotating app screens, interactive service showcase with scroll/hover motion, marker seam, pricing + auth pages restyled); sticker utilities and `Sticker` primitive added to `@synqit/ui`; EN/FR home copy rewritten.
 - [x] Legal pages on the marketing site (`/privacy`, `/terms`, `/cookies`, `/legal-notice`) in EN/FR, linked from the footer; prose lives in typed modules under `apps/site/src/content/legal/` rather than the shared locale JSON. Publisher identity, host details and the consumer mediator are still placeholders in `content/legal/entity.ts` — fill them before production.
 

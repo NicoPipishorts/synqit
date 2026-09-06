@@ -13,6 +13,7 @@ type SpotifyTrackSearchResult = {
   durationMs: number;
   artworkUrl: string | null;
   previewUrl: string | null;
+  isrc: string | null;
 };
 
 const spotifySearchResponseSchema = z.object({
@@ -35,6 +36,7 @@ const spotifySearchResponseSchema = z.object({
         }),
         duration_ms: z.number().int().nonnegative(),
         preview_url: z.string().url().nullable().optional(),
+        external_ids: z.object({ isrc: z.string().optional() }).optional(),
       }),
     ),
   }),
@@ -65,6 +67,7 @@ const spotifyPlaylistTracksResponseSchema = z.object({
             })
             .optional(),
           duration_ms: z.number().int().nonnegative().optional().default(0),
+          external_ids: z.object({ isrc: z.string().optional() }).optional(),
         })
         .nullable()
         .optional(),
@@ -90,6 +93,7 @@ const spotifyPlaylistTracksResponseSchema = z.object({
             })
             .optional(),
           duration_ms: z.number().int().nonnegative().optional().default(0),
+          external_ids: z.object({ isrc: z.string().optional() }).optional(),
         })
         .nullable()
         .optional(),
@@ -178,6 +182,7 @@ export const searchSpotifyTracks = async (params: {
     durationMs: track.duration_ms,
     artworkUrl: track.album.images[0]?.url ?? null,
     previewUrl: track.preview_url ?? null,
+    isrc: track.external_ids?.isrc ?? null,
   }));
 };
 
@@ -319,6 +324,7 @@ export const listSpotifyPlaylistTracks = async (params: {
         durationMs: track.duration_ms,
         artworkUrl: track.album?.images[0]?.url ?? null,
         previewUrl: null,
+        isrc: track.external_ids?.isrc ?? null,
       });
     }
 

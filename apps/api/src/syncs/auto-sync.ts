@@ -6,6 +6,7 @@ import { withAppleMusicUserToken } from '../integrations/apple-client';
 import { getAppleUserStorefront } from '../integrations/apple-music';
 import { listApplePlaylistTracks } from '../integrations/apple-music';
 import { searchAppleCatalogTracks } from '../integrations/apple-music';
+import { findAppleCatalogSongByIsrc } from '../integrations/apple-music';
 import { addAppleTrackToPlaylist } from '../integrations/apple-music';
 import { createAppleLibraryPlaylist } from '../integrations/apple-music';
 import { mapProviderApiError } from '../integrations/provider-errors';
@@ -25,12 +26,14 @@ type Logger = {
   warn?: (payload: unknown, message?: string) => void;
 };
 
-type SyncTrack = {
+export type SyncTrack = {
   providerTrackId: string;
   name: string;
   artist: string;
   album: string;
   durationMs: number;
+  /** ISRC when the source exposes it; enables exact cross-provider matching. */
+  isrc?: string | null;
 };
 
 const DEFAULT_AUTO_SYNC_INTERVAL_MS = 60_000;
@@ -267,7 +270,7 @@ const loadImportTracks = async (importRecord: SyncImportRecord): Promise<SyncTra
   });
 };
 
-const findProviderMatch = async (params: {
+export const findProviderMatch = async (params: {
   provider: 'spotify' | 'apple';
   userId: string;
   track: SyncTrack;
@@ -290,6 +293,19 @@ const findSpotifyMatch = async (params: {
     userId: params.userId,
     run: async (token) => token,
   });
+
+  // Exact match by ISRC when the source provides one (Deezer, Spotify, Apple).
+  if (params.track.isrc) {
+    const byIsrc = await searchSpotifyTracks({
+      accessToken,
+      query: `isrc:${params.track.isrc}`,
+      limit: 1,
+    });
+    if (byIsrc[0]) {
+      return byIsrc[0].providerTrackId;
+    }
+  }
+
   const results = await searchSpotifyTracks({
     accessToken,
     query: `${params.track.name} ${params.track.artist}`,
@@ -315,6 +331,18 @@ const findAppleMatch = async (params: {
     userId: params.userId,
     run: async (ctx) => {
       const storefront = await getAppleUserStorefront(ctx);
+
+      if (params.track.isrc) {
+        const byIsrc = await findAppleCatalogSongByIsrc({
+          developerToken: ctx.developerToken,
+          storefront,
+          isrc: params.track.isrc,
+        });
+        if (byIsrc) {
+          return byIsrc.providerTrackId;
+        }
+      }
+
       const results = await searchAppleCatalogTracks({
         developerToken: ctx.developerToken,
         storefront,
@@ -332,6 +360,42 @@ const findAppleMatch = async (params: {
   });
 };
 
+/** Creates an empty playlist in the user's library; null when Spotify is not in live mode. */
+export const createRecipientPlaylist = async (params: {
+  userId: string;
+  provider: 'spotify' | 'apple';
+  name: string;
+}): Promise<string | null> => {
+  if (params.provider === 'spotify') {
+    if (!isSpotifyOauthLiveMode()) {
+      return null;
+    }
+
+    const { result: accessToken } = await withSpotifyAccessTokenRetry({
+      userId: params.userId,
+      run: async (token) => token,
+    });
+    const created = await createSpotifyPlaylist({
+      accessToken,
+      name: params.name,
+      description: '',
+    });
+    return created.providerPlaylistId;
+  }
+
+  return withAppleMusicUserToken({
+    userId: params.userId,
+    run: async (ctx) => {
+      const created = await createAppleLibraryPlaylist({
+        ...ctx,
+        name: params.name,
+        description: '',
+      });
+      return created.providerPlaylistId;
+    },
+  });
+};
+
 const ensureRecipientPlaylist = async (params: {
   sync: SyncWithImportsRecord;
   importRecord: SyncImportRecord;
@@ -340,39 +404,14 @@ const ensureRecipientPlaylist = async (params: {
     return params.importRecord.recipientProviderPlaylistId;
   }
 
-  const playlistName = `${params.sync.name} (via Synqit)`;
-
-  if (params.importRecord.recipientProvider === 'spotify') {
-    if (!isSpotifyOauthLiveMode()) {
-      return null;
-    }
-
-    const { result: accessToken } = await withSpotifyAccessTokenRetry({
-      userId: params.importRecord.recipientUserId,
-      run: async (token) => token,
-    });
-    const created = await createSpotifyPlaylist({
-      accessToken,
-      name: playlistName,
-      description: '',
-    });
-    return created.providerPlaylistId;
-  }
-
-  return withAppleMusicUserToken({
+  return createRecipientPlaylist({
     userId: params.importRecord.recipientUserId,
-    run: async (ctx) => {
-      const created = await createAppleLibraryPlaylist({
-        ...ctx,
-        name: playlistName,
-        description: '',
-      });
-      return created.providerPlaylistId;
-    },
+    provider: params.importRecord.recipientProvider,
+    name: `${params.sync.name} (via Synqit)`,
   });
 };
 
-const addTrackToRecipientPlaylist = async (params: {
+export const addTrackToRecipientPlaylist = async (params: {
   userId: string;
   provider: SyncImportRecord['recipientProvider'];
   recipientProviderPlaylistId: string;

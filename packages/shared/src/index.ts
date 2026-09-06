@@ -1107,6 +1107,87 @@ export const transferPlaylistJobSchema = z.object({
   itemId: z.string().uuid(),
 });
 export type TransferPlaylistJob = z.infer<typeof transferPlaylistJobSchema>;
+// External playlist imports (Deezer / YouTube public links -> Spotify / Apple)
+// ---------------------------------------------------------------------------
+
+export const externalSourceKindSchema = z.enum(['deezer', 'youtube']);
+export type ExternalSourceKind = z.infer<typeof externalSourceKindSchema>;
+
+export const externalImportStatusSchema = z.enum(['pending', 'running', 'completed', 'failed']);
+export type ExternalImportStatus = z.infer<typeof externalImportStatusSchema>;
+
+export const externalSourceTrackSchema = z.object({
+  name: z.string(),
+  artist: z.string(),
+  album: z.string(),
+  durationMs: z.number().int().nonnegative(),
+  artworkUrl: z.string().nullable(),
+  /** Present for Deezer; enables exact matching on the destination provider. */
+  isrc: z.string().nullable(),
+});
+export type ExternalSourceTrack = z.infer<typeof externalSourceTrackSchema>;
+
+export const externalPlaylistPreviewRequestSchema = z.object({
+  url: z.string().trim().min(1).max(2048),
+});
+export type ExternalPlaylistPreviewRequest = z.infer<typeof externalPlaylistPreviewRequestSchema>;
+
+export const externalPlaylistPreviewResponseSchema = z.object({
+  source: externalSourceKindSchema,
+  sourcePlaylistId: z.string(),
+  name: z.string(),
+  trackCount: z.number().int().nonnegative(),
+  coverImageUrl: z.string().nullable(),
+  /** First tracks only; `truncated` says whether more exist. */
+  tracks: z.array(externalSourceTrackSchema),
+  truncated: z.boolean(),
+});
+export type ExternalPlaylistPreviewResponse = z.infer<typeof externalPlaylistPreviewResponseSchema>;
+
+export const createExternalImportRequestSchema = z.object({
+  url: z.string().trim().min(1).max(2048),
+  recipientProvider: providerSchema,
+});
+export type CreateExternalImportRequest = z.infer<typeof createExternalImportRequestSchema>;
+
+export const externalImportItemSchema = z.object({
+  id: z.string(),
+  source: externalSourceKindSchema,
+  sourceUrl: z.string(),
+  sourcePlaylistId: z.string(),
+  name: z.string(),
+  coverImageUrl: z.string().nullable(),
+  recipientProvider: providerSchema,
+  recipientProviderPlaylistId: z.string().nullable(),
+  status: externalImportStatusSchema,
+  totalCount: z.number().int().nonnegative(),
+  matchedCount: z.number().int().nonnegative(),
+  skippedCount: z.number().int().nonnegative(),
+  lastError: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  completedAt: z.string().nullable(),
+});
+export type ExternalImportItem = z.infer<typeof externalImportItemSchema>;
+
+export const externalImportResponseSchema = z.object({
+  import: externalImportItemSchema,
+});
+export type ExternalImportResponse = z.infer<typeof externalImportResponseSchema>;
+
+export const externalImportListResponseSchema = z.object({
+  imports: z.array(externalImportItemSchema),
+});
+export type ExternalImportListResponse = z.infer<typeof externalImportListResponseSchema>;
+
+export const externalSourcesStatusResponseSchema = z.object({
+  sources: z.object({
+    deezer: z.boolean(),
+    youtube: z.boolean(),
+  }),
+  maxTracks: z.number().int().positive(),
+});
+export type ExternalSourcesStatusResponse = z.infer<typeof externalSourcesStatusResponseSchema>;
 
 export const dashboardOwnerEventActivitySchema = z.object({
   eventId: z.string(),

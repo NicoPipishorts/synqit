@@ -656,7 +656,9 @@
     "alreadyTransferredBadge": "Déjà transférée",
     "alreadyTransferredSameDest": "Tu as déjà transféré « {{name}} » vers {{provider}}. Recommencer créera un doublon.",
     "alreadyTransferredOtherDest": "Tu as déjà transféré « {{name}} » vers {{providers}}.",
-    "alreadyTransferredWhen": "Dernier transfert : {{date}}."
+    "alreadyTransferredWhen": "Dernier transfert : {{date}}.",
+    "importFromLinkHint": "Vous avez plutôt une playlist Deezer ou YouTube ?",
+    "importFromLinkCta": "Importer depuis un lien"
   },
   "transferDashboardPage": {
     "title": "Transferts",
@@ -678,7 +680,12 @@
     "onboardingStepMatchTitle": "On associe les titres",
     "onboardingStepMatchBody": "Synqit retrouve chaque morceau sur le service de destination.",
     "onboardingStepMoveTitle": "Dépose-la dans ta bibliothèque",
-    "onboardingStepMoveBody": "Une nouvelle copie apparaît sur ton nouveau service, prête à écouter."
+    "onboardingStepMoveBody": "Une nouvelle copie apparaît sur ton nouveau service, prête à écouter.",
+    "importFromLink": "Importer depuis un lien",
+    "fromLink": "Depuis {{source}}",
+    "linkBadge": "Importée",
+    "statusRunning": "Import… {{done}}/{{total}}",
+    "statusFailed": "Échec"
   },
   "syncPublicPage": {
     "loading": "Chargement...",
@@ -1196,5 +1203,48 @@
   },
   "legal": {
     "otherPages": "Autres pages légales"
+  },
+  "transferLinkPage": {
+    "title": "Importer depuis un lien",
+    "description": "Collez le lien d'une playlist publique Deezer ou YouTube et Synqit la recrée dans votre Spotify ou Apple Music.",
+    "eyebrow": "Rapatrier une playlist",
+    "stepLink": "Lien",
+    "stepPreview": "Aperçu",
+    "stepImport": "Import",
+    "linkTitle": "Collez le lien de la playlist",
+    "linkBody": "Playlists publiques uniquement. Les liens Deezer sont associés par ISRC, donc exacts ; les titres YouTube sont retrouvés par recherche.",
+    "linkLabel": "Lien de la playlist",
+    "linkPlaceholder": "https://www.deezer.com/playlist/… ou https://music.youtube.com/playlist?list=…",
+    "supportedSources": "Compatible avec : {{sources}}",
+    "youtubeDisabled": "Les imports YouTube ne sont pas encore activés sur ce serveur.",
+    "destinationTitle": "Vers",
+    "destinationBody": "Choisissez où la playlist doit arriver. Connectez d'abord le service si besoin.",
+    "previewCta": "Aperçu de la playlist",
+    "previewTitle": "Vérifiez la playlist",
+    "previewBody": "Voici ce que Synqit a trouvé à ce lien. Vérifiez, puis lancez l'import.",
+    "previewTruncated": "Seuls les {{count}} premiers titres seront importés sur {{total}}.",
+    "previewSample": "{{count}} titres affichés sur {{total}}.",
+    "youtubeMatchNote": "Les titres YouTube sont du texte libre. Certains morceaux peuvent correspondre à une autre version ou être ignorés.",
+    "startImport": "Importer dans {{provider}}",
+    "importing": "Import en cours…",
+    "importTitle": "Import de votre playlist",
+    "importBody": "Les titres sont associés et ajoutés un par un. Vous pouvez quitter cette page, l'import continue.",
+    "progress": "{{done}} titres traités sur {{total}}",
+    "completionTitle": "Import terminé",
+    "completionBody": "Votre playlist est dans votre bibliothèque. Les titres ignorés n'avaient pas d'équivalent sur le service de destination.",
+    "failedTitle": "Import échoué",
+    "failedBody": "{{message}}",
+    "matchedCount": "{{count}} titres trouvés",
+    "skippedCount": "{{count}} titres ignorés",
+    "openDashboard": "Voir mes transferts",
+    "importAnother": "Importer un autre lien",
+    "backToLink": "Retour au lien",
+    "invalidLink": "Collez le lien d'une playlist publique Deezer ou YouTube.",
+    "previewError": "Impossible de lire cette playlist : {{message}}",
+    "startError": "L'import n'a pas pu démarrer : {{message}}",
+    "switchToProviders": "Vous passez plutôt de Spotify à Apple Music ?",
+    "switchToProvidersCta": "Transférer entre services connectés",
+    "sourceDeezer": "Deezer",
+    "sourceYoutube": "YouTube"
   }
 }

@@ -1,6 +1,12 @@
 import {
   createSyncRequestSchema,
   createTransferRequestSchema,
+  createExternalImportRequestSchema,
+  externalImportListResponseSchema,
+  externalImportResponseSchema,
+  externalPlaylistPreviewRequestSchema,
+  externalPlaylistPreviewResponseSchema,
+  externalSourcesStatusResponseSchema,
   importSyncRequestSchema,
   importSyncResponseSchema,
   providerPlaylistListResponseSchema,
@@ -15,8 +21,17 @@ import {
   transferBatchResponseSchema,
   updateSyncRequestSchema,
 } from '@synqit/shared';
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyReply } from 'fastify';
 
+import { startExternalImport } from './external-import-runner';
+import { externalImportsStore, type ExternalImportRecord } from './external-imports-store';
+import {
+  ExternalSourceError,
+  fetchExternalPlaylist,
+  getExternalImportMaxTracks,
+  getExternalSourceAvailability,
+  resolveExternalSourceUrl,
+} from './external-sources';
 import { requireOwnedSync } from './guards';
 import { importSyncForRecipient } from './import-engine';
 import { syncsStore } from './store';
@@ -809,5 +824,149 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     }
 
     return reply.send({ ok: true });
+  });
+
+  // -------------------------------------------------------------------------
+  // External imports: public Deezer / YouTube playlist links -> user's library
+  // -------------------------------------------------------------------------
+
+  const PREVIEW_TRACK_LIMIT = 20;
+
+  const toExternalImportItem = (record: ExternalImportRecord) => ({
+    id: record.id,
+    source: record.source,
+    sourceUrl: record.sourceUrl,
+    sourcePlaylistId: record.sourcePlaylistId,
+    name: record.name,
+    coverImageUrl: record.coverImageUrl,
+    recipientProvider: record.recipientProvider,
+    recipientProviderPlaylistId: record.recipientProviderPlaylistId,
+    status: record.status,
+    totalCount: record.totalCount,
+    matchedCount: record.matchedCount,
+    skippedCount: record.skippedCount,
+    lastError: record.lastError,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    completedAt: record.completedAt?.toISOString() ?? null,
+  });
+
+  const sendExternalSourceError = (reply: FastifyReply, error: unknown) => {
+    if (error instanceof ExternalSourceError) {
+      return reply.status(error.statusCode).send({ code: error.code, message: error.message });
+    }
+    throw error;
+  };
+
+  // GET /syncs/external-sources  (auth required)
+  app.get('/syncs/external-sources', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    return reply.send(
+      externalSourcesStatusResponseSchema.parse({
+        sources: getExternalSourceAvailability(),
+        maxTracks: getExternalImportMaxTracks(),
+      }),
+    );
+  });
+
+  // POST /syncs/external-imports/preview  (auth required)
+  app.post('/syncs/external-imports/preview', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const body = externalPlaylistPreviewRequestSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ code: 'invalid_request', message: body.error.message });
+    }
+
+    try {
+      const ref = resolveExternalSourceUrl(body.data.url);
+      const playlist = await fetchExternalPlaylist(ref, { maxTracks: PREVIEW_TRACK_LIMIT });
+      return reply.send(
+        externalPlaylistPreviewResponseSchema.parse({
+          source: playlist.source,
+          sourcePlaylistId: playlist.playlistId,
+          name: playlist.name,
+          trackCount: playlist.trackCount,
+          coverImageUrl: playlist.coverImageUrl,
+          tracks: playlist.tracks,
+          truncated: playlist.trackCount > getExternalImportMaxTracks(),
+        }),
+      );
+    } catch (error) {
+      return sendExternalSourceError(reply, error);
+    }
+  });
+
+  // POST /syncs/external-imports  (auth required) — starts a background import
+  app.post('/syncs/external-imports', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const body = createExternalImportRequestSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ code: 'invalid_request', message: body.error.message });
+    }
+
+    const integration = await integrationStore.findIntegration({
+      userId,
+      provider: body.data.recipientProvider,
+    });
+    if (!integration) {
+      return reply
+        .status(400)
+        .send({ code: 'provider_not_connected', message: 'Provider not connected.' });
+    }
+
+    try {
+      const ref = resolveExternalSourceUrl(body.data.url);
+      // Metadata only; the runner re-reads the full track list.
+      const playlist = await fetchExternalPlaylist(ref, { maxTracks: 1 });
+      const record = await externalImportsStore.create({
+        userId,
+        source: ref.source,
+        sourceUrl: body.data.url,
+        sourcePlaylistId: ref.playlistId,
+        name: playlist.name,
+        coverImageUrl: playlist.coverImageUrl,
+        recipientProvider: body.data.recipientProvider,
+        totalCount: Math.min(playlist.trackCount, getExternalImportMaxTracks()),
+      });
+
+      startExternalImport(record.id, request.log);
+
+      return reply
+        .status(202)
+        .send(externalImportResponseSchema.parse({ import: toExternalImportItem(record) }));
+    } catch (error) {
+      return sendExternalSourceError(reply, error);
+    }
+  });
+
+  // GET /syncs/external-imports  (auth required)
+  app.get('/syncs/external-imports', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const records = await externalImportsStore.listByUser(userId);
+    return reply.send(
+      externalImportListResponseSchema.parse({ imports: records.map(toExternalImportItem) }),
+    );
+  });
+
+  // GET /syncs/external-imports/:importId  (auth required)
+  app.get('/syncs/external-imports/:importId', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const { importId } = request.params as { importId: string };
+    const record = await externalImportsStore.findById(importId);
+    if (!record || record.userId !== userId) {
+      return reply.status(404).send({ code: 'not_found', message: 'Import not found.' });
+    }
+
+    return reply.send(externalImportResponseSchema.parse({ import: toExternalImportItem(record) }));
   });
 };

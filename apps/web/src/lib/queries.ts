@@ -24,6 +24,15 @@ import {
   transferBatchResponseSchema,
   type TransferBatch,
   type TransferPlaylistSelection,
+  createExternalImportRequestSchema,
+  externalImportListResponseSchema,
+  externalImportResponseSchema,
+  externalPlaylistPreviewRequestSchema,
+  externalPlaylistPreviewResponseSchema,
+  externalSourcesStatusResponseSchema,
+  type ExternalImportItem,
+  type ExternalPlaylistPreviewResponse,
+  type ExternalSourcesStatusResponse,
   integrationDisconnectResponseSchema,
   integrationListResponseSchema,
   oauthCallbackResponseSchema,
@@ -530,6 +539,9 @@ export const syncQueryKeys = {
   providerPlaylistTracks: (provider: string, providerPlaylistId: string) =>
     ['syncs', 'providerPlaylistTracks', provider, providerPlaylistId] as const,
   transferBatch: (batchId: string) => ['syncs', 'transferBatch', batchId] as const,
+  externalSources: () => ['syncs', 'externalSources'] as const,
+  externalImports: () => ['syncs', 'externalImports'] as const,
+  externalImport: (importId: string) => ['syncs', 'externalImports', importId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -821,4 +833,71 @@ export const unsubscribeSync = async (magicLinkToken: string): Promise<{ ok: tru
     },
     parseOkResponse,
   );
+};
+
+// ---------------------------------------------------------------------------
+// External imports (public Deezer / YouTube links -> Spotify / Apple Music)
+// ---------------------------------------------------------------------------
+
+export const fetchExternalSources = async (): Promise<ExternalSourcesStatusResponse> => {
+  const token = requireToken();
+  return callApi(
+    '/v1/syncs/external-sources',
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => externalSourcesStatusResponseSchema.parse(payload),
+  );
+};
+
+export const previewExternalPlaylist = async (
+  url: string,
+): Promise<ExternalPlaylistPreviewResponse> => {
+  const token = requireToken();
+  const body = externalPlaylistPreviewRequestSchema.parse({ url });
+  return callApi(
+    '/v1/syncs/external-imports/preview',
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+    (payload) => externalPlaylistPreviewResponseSchema.parse(payload),
+  );
+};
+
+export const createExternalImport = async (params: {
+  url: string;
+  recipientProvider: 'spotify' | 'apple';
+}): Promise<ExternalImportItem> => {
+  const token = requireToken();
+  const body = createExternalImportRequestSchema.parse(params);
+  const result = await callApi(
+    '/v1/syncs/external-imports',
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+    (payload) => externalImportResponseSchema.parse(payload),
+  );
+  return result.import;
+};
+
+export const fetchExternalImport = async (importId: string): Promise<ExternalImportItem> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/syncs/external-imports/${encodeURIComponent(importId)}`,
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => externalImportResponseSchema.parse(payload),
+  );
+  return result.import;
+};
+
+export const fetchExternalImports = async (): Promise<ExternalImportItem[]> => {
+  const token = requireToken();
+  const result = await callApi(
+    '/v1/syncs/external-imports',
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => externalImportListResponseSchema.parse(payload),
+  );
+  return result.imports;
 };

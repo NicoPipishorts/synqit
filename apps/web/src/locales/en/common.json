@@ -656,7 +656,9 @@
     "alreadyTransferredBadge": "Already transferred",
     "alreadyTransferredSameDest": "You've already transferred \"{{name}}\" to {{provider}}. Doing it again will create a duplicate.",
     "alreadyTransferredOtherDest": "You've already transferred \"{{name}}\" to {{providers}}.",
-    "alreadyTransferredWhen": "Last transfer: {{date}}."
+    "alreadyTransferredWhen": "Last transfer: {{date}}.",
+    "importFromLinkHint": "Have a Deezer or YouTube playlist instead?",
+    "importFromLinkCta": "Import from a link"
   },
   "transferDashboardPage": {
     "title": "Transfers",
@@ -678,7 +680,12 @@
     "onboardingStepMatchTitle": "We match the tracks",
     "onboardingStepMatchBody": "Synqit finds each song on the destination service.",
     "onboardingStepMoveTitle": "Land it in your library",
-    "onboardingStepMoveBody": "A fresh copy appears on your new service, ready to play."
+    "onboardingStepMoveBody": "A fresh copy appears on your new service, ready to play.",
+    "importFromLink": "Import from a link",
+    "fromLink": "From {{source}}",
+    "linkBadge": "Imported",
+    "statusRunning": "Importing… {{done}}/{{total}}",
+    "statusFailed": "Failed"
   },
   "syncPublicPage": {
     "loading": "Loading...",
@@ -1196,5 +1203,48 @@
   },
   "legal": {
     "otherPages": "Other legal pages"
+  },
+  "transferLinkPage": {
+    "title": "Import from a link",
+    "description": "Paste a public Deezer or YouTube playlist link and Synqit rebuilds it in your Spotify or Apple Music.",
+    "eyebrow": "Bring a playlist in",
+    "stepLink": "Link",
+    "stepPreview": "Preview",
+    "stepImport": "Import",
+    "linkTitle": "Paste the playlist link",
+    "linkBody": "Public playlists only. Deezer links match by ISRC, so results are exact; YouTube titles are matched by search.",
+    "linkLabel": "Playlist link",
+    "linkPlaceholder": "https://www.deezer.com/playlist/… or https://music.youtube.com/playlist?list=…",
+    "supportedSources": "Works with: {{sources}}",
+    "youtubeDisabled": "YouTube imports are not enabled on this server yet.",
+    "destinationTitle": "Into",
+    "destinationBody": "Choose where the playlist should land. Connect the service first if needed.",
+    "previewCta": "Preview playlist",
+    "previewTitle": "Check the playlist",
+    "previewBody": "This is what Synqit found at that link. Review it, then start the import.",
+    "previewTruncated": "Only the first {{count}} tracks will be imported out of {{total}}.",
+    "previewSample": "Showing {{count}} of {{total}} tracks.",
+    "youtubeMatchNote": "YouTube titles are free text. Some tracks may match a different version or be skipped.",
+    "startImport": "Import into {{provider}}",
+    "importing": "Importing…",
+    "importTitle": "Importing your playlist",
+    "importBody": "Tracks are matched and added one by one. You can leave this page; the import continues.",
+    "progress": "{{done}} of {{total}} tracks processed",
+    "completionTitle": "Import completed",
+    "completionBody": "Your playlist is in your library. Skipped tracks had no match on the destination service.",
+    "failedTitle": "Import failed",
+    "failedBody": "{{message}}",
+    "matchedCount": "{{count}} tracks matched",
+    "skippedCount": "{{count}} tracks skipped",
+    "openDashboard": "See my transfers",
+    "importAnother": "Import another link",
+    "backToLink": "Back to link",
+    "invalidLink": "Paste a public Deezer or YouTube playlist link.",
+    "previewError": "Could not read that playlist: {{message}}",
+    "startError": "Import failed to start: {{message}}",
+    "switchToProviders": "Moving between Spotify and Apple Music instead?",
+    "switchToProvidersCta": "Transfer between connected services",
+    "sourceDeezer": "Deezer",
+    "sourceYoutube": "YouTube"
   }
 }
