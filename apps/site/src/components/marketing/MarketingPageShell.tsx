@@ -124,11 +124,36 @@ const useElementWidth = () => {
   return { ref, width };
 };
 
+// True once the bottom spacer (the area the fixed footer shows through) is within
+// a screen of the viewport, so the footer is only painted when it is about to be seen.
+const useNearBottom = () => {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [near, setNear] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setNear(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => setNear(entries.some((entry) => entry.isIntersecting)),
+      { rootMargin: '0px 0px 40% 0px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, near };
+};
+
 export const MarketingPageShell = ({ children, contentClassName }: MarketingPageShellProps) => {
   const { ref, width } = useElementWidth();
+  const { ref: spacerRef, near } = useNearBottom();
 
   return (
-    <div className="relative bg-brand-dark dark:bg-brand-white">
+    <div className="relative">
       <div ref={ref} className="relative z-10">
         <div className="relative overflow-clip rounded-b-[2.75rem] bg-app-bg shadow-[0_34px_64px_-20px_rgba(0,0,0,0.55)] sm:rounded-b-[3.5rem] lg:rounded-b-[4.5rem]">
           <PageBackdrop />
@@ -137,9 +162,14 @@ export const MarketingPageShell = ({ children, contentClassName }: MarketingPage
         <MarkerSeam width={width} />
       </div>
 
-      {/* Phones: footer in flow right under the sheet. md+: fixed footer + spacer that reveals it. */}
-      <HomeFooterReveal />
-      <div aria-hidden className="hidden md:block md:h-96 lg:h-104" />
+      {/* Fixed footer behind the sheet, revealed as the spacer scrolls into view. The
+          spacer carries the dark surface so the sheet's rounded corners cut into it. */}
+      <HomeFooterReveal visible={near} />
+      <div
+        ref={spacerRef}
+        aria-hidden
+        className="-mt-[2.75rem] h-[calc(35rem+2.75rem)] bg-brand-dark dark:bg-brand-white sm:-mt-[3.5rem] sm:h-[calc(24rem+3.5rem)] lg:-mt-[4.5rem] lg:h-[calc(26rem+4.5rem)]"
+      />
     </div>
   );
 };
