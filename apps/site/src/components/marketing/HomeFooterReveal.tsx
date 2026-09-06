@@ -8,8 +8,11 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 export const HomeFooterReveal = () => {
   const { t } = useI18n();
 
+  // On phones the footer sits in normal flow: a fixed footer under the page sheet
+  // shows through as black bands while iOS Safari repaints tiles mid-scroll.
+  // From md up it is fixed behind the sheet and revealed by the bottom spacer.
   return (
-    <footer className="fixed inset-x-0 bottom-0 z-0 bg-brand-dark text-brand-white dark:bg-brand-white dark:text-brand-dark sm:h-96 lg:h-104">
+    <footer className="relative z-0 bg-brand-dark text-brand-white dark:bg-brand-white dark:text-brand-dark md:fixed md:inset-x-0 md:bottom-0 md:h-96 lg:h-104">
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-10 px-4 pb-28 pt-12 sm:justify-center sm:gap-12 sm:px-6 sm:py-14 lg:gap-14 lg:px-8 lg:py-16">
         <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr] lg:gap-10">
           <div className="grid content-start gap-3">
