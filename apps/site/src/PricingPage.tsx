@@ -65,11 +65,6 @@ export const PricingPage = () => {
 
   return (
     <MarketingPageShell contentClassName="relative mx-auto w-full max-w-6xl px-5 pb-28 pt-28 sm:px-6 sm:pt-40 lg:px-8">
-      <div
-        aria-hidden="true"
-        className="bg-halftone pointer-events-none absolute inset-0 [mask-image:linear-gradient(to_bottom,black_0%,black_75%,transparent_100%)]"
-      />
-
       <header className="relative mb-14 flex flex-col items-center gap-4 text-center sm:mb-20">
         <Sticker tone="paper" tilt="-rotate-2">
           {t('home.pricing.pill')}
