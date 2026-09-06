@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { useEffect, useState } from 'react';
 
+import { lightVariant, ThemedScreen } from './ThemedScreen';
+
 type HeroScreensProps = {
   /** Phone screenshots (9:19.5), shown in order and looped. */
   images: string[];
@@ -29,8 +31,10 @@ export const HeroScreens = ({
 
   useEffect(() => {
     images.forEach((src) => {
-      const img = new Image();
-      img.src = src;
+      for (const variant of [src, lightVariant(src)]) {
+        const img = new Image();
+        img.src = variant;
+      }
     });
   }, [images]);
 
@@ -51,23 +55,24 @@ export const HeroScreens = ({
       }
       initial={{ rotate: TILTS[0], y: LIFTS[0] }}
       transition={{ type: 'spring', stiffness: 55, damping: 15, mass: 0.9 }}
-      className={`relative aspect-[9/19.5] overflow-hidden rounded-[2.6rem] border-2 border-app-text bg-app-card shadow-sticker ${className ?? ''}`.trim()}
+      className={`relative rounded-[2.9rem] border-[3px] border-app-text bg-app-bg p-1.5 shadow-[6px_6px_0_0_var(--syn-text)] ${className ?? ''}`.trim()}
     >
-      {images.map((src, i) => (
-        <motion.img
-          key={src}
-          src={src}
-          alt={i === index ? (captions[i] ?? '') : ''}
-          aria-hidden={i !== index}
-          draggable={false}
-          fetchPriority={i === 0 ? 'high' : 'auto'}
-          initial={false}
-          animate={{ opacity: i === index ? 1 : 0, scale: i === index ? 1 : 1.03 }}
-          transition={{ duration: 0.8, ease: 'easeInOut' }}
-          style={{ zIndex: i === index ? 2 : 1 }}
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      ))}
+      <div className="relative aspect-[9/19.5] overflow-hidden rounded-[2.4rem] bg-app-card">
+        {images.map((src, i) => (
+          <ThemedScreen
+            key={src}
+            src={src}
+            alt={i === index ? (captions[i] ?? '') : ''}
+            hidden={i !== index}
+            eager={i === 0}
+            initial={false}
+            animate={{ opacity: i === index ? 1 : 0, scale: i === index ? 1 : 1.03 }}
+            transition={{ duration: 0.8, ease: 'easeInOut' }}
+            style={{ zIndex: i === index ? 2 : 1 }}
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        ))}
+      </div>
     </motion.div>
   );
 };

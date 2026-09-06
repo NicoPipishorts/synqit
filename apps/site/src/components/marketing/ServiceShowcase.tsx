@@ -12,6 +12,7 @@ import {
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { type ComponentType, useEffect, useRef, useState } from 'react';
 
+import { ThemedScreen } from './ThemedScreen';
 import { useI18n } from '../../lib/i18n';
 import { isTouchDevice } from '../../lib/motion';
 import { HeroLink } from '../ui/HeroLink';
@@ -231,23 +232,24 @@ const FlowPhone = ({ service }: { service: Service }) => {
         dragMomentum={false}
         onDragEnd={onDragEnd}
         style={{ touchAction: 'pan-y' }}
-        className="relative aspect-[9/19.5] w-[15rem] cursor-grab overflow-hidden rounded-[2.4rem] border-2 border-app-text bg-app-card shadow-sticker active:cursor-grabbing sm:w-[16.5rem]"
+        className="relative w-[15.5rem] cursor-grab rounded-[2.9rem] border-[3px] border-app-text bg-app-bg p-1.5 shadow-[6px_6px_0_0_var(--syn-text)] active:cursor-grabbing sm:w-[17rem]"
       >
         {/* Every screen stays mounted; only opacity changes, so swaps never flash or slide. */}
-        {service.images.map((src, i) => (
-          <motion.img
-            key={src + i}
-            src={src}
-            alt={i === safeStep ? caption : ''}
-            aria-hidden={i !== safeStep}
-            draggable={false}
-            initial={false}
-            animate={{ opacity: i === safeStep ? 1 : 0 }}
-            transition={{ duration: 0.55, ease: 'easeInOut' }}
-            style={{ zIndex: i === safeStep ? 2 : 1 }}
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-          />
-        ))}
+        <div className="relative aspect-[9/19.5] overflow-hidden rounded-[2.4rem] bg-app-card">
+          {service.images.map((src, i) => (
+            <ThemedScreen
+              key={src + i}
+              src={src}
+              alt={i === safeStep ? caption : ''}
+              hidden={i !== safeStep}
+              initial={false}
+              animate={{ opacity: i === safeStep ? 1 : 0 }}
+              transition={{ duration: 0.55, ease: 'easeInOut' }}
+              style={{ zIndex: i === safeStep ? 2 : 1 }}
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover"
+            />
+          ))}
+        </div>
       </motion.div>
 
       <div className="flex flex-col items-center gap-3">

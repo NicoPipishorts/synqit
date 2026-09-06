@@ -944,7 +944,7 @@
     },
     "services": {
       "eyebrow": "Ce que fait Synqit",
-      "title": "Trois services. Un seul lien.",
+      "title": "Une appli, trois services !",
       "event": {
         "tag": "Événements",
         "title": "Laisse la foule choisir la musique",
@@ -1004,7 +1004,7 @@
       "login": "J’ai déjà un compte"
     },
     "pricing": {
-      "pill": "Tarifs",
+      "pill": "Simple et sans surprise",
       "title": "Des tarifs simples. Payez quand ça compte.",
       "description": "Les événements sont à coût unique. Le partage commence gratuitement. Compare ce qui est inclus et débloque seulement ce dont tu as besoin.",
       "tabEvents": "Événement",
