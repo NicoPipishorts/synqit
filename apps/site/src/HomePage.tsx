@@ -157,10 +157,6 @@ export const HomePage = () => {
         trackId="hero"
         className="relative overflow-hidden pb-14 pt-28 sm:pb-24 sm:pt-40"
       >
-        <div
-          aria-hidden="true"
-          className="bg-halftone pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_75%)]"
-        />
         <Container>
           <motion.div
             initial={isTouchDevice ? false : 'hidden'}
