@@ -1,5 +1,5 @@
 import type { ProviderPlaylistItem, ProviderPlaylistTrack, SyncItem } from '@synqit/shared';
-import { useToast } from '@synqit/ui';
+import { Sticker, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -76,12 +76,12 @@ const ProviderCard = ({
   onSelect,
   onConnect,
 }: ProviderCardProps) => (
-  <article className="rounded-[1.9rem] border border-app-border bg-white/80 p-5 shadow-soft-lift dark:bg-app-elevated/80">
+  <article className="rounded-2xl border-2 border-app-text bg-app-surface p-5 shadow-sticker-sm dark:bg-app-elevated">
     <div className="flex items-start justify-between gap-4">
       <div className="grid gap-1">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-app-text-secondary">
+        <Sticker tone="paper" tilt="-rotate-2" className="mb-1">
           {title}
-        </p>
+        </Sticker>
         <p className="text-2xl font-black text-brand-dark dark:text-brand-white">
           {selectedProvider === 'spotify' ? 'Spotify' : 'Apple Music'}
         </p>
@@ -139,20 +139,24 @@ const PlaylistTrackRow = ({
   compact?: boolean;
 }) => (
   <div
-    className={`flex items-center gap-3 rounded-2xl border px-3 py-3 transition ${
+    className={`flex items-center gap-3 rounded-2xl border-2 px-3 py-3 transition ${
       state === 'completed'
-        ? 'border-brand-lime/50 bg-brand-lime/10'
+        ? 'border-app-text bg-brand-lime/20'
         : state === 'active'
-          ? 'border-brand-pink/40 bg-brand-pink/8'
+          ? 'border-app-text bg-brand-pink/10 shadow-sticker-sm'
           : state === 'skipped'
-            ? 'border-brand-pink/30 bg-brand-pink/5'
-            : 'border-app-border bg-white/70 dark:bg-app-elevated/70'
+            ? 'border-dashed border-app-text/40 bg-app-surface dark:bg-app-elevated'
+            : 'border-app-border-strong bg-app-surface dark:bg-app-elevated'
     } ${compact ? '' : 'min-h-[4.5rem]'}`}
   >
     {track.artworkUrl ? (
-      <img src={track.artworkUrl} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover" />
+      <img
+        src={track.artworkUrl}
+        alt=""
+        className="h-11 w-11 shrink-0 rounded-xl border-2 border-app-text object-cover"
+      />
     ) : (
-      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-app-border text-app-text-secondary">
+      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-app-text bg-app-surface text-app-text dark:bg-app-elevated">
         <Music2 size={16} aria-hidden="true" />
       </span>
     )}
@@ -169,14 +173,14 @@ const PlaylistTrackRow = ({
         {formatDuration(track.durationMs)}
       </span>
       <span
-        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border transition ${
+        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border-2 transition ${
           state === 'completed'
-            ? 'border-brand-lime bg-brand-lime text-brand-dark'
+            ? 'border-app-text bg-brand-lime text-brand-dark'
             : state === 'active'
-              ? 'border-brand-pink/50 bg-brand-pink/10 text-brand-pink'
+              ? 'border-app-text bg-brand-pink text-brand-white'
               : state === 'skipped'
-                ? 'border-brand-pink/30 bg-brand-pink/8 text-brand-pink'
-                : 'border-app-border text-app-text-secondary'
+                ? 'border-dashed border-app-text/50 text-app-text-muted'
+                : 'border-app-border-strong text-app-text-secondary'
         }`}
       >
         {state === 'completed' ? (
@@ -210,7 +214,7 @@ const TransferViewport = ({
 
   if (transferComplete) {
     return (
-      <div className="max-h-[min(70svh,38rem)] overflow-y-auto rounded-[1.75rem] border border-app-border bg-app-surface/70 p-3">
+      <div className="max-h-[min(70svh,38rem)] overflow-y-auto rounded-2xl border-2 border-app-text/70 bg-app-surface p-3 dark:bg-app-elevated">
         <div className="grid gap-2">
           {tracks.map((track, index) => (
             <PlaylistTrackRow
@@ -225,7 +229,7 @@ const TransferViewport = ({
   }
 
   return (
-    <div className="rounded-[1.75rem] border border-app-border bg-app-surface/70 p-3">
+    <div className="rounded-2xl border-2 border-app-text/70 bg-app-surface p-3 dark:bg-app-elevated">
       <div className="overflow-hidden" style={{ height: viewportHeight }}>
         <motion.div
           animate={{ y: -y }}
@@ -621,7 +625,7 @@ export const TransferPage = () => {
     selectedPlaylist?.origin != null && selectedPlaylist.origin.provider === destinationProvider;
   const roundTripWarning =
     isRoundTrip && selectedPlaylist ? (
-      <div className="flex items-start gap-3 rounded-2xl border border-amber-400/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-400/40 dark:bg-amber-500/10 dark:text-amber-200">
+      <div className="flex items-start gap-3 rounded-2xl border-2 border-app-text bg-[#ffc400]/25 px-4 py-3 text-sm font-semibold text-app-text">
         <AlertTriangle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
         <p>
           {t('transferPage.roundTripWarning', {
@@ -707,7 +711,7 @@ export const TransferPage = () => {
         onStepChange={goToStep}
       />
 
-      <section className="rounded-[2.2rem] border border-app-border bg-app-surface/80 p-4 shadow-soft-lift sm:p-6">
+      <section className="relative rounded-3xl border-2 border-app-text bg-app-elevated p-4 shadow-sticker dark:bg-app-card sm:p-6">
         <AnimatePresence initial={false} mode="wait">
           <motion.div
             key={`transfer-step-${step}`}
@@ -719,9 +723,6 @@ export const TransferPage = () => {
             className="grid gap-6"
           >
             <div className="grid gap-1 px-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-app-text-secondary">
-                {stepTitle}
-              </p>
               <h2 className="text-2xl font-black text-brand-dark dark:text-brand-white">
                 {stepTitle}
               </h2>
@@ -773,7 +774,7 @@ export const TransferPage = () => {
             ) : null}
 
             {step === 2 ? (
-              <article className="rounded-[1.9rem] border border-app-border bg-white/75 p-4 dark:bg-app-elevated/70">
+              <article className="rounded-2xl border-2 border-app-text/70 bg-app-surface p-4 dark:bg-app-elevated">
                 {!isShowingPlaylistTracks ? (
                   <div className="grid gap-4">
                     <div className="flex items-center justify-between gap-3">
@@ -801,7 +802,7 @@ export const TransferPage = () => {
                   </div>
                 ) : (
                   <div className="grid gap-4 overflow-hidden">
-                    <div className="flex items-start justify-between gap-3 rounded-[1.5rem] border border-app-border bg-app-surface/70 px-4 py-4">
+                    <div className="flex items-start justify-between gap-3 rounded-2xl border-2 border-app-text/70 bg-app-surface px-4 py-4 dark:bg-app-elevated">
                       <div className="min-w-0">
                         <p className="truncate text-lg font-black text-brand-dark dark:text-brand-white">
                           {selectedPlaylist.name}
@@ -853,7 +854,7 @@ export const TransferPage = () => {
                         Array.from({ length: 6 }).map((_, index) => (
                           <div
                             key={index}
-                            className="h-[4.5rem] animate-pulse rounded-2xl border border-app-border bg-app-surface/70"
+                            className="h-[4.5rem] animate-pulse rounded-2xl border-2 border-app-border-strong bg-app-surface/70"
                           />
                         ))
                       ) : visibleStepTwoTracks.length > 0 ? (
@@ -861,7 +862,7 @@ export const TransferPage = () => {
                           <PlaylistTrackRow key={track.providerTrackId} track={track} compact />
                         ))
                       ) : (
-                        <div className="rounded-2xl border border-app-border bg-app-surface/70 px-4 py-6 text-sm text-app-text-secondary">
+                        <div className="rounded-2xl border-2 border-dashed border-app-text/50 bg-app-surface px-4 py-6 text-sm text-app-text-secondary dark:bg-app-elevated">
                           {t('transferPage.previewTracksEmpty')}
                         </div>
                       )}
@@ -923,7 +924,7 @@ export const TransferPage = () => {
                   </div>
                 ) : null}
 
-                <article className="grid gap-3 rounded-[1.9rem] border border-app-border bg-app-surface/70 p-4 shadow-soft-lift">
+                <article className="grid gap-3 rounded-2xl border-2 border-app-text bg-app-surface p-4 shadow-sticker-sm dark:bg-app-elevated">
                   <AnimatePresence>
                     {transferAnimationComplete ? (
                       <motion.div
@@ -931,7 +932,7 @@ export const TransferPage = () => {
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.98, y: -6 }}
                         transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-                        className="rounded-[1.5rem] border border-brand-lime/40 bg-brand-lime/12 px-5 py-6 text-center"
+                        className="rounded-2xl border-2 border-app-text bg-brand-lime/20 px-5 py-6 text-center shadow-sticker-sm"
                       >
                         <motion.div
                           initial={{ scale: 0.8, rotate: -10 }}
@@ -951,7 +952,7 @@ export const TransferPage = () => {
                     ) : null}
                   </AnimatePresence>
 
-                  <div className="rounded-[1.25rem] border border-app-border bg-brand-dark px-4 py-3 text-brand-white">
+                  <div className="rounded-2xl border-2 border-app-text bg-brand-dark px-4 py-3 text-brand-white shadow-sticker-sm dark:bg-brand-white dark:text-brand-dark">
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-white/55">
@@ -990,7 +991,7 @@ export const TransferPage = () => {
                       transferComplete={transferAnimationComplete}
                     />
                   ) : (
-                    <div className="rounded-[1.75rem] border border-app-border bg-white/60 px-4 py-10 text-center text-sm text-app-text-secondary dark:bg-app-elevated/70">
+                    <div className="rounded-2xl border-2 border-dashed border-app-text/50 bg-app-surface px-4 py-10 text-center text-sm text-app-text-secondary dark:bg-app-elevated">
                       {t('transferPage.previewTracksEmpty')}
                     </div>
                   )}

@@ -1,4 +1,5 @@
 import type { SyncItem } from '@synqit/shared';
+import { TapeStrip } from '@synqit/ui';
 import { ArrowLeftRight } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
@@ -28,11 +29,12 @@ export const TransferCard = ({ sync }: TransferCardProps) => {
   const formattedDate = formatTransferTimestamp(sync.lastSyncedAt ?? sync.createdAt);
 
   return (
-    <div className="grid min-w-0 gap-4 overflow-hidden rounded-2xl border border-app-border bg-app-bg p-4 shadow-soft-lift transition duration-150 hover:border-brand-pink/40 dark:bg-app-card">
+    <div className="relative grid min-w-0 gap-4 rounded-3xl border-2 border-app-text bg-app-elevated p-4 shadow-sticker transition duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[6px_6px_0_0_var(--syn-text)] dark:bg-app-card">
+      <TapeStrip tone="gradient" />
       <div className="flex items-start gap-3">
         <span
           aria-hidden="true"
-          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-pink/15 text-brand-pink"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-app-text bg-app-text text-app-bg"
         >
           <ArrowLeftRight size={18} />
         </span>
@@ -41,7 +43,7 @@ export const TransferCard = ({ sync }: TransferCardProps) => {
             <h2 className="min-w-0 truncate text-sm font-black text-brand-dark dark:text-brand-white">
               {sync.name}
             </h2>
-            <span className="shrink-0 rounded-full bg-brand-pink/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-brand-pink">
+            <span className="shrink-0 rounded-full border border-app-text bg-brand-pink px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-brand-white">
               {t('transferDashboardPage.badge')}
             </span>
           </div>
