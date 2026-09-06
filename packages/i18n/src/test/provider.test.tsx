@@ -46,6 +46,29 @@ describe('I18nProvider', () => {
     expect(onLocaleChange).toHaveBeenCalledWith('fr');
   });
 
+  it('never renders the switched locale without its fallback dictionary', async () => {
+    const renders: Array<[Locale, string]> = [];
+    const Recorder = () => {
+      const { locale, t } = useI18nContext<Locale>();
+      renders.push([locale, t('onlyEn')]);
+      return null;
+    };
+    render(
+      <I18nProvider<Locale>
+        initialLocale="en"
+        fallbackLocale="en"
+        loadMessages={(locale) => dictionaries[locale]}
+      >
+        <Consumer />
+        <Recorder />
+      </I18nProvider>,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: 'switch' }));
+    await waitFor(() => expect(screen.getByTestId('locale')).toHaveTextContent('fr'));
+    expect(renders.filter(([locale]) => locale === 'fr')).toEqual([['fr', 'Fallback text']]);
+  });
+
   it('shows the loading fallback until async dictionaries resolve', async () => {
     render(
       <I18nProvider<Locale>

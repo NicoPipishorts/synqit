@@ -99,10 +99,18 @@ export const I18nProvider = <L extends string>({
   }, [locale]);
 
   const setLocale = (nextLocale: L) => {
-    void load(nextLocale)
-      .then((dictionary) => {
+    // Resolve the fallback together with the target dictionary so both land in the same
+    // render; otherwise keys missing from the new locale flash as raw keys until the effect
+    // above catches up (and tests asserting right after the switch race that effect).
+    const fallbackPromise =
+      nextLocale === fallbackLocale
+        ? Promise.resolve(null)
+        : load(fallbackLocale).catch((): MessageDictionary | null => null);
+    void Promise.all([load(nextLocale), fallbackPromise])
+      .then(([dictionary, fallbackDictionary]) => {
         startTransition(() => {
           setActive(dictionary);
+          if (fallbackDictionary) setFallback(fallbackDictionary);
           setLocaleState(nextLocale);
         });
         onLocaleChange?.(nextLocale);
