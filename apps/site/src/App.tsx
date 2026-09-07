@@ -9,7 +9,9 @@ import { Home, LogIn, Share2, Tag } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BlurSpotLayer } from './components/ui/BlurSpotLayer';
+import { LEGAL_ROUTES, legalSlugForPath, type LegalSlug } from './content/legal';
 import { HomePage } from './HomePage';
+import { LegalPage } from './LegalPage';
 import { trackSiteEvent } from './lib/analytics';
 import { buildAppUrl, getAppOrigin, shouldRedirectToApp } from './lib/app-url';
 import { I18nProvider, useI18n } from './lib/i18n';
@@ -32,7 +34,7 @@ const normalizePath = (pathname: string): string => {
 
 // Routes the site renders itself. Anything else (the app subdomain, auth,
 // external links) is left to the browser as a normal navigation.
-const INTERNAL_ROUTES = new Set(['/', '/pricing']);
+const INTERNAL_ROUTES = new Set(['/', '/pricing', ...Object.values(LEGAL_ROUTES)]);
 
 const isPricingRoutePath = (pathname: string): boolean => normalizePath(pathname) === '/pricing';
 
@@ -59,9 +61,17 @@ const AppShell = () => {
   const [isLeavingToApp, setIsLeavingToApp] = useState(false);
   const appOrigin = useMemo(() => getAppOrigin(), []);
   const isPricing = isPricingRoutePath(pathname);
+  const legalSlug: LegalSlug | null = legalSlugForPath(pathname);
   useSiteAnalytics(pathname);
-  const routeActiveNavItem: PublicNavItem['id'] = isPricing ? 'pricing' : 'product';
-  const [activeNavItem, setActiveNavItem] = useState<PublicNavItem['id']>(routeActiveNavItem);
+  // Legal pages sit outside the primary nav, so nothing is highlighted there.
+  const routeActiveNavItem: PublicNavItem['id'] | null = legalSlug
+    ? null
+    : isPricing
+      ? 'pricing'
+      : 'product';
+  const [activeNavItem, setActiveNavItem] = useState<PublicNavItem['id'] | null>(
+    routeActiveNavItem,
+  );
   const navItems: PublicNavComponentItem[] = [
     { id: 'product', href: '/', label: t('home.nav.product') },
     { id: 'pricing', href: '/pricing', label: t('home.pricing.navLink') },
@@ -296,7 +306,7 @@ const AppShell = () => {
         ariaLabel="Mobile navigation"
       />
       <main className="relative z-10 min-h-screen">
-        {isPricing ? <PricingPage /> : <HomePage />}
+        {legalSlug ? <LegalPage slug={legalSlug} /> : isPricing ? <PricingPage /> : <HomePage />}
       </main>
     </div>
   );

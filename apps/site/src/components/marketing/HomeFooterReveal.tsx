@@ -1,5 +1,6 @@
 import { BrandLogo } from '@synqit/ui';
 
+import { LEGAL_ROUTES } from '../../content/legal';
 import { buildAppUrl } from '../../lib/app-url';
 import { useI18n } from '../../lib/i18n';
 import { LanguageToggle } from '../ui/LanguageToggle';
@@ -13,6 +14,13 @@ type HomeFooterRevealProps = {
 export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
   const { t } = useI18n();
 
+  const legalLinks = [
+    { href: LEGAL_ROUTES.privacy, label: t('footer.privacy') },
+    { href: LEGAL_ROUTES.terms, label: t('footer.terms') },
+    { href: LEGAL_ROUTES.cookies, label: t('footer.cookies') },
+    { href: LEGAL_ROUTES['legal-notice'], label: t('footer.legalNotice') },
+  ];
+
   // The footer sits fixed behind the page sheet and is revealed by the sheet's
   // bottom spacer. It stays unpainted (opacity 0) until the sheet's end is close,
   // so a tile Safari has not rasterised yet can never show the footer through
@@ -25,7 +33,7 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
       }`}
     >
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-10 px-4 pb-28 pt-12 sm:justify-center sm:gap-12 sm:px-6 sm:py-14 lg:gap-14 lg:px-8 lg:py-16">
-        <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr] lg:gap-10">
+        <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr] lg:gap-10">
           <div className="grid content-start gap-3">
             <div className="flex items-center justify-between">
               <a href="/" className="w-fit">
@@ -94,6 +102,14 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
               </div>
             </div>
 
+            <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 px-3 text-sm">
+              {legalLinks.map((link) => (
+                <a key={link.href} href={link.href} className="hover:text-brand-lime">
+                  {link.label}
+                </a>
+              ))}
+            </div>
+
             <div className="grid gap-3 pg-5 px-2 mt-5">
               <p className="max-w-sm text-sm text-center text-brand-white/80 dark:text-brand-dark/75">
                 {t('footer.description')}
@@ -148,6 +164,17 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
             <a href={buildAppUrl('/playlists/new')} className="hover:text-brand-lime">
               {t('footer.createEvent')}
             </a>
+          </div>
+
+          <div className="hidden content-start gap-2 text-sm sm:grid">
+            <p className="text-xs font-black uppercase tracking-wide text-brand-white/50 dark:text-brand-dark/50">
+              {t('footer.legal')}
+            </p>
+            {legalLinks.map((link) => (
+              <a key={link.href} href={link.href} className="hover:text-brand-lime">
+                {link.label}
+              </a>
+            ))}
           </div>
         </div>
 
