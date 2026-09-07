@@ -1,15 +1,24 @@
 import { Sticker, type StickerTone } from '@synqit/ui';
 import {
+  animate,
   AnimatePresence,
   motion,
   type MotionValue,
   type PanInfo,
+  useMotionValue,
   useScroll,
   useSpring,
   useTransform,
 } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { type ComponentType, type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  type ComponentType,
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { ThemedScreen } from './ThemedScreen';
 import { useI18n } from '../../lib/i18n';
@@ -205,24 +214,64 @@ const ServiceCard = ({
   );
 };
 
-// ─── Hand-drawn branch from the deck to the phone (dot = phone end) ────────────
-// It redraws itself in the new colour whenever the active card changes, which is
-// what ties a swipe on the deck to the screens playing in the phone.
+// ─── Hand-drawn branch from the deck to the phone ─────────────────────────────
+// A chevron arrowhead sits on the line at all times and rides it to the phone as
+// it draws, landing level with a short elastic settle. The whole thing redraws in
+// the new colour whenever the active card changes, which is what ties a swipe on
+// the deck to the screens playing in the phone.
+//
+// The horizontal branch is measured and drawn in pixel units (1 user unit = 1px)
+// rather than stretched from a fixed viewBox: the column between the deck and the
+// phone is elastic, and scaling a viewBox into it would shrink the arrowhead into
+// a blob against the fixed stroke weight and skew every angle.
 
-const BRANCH = {
-  horizontal: {
-    viewBox: '0 0 120 32',
-    d: 'M4 16 C 13 3, 23 29, 33 16 S 53 3, 63 16 S 83 29, 93 16 S 109 7, 116 16',
-    dot: { cx: 116, cy: 16 },
-    className: 'h-10 w-full',
-  },
-  vertical: {
-    viewBox: '0 0 32 96',
-    d: 'M16 4 C 6 22, 27 40, 15 58 S 12 84, 16 90',
-    dot: { cx: 16, cy: 90 },
-    className: 'h-14 w-8',
-  },
-} as const;
+const MID = 24;
+const AMPLITUDE = 12;
+const WAVELENGTH = 118;
+/** Curve that eases the last wave back to level. */
+const RUN_IN = 26;
+/** Dead-straight stretch after it — just enough for the head to sit square. */
+const RUN_FLAT = 18;
+/** Clearance kept between the arrow tip and the phone. */
+const HEAD_ROOM = 40;
+
+const buildWave = (width: number) => {
+  const from = 8;
+  const to = Math.max(from + 70, width - HEAD_ROOM);
+  const waveTo = to - RUN_IN - RUN_FLAT;
+  const span = waveTo - from;
+  // Half-cycles: each one is a single arch, both controls on the same side of
+  // the midline (one control either side just cancels out into a flat line).
+  const humps = Math.max(2, Math.round(span / (WAVELENGTH / 2)));
+  const step = span / humps;
+
+  let d = `M${from} ${MID}`;
+  for (let i = 0; i < humps; i += 1) {
+    const x0 = from + i * step;
+    const x1 = x0 + step;
+    const peak = MID + (i % 2 === 0 ? -1 : 1) * AMPLITUDE * 1.33;
+    d += ` C${(x0 + step * 0.36).toFixed(1)} ${peak.toFixed(1)}, ${(x1 - step * 0.36).toFixed(1)} ${peak.toFixed(1)}, ${x1.toFixed(1)} ${MID}`;
+  }
+  // Carry the last arch's exit direction into level, then run dead straight into
+  // the arrowhead: a tangent that only turns level at the very last point still
+  // reads as arriving at an angle, and the head looks hooked on it.
+  const exit = (humps - 1) % 2 === 0 ? 1 : -1;
+  const flatFrom = waveTo + RUN_IN;
+  d += ` C${(waveTo + RUN_IN * 0.45).toFixed(1)} ${MID + exit * 8}, ${(flatFrom - RUN_IN * 0.25).toFixed(1)} ${MID}, ${flatFrom.toFixed(1)} ${MID}`;
+  d += ` L${to} ${MID}`;
+
+  return { d };
+};
+
+/** Fixed 48×88, rendered 1:1, ending straight down at the phone. */
+const VERTICAL = { d: 'M24 6 C12 18, 36 32, 24 42 C19 48, 24 50, 24 54 L24 66' };
+
+// Open chevron pointing along +x with its *vertex* on the origin: the origin is
+// the point that rides the path, so anchoring the tip there lets the legs sweep
+// back over the line instead of leaving a gap where the line stops.
+const ARROWHEAD = 'M-15 -9 L0 0 L-15 9';
+
+const DRAW = 0.6;
 
 const Branch = ({
   tone,
@@ -233,37 +282,81 @@ const Branch = ({
   orientation: 'horizontal' | 'vertical';
   className?: string;
 }) => {
-  const shape = BRANCH[orientation];
-  const reduce = prefersReducedMotion();
+  const horizontal = orientation === 'horizontal';
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const headRef = useRef<SVGGElement | null>(null);
+  const [measured, setMeasured] = useState(0);
+
+  useEffect(() => {
+    const node = svgRef.current;
+    if (!node || !horizontal) return;
+    const observer = new ResizeObserver(([entry]) => {
+      setMeasured(Math.round(entry.contentRect.width));
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [horizontal]);
+
+  const shape = horizontal ? buildWave(Math.max(measured, 140)) : VERTICAL;
+  const width = horizontal ? Math.max(measured, 140) : 48;
+  const height = horizontal ? 48 : 88;
+
+  // One source of truth for the line and the arrowhead, so the head can never
+  // drift off the tip the way two separately timed animations would.
+  const progress = useMotionValue(1);
+  const offsetDistance = useTransform(progress, (value) => `${value * 100}%`);
+  const settle = useMotionValue(1);
+
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      progress.set(1);
+      return;
+    }
+    progress.set(0);
+    settle.set(1);
+    const runs = [
+      animate(progress, 1, { duration: DRAW, ease: [0.32, 0.8, 0.36, 1] }),
+      animate(settle, [1, 1.25, 0.95, 1.05, 1], { delay: DRAW - 0.1, duration: 0.55 }),
+    ];
+    return () => runs.forEach((run) => run.stop());
+  }, [tone, progress, settle]);
+
+  // Framer holds on to the style values it saw first for properties it does not
+  // animate, so the motion path has to be written straight to the node whenever
+  // the measured width rebuilds it.
+  useLayoutEffect(() => {
+    const node = headRef.current;
+    if (!node) return;
+    node.style.offsetPath = `path("${shape.d}")`;
+    node.style.offsetRotate = 'auto';
+  }, [shape.d]);
+
   return (
     <svg
+      ref={svgRef}
       aria-hidden="true"
-      viewBox={shape.viewBox}
-      preserveAspectRatio="none"
-      className={`${shape.className} ${TONE[tone].stroke} transition-colors duration-500 ${className ?? ''}`.trim()}
+      viewBox={`0 0 ${width} ${height}`}
+      className={`${horizontal ? 'h-12 w-full' : 'h-[5.5rem] w-12'} ${TONE[tone].stroke} transition-colors duration-500 ${className ?? ''}`.trim()}
     >
       <motion.path
-        key={tone}
         d={shape.d}
         fill="none"
         stroke="currentColor"
         strokeWidth={4}
         strokeLinecap="round"
-        initial={reduce ? false : { pathLength: 0, opacity: 0.35 }}
-        animate={{ pathLength: 1, opacity: 1 }}
-        transition={{ duration: 0.55, ease: 'easeOut' }}
+        style={{ pathLength: progress }}
       />
-      <motion.circle
-        key={`${tone}-dot`}
-        cx={shape.dot.cx}
-        cy={shape.dot.cy}
-        r={5}
-        fill="currentColor"
-        initial={reduce ? false : { scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.4, type: 'spring', stiffness: 420, damping: 16 }}
-        style={{ originX: `${shape.dot.cx}px`, originY: `${shape.dot.cy}px` }}
-      />
+      <motion.g ref={headRef} style={{ offsetDistance }}>
+        <motion.path
+          d={ARROWHEAD}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{ scale: settle }}
+        />
+      </motion.g>
     </svg>
   );
 };
