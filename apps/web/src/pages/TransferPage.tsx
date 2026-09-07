@@ -54,7 +54,6 @@ type ProviderCardProps = {
   connectLabel: string;
   connectedLabel: string;
   notConnectedLabel: string;
-  onSelect: (provider: Provider) => void;
   onConnect: (provider: Provider) => void;
 };
 
@@ -73,61 +72,46 @@ const ProviderCard = ({
   connectLabel,
   connectedLabel,
   notConnectedLabel,
-  onSelect,
   onConnect,
-}: ProviderCardProps) => (
-  <article className="rounded-2xl border-2 border-app-text bg-app-surface p-5 shadow-sticker-sm dark:bg-app-elevated">
-    <div className="flex items-start justify-between gap-4">
-      <div className="grid gap-1">
-        <Sticker tone="paper" tilt="-rotate-2" className="mb-1">
-          {title}
-        </Sticker>
-        <p className="text-2xl font-black text-brand-dark dark:text-brand-white">
-          {selectedProvider === 'spotify' ? 'Spotify' : 'Apple Music'}
-        </p>
-        <p className="text-sm text-app-text-secondary">
-          {providerStatusByType[selectedProvider] === 'connected'
-            ? connectedLabel
-            : notConnectedLabel}
-        </p>
+}: ProviderCardProps) => {
+  const isConnected = providerStatusByType[selectedProvider] === 'connected';
+  return (
+    <motion.article
+      layoutId={`transfer-provider-card-${selectedProvider}`}
+      transition={{ type: 'spring', stiffness: 320, damping: 30 }}
+      className="relative rounded-2xl border-2 border-app-text bg-app-surface p-5 shadow-sticker-sm dark:bg-app-elevated"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="grid gap-1">
+          <Sticker tone="paper" tilt="-rotate-2" className="mb-1">
+            {title}
+          </Sticker>
+          <p className="text-2xl font-black text-brand-dark dark:text-brand-white">
+            {selectedProvider === 'spotify' ? 'Spotify' : 'Apple Music'}
+          </p>
+          <p className="text-sm text-app-text-secondary">
+            {isConnected ? connectedLabel : notConnectedLabel}
+          </p>
+        </div>
+        <EventProviderIcon provider={selectedProvider} sizeClassName="h-14 w-14 sm:h-16 sm:w-16" />
       </div>
-      <EventProviderIcon provider={selectedProvider} sizeClassName="h-14 w-14 sm:h-16 sm:w-16" />
-    </div>
 
-    <div className="mt-5 grid gap-2">
-      {(['spotify', 'apple'] as const).map((provider) => {
-        const isSelected = selectedProvider === provider;
-        const isConnected = providerStatusByType[provider] === 'connected';
-        return (
-          <div key={provider} className="flex gap-2">
-            <CTAButton
-              variant={isSelected ? 'primary' : 'secondary'}
-              className="flex-1 justify-center rounded-xl"
-              onClick={() => onSelect(provider)}
-              disabled={isBusy}
-            >
-              {isSelected ? <Check size={14} aria-hidden="true" /> : null}
-              {provider === 'spotify' ? 'Spotify' : 'Apple Music'}
-            </CTAButton>
-            {!isConnected ? (
-              <CTAButton
-                variant="ghost"
-                className="rounded-xl"
-                onClick={() => onConnect(provider)}
-                disabled={isBusy}
-              >
-                {isBusy ? (
-                  <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />
-                ) : null}
-                {connectLabel}
-              </CTAButton>
-            ) : null}
-          </div>
-        );
-      })}
-    </div>
-  </article>
-);
+      {!isConnected ? (
+        <div className="mt-5">
+          <CTAButton
+            variant="primary"
+            className="w-full justify-center"
+            onClick={() => onConnect(selectedProvider)}
+            disabled={isBusy}
+          >
+            {isBusy ? <LoaderCircle size={14} className="animate-spin" aria-hidden="true" /> : null}
+            {connectLabel}
+          </CTAButton>
+        </div>
+      ) : null}
+    </motion.article>
+  );
+};
 
 const PlaylistTrackRow = ({
   track,
@@ -598,23 +582,10 @@ export const TransferPage = () => {
     goToStep(1);
   };
 
+  const [swapSpin, setSwapSpin] = useState(0);
   const handleSwapProviders = () => {
     setSourceProvider(destinationProvider);
     setDestinationProvider(sourceProvider);
-  };
-
-  const handleSelectSourceProvider = (provider: Provider) => {
-    setSourceProvider(provider);
-    if (provider === destinationProvider) {
-      setDestinationProvider(provider === 'spotify' ? 'apple' : 'spotify');
-    }
-  };
-
-  const handleSelectDestinationProvider = (provider: Provider) => {
-    setDestinationProvider(provider);
-    if (provider === sourceProvider) {
-      setSourceProvider(provider === 'spotify' ? 'apple' : 'spotify');
-    }
   };
 
   const sourceLabel = sourceProvider === 'spotify' ? 'Spotify' : 'Apple Music';
@@ -739,24 +710,33 @@ export const TransferPage = () => {
                   connectLabel={t('transferPage.connectSource')}
                   connectedLabel={t('transferPage.alreadyConnected')}
                   notConnectedLabel={t('transferPage.notConnected')}
-                  onSelect={handleSelectSourceProvider}
                   onConnect={connectSelectedProvider}
                 />
 
                 <div className="flex items-center justify-center">
-                  <CTAButton
-                    variant="secondary"
-                    className="rounded-2xl px-4 py-4"
-                    onClick={handleSwapProviders}
+                  <motion.button
+                    type="button"
+                    onClick={() => {
+                      setSwapSpin((count) => count + 1);
+                      handleSwapProviders();
+                    }}
                     disabled={isBusy}
                     aria-label={t('transferPage.swap')}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="group inline-flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border-2 border-app-text bg-app-elevated text-app-text shadow-sticker transition-colors hover:bg-brand-lime hover:text-brand-dark disabled:cursor-not-allowed disabled:opacity-60 dark:bg-app-card"
                   >
-                    <ArrowLeftRight
-                      size={18}
+                    {/* The icon half-turns on hover to hint the flip, then completes a full
+                        half-turn per click so the arrows visibly swap sides. */}
+                    <motion.span
                       aria-hidden="true"
-                      className="rotate-90 transition-transform lg:rotate-0"
-                    />
-                  </CTAButton>
+                      animate={{ rotate: swapSpin * 180 }}
+                      transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+                      className="inline-flex rotate-90 transition-transform duration-300 group-hover:rotate-[135deg] lg:rotate-0 lg:group-hover:rotate-45"
+                    >
+                      <ArrowLeftRight size={20} strokeWidth={2.5} />
+                    </motion.span>
+                  </motion.button>
                 </div>
 
                 <ProviderCard
@@ -767,7 +747,6 @@ export const TransferPage = () => {
                   connectLabel={t('transferPage.connectDestination')}
                   connectedLabel={t('transferPage.alreadyConnected')}
                   notConnectedLabel={t('transferPage.notConnected')}
-                  onSelect={handleSelectDestinationProvider}
                   onConnect={connectSelectedProvider}
                 />
               </div>
