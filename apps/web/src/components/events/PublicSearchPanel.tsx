@@ -121,9 +121,9 @@ export const PublicSearchPanel = ({
             onChange={(e) => onQueryChange(e.target.value)}
             minLength={2}
             maxLength={120}
-            className="w-full rounded-xl border border-app-border bg-app-bg py-2.5 pl-4 pr-10 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+            className="w-full rounded-full border-2 border-app-text bg-app-elevated py-3 pl-5 pr-11 text-base font-semibold text-app-text shadow-sticker-sm outline-none transition placeholder:font-medium placeholder:text-app-text-muted focus:bg-app-bg dark:bg-app-card"
           />
-          <span className="absolute right-0 flex h-full items-center pr-3">
+          <span className="absolute right-0 flex h-full items-center pr-4">
             {isSearching ? (
               <LoaderCircle
                 size={16}
@@ -155,7 +155,9 @@ export const PublicSearchPanel = ({
 
       {/* Status line */}
       {searchStatus ? (
-        <p className="pl-4 text-xs font-semibold text-app-text-secondary">{searchStatus}</p>
+        <p className="pl-1 text-xs font-black uppercase tracking-[0.14em] text-app-text-secondary">
+          {searchStatus}
+        </p>
       ) : null}
 
       {/* Results */}

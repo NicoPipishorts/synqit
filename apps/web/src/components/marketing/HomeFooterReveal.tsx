@@ -6,11 +6,21 @@ import { HeroCtaLink } from '../ui/HeroCtaLink';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { ThemeToggle } from '../ui/ThemeToggle';
 
-export const HomeFooterReveal = () => {
+type HomeFooterRevealProps = {
+  /** Painted only when the page sheet's end is near, so unpainted scroll tiles never show it. */
+  visible?: boolean;
+};
+
+export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
   const { t } = useI18n();
 
   return (
-    <footer className="fixed inset-x-0 bottom-0 z-0 h-[28rem] bg-brand-dark text-brand-white dark:bg-brand-white dark:text-brand-dark sm:h-[24rem] lg:h-[26rem]">
+    <footer
+      aria-hidden={!visible}
+      className={`fixed inset-x-0 bottom-0 z-0 h-[28rem] bg-brand-dark text-brand-white transition-opacity duration-300 dark:bg-brand-white dark:text-brand-dark sm:h-[24rem] lg:h-[26rem] ${
+        visible ? 'opacity-100' : 'pointer-events-none opacity-0'
+      }`}
+    >
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col justify-between px-4 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
         <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_1.2fr] lg:gap-10">
           <div className="grid content-center gap-3">

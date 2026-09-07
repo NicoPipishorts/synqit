@@ -50,10 +50,10 @@ const TrackArtwork = ({
           alt=""
           width={44}
           height={44}
-          className="h-11 w-11 rounded-md object-cover"
+          className="h-11 w-11 rounded-lg border-2 border-app-text object-cover"
         />
       ) : (
-        <span className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-app-border text-xs text-app-text-secondary">
+        <span className="inline-flex h-11 w-11 items-center justify-center rounded-lg border-2 border-app-text bg-app-surface text-xs text-app-text-secondary">
           {fallbackLabel}
         </span>
       )}
@@ -63,7 +63,7 @@ const TrackArtwork = ({
           aria-label={actionLabel}
           aria-pressed={isPreviewPlaying}
           onClick={onTogglePreview}
-          className="absolute inset-0 flex items-center justify-center rounded-md bg-brand-dark/60 text-brand-white transition hover:bg-brand-dark/72"
+          className="absolute inset-0 flex items-center justify-center rounded-lg bg-brand-dark/60 text-brand-white transition hover:bg-brand-dark/72"
         >
           <svg
             aria-hidden="true"
@@ -112,10 +112,10 @@ export const SearchTrackRow = ({
   return (
     <li className="min-w-0">
       <div
-        className={`group flex min-w-0 w-full max-w-full items-center gap-3 rounded-xl border bg-app-bg px-3 py-3 shadow-soft-lift transition duration-150 dark:bg-app-elevated ${
+        className={`group flex min-w-0 w-full max-w-full items-center gap-3 rounded-2xl border-2 bg-app-elevated px-3 py-3 transition duration-150 dark:bg-app-card ${
           isAdded
-            ? 'border-app-border opacity-60'
-            : 'border-app-border hover:border-brand-pink hover:bg-app-surface dark:hover:bg-app-card'
+            ? 'border-app-border-strong opacity-60'
+            : 'border-app-border-strong hover:border-app-text hover:shadow-sticker-sm motion-safe:hover:-translate-y-0.5'
         }`}
       >
         <TrackArtwork
@@ -146,7 +146,7 @@ export const SearchTrackRow = ({
           }
           disabled={isAdding || isAdded}
           onClick={onAdd}
-          className="inline-flex shrink-0 items-center justify-center rounded-full p-1 text-app-text-secondary transition hover:text-brand-pink disabled:pointer-events-none"
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border-2 border-app-text bg-app-surface text-app-text shadow-sticker-sm transition hover:bg-brand-lime hover:text-brand-dark disabled:border-app-border-strong disabled:bg-transparent disabled:shadow-none disabled:pointer-events-none dark:bg-app-elevated"
         >
           {isAdding ? (
             <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />
@@ -173,14 +173,14 @@ export const SearchTrackRow = ({
 type AddedTrackRowProps = { track: EventTrackItem };
 
 export const AddedTrackRow = ({ track }: AddedTrackRowProps) => (
-  <li className="flex min-w-0 max-w-full items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-3 shadow-soft-lift dark:bg-app-elevated">
+  <li className="flex min-w-0 max-w-full items-center gap-3 rounded-2xl border-2 border-app-border-strong bg-app-elevated px-3 py-3 dark:bg-app-card">
     {track.artworkUrl ? (
       <img
         src={track.artworkUrl}
         alt=""
         width={44}
         height={44}
-        className="h-11 w-11 shrink-0 rounded-md object-cover"
+        className="h-11 w-11 shrink-0 rounded-lg border-2 border-app-text object-cover"
       />
     ) : null}
     <div className="min-w-0 flex-1 overflow-hidden">
@@ -201,7 +201,7 @@ export const TrackSkeletonList = ({ count = 7, withAddButton = false }: TrackSke
     {Array.from({ length: count }).map((_, i) => (
       <li
         key={i}
-        className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-3 shadow-soft-lift dark:bg-app-elevated"
+        className="flex min-w-0 items-center gap-3 rounded-2xl border-2 border-app-border-strong bg-app-elevated px-3 py-3 dark:bg-app-card"
       >
         <div className="h-11 w-11 shrink-0 animate-pulse rounded-md bg-app-border" />
         <div className="grid min-w-0 flex-1 gap-1.5">

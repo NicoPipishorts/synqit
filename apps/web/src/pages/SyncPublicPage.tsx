@@ -9,8 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { TrackSkeletonList } from '../components/events/PublicTrackRow';
-import { HomeFooterReveal } from '../components/marketing/HomeFooterReveal';
-import { BlurSpotLayer } from '../components/shell/BackgroundBlurSpots';
+import { PublicPageShell } from '../components/public/PublicPageShell';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
@@ -69,7 +68,7 @@ const ProviderSheet = ({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-brand-dark/55 backdrop-blur-[2px] dark:bg-black/70"
         aria-hidden="true"
       />
 
@@ -77,9 +76,9 @@ const ProviderSheet = ({
       <div
         role="dialog"
         aria-modal="true"
-        className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border border-app-border bg-app-bg p-6 shadow-2xl sm:inset-0 sm:m-auto sm:h-fit sm:max-w-sm sm:rounded-3xl"
+        className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border-2 border-b-0 border-app-text bg-app-elevated p-6 dark:bg-app-card sm:inset-0 sm:m-auto sm:h-fit sm:max-w-sm sm:rounded-3xl sm:border-b-2 sm:shadow-[6px_6px_0_0_var(--syn-text)]"
       >
-        <div className="mb-1 h-1 w-10 rounded-full bg-app-border sm:hidden mx-auto" />
+        <div className="mx-auto mb-1 h-1.5 w-12 rounded-full bg-app-text/30 sm:hidden" />
         <h2 className="mt-4 text-lg font-black text-brand-dark dark:text-brand-white sm:mt-0">
           {t('syncPublicPage.connectProviderTitle')}
         </h2>
@@ -93,10 +92,10 @@ const ProviderSheet = ({
               key={p}
               type="button"
               onClick={() => onSelect(p)}
-              className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+              className={`flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 px-4 py-3 text-left transition ${
                 selectedProvider === p
-                  ? 'border-brand-lime bg-brand-lime/10'
-                  : 'border-app-border bg-app-surface hover:border-app-border-strong dark:bg-app-elevated'
+                  ? 'border-app-text bg-brand-lime/20 shadow-sticker-sm'
+                  : 'border-app-border-strong bg-app-surface hover:border-app-text dark:bg-app-elevated'
               }`}
             >
               <EventProviderIcon provider={p} sizeClassName="h-8 w-8" />
@@ -126,17 +125,17 @@ const ProviderSheet = ({
 // ---------------------------------------------------------------------------
 
 const SyncTrackRow = ({ track }: { track: SyncPublicTrack }) => (
-  <li className="flex min-w-0 items-center gap-3 rounded-xl border border-app-border bg-app-bg px-3 py-3 shadow-soft-lift dark:bg-app-elevated">
+  <li className="flex min-w-0 items-center gap-3 rounded-2xl border-2 border-app-border-strong bg-app-elevated px-3 py-3 dark:bg-app-card">
     {track.artworkUrl ? (
       <img
         src={track.artworkUrl}
         alt=""
         width={44}
         height={44}
-        className="h-11 w-11 shrink-0 rounded-md object-cover"
+        className="h-11 w-11 shrink-0 rounded-lg border-2 border-app-text object-cover"
       />
     ) : (
-      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-app-border text-xs text-app-text-secondary">
+      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border-2 border-app-text bg-app-surface text-xs text-app-text-secondary">
         <ListMusic size={14} aria-hidden="true" />
       </span>
     )}
@@ -452,376 +451,342 @@ export const SyncPublicPage = () => {
   };
 
   return (
-    <div className="relative bg-brand-dark dark:bg-brand-white">
-      <HomeFooterReveal />
-
-      <div className="relative z-10 min-h-[calc(100svh+4.5rem)] overflow-hidden rounded-b-[2.75rem] bg-app-bg shadow-[0_28px_64px_-20px_rgba(0,0,0,0.55)] dark:shadow-[0_30px_70px_-20px_rgba(0,0,0,0.72)] sm:min-h-[calc(100svh+5.5rem)] sm:rounded-b-[3.5rem] lg:min-h-[calc(100svh+7rem)] lg:rounded-b-[4.5rem]">
-        <BlurSpotLayer
-          filterId="sync-public-blur"
-          className="pointer-events-none absolute inset-0 z-0"
-          spots={[
-            { id: 'a', size: 260, top: 5, left: 10, color: 'rgba(198,255,0,0.18)' },
-            { id: 'b', size: 280, top: 10, left: 78, color: 'rgba(255,46,139,0.18)' },
-            { id: 'c', size: 220, top: 50, left: 50, color: 'rgba(125,211,252,0.15)' },
-            { id: 'd', size: 240, top: 78, left: 12, color: 'rgba(198,255,0,0.15)' },
-            { id: 'e', size: 200, top: 72, left: 88, color: 'rgba(255,46,139,0.15)' },
-          ]}
-        />
-
-        <section className="relative mx-auto w-full max-w-2xl px-4 pb-16 pt-20 sm:px-6 sm:pt-24 lg:px-8">
-          {/* ── Loading skeleton ── */}
-          {isLoading ? (
-            <div className="grid gap-8">
-              <div className="flex flex-col items-center gap-4 pt-6 text-center">
-                <div className="h-20 w-20 animate-pulse rounded-full bg-app-border sm:mb-5 sm:h-36 sm:w-36" />
-                <div className="grid gap-2">
-                  <div className="mx-auto h-8 w-56 animate-pulse rounded-xl bg-app-border sm:w-80" />
-                  <div className="mx-auto h-4 w-40 animate-pulse rounded-lg bg-app-border" />
-                </div>
-                <div className="h-10 w-36 animate-pulse rounded-full bg-app-border" />
+    <PublicPageShell>
+      <section className="relative mx-auto w-full max-w-2xl px-4 pb-16 pt-20 sm:px-6 sm:pt-24 lg:px-8">
+        {/* ── Loading skeleton ── */}
+        {isLoading ? (
+          <div className="grid gap-8">
+            <div className="flex flex-col items-center gap-4 pt-6 text-center">
+              <div className="h-20 w-20 animate-pulse rounded-full bg-app-border sm:mb-5 sm:h-36 sm:w-36" />
+              <div className="grid gap-2">
+                <div className="mx-auto h-8 w-56 animate-pulse rounded-xl bg-app-border sm:w-80" />
+                <div className="mx-auto h-4 w-40 animate-pulse rounded-lg bg-app-border" />
               </div>
-              <TrackSkeletonList />
+              <div className="h-10 w-36 animate-pulse rounded-full bg-app-border" />
             </div>
-          ) : null}
+            <TrackSkeletonList />
+          </div>
+        ) : null}
 
-          {/* ── Error ── */}
-          {isError ? (
-            <div className="flex min-h-[60svh] flex-col items-center justify-center gap-6 text-center">
-              <ListMusic size={40} className="text-app-text-secondary/40" aria-hidden="true" />
-              <p className="text-sm text-app-text-secondary">{t('syncPublicPage.notFound')}</p>
+        {/* ── Error ── */}
+        {isError ? (
+          <div className="flex min-h-[60svh] flex-col items-center justify-center gap-6 text-center">
+            <ListMusic size={40} className="text-app-text-secondary/40" aria-hidden="true" />
+            <p className="text-sm text-app-text-secondary">{t('syncPublicPage.notFound')}</p>
+            {!loggedIn && (
+              <CTALink to={getLoginRedirectHref()} variant="primary">
+                {t('syncPublicPage.loginCta')}
+              </CTALink>
+            )}
+          </div>
+        ) : null}
+
+        {/* ── Content ── */}
+        {sync && !isLoading ? (
+          <div className="grid gap-6">
+            {/* Hero */}
+            <header className="flex flex-col items-center gap-4 pt-4 text-center">
+              {/* Playlist artwork placeholder — round, like event cover */}
+              <div className="relative mb-1 flex h-20 w-20 items-center justify-center rounded-full border-[3px] border-app-text bg-brand-lime text-brand-dark shadow-sticker sm:mb-5 sm:h-36 sm:w-36">
+                <ListMusic size={28} className="sm:hidden" aria-hidden="true" />
+                <ListMusic size={48} className="hidden sm:block" aria-hidden="true" />
+              </div>
+
+              <div className="grid gap-1">
+                <h1 className="text-3xl font-black leading-[1.02] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-5xl">
+                  {sync.name}
+                </h1>
+              </div>
+
+              {/* Subscribe CTA */}
+              <CTAButton
+                type="button"
+                variant={primaryVariant}
+                size="lg"
+                onClick={handlePrimaryAction}
+                disabled={isPrimaryDisabled}
+                className="px-8"
+              >
+                {primaryLabel}
+              </CTAButton>
+
+              {/* Not logged in hint */}
               {!loggedIn && (
-                <CTALink to={getLoginRedirectHref()} variant="primary">
-                  {t('syncPublicPage.loginCta')}
-                </CTALink>
+                <p className="text-xs text-app-text-secondary">
+                  {t('syncPublicPage.loginRequired')}
+                </p>
               )}
-            </div>
-          ) : null}
-
-          {/* ── Content ── */}
-          {sync && !isLoading ? (
-            <div className="grid gap-6">
-              {/* Hero */}
-              <header className="flex flex-col items-center gap-4 pt-4 text-center">
-                {/* Playlist artwork placeholder — round, like event cover */}
-                <div className="relative mb-1 flex h-20 w-20 items-center justify-center rounded-full border-4 border-app-border bg-app-elevated shadow-lg sm:mb-5 sm:h-36 sm:w-36 dark:bg-app-card">
-                  <ListMusic
-                    size={28}
-                    className="text-app-text-secondary/40 sm:hidden"
-                    aria-hidden="true"
-                  />
-                  <ListMusic
-                    size={48}
-                    className="hidden text-app-text-secondary/40 sm:block"
-                    aria-hidden="true"
-                  />
-                </div>
-
-                <div className="grid gap-1">
-                  <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
-                    {sync.name}
-                  </h1>
-                </div>
-
-                {/* Subscribe CTA */}
-                <CTAButton
-                  type="button"
-                  variant={primaryVariant}
-                  size="lg"
-                  onClick={handlePrimaryAction}
-                  disabled={isPrimaryDisabled}
-                  className="px-8"
-                >
-                  {primaryLabel}
-                </CTAButton>
-
-                {/* Not logged in hint */}
-                {!loggedIn && (
-                  <p className="text-xs text-app-text-secondary">
-                    {t('syncPublicPage.loginRequired')}
-                  </p>
-                )}
-                <motion.div
-                  layout
-                  transition={{ layout: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } }}
-                  className="w-full max-w-xl rounded-2xl border border-app-border bg-app-elevated/80 px-4 py-4 text-left shadow-soft-lift backdrop-blur-sm dark:bg-app-card/80"
-                >
-                  <div className="relative">
-                    <AnimatePresence initial={false} mode="wait">
-                      {showImportProgressCard ? (
-                        <motion.div
-                          key="import-progress"
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -6 }}
-                          transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                          className={`relative w-full ${
-                            showImportSuccessOverlay ? 'min-h-[9.5rem] sm:min-h-[10rem]' : ''
+              <motion.div
+                layout
+                transition={{ layout: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } }}
+                className="relative w-full max-w-xl rounded-3xl border-2 border-app-text bg-app-elevated px-4 py-4 text-left shadow-sticker dark:bg-app-card"
+              >
+                <div className="relative">
+                  <AnimatePresence initial={false} mode="wait">
+                    {showImportProgressCard ? (
+                      <motion.div
+                        key="import-progress"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                        className={`relative w-full ${
+                          showImportSuccessOverlay ? 'min-h-[9.5rem] sm:min-h-[10rem]' : ''
+                        }`}
+                      >
+                        <p
+                          className={`text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary transition-opacity duration-150 ${
+                            showImportSuccessOverlay ? 'invisible opacity-0' : 'visible opacity-100'
                           }`}
                         >
-                          <p
-                            className={`text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary transition-opacity duration-150 ${
-                              showImportSuccessOverlay
-                                ? 'invisible opacity-0'
-                                : 'visible opacity-100'
-                            }`}
-                          >
-                            {t('syncPublicPage.importProgressTitle')}
-                          </p>
-                          <div
-                            className={`mt-2 grid gap-2.5 transition-opacity duration-150 ${
-                              showImportSuccessOverlay
-                                ? 'invisible opacity-0'
-                                : 'visible opacity-100'
-                            }`}
-                          >
-                            {importSteps.map((label, index) => {
-                              const isComplete = index < importStageIndex;
-                              const isCurrent = index === importStageIndex;
+                          {t('syncPublicPage.importProgressTitle')}
+                        </p>
+                        <div
+                          className={`mt-2 grid gap-2.5 transition-opacity duration-150 ${
+                            showImportSuccessOverlay ? 'invisible opacity-0' : 'visible opacity-100'
+                          }`}
+                        >
+                          {importSteps.map((label, index) => {
+                            const isComplete = index < importStageIndex;
+                            const isCurrent = index === importStageIndex;
 
-                              return (
-                                <div key={label} className="flex items-center gap-3">
-                                  <span
-                                    className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                                      isComplete
-                                        ? 'border-brand-lime/60 bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
-                                        : isCurrent
-                                          ? 'border-brand-pink/60 bg-brand-pink/10 text-brand-pink'
-                                          : 'border-app-border text-app-text-secondary/50'
-                                    }`}
-                                  >
-                                    {isComplete ? (
-                                      <Check size={14} aria-hidden="true" />
-                                    ) : isCurrent ? (
-                                      <LoaderCircle
-                                        size={14}
-                                        className="animate-spin"
-                                        aria-hidden="true"
-                                      />
-                                    ) : (
-                                      <span
-                                        className="h-2 w-2 rounded-full bg-current"
-                                        aria-hidden="true"
-                                      />
-                                    )}
-                                  </span>
-                                  <p
-                                    className={`text-sm ${
-                                      isComplete || isCurrent
-                                        ? 'font-semibold text-brand-dark dark:text-brand-white'
-                                        : 'text-app-text-secondary'
-                                    }`}
-                                  >
-                                    {label}
-                                  </p>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <AnimatePresence>
-                            {showImportSuccessOverlay ? (
-                              <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{
-                                  delay: 0.3,
-                                  duration: 0.32,
-                                  ease: [0.22, 1, 0.36, 1],
-                                }}
-                                className="absolute inset-0 z-10 grid place-items-center rounded-[inherit] px-6 py-4 text-center"
-                              >
-                                <div className="flex w-full flex-col items-center justify-center gap-3">
-                                  <motion.div
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{
-                                      opacity: 1,
-                                      scale: [0.8, 1.1, 0.96, 1],
-                                    }}
-                                    exit={{ opacity: 0, scale: 0.98 }}
-                                    transition={{
-                                      delay: 0.62,
-                                      duration: 0.46,
-                                      ease: [0.22, 1, 0.36, 1],
-                                    }}
-                                    className="relative inline-flex h-14 w-14 items-center justify-center rounded-full bg-brand-lime/12 text-[#6d9600] dark:text-[#d5ff5c] sm:h-16 sm:w-16"
-                                  >
-                                    <motion.svg
-                                      width="56"
-                                      height="56"
-                                      viewBox="0 0 64 64"
-                                      fill="none"
+                            return (
+                              <div key={label} className="flex items-center gap-3">
+                                <span
+                                  className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 ${
+                                    isComplete
+                                      ? 'border-app-text bg-brand-lime text-brand-dark'
+                                      : isCurrent
+                                        ? 'border-app-text bg-brand-pink text-brand-white'
+                                        : 'border-app-border-strong text-app-text-secondary/50'
+                                  }`}
+                                >
+                                  {isComplete ? (
+                                    <Check size={14} aria-hidden="true" />
+                                  ) : isCurrent ? (
+                                    <LoaderCircle
+                                      size={14}
+                                      className="animate-spin"
                                       aria-hidden="true"
-                                      className="overflow-visible"
+                                    />
+                                  ) : (
+                                    <span
+                                      className="h-2 w-2 rounded-full bg-current"
+                                      aria-hidden="true"
+                                    />
+                                  )}
+                                </span>
+                                <p
+                                  className={`text-sm ${
+                                    isComplete || isCurrent
+                                      ? 'font-semibold text-brand-dark dark:text-brand-white'
+                                      : 'text-app-text-secondary'
+                                  }`}
+                                >
+                                  {label}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <AnimatePresence>
+                          {showImportSuccessOverlay ? (
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              transition={{
+                                delay: 0.3,
+                                duration: 0.32,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                              className="absolute inset-0 z-10 grid place-items-center rounded-[inherit] px-6 py-4 text-center"
+                            >
+                              <div className="flex w-full flex-col items-center justify-center gap-3">
+                                <motion.div
+                                  initial={{ opacity: 0, scale: 0.8 }}
+                                  animate={{
+                                    opacity: 1,
+                                    scale: [0.8, 1.1, 0.96, 1],
+                                  }}
+                                  exit={{ opacity: 0, scale: 0.98 }}
+                                  transition={{
+                                    delay: 0.62,
+                                    duration: 0.46,
+                                    ease: [0.22, 1, 0.36, 1],
+                                  }}
+                                  className="relative inline-flex h-14 w-14 items-center justify-center rounded-full border-2 border-app-text bg-brand-lime text-brand-dark shadow-sticker-sm sm:h-16 sm:w-16"
+                                >
+                                  <motion.svg
+                                    width="56"
+                                    height="56"
+                                    viewBox="0 0 64 64"
+                                    fill="none"
+                                    aria-hidden="true"
+                                    className="overflow-visible"
+                                  >
+                                    <circle
+                                      cx="32"
+                                      cy="32"
+                                      r="22"
+                                      stroke="currentColor"
+                                      strokeOpacity="0.12"
+                                      strokeWidth="4"
+                                    />
+                                    <motion.circle
+                                      cx="32"
+                                      cy="32"
+                                      r="22"
+                                      stroke="currentColor"
+                                      strokeWidth="4"
+                                      strokeLinecap="round"
+                                      initial={{ pathLength: 0, opacity: 0 }}
+                                      animate={{ pathLength: 1, opacity: 1 }}
+                                      exit={{ opacity: 0 }}
+                                      transition={{
+                                        duration: 0.4,
+                                        delay: 1.1,
+                                        ease: [0.22, 1, 0.36, 1],
+                                      }}
+                                    />
+                                    <motion.g
+                                      initial={{ opacity: 0, scale: 0.7, rotate: -8 }}
+                                      animate={{
+                                        opacity: 1,
+                                        scale: [0.7, 1.12, 0.98, 1],
+                                        rotate: [-8, 2, 0],
+                                      }}
+                                      exit={{ opacity: 0, scale: 0.92 }}
+                                      transition={{
+                                        delay: 1.38,
+                                        duration: 0.42,
+                                        ease: [0.22, 1, 0.36, 1],
+                                      }}
+                                      style={{ originX: '32px', originY: '32px' }}
                                     >
-                                      <circle
-                                        cx="32"
-                                        cy="32"
-                                        r="22"
+                                      <motion.path
+                                        d="M23 32.5L29.2 38.7L41.5 26.4"
                                         stroke="currentColor"
-                                        strokeOpacity="0.12"
-                                        strokeWidth="4"
-                                      />
-                                      <motion.circle
-                                        cx="32"
-                                        cy="32"
-                                        r="22"
-                                        stroke="currentColor"
-                                        strokeWidth="4"
+                                        strokeWidth="4.5"
                                         strokeLinecap="round"
-                                        initial={{ pathLength: 0, opacity: 0 }}
-                                        animate={{ pathLength: 1, opacity: 1 }}
+                                        strokeLinejoin="round"
+                                        initial={{ pathLength: 0 }}
+                                        animate={{ pathLength: 1 }}
                                         exit={{ opacity: 0 }}
                                         transition={{
-                                          duration: 0.4,
-                                          delay: 1.1,
+                                          duration: 0.26,
+                                          delay: 1.42,
                                           ease: [0.22, 1, 0.36, 1],
                                         }}
                                       />
-                                      <motion.g
-                                        initial={{ opacity: 0, scale: 0.7, rotate: -8 }}
-                                        animate={{
-                                          opacity: 1,
-                                          scale: [0.7, 1.12, 0.98, 1],
-                                          rotate: [-8, 2, 0],
-                                        }}
-                                        exit={{ opacity: 0, scale: 0.92 }}
-                                        transition={{
-                                          delay: 1.38,
-                                          duration: 0.42,
-                                          ease: [0.22, 1, 0.36, 1],
-                                        }}
-                                        style={{ originX: '32px', originY: '32px' }}
-                                      >
-                                        <motion.path
-                                          d="M23 32.5L29.2 38.7L41.5 26.4"
-                                          stroke="currentColor"
-                                          strokeWidth="4.5"
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          initial={{ pathLength: 0 }}
-                                          animate={{ pathLength: 1 }}
-                                          exit={{ opacity: 0 }}
-                                          transition={{
-                                            duration: 0.26,
-                                            delay: 1.42,
-                                            ease: [0.22, 1, 0.36, 1],
-                                          }}
-                                        />
-                                      </motion.g>
-                                    </motion.svg>
-                                  </motion.div>
-                                  <motion.div
-                                    initial={{ opacity: 0, y: 4 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: 2 }}
-                                    transition={{
-                                      delay: 0.68,
-                                      duration: 0.22,
-                                      ease: [0.22, 1, 0.36, 1],
-                                    }}
-                                    className="grid max-w-xs gap-1"
-                                  >
-                                    <p className="text-base font-black leading-none text-brand-dark dark:text-brand-white">
-                                      {t('syncPublicPage.importSuccessTitle')}
-                                    </p>
-                                    <p className="text-sm font-medium leading-tight text-brand-dark/80 dark:text-brand-white/80">
-                                      {t('syncPublicPage.importSuccessBody')}
-                                    </p>
-                                  </motion.div>
-                                </div>
-                              </motion.div>
-                            ) : null}
-                          </AnimatePresence>
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="owner-managed"
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -6 }}
-                          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                          className="flex items-start gap-3"
-                        >
-                          <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-brand-lime/12 text-[#6d9600] dark:text-[#d5ff5c]">
-                            <ShieldCheck size={16} aria-hidden="true" />
-                          </span>
-                          <div className="grid gap-1">
-                            <p className="text-sm font-black text-brand-dark dark:text-brand-white">
-                              {t('syncPublicPage.ownerManagedTitle')}
-                            </p>
-                            <p className="text-sm text-app-text-secondary">
-                              {t('syncPublicPage.ownerManagedBody')}
-                            </p>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
-
-                {/* Subscriber count */}
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <div className="flex items-center gap-1.5 rounded-full border border-brand-lime/60 bg-brand-lime/10 px-3 py-1.5 text-xs font-semibold text-[#6d9600] backdrop-blur-sm dark:text-[#d5ff5c]">
-                    <Users size={12} aria-hidden="true" />
-                    {t('syncPublicPage.subscriberCount_other', { count: sync.subscriberCount })}
-                  </div>
+                                    </motion.g>
+                                  </motion.svg>
+                                </motion.div>
+                                <motion.div
+                                  initial={{ opacity: 0, y: 4 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, y: 2 }}
+                                  transition={{
+                                    delay: 0.68,
+                                    duration: 0.22,
+                                    ease: [0.22, 1, 0.36, 1],
+                                  }}
+                                  className="grid max-w-xs gap-1"
+                                >
+                                  <p className="text-base font-black leading-none text-brand-dark dark:text-brand-white">
+                                    {t('syncPublicPage.importSuccessTitle')}
+                                  </p>
+                                  <p className="text-sm font-medium leading-tight text-brand-dark/80 dark:text-brand-white/80">
+                                    {t('syncPublicPage.importSuccessBody')}
+                                  </p>
+                                </motion.div>
+                              </div>
+                            </motion.div>
+                          ) : null}
+                        </AnimatePresence>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="owner-managed"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -6 }}
+                        transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                        className="flex items-start gap-3"
+                      >
+                        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border-2 border-app-text bg-brand-lime text-brand-dark">
+                          <ShieldCheck size={16} aria-hidden="true" />
+                        </span>
+                        <div className="grid gap-1">
+                          <p className="text-sm font-black text-brand-dark dark:text-brand-white">
+                            {t('syncPublicPage.ownerManagedTitle')}
+                          </p>
+                          <p className="text-sm text-app-text-secondary">
+                            {t('syncPublicPage.ownerManagedBody')}
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-              </header>
+              </motion.div>
 
-              {/* Track list */}
-              <div className="grid gap-3">
-                <div className="flex items-center justify-between">
-                  <p className="pl-4 text-xs font-semibold text-app-text-secondary">
-                    {t('syncPublicPage.currentTracks', { count: sync.tracks.length })}
+              {/* Subscriber count */}
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <div className="flex items-center gap-1.5 rounded-full border-2 border-app-text bg-brand-lime px-3 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-brand-dark shadow-sticker-sm">
+                  <Users size={12} aria-hidden="true" />
+                  {t('syncPublicPage.subscriberCount_other', { count: sync.subscriberCount })}
+                </div>
+              </div>
+            </header>
+
+            {/* Track list */}
+            <div className="grid gap-3">
+              <div className="flex items-center justify-between">
+                <p className="pl-1 text-xs font-black uppercase tracking-[0.14em] text-app-text-secondary">
+                  {t('syncPublicPage.currentTracks', { count: sync.tracks.length })}
+                </p>
+              </div>
+
+              {sync.tracks.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-12 text-center">
+                  <ListMusic size={32} className="text-app-text-secondary/40" aria-hidden="true" />
+                  <p className="text-sm font-semibold text-app-text-secondary">
+                    {t('syncPublicPage.noTracksYet')}
                   </p>
                 </div>
+              ) : (
+                <>
+                  <ul className="grid gap-3">
+                    {sync.tracks.slice(0, visibleTracks).map((track, i) => (
+                      <SyncTrackRow key={`${track.name}-${i}`} track={track} />
+                    ))}
+                  </ul>
+                  {sync.tracks.length > visibleTracks && (
+                    <div className="flex justify-center pt-1">
+                      <CTAButton
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setVisibleTracks((v) => v + VISIBLE_TRACKS_STEP)}
+                      >
+                        {t('eventPublicPage.loadMoreTracks')}
+                      </CTAButton>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
-                {sync.tracks.length === 0 ? (
-                  <div className="flex flex-col items-center gap-3 py-12 text-center">
-                    <ListMusic
-                      size={32}
-                      className="text-app-text-secondary/40"
-                      aria-hidden="true"
-                    />
-                    <p className="text-sm font-semibold text-app-text-secondary">
-                      {t('syncPublicPage.noTracksYet')}
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <ul className="grid gap-3">
-                      {sync.tracks.slice(0, visibleTracks).map((track, i) => (
-                        <SyncTrackRow key={`${track.name}-${i}`} track={track} />
-                      ))}
-                    </ul>
-                    {sync.tracks.length > visibleTracks && (
-                      <div className="flex justify-center pt-1">
-                        <CTAButton
-                          type="button"
-                          variant="secondary"
-                          onClick={() => setVisibleTracks((v) => v + VISIBLE_TRACKS_STEP)}
-                        >
-                          {t('eventPublicPage.loadMoreTracks')}
-                        </CTAButton>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Footer controls */}
-              <div className="flex justify-center pt-2">
-                <div className="flex items-center gap-2 rounded-full border border-app-border/70 bg-app-elevated/90 px-2 py-1.5 shadow-soft-lift backdrop-blur-md dark:bg-app-card/90">
-                  <LanguageSwitcher />
-                  <ThemeToggle />
-                </div>
+            {/* Footer controls */}
+            <div className="flex justify-center pt-2">
+              <div className="flex items-center gap-2 rounded-full border-2 border-app-text bg-app-elevated px-2 py-1.5 shadow-sticker-sm dark:bg-app-card">
+                <LanguageSwitcher />
+                <ThemeToggle />
               </div>
             </div>
-          ) : null}
-        </section>
-      </div>
-
-      <div aria-hidden className="h-112 sm:h-96 lg:h-104" />
+          </div>
+        ) : null}
+      </section>
 
       {/* Provider picker sheet */}
       <ProviderSheet
@@ -833,6 +798,6 @@ export const SyncPublicPage = () => {
         onConfirm={handleConfirm}
         isImporting={importMutation.isPending}
       />
-    </div>
+    </PublicPageShell>
   );
 };

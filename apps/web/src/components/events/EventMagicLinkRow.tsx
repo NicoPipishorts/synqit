@@ -210,7 +210,7 @@ export const EventMagicLinkRow = ({
         <p className="text-sm text-app-text-secondary">{t('eventsPage.shareSheetBody')}</p>
         <div className="flex gap-3 overflow-x-auto pb-2 pr-2 sm:grid sm:grid-flow-col sm:auto-cols-fr sm:gap-4 sm:overflow-visible sm:pb-1 sm:pr-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <CTAButton
-            className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl border-0 bg-transparent px-1 py-0 text-[11px] font-semibold text-app-text hover:bg-transparent hover:text-brand-pink sm:min-w-19 sm:gap-2"
+            className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl !border-0 !bg-transparent !px-1 !py-0 text-[11px] font-bold text-app-text !shadow-none hover:!bg-transparent hover:text-brand-pink hover:!translate-y-0 sm:min-w-19 sm:gap-2"
             onClick={() => {
               void copyMagicLink();
               setIsShareSheetOpen(false);
@@ -225,7 +225,7 @@ export const EventMagicLinkRow = ({
             <span>{t('eventsPage.shareOptionCopy')}</span>
           </CTAButton>
           <CTAButton
-            className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl border-0 bg-transparent px-1 py-0 text-[11px] font-semibold text-app-text hover:bg-transparent hover:text-brand-pink sm:min-w-19 sm:gap-2"
+            className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl !border-0 !bg-transparent !px-1 !py-0 text-[11px] font-bold text-app-text !shadow-none hover:!bg-transparent hover:text-brand-pink hover:!translate-y-0 sm:min-w-19 sm:gap-2"
             onClick={openMessagesShare}
             variant="secondary"
             aria-label={t('eventsPage.shareOptionMessages')}
@@ -237,7 +237,7 @@ export const EventMagicLinkRow = ({
             <span>{t('eventsPage.shareOptionMessages')}</span>
           </CTAButton>
           <CTAButton
-            className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl border-0 bg-transparent px-1 py-0 text-[11px] font-semibold text-app-text hover:bg-transparent hover:text-brand-pink sm:min-w-19 sm:gap-2"
+            className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl !border-0 !bg-transparent !px-1 !py-0 text-[11px] font-bold text-app-text !shadow-none hover:!bg-transparent hover:text-brand-pink hover:!translate-y-0 sm:min-w-19 sm:gap-2"
             onClick={openWhatsAppShare}
             variant="secondary"
             aria-label={t('eventsPage.shareOptionWhatsApp')}
@@ -249,7 +249,7 @@ export const EventMagicLinkRow = ({
             <span>{t('eventsPage.shareOptionWhatsApp')}</span>
           </CTAButton>
           <CTAButton
-            className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl border-0 bg-transparent px-1 py-0 text-[11px] font-semibold text-app-text hover:bg-transparent hover:text-brand-pink sm:min-w-19 sm:gap-2"
+            className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl !border-0 !bg-transparent !px-1 !py-0 text-[11px] font-bold text-app-text !shadow-none hover:!bg-transparent hover:text-brand-pink hover:!translate-y-0 sm:min-w-19 sm:gap-2"
             onClick={openMailShare}
             variant="secondary"
             aria-label={t('eventsPage.shareOptionMail')}
@@ -262,7 +262,7 @@ export const EventMagicLinkRow = ({
           </CTAButton>
           {canUseNativeShare ? (
             <CTAButton
-              className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl border-0 bg-transparent px-1 py-0 text-[11px] font-semibold text-app-text hover:bg-transparent hover:text-brand-pink sm:min-w-19 sm:gap-2"
+              className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl !border-0 !bg-transparent !px-1 !py-0 text-[11px] font-bold text-app-text !shadow-none hover:!bg-transparent hover:text-brand-pink hover:!translate-y-0 sm:min-w-19 sm:gap-2"
               onClick={() => {
                 void openNativeShare();
               }}

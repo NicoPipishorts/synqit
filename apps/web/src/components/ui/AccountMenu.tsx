@@ -81,14 +81,14 @@ export const AccountMenu = () => {
       <button
         type="button"
         onClick={() => setIsOpen((previousValue) => !previousValue)}
-        className="relative flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated text-sm font-bold text-brand-dark shadow-soft-lift transition hover:border-brand-pink dark:border-app-border dark:bg-app-elevated dark:text-brand-white dark:shadow-glow-pink sm:h-16 sm:w-16 lg:h-[4.5rem] lg:w-[4.5rem]"
+        className="relative flex h-14 w-14 cursor-pointer items-center justify-center overflow-visible rounded-full border-[3px] border-app-text bg-brand-lime text-sm font-black text-brand-dark shadow-sticker transition motion-safe:hover:-translate-y-0.5 sm:h-16 sm:w-16 lg:h-[4.5rem] lg:w-[4.5rem]"
         aria-label={t('accountMenu.ariaOpen')}
       >
         {(auth?.avatarUrl ?? settings.avatarDataUrl) ? (
           <img
             src={auth?.avatarUrl ?? settings.avatarDataUrl ?? undefined}
             alt={t('accountMenu.avatarAlt')}
-            className="h-12 w-12 rounded-full object-cover sm:h-14 sm:w-14 lg:h-16 lg:w-16"
+            className="h-full w-full rounded-full object-cover"
           />
         ) : auth ? (
           getInitials(auth.userEmail)
@@ -97,41 +97,41 @@ export const AccountMenu = () => {
         )}
         {showPersonalInfoPrompt ? (
           <>
-            <NotificationDot className="absolute right-1 top-1 h-3.5 w-3.5 sm:right-1.5 sm:top-1.5" />
+            <NotificationDot className="absolute -right-0.5 -top-0.5 h-4 w-4 ring-2 ring-app-text" />
             <span className="sr-only">{t('profile.personalInfoIncompleteBadge')}</span>
           </>
         ) : null}
       </button>
       {isOpen ? (
-        <div className="absolute right-0 z-30 mt-2 w-64 rounded-2xl border border-app-border bg-app-elevated p-3 shadow-xl dark:border-app-border dark:bg-app-card">
+        <div className="absolute right-0 z-30 mt-3 w-64 rounded-3xl border-2 border-app-text bg-app-elevated p-3 shadow-sticker dark:bg-app-card">
           {auth ? (
             <>
               <div className="mt-2 grid gap-1 text-sm">
                 <Link
                   to="/dashboard"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="rounded-xl px-3 py-2 font-bold transition hover:bg-brand-lime hover:text-brand-dark"
                 >
                   {t('accountMenu.dashboard')}
                 </Link>
                 <Link
                   to="/playlists"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="rounded-xl px-3 py-2 font-bold transition hover:bg-brand-lime hover:text-brand-dark"
                 >
                   {t('accountMenu.myEvents')}
                 </Link>
                 <Link
                   to="/synced-lists"
                   onClick={() => setIsOpen(false)}
-                  className="rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="rounded-xl px-3 py-2 font-bold transition hover:bg-brand-lime hover:text-brand-dark"
                 >
                   {t('accountMenu.syncedLists')}
                 </Link>
                 <Link
                   to="/profile"
                   onClick={() => setIsOpen(false)}
-                  className="flex items-center justify-between gap-3 rounded-lg px-2 py-2 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+                  className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 font-bold transition hover:bg-brand-lime hover:text-brand-dark"
                 >
                   <span>{t('accountMenu.profile')}</span>
                   {showPersonalInfoPrompt ? (
@@ -146,7 +146,7 @@ export const AccountMenu = () => {
                   onClick={() => void logout()}
                   disabled={isBusy}
                   variant="danger"
-                  className="mt-1 w-full justify-start"
+                  className="mt-2 w-full justify-center"
                 >
                   {isBusy ? t('accountMenu.loggingOut') : t('accountMenu.logout')}
                 </CTAButton>
