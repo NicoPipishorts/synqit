@@ -1,4 +1,4 @@
-import { useToast } from '@synqit/ui';
+import { Sticker, TapeStrip, useToast } from '@synqit/ui';
 import { Download, Share, Smartphone } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 
@@ -115,13 +115,28 @@ const persistInstalled = (): void => {
   });
 };
 
-const PromptStep = ({ icon, title, body }: { icon: ReactNode; title: string; body: string }) => (
-  <div className="flex items-start gap-3 rounded-2xl border border-app-border bg-app-bg px-4 py-3 dark:bg-app-elevated">
-    <div className="mt-0.5 rounded-xl border border-brand-lime/35 bg-brand-lime/12 p-2 text-[#6e9800] dark:text-[#d7ff68]">
+const PromptStep = ({
+  index,
+  icon,
+  title,
+  body,
+}: {
+  index: string;
+  icon: ReactNode;
+  title: string;
+  body: string;
+}) => (
+  <div className="relative flex items-start gap-3 rounded-2xl border-2 border-app-border-strong bg-app-surface px-4 py-3 dark:bg-app-elevated">
+    <div className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 border-app-text bg-brand-lime text-brand-dark">
       {icon}
     </div>
     <div className="grid gap-1">
-      <p className="text-sm font-black text-brand-dark dark:text-brand-white">{title}</p>
+      <div className="flex items-center gap-2">
+        <Sticker tone="paper" className="px-2 py-0 text-[10px]">
+          {index}
+        </Sticker>
+        <p className="text-sm font-black text-brand-dark dark:text-brand-white">{title}</p>
+      </div>
       <p className="text-sm leading-5 text-app-text-secondary">{body}</p>
     </div>
   </div>
@@ -219,17 +234,20 @@ export const PwaInstallPrompt = () => {
   return (
     <Modal open={isOpen} title={t('dashboard.pwa.title')} onClose={closePrompt}>
       <div className="grid gap-5">
-        <div className="rounded-[1.75rem] border border-brand-white/10 bg-brand-dark px-5 py-5 text-brand-white shadow-soft-lift">
+        <div className="relative rounded-3xl border-2 border-app-text bg-brand-dark px-5 py-5 text-brand-white shadow-sticker-sm dark:bg-brand-white dark:text-brand-dark">
+          <TapeStrip tone="pink" className="left-6" />
           <div className="flex items-start gap-4">
-            <div className="rounded-2xl border border-brand-white/10 bg-brand-white/10 p-3">
+            <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border-2 border-app-text bg-brand-lime text-brand-dark">
               <Smartphone size={22} />
             </div>
-            <div className="grid gap-1">
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-brand-white/55">
+            <div className="grid gap-2">
+              <Sticker tone="lime" tilt="-rotate-2">
                 {t('dashboard.pwa.eyebrow')}
+              </Sticker>
+              <p className="text-xl font-black leading-tight tracking-tight">
+                {t('dashboard.pwa.headline')}
               </p>
-              <p className="text-lg font-black tracking-tight">{t('dashboard.pwa.headline')}</p>
-              <p className="max-w-md text-sm text-brand-white/78">{t('dashboard.pwa.body')}</p>
+              <p className="max-w-md text-sm opacity-80">{t('dashboard.pwa.body')}</p>
             </div>
           </div>
         </div>
@@ -237,23 +255,26 @@ export const PwaInstallPrompt = () => {
         {showIosGuide ? (
           <div className="grid gap-3">
             <PromptStep
+              index="01"
               icon={<Share size={16} aria-hidden="true" />}
               title={t('dashboard.pwa.iosStepOneTitle')}
               body={t('dashboard.pwa.iosStepOneBody')}
             />
             <PromptStep
+              index="02"
               icon={<Download size={16} aria-hidden="true" />}
               title={t('dashboard.pwa.iosStepTwoTitle')}
               body={t('dashboard.pwa.iosStepTwoBody')}
             />
             <PromptStep
+              index="03"
               icon={<Smartphone size={16} aria-hidden="true" />}
               title={t('dashboard.pwa.iosStepThreeTitle')}
               body={t('dashboard.pwa.iosStepThreeBody')}
             />
           </div>
         ) : (
-          <div className="grid gap-3 rounded-2xl border border-app-border bg-app-bg px-4 py-4 dark:bg-app-elevated">
+          <div className="grid gap-2 rounded-2xl border-2 border-dashed border-app-text/60 bg-app-surface px-4 py-4 dark:bg-app-elevated">
             <p className="text-sm font-bold text-brand-dark dark:text-brand-white">
               {t('dashboard.pwa.instantInstallTitle')}
             </p>
