@@ -99,6 +99,15 @@ const TONE: Record<
   },
 };
 
+// Where each card's bit of tape lands. Complete sets rather than overrides, so
+// no two utilities of the same kind collide — three cards stacked in a deck look
+// stamped when the tape sits in the same spot on all of them.
+const TAPE_SPOTS = [
+  '-top-3 left-8 h-5 w-16 -rotate-6',
+  '-top-2.5 right-9 h-5 w-12 rotate-[7deg]',
+  '-top-3 left-[42%] h-4 w-20 -rotate-3',
+];
+
 const prefersReducedMotion = () =>
   typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -179,7 +188,7 @@ const ServiceCard = ({
     >
       <span
         aria-hidden="true"
-        className={`absolute -top-3 left-8 h-5 w-16 -rotate-6 rounded-sm ${tone.tape}`}
+        className={`pointer-events-none absolute rounded-sm ${TAPE_SPOTS[index % TAPE_SPOTS.length]} ${tone.tape}`}
       />
       {/* The text block is the selector; the CTA underneath stays a normal link. */}
       <button
