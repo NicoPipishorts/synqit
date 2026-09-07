@@ -70,11 +70,16 @@ export const privacyDocument: LegalDocumentSet = {
                 'Hashed session tokens, password-reset tokens, and — for accounts touched by an administrator — an audit record of the action and its reason.',
                 'Generated automatically.',
               ],
+              [
+                'Server request logs',
+                'Like any web server, ours records each request: your IP address, the page or endpoint requested, and the time. Your IP is also used momentarily to apply rate limits that block brute-force attempts.',
+                'Your browser, on every request.',
+              ],
             ],
           },
           {
             kind: 'note',
-            text: 'We do not log IP addresses, we do not fingerprint your device, and our analytics sets no cookie. The session identifier is random, stored in sessionStorage, and disappears when the tab closes — it cannot follow you between visits or across sites.',
+            text: 'Our analytics sets no cookie and does not fingerprint your device. The session identifier is random, stored in sessionStorage, and disappears when the tab closes — it cannot follow you between visits or across sites. Our servers do keep ordinary request logs, which include your IP address; those are listed above, are never joined to your analytics events, and are used only to keep the service running and safe.',
           },
         ],
       },
@@ -103,7 +108,7 @@ export const privacyDocument: LegalDocumentSet = {
                 'Our legitimate interest in understanding and improving the product, balanced against your privacy by keeping the measurement anonymous and cookie-free (Art. 6(1)(f)).',
               ],
               [
-                'Keeping accounts secure, preventing abuse, and keeping an admin audit trail.',
+                'Keeping accounts secure, preventing abuse, rate-limiting attacks, keeping server request logs, and keeping an admin audit trail.',
                 'Our legitimate interest in the security of the service (Art. 6(1)(f)).',
               ],
               [
@@ -227,6 +232,10 @@ export const privacyDocument: LegalDocumentSet = {
               [
                 'Usage analytics',
                 'Retained in aggregate to follow product trends; the session identifier is already gone when your tab closes.',
+              ],
+              [
+                'Server request logs',
+                'Rotated automatically, and kept only as long as they are useful for troubleshooting and abuse prevention.',
               ],
               ['Invoices and accounting records', 'Ten years, as French commercial law requires.'],
             ],
@@ -375,11 +384,16 @@ export const privacyDocument: LegalDocumentSet = {
                 'Jetons de session hachés, jetons de réinitialisation de mot de passe et, pour les comptes touchés par un administrateur, la trace de l’action et de son motif.',
                 'Généré automatiquement.',
               ],
+              [
+                'Journaux de requêtes serveur',
+                'Comme tout serveur web, le nôtre enregistre chaque requête : votre adresse IP, la page ou le point d’accès demandé et l’horodatage. Votre IP sert également, le temps de la requête, à appliquer les limites de débit qui bloquent les attaques par force brute.',
+                'Votre navigateur, à chaque requête.',
+              ],
             ],
           },
           {
             kind: 'note',
-            text: 'Nous ne journalisons pas les adresses IP, nous n’utilisons aucune empreinte d’appareil, et notre mesure d’audience ne dépose aucun cookie. L’identifiant de session est aléatoire, stocké en sessionStorage, et disparaît à la fermeture de l’onglet : il ne peut ni vous suivre d’une visite à l’autre, ni d’un site à l’autre.',
+            text: 'Notre mesure d’audience ne dépose aucun cookie et n’utilise aucune empreinte d’appareil. L’identifiant de session est aléatoire, stocké en sessionStorage, et disparaît à la fermeture de l’onglet : il ne peut ni vous suivre d’une visite à l’autre, ni d’un site à l’autre. Nos serveurs conservent en revanche des journaux de requêtes ordinaires, qui contiennent votre adresse IP ; ils figurent ci-dessus, ne sont jamais rapprochés de vos événements de mesure d’audience, et servent uniquement à faire fonctionner et à sécuriser le service.',
           },
         ],
       },
@@ -408,7 +422,7 @@ export const privacyDocument: LegalDocumentSet = {
                 'Notre intérêt légitime à comprendre et améliorer le produit, mis en balance avec votre vie privée par une mesure anonyme et sans cookie (art. 6.1.f).',
               ],
               [
-                'Sécuriser les comptes, prévenir les abus, tenir une piste d’audit administrative.',
+                'Sécuriser les comptes, prévenir les abus, limiter le débit des attaques, conserver les journaux de requêtes serveur et tenir une piste d’audit administrative.',
                 'Notre intérêt légitime à la sécurité du service (art. 6.1.f).',
               ],
               [
@@ -535,6 +549,10 @@ export const privacyDocument: LegalDocumentSet = {
               [
                 'Mesure d’audience',
                 'Conservée sous forme agrégée pour suivre les tendances produit ; l’identifiant de session a déjà disparu à la fermeture de l’onglet.',
+              ],
+              [
+                'Journaux de requêtes serveur',
+                'Rotationnés automatiquement, et conservés seulement le temps utile au dépannage et à la prévention des abus.',
               ],
               ['Factures et pièces comptables', 'Dix ans, conformément au code de commerce.'],
             ],

@@ -96,7 +96,7 @@ export const cookiesDocument: LegalDocumentSet = {
           },
           {
             kind: 'p',
-            text: 'We do not log IP addresses, we do not fingerprint devices, and no data goes to a third-party analytics company. Because the identifier cannot follow you between visits or across sites, the measurement is strictly limited to producing anonymous statistics for us alone.',
+            text: 'The measurement itself records no IP address, does not fingerprint devices, and sends nothing to a third-party analytics company. Because the identifier cannot follow you between visits or across sites, it is strictly limited to producing anonymous statistics for us alone. Our servers do keep ordinary request logs that include your IP address, as any web server does — those are a separate record, never joined to your analytics events, and our Privacy Policy covers them.',
           },
         ],
       },
@@ -225,7 +225,7 @@ export const cookiesDocument: LegalDocumentSet = {
           },
           {
             kind: 'p',
-            text: 'Nous ne journalisons pas les adresses IP, n’utilisons aucune empreinte d’appareil, et aucune donnée n’est transmise à une société d’analytics tierce. L’identifiant ne pouvant vous suivre ni d’une visite à l’autre, ni d’un site à l’autre, la mesure se limite strictement à produire des statistiques anonymes pour notre seul usage.',
+            text: 'La mesure elle-même n’enregistre aucune adresse IP, n’utilise aucune empreinte d’appareil et ne transmet rien à une société d’analytics tierce. L’identifiant ne pouvant vous suivre ni d’une visite à l’autre, ni d’un site à l’autre, elle se limite strictement à produire des statistiques anonymes pour notre seul usage. Nos serveurs conservent en revanche des journaux de requêtes ordinaires contenant votre adresse IP, comme tout serveur web : ce sont des enregistrements distincts, jamais rapprochés de vos événements de mesure, et notre politique de confidentialité les décrit.',
           },
         ],
       },
