@@ -970,7 +970,9 @@
         "body": "Tu passes à un nouveau service de streaming ? Synqit associe chaque titre et reconstruit tes playlists dans ta nouvelle bibliothèque.",
         "cta": "Transférer une playlist"
       },
-      "swipeHint": "Glisse pour voir la suite"
+      "swipeHint": "Glisse pour voir la suite",
+      "prev": "Service précédent",
+      "next": "Service suivant"
     },
     "how": {
       "lead": "Touche une carte pour parcourir les vrais écrans, étape par étape.",
