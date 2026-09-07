@@ -16,6 +16,8 @@ import { notificationRunsStore } from './jobs/notification-runs-store';
 import { closeTransfersQueue } from './jobs/transfers-queue';
 import { buildWeeklyRecapDigests } from './jobs/weekly-recap-digests';
 import { syncsStore } from './syncs/store';
+import { transfersStore } from './syncs/transfer-store';
+import { processTransferPlaylistJob } from './syncs/transfer-worker';
 
 const TEST_EMAIL_PREFIX = 'regression+';
 const TEST_PASSWORD = 'Password123!';
@@ -150,6 +152,159 @@ const createUserAndLogin = async (app: FastifyInstance, email: string) => {
   return {
     user: { id: user.id, email: user.email },
     tokens: { accessToken, refreshToken },
+  };
+};
+
+/**
+ * Builds a queued apple -> spotify transfer with both providers stubbed, and
+ * returns handles for driving the worker directly (no live queue involved).
+ */
+const setUpAppleToSpotifyTransfer = async (app: FastifyInstance) => {
+  const previousEnv = {
+    appleTeamId: process.env.APPLE_TEAM_ID,
+    appleKeyId: process.env.APPLE_KEY_ID,
+    appleMusicKit: process.env.APPLE_MUSICKIT_IDENTIFIER,
+    applePrivateKey: process.env.APPLE_PRIVATE_KEY_P8,
+    spotifyClientId: process.env.SPOTIFY_CLIENT_ID,
+    spotifyClientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+  };
+  const originalFetch = globalThis.fetch;
+
+  process.env.APPLE_TEAM_ID = 'regression-apple-team';
+  process.env.APPLE_KEY_ID = 'regression-apple-key';
+  process.env.APPLE_MUSICKIT_IDENTIFIER = 'regression.apple.musickit';
+  process.env.APPLE_PRIVATE_KEY_P8 = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgcmlwtQ8qUxntutB5
+lgguoZvlw7ncEM42tKbuZJWm7r6hRANCAATakZ0Vb/rR6MNtqGzEuoAOJUtOJrTn
+oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
+-----END PRIVATE KEY-----`;
+  const sourcePlaylistId = `apple-transfer-source-${randomUUID()}`;
+  const destinationPlaylistId = `spotify-transfer-dest-${randomUUID()}`;
+  const calls = { createdPlaylists: 0, addedTrackIds: [] as string[] };
+
+  const email = `${TEST_EMAIL_PREFIX}transfer-worker-${randomUUID()}@synqit.test`;
+  const user = await registerUser(app, email);
+
+  // Connect both providers before Spotify live mode is switched on, so the
+  // OAuth exchange runs through the ordinary mocked-provider path.
+  const appleConnect = await app.inject({
+    method: 'POST',
+    url: '/v1/auth/apple/connect',
+    headers: authHeader(user.tokens.accessToken),
+    payload: { musicUserToken: 'mock-apple-user-token' },
+  });
+  assert.equal(appleConnect.statusCode, 200);
+  await connectProvider(app, { provider: 'spotify', accessToken: user.tokens.accessToken });
+
+  process.env.SPOTIFY_CLIENT_ID = 'regression-live-client-id';
+  process.env.SPOTIFY_CLIENT_SECRET = 'regression-live-client-secret';
+
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const requestUrl = typeof input === 'string' ? input : input.toString();
+    const method = (init?.method ?? 'GET').toUpperCase();
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { 'content-type': 'application/json' },
+      });
+
+    // Source: three tracks in the user's Apple library playlist.
+    if (
+      requestUrl ===
+        `https://api.music.apple.com/v1/me/library/playlists/${encodeURIComponent(sourcePlaylistId)}/tracks?limit=100` &&
+      method === 'GET'
+    ) {
+      return json({
+        data: Array.from({ length: 3 }, (_, index) => ({
+          id: `library-song-${index + 1}`,
+          attributes: {
+            name: `Track ${index + 1}`,
+            artistName: `Artist ${index + 1}`,
+            albumName: 'Source Album',
+            durationInMillis: 180000 + index,
+            playParams: { catalogId: `catalog-song-${index + 1}` },
+          },
+        })),
+      });
+    }
+
+    // Destination: the first two tracks match, the third does not.
+    if (requestUrl.startsWith('https://api.spotify.com/v1/search') && method === 'GET') {
+      const query = new URL(requestUrl).searchParams.get('q') ?? '';
+      const match = /Track (\d+)/.exec(query);
+      const index = match ? Number.parseInt(match[1]!, 10) : 0;
+      if (index === 1 || index === 2) {
+        return json({
+          tracks: {
+            items: [
+              {
+                id: `spotify-track-${index}`,
+                name: `Track ${index}`,
+                artists: [{ name: `Artist ${index}` }],
+                album: { name: 'Dest Album', images: [] },
+                duration_ms: 180000,
+                preview_url: null,
+              },
+            ],
+          },
+        });
+      }
+      return json({ tracks: { items: [] } });
+    }
+
+    if (requestUrl === 'https://api.spotify.com/v1/me/playlists' && method === 'POST') {
+      calls.createdPlaylists += 1;
+      return json({ id: destinationPlaylistId, name: 'Transferred', external_urls: {} }, 201);
+    }
+
+    if (
+      requestUrl ===
+        `https://api.spotify.com/v1/playlists/${encodeURIComponent(destinationPlaylistId)}/items` &&
+      method === 'POST'
+    ) {
+      const body = JSON.parse(typeof init?.body === 'string' ? init.body : '{}') as {
+        uris?: string[];
+      };
+      for (const uri of body.uris ?? []) {
+        calls.addedTrackIds.push(uri.replace('spotify:track:', ''));
+      }
+      return json({ snapshot_id: 'snap' });
+    }
+
+    throw new Error(`Unexpected provider request in transfer test: ${method} ${requestUrl}`);
+  }) as typeof fetch;
+
+  const batch = await transfersStore.createBatch({
+    userId: user.user.id,
+    sourceProvider: 'apple',
+    destinationProvider: 'spotify',
+    playlists: [{ providerPlaylistId: sourcePlaylistId, name: 'Worker Test', trackCount: 3 }],
+  });
+  const itemId = batch.items[0]!.id;
+
+  return {
+    userId: user.user.id,
+    batchId: batch.id,
+    itemId,
+    sourcePlaylistId,
+    calls,
+    job: () => ({ data: { batchId: batch.id, itemId }, attemptsMade: 0, opts: { attempts: 3 } }),
+    restore: () => {
+      globalThis.fetch = originalFetch;
+      const restoreEnv = (key: string, value: string | undefined) => {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      };
+      restoreEnv('APPLE_TEAM_ID', previousEnv.appleTeamId);
+      restoreEnv('APPLE_KEY_ID', previousEnv.appleKeyId);
+      restoreEnv('APPLE_MUSICKIT_IDENTIFIER', previousEnv.appleMusicKit);
+      restoreEnv('APPLE_PRIVATE_KEY_P8', previousEnv.applePrivateKey);
+      restoreEnv('SPOTIFY_CLIENT_ID', previousEnv.spotifyClientId);
+      restoreEnv('SPOTIFY_CLIENT_SECRET', previousEnv.spotifyClientSecret);
+    },
   };
 };
 
@@ -3681,6 +3836,71 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
       headers: authHeader(other.tokens.accessToken),
     });
     assert.equal(readResponse.statusCode, 404);
+  });
+
+  it('transfers: the queued job builds the destination playlist and records counts', async () => {
+    const scenario = await setUpAppleToSpotifyTransfer(app);
+    try {
+      await processTransferPlaylistJob(scenario.job());
+
+      const item = await transfersStore.findItem(scenario.itemId);
+      assert.ok(item);
+      assert.equal(item.status, 'completed');
+      // Two of the three source tracks have a Spotify match; the third does not.
+      assert.equal(item.matchedCount, 2);
+      assert.equal(item.skippedCount, 1);
+      assert.equal(item.errorMessage, null);
+      assert.ok(item.syncId, 'the job records the sync it created');
+
+      const batch = await transfersStore.findBatch({
+        batchId: scenario.batchId,
+        userId: scenario.userId,
+      });
+      assert.equal(batch?.status, 'completed');
+
+      assert.equal(scenario.calls.createdPlaylists, 1);
+      assert.deepEqual(scenario.calls.addedTrackIds, ['spotify-track-1', 'spotify-track-2']);
+
+      // The transfer is recorded as sync history, which is what drives the
+      // re-transfer and round-trip warnings on the picker.
+      const transferred = await syncsStore.findSenderTransferredPlaylists({
+        senderUserId: scenario.userId,
+        provider: 'apple',
+      });
+      assert.ok(transferred.has(scenario.sourcePlaylistId));
+    } finally {
+      scenario.restore();
+    }
+  });
+
+  it('transfers: re-running a job resumes instead of duplicating the playlist', async () => {
+    const scenario = await setUpAppleToSpotifyTransfer(app);
+    try {
+      await processTransferPlaylistJob(scenario.job());
+      assert.equal(scenario.calls.createdPlaylists, 1);
+      assert.equal(scenario.calls.addedTrackIds.length, 2);
+
+      const firstItem = await transfersStore.findItem(scenario.itemId);
+      assert.ok(firstItem);
+      const firstSyncId = firstItem.syncId;
+
+      // Force a re-run of the same item, as a BullMQ retry would.
+      await transfersStore.updateItem({ itemId: scenario.itemId, status: 'queued' });
+      await processTransferPlaylistJob(scenario.job());
+
+      // No second playlist in the user's library, and no track added twice.
+      assert.equal(scenario.calls.createdPlaylists, 1);
+      assert.deepEqual(scenario.calls.addedTrackIds, ['spotify-track-1', 'spotify-track-2']);
+
+      const secondItem = await transfersStore.findItem(scenario.itemId);
+      assert.equal(secondItem?.status, 'completed');
+      // The same sync is reused, so the retry does not add a second entry to
+      // the user's transfer history either.
+      assert.equal(secondItem?.syncId, firstSyncId);
+      assert.equal(secondItem?.matchedCount, 2);
+    } finally {
+      scenario.restore();
+    }
   });
 
   it('recap: claims a notification period only once', async () => {

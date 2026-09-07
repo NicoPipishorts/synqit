@@ -1,5 +1,5 @@
 import { JOBS, QUEUES, transferPlaylistJobSchema } from '@synqit/shared';
-import { Worker, type Job } from 'bullmq';
+import { Worker } from 'bullmq';
 import type { FastifyBaseLogger } from 'fastify';
 
 import { importSyncForRecipient } from './import-engine';
@@ -16,6 +16,13 @@ import { createTransfersConnection } from '../jobs/transfers-queue';
  */
 const TRANSFER_WORKER_CONCURRENCY = 1;
 
+/** The slice of a BullMQ job the processor actually reads. */
+type TransferJobLike = {
+  data: unknown;
+  attemptsMade: number;
+  opts: { attempts?: number };
+};
+
 const describeError = (error: unknown): string => {
   if (error instanceof ProviderApiError) {
     return mapProviderApiError(error).message;
@@ -23,7 +30,8 @@ const describeError = (error: unknown): string => {
   return error instanceof Error ? error.message : 'Transfer failed.';
 };
 
-const processTransferPlaylistJob = async (job: Job): Promise<void> => {
+/** Exported for the regression suite, which drives it without a live queue. */
+export const processTransferPlaylistJob = async (job: TransferJobLike): Promise<void> => {
   const payload = transferPlaylistJobSchema.parse(job.data);
   const item = await transfersStore.findItem(payload.itemId);
   if (!item) {
