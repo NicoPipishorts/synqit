@@ -276,10 +276,20 @@ const buildWave = (width: number) => {
 /** Fixed 48×112, rendered 1:1, ending straight down at the phone. */
 const VERTICAL = { d: 'M24 8 C12 24, 36 40, 24 56 C15 68, 33 76, 24 84 L24 96' };
 
-// Open chevron pointing along +x with its *vertex* on the origin: the origin is
-// the point that rides the path, so anchoring the tip there lets the legs sweep
-// back over the line instead of leaving a gap where the line stops.
-const ARROWHEAD = 'M-15 -9 L0 0 L-15 9';
+// Both point along +x with their *vertex* on the origin: the origin is the point
+// that rides the path, so anchoring the tip there lets the head sit on the line
+// instead of leaving a gap where the line stops.
+//
+// The two branches carry different heads because they are never seen together —
+// one is hidden below `lg`, the other above it. An open chevron reads well at the
+// end of the long desktop line; on the short vertical one the same head looks
+// like an oversized nib, so that gets a smaller solid one with a concave back.
+const ARROWHEAD = {
+  horizontal: 'M-15 -9 L0 0 L-15 9',
+  // Sits 3px forward of the path's end so its body hides the line's round cap,
+  // which would otherwise poke out as a nub past the solid tip.
+  vertical: 'M3 0 L-8.5 -6.5 Q-5.5 0 -8.5 6.5 Z',
+} as const;
 
 // The vertical branch is a fifth of the horizontal one's length, so the same
 // timing is over before the eye follows it down to the phone — and that trip
@@ -292,7 +302,7 @@ const DRAW: Record<'horizontal' | 'vertical', DrawSpec> = {
   horizontal: { duration: 0.6, ease: [0.32, 0.8, 0.36, 1] },
   // Held back a beat so it starts once the swiped card has settled, then drawn
   // at a constant speed: any ease-in makes a short line read as a flick.
-  vertical: { duration: 1.35, delay: 0.1, ease: 'linear' },
+  vertical: { duration: 1.15, delay: 0.1, ease: 'linear' },
 };
 
 const Branch = ({
@@ -374,10 +384,10 @@ const Branch = ({
       />
       <motion.g ref={headRef} style={{ offsetDistance }}>
         <motion.path
-          d={ARROWHEAD}
-          fill="none"
+          d={ARROWHEAD[orientation]}
+          fill={horizontal ? 'none' : 'currentColor'}
           stroke="currentColor"
-          strokeWidth={4}
+          strokeWidth={horizontal ? 4 : 1.5}
           strokeLinecap="round"
           strokeLinejoin="round"
           style={{ scale: settle }}
