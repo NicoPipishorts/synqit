@@ -1,3 +1,4 @@
+import { NAV_BAR_CLASS, NAV_ITEM_CLASS } from '@synqit/ui';
 import { Link } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
 import { ArrowLeftRight, CalendarDays, LayoutDashboard, ListMusic, UserRound } from 'lucide-react';
@@ -31,10 +32,7 @@ export const PrivateDesktopNavigation = ({
 
   return (
     <nav className="hidden items-center gap-2 sm:flex" aria-label={ariaLabel}>
-      <div
-        onMouseLeave={() => setHoveredNavPath(null)}
-        className="flex items-center gap-1 rounded-full border-2 border-app-text bg-app-elevated px-2 py-1.5 shadow-sticker dark:bg-app-card"
-      >
+      <div onMouseLeave={() => setHoveredNavPath(null)} className={NAV_BAR_CLASS}>
         {navItems.map((item) => {
           const isActive = isNavItemActive(item.to);
           const isHovered = hoveredNavPath === item.to;
@@ -43,7 +41,7 @@ export const PrivateDesktopNavigation = ({
               key={item.to}
               to={item.to}
               onMouseEnter={() => setHoveredNavPath(item.to)}
-              className="relative inline-flex h-10 items-center rounded-full px-2.5 text-sm font-black tracking-[0.01em] transition focus-ring-brand sm:px-3 lg:px-4"
+              className={NAV_ITEM_CLASS}
             >
               {isHovered ? (
                 <motion.span

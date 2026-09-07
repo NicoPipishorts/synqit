@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { type ReactNode, useState } from 'react';
 
+import { NAV_BAR_CLASS, NAV_ITEM_CLASS } from './nav-classes';
+
 export type PublicNavItem = {
   id: string;
   href: string;
@@ -34,10 +36,7 @@ export const PublicNav = ({
 
   return (
     <nav aria-label={ariaLabel} className={className}>
-      <div
-        onMouseLeave={() => setHoveredId(null)}
-        className="flex items-center gap-1.5 rounded-full border border-app-border/70 bg-white/92 px-2 py-1.5 shadow-[0_18px_42px_-22px_rgba(34,34,34,0.42),0_8px_18px_-14px_rgba(34,34,34,0.26)] backdrop-blur-[6px] dark:bg-app-card/92"
-      >
+      <div onMouseLeave={() => setHoveredId(null)} className={NAV_BAR_CLASS}>
         {items.map((item) => {
           const isActive = activeId === item.id;
           const isHovered = hoveredId === item.id;
@@ -48,27 +47,25 @@ export const PublicNav = ({
               aria-current={isActive ? 'page' : undefined}
               onMouseEnter={() => setHoveredId(item.id)}
               onPointerDown={() => onActivate?.(item.id)}
-              className="relative inline-flex h-10 items-center rounded-full px-3 text-sm font-black tracking-[0.01em] transition focus-ring-brand lg:px-4"
+              className={NAV_ITEM_CLASS}
             >
               {isHovered ? (
                 <motion.span
                   layoutId={`${layoutGroupId}-hover`}
                   transition={{ type: 'spring', stiffness: 430, damping: 35, mass: 0.85 }}
-                  className="absolute inset-0 z-0 rounded-full bg-app-surface dark:bg-app-card"
+                  className="absolute inset-0 z-0 rounded-full bg-app-surface dark:bg-app-elevated"
                 />
               ) : null}
               {isActive ? (
                 <motion.span
                   layoutId={`${layoutGroupId}-active`}
                   transition={{ type: 'spring', stiffness: 430, damping: 35, mass: 0.85 }}
-                  className="absolute inset-0 z-[1] rounded-full bg-brand-dark dark:bg-brand-white"
+                  className="absolute inset-0 z-[1] rounded-full border-2 border-app-text bg-brand-lime shadow-sticker-sm"
                 />
               ) : null}
               <span
                 className={`relative z-10 ${
-                  isActive
-                    ? 'text-brand-white dark:text-brand-dark'
-                    : 'text-app-text-secondary hover:text-app-text'
+                  isActive ? 'text-brand-dark' : 'text-app-text-secondary hover:text-app-text'
                 }`}
               >
                 {item.label}

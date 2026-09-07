@@ -1,6 +1,6 @@
 import type { SyncPublicTrack } from '@synqit/shared';
 import { providerSchema } from '@synqit/shared';
-import { Sticker, useToast } from '@synqit/ui';
+import { Highlight, Sticker, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -500,8 +500,8 @@ export const SyncPublicPage = () => {
               </div>
 
               <div className="grid gap-1">
-                <h1 className="text-3xl font-black leading-[1.02] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-5xl">
-                  {sync.name}
+                <h1 className="text-3xl font-black leading-[1.05] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-5xl">
+                  <Highlight>{sync.name}</Highlight>
                 </h1>
               </div>
 

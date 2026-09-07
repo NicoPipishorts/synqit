@@ -1,4 +1,4 @@
-import { PublicMobileNav, type PublicMobileNavItem, Sticker } from '@synqit/ui';
+import { Highlight, PublicMobileNav, Sticker, type PublicMobileNavItem } from '@synqit/ui';
 import { Home, LogIn, Share2, Tag } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 
@@ -97,8 +97,8 @@ export const AuthPageLayout = ({
                   {eyebrow}
                 </Sticker>
               ) : null}
-              <h1 className="text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
-                {title}
+              <h1 className="text-3xl font-black leading-[1.05] tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
+                <Highlight>{title}</Highlight>
               </h1>
               {description ? (
                 <p className="max-w-sm text-sm leading-relaxed text-app-text-secondary">

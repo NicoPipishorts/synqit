@@ -1,3 +1,4 @@
+import { Highlight } from '@synqit/ui';
 import { useParams } from '@tanstack/react-router';
 import { Bookmark, BookmarkCheck } from 'lucide-react';
 import { useEffect } from 'react';
@@ -138,8 +139,8 @@ export const EventPublicPage = () => {
                 />
               ) : null}
               <div className="grid relative gap-1 pt-[5%] sm:pt-0">
-                <h1 className="px-8 text-3xl font-black leading-[1.02] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:px-0 sm:text-5xl">
-                  {event.name}
+                <h1 className="px-8 text-3xl font-black leading-[1.05] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:px-0 sm:text-5xl">
+                  <Highlight>{event.name}</Highlight>
                 </h1>
                 {event.description ? (
                   <p className="text-sm text-app-text-secondary sm:text-base">
