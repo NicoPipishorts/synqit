@@ -20,8 +20,8 @@ type DashboardActivityFeedProps = {
 };
 
 const kindStyles: Record<ActivityFeedKind, string> = {
-  subscriber: 'bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]',
-  songs: 'bg-brand-pink/10 text-brand-pink',
+  subscriber: 'border-2 border-app-text bg-brand-lime text-brand-dark',
+  songs: 'border-2 border-app-text bg-brand-pink text-brand-white',
 };
 
 export const DashboardActivityFeed = ({

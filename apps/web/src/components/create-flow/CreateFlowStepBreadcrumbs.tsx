@@ -42,21 +42,21 @@ export const CreateFlowStepBreadcrumbs = <TStep extends number>({
               transition={CREATE_FLOW_BREADCRUMB_LAYOUT_TRANSITION}
               disabled={!isClickable || isActive}
               onClick={() => onStepChange(item.value)}
-              className={`relative inline-flex items-center justify-center overflow-hidden rounded-full border text-xs font-black transition sm:text-sm ${
-                isActive ? 'h-8 px-3 sm:h-9 sm:px-3.5' : 'h-8 w-8 sm:h-9 sm:w-9'
+              className={`relative inline-flex items-center justify-center overflow-hidden rounded-full border-2 text-xs font-black uppercase tracking-[0.08em] transition sm:text-sm ${
+                isActive ? 'h-9 px-3.5 sm:h-10 sm:px-4' : 'h-9 w-9 sm:h-10 sm:w-10'
               } ${
                 isActive
-                  ? 'border-brand-lime/50 text-brand-dark dark:text-brand-white'
+                  ? 'border-app-text text-brand-dark shadow-sticker-sm'
                   : isClickable
-                    ? 'cursor-pointer border-app-border bg-app-elevated text-app-text hover:border-brand-lime dark:bg-app-card'
-                    : 'cursor-not-allowed border-app-border bg-app-bg text-app-text-secondary opacity-60 dark:bg-app-elevated'
+                    ? 'cursor-pointer border-app-text bg-app-elevated text-app-text shadow-sticker-sm hover:bg-brand-lime hover:text-brand-dark dark:bg-app-card'
+                    : 'cursor-not-allowed border-dashed border-app-text/40 bg-transparent text-app-text-muted'
               }`}
             >
               {isActive ? (
                 <motion.span
                   layoutId={activeLayoutId}
                   transition={CREATE_FLOW_BREADCRUMB_LAYOUT_TRANSITION}
-                  className="absolute inset-0 rounded-full bg-brand-lime/10"
+                  className="absolute inset-0 rounded-full bg-brand-lime"
                 />
               ) : null}
               <span className="relative z-10 inline-flex items-center">

@@ -17,7 +17,7 @@ export const CircularImage = ({
 }: CircularImageProps) => (
   <span
     className={cn(
-      'inline-flex items-center justify-center rounded-full border border-app-border bg-app-elevated shadow-soft-lift',
+      'inline-flex items-center justify-center rounded-full border-2 border-app-text bg-app-elevated shadow-sticker-sm dark:bg-app-card',
       sizeClassName,
       className,
     )}

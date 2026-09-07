@@ -27,7 +27,7 @@ export const EventStatusIndicator = ({
       : isDisconnected
         ? t('eventsPage.statusDisconnected')
         : t('eventsPage.statusOpen');
-  const dotClass = isClosed ? 'bg-brand-pink' : isDisconnected ? 'bg-amber-400' : 'bg-brand-lime';
+  const dotClass = isClosed ? 'bg-brand-pink' : isDisconnected ? 'bg-[#ffc400]' : 'bg-brand-lime';
   const dotSizeClass = dotSize === 'md' ? 'h-3 w-3' : 'h-2.5 w-2.5';
 
   if (mode === 'dot') {
@@ -43,12 +43,12 @@ export const EventStatusIndicator = ({
   if (mode === 'pill') {
     return (
       <span
-        className={`rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${
+        className={`rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${
           isClosed
-            ? 'border border-brand-pink/40 bg-brand-pink/15 text-[#b41563] dark:text-[#ff8ac0]'
+            ? 'border border-app-text bg-brand-pink text-brand-white'
             : isDisconnected
-              ? 'border border-amber-400/45 bg-amber-400/15 text-amber-700 dark:text-amber-300'
-              : 'border border-brand-lime/40 bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
+              ? 'border border-app-text bg-[#ffc400] text-brand-dark'
+              : 'border border-app-text bg-brand-lime text-brand-dark'
         }`}
       >
         {label}
@@ -64,12 +64,12 @@ export const EventStatusIndicator = ({
         title={label}
       />
       <span
-        className={`hidden rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide sm:inline-flex ${
+        className={`hidden rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide sm:inline-flex ${
           isClosed
-            ? 'border border-brand-pink/40 bg-brand-pink/15 text-[#b41563] dark:text-[#ff8ac0]'
+            ? 'border border-app-text bg-brand-pink text-brand-white'
             : isDisconnected
-              ? 'border border-amber-400/45 bg-amber-400/15 text-amber-700 dark:text-amber-300'
-              : 'border border-brand-lime/40 bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]'
+              ? 'border border-app-text bg-[#ffc400] text-brand-dark'
+              : 'border border-app-text bg-brand-lime text-brand-dark'
         }`}
       >
         {label}

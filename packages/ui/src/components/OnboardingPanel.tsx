@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 
+import { Sticker } from './Sticker';
 import { SurfaceCard } from './SurfaceCard';
+import { TapeStrip } from './TapeStrip';
 import { cn } from '../utils/cn';
 
 export type OnboardingStep = {
@@ -33,26 +35,23 @@ export const OnboardingPanel = ({
   steps: _steps,
   className,
 }: OnboardingPanelProps) => (
-  <SurfaceCard
-    className={cn(
-      'relative overflow-hidden border-brand-lime/20 bg-app-bg p-0 dark:bg-app-card',
-      className,
-    )}
-  >
+  <SurfaceCard className={cn('relative overflow-visible p-0', className)}>
+    <TapeStrip tone="lime" className="left-8 w-16" />
+    <TapeStrip tone="pink" className="-bottom-3 right-10 top-auto left-auto rotate-3" />
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(198,255,0,0.18),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(255,46,139,0.16),transparent_38%)]"
+      className="pointer-events-none absolute inset-0 overflow-hidden rounded-[calc(1.5rem-2px)] bg-[radial-gradient(circle_at_top_left,rgba(198,255,0,0.22),transparent_38%),radial-gradient(circle_at_bottom_right,rgba(255,46,139,0.18),transparent_42%)]"
     />
 
     <div className="relative grid gap-5 p-5 sm:p-8">
-      <span className="inline-flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl border border-brand-lime/30 bg-app-elevated text-brand-dark shadow-glow-lime dark:bg-app-elevated dark:text-brand-white">
+      <span className="inline-flex h-13 w-13 shrink-0 items-center justify-center rounded-2xl border-2 border-app-text bg-brand-lime text-brand-dark shadow-sticker-sm">
         {icon}
       </span>
 
       <div className="grid gap-2">
-        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-app-text-secondary">
+        <Sticker tone="paper" tilt="-rotate-2">
           {eyebrow}
-        </p>
+        </Sticker>
         <p className="max-w-xl text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
           {title}
         </p>

@@ -1,3 +1,4 @@
+import { Sticker, TapeStrip } from '@synqit/ui';
 import { Trash2 } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
@@ -16,17 +17,18 @@ export const HostEventDraftCard = ({ draft, onDelete, isDeleting }: HostEventDra
   const hasDescription = draft.description.trim().length > 0;
 
   return (
-    <div className="grid gap-3 rounded-2xl border border-brand-pink/30 bg-app-surface p-4 shadow-soft-lift dark:bg-app-card">
+    <div className="relative grid gap-3 rounded-3xl border-2 border-dashed border-app-text bg-app-surface p-4 shadow-sticker dark:bg-app-card">
+      <TapeStrip tone="pink" />
       <div className="flex items-start gap-3">
-        <div className="h-12 w-12 shrink-0 rounded-xl border border-dashed border-brand-pink/40 bg-brand-pink/5 dark:bg-brand-pink/10" />
+        <div className="h-12 w-12 shrink-0 rounded-xl border-2 border-dashed border-app-text bg-brand-pink/10" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h2 className="min-w-0 truncate text-sm font-black text-brand-dark dark:text-brand-white">
               {hasName ? draft.name : t('eventsPage.draftUntitled')}
             </h2>
-            <span className="inline-flex h-5 shrink-0 items-center rounded-full border border-brand-pink/50 bg-brand-pink/10 px-2 text-[10px] font-black uppercase tracking-wide text-brand-pink">
+            <Sticker tone="pink" tilt="rotate-2" className="px-2 py-0.5 text-[10px]">
               {t('eventsPage.draftBadge')}
-            </span>
+            </Sticker>
           </div>
           <p className="truncate text-xs text-app-text-secondary">
             {hasDescription ? draft.description : t('eventsPage.noDescription')}
@@ -34,7 +36,7 @@ export const HostEventDraftCard = ({ draft, onDelete, isDeleting }: HostEventDra
         </div>
       </div>
 
-      <p className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-xs text-app-text-secondary dark:bg-app-elevated">
+      <p className="rounded-xl border border-app-text/30 bg-app-bg px-3 py-2 text-xs text-app-text-secondary dark:bg-app-elevated">
         {t('eventsPage.draftStepLabel', { step: draft.step })}
       </p>
 
