@@ -57,6 +57,69 @@ const currentPath = (): string => {
   return `${window.location.pathname}${window.location.search}`.slice(0, 512) || '/';
 };
 
+/** UTM keys we read off the landing URL, plus the ad-click ids worth keeping. */
+const CAMPAIGN_PARAMS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+  'gclid',
+  'fbclid',
+] as const;
+
+export type AnalyticsAcquisition = {
+  /** External referrer URL, or null when the visit did not come from another site. */
+  referrer: string | null;
+  /** Campaign parameters found on the landing URL, e.g. `{ utm_source: 'newsletter' }`. */
+  campaign: Record<string, string>;
+};
+
+const stripHostPrefix = (hostname: string): string =>
+  hostname.replace(/^www\./, '').replace(/^app\./, '');
+
+/**
+ * True when `referrer` points somewhere outside our own site. Our marketing site
+ * and the app live on sibling subdomains, so a hop between them is internal.
+ */
+const isExternalReferrer = (referrer: string, currentHostname: string): boolean => {
+  try {
+    const host = stripHostPrefix(new URL(referrer).hostname.toLowerCase());
+    return host !== '' && host !== stripHostPrefix(currentHostname.toLowerCase());
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Reads acquisition data off the landing page. Must run while the entry URL is
+ * still current — a client-side route change drops the campaign parameters.
+ */
+const readAcquisition = (): AnalyticsAcquisition => {
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return { referrer: null, campaign: {} };
+  }
+
+  const raw = document.referrer ?? '';
+  const referrer =
+    raw && isExternalReferrer(raw, window.location.hostname) ? raw.slice(0, 512) : null;
+
+  const campaign: Record<string, string> = {};
+  try {
+    const params = new URLSearchParams(window.location.search);
+    for (const key of CAMPAIGN_PARAMS) {
+      const value = params.get(key)?.trim();
+      if (value) {
+        campaign[key] = value.slice(0, 200);
+      }
+    }
+  } catch {
+    // A malformed query string is not worth failing a page view over.
+  }
+
+  return { referrer, campaign };
+};
+
 /** Fire-and-forget event tracker for the in-house analytics endpoint. */
 export const createAnalyticsTracker = ({
   baseUrl,
@@ -72,6 +135,9 @@ export const createAnalyticsTracker = ({
   const endpoint = `${baseUrl}/v1/analytics/events`;
   let inMemorySessionId: string | null = null;
   let lastTrackedPagePath: string | null = null;
+  // Read once, at construction, while the landing URL is still the current one.
+  const acquisition = readAcquisition();
+  const acquisitionStorageKey = `${sessionStorageKey}.acquisition`;
 
   const getSessionId = (): string | null => {
     if (typeof window === 'undefined') {
@@ -89,6 +155,26 @@ export const createAnalyticsTracker = ({
       inMemorySessionId ??= createSessionId();
       return inMemorySessionId;
     }
+  };
+
+  /**
+   * Returns the acquisition data on the first event of a session and nothing
+   * afterwards, so where a visit came from is recorded once rather than
+   * repeated on every page view.
+   */
+  const takeAcquisition = (): AnalyticsAcquisition | null => {
+    if (!acquisition.referrer && Object.keys(acquisition.campaign).length === 0) {
+      return null;
+    }
+    try {
+      if (window.sessionStorage.getItem(acquisitionStorageKey)) {
+        return null;
+      }
+      window.sessionStorage.setItem(acquisitionStorageKey, '1');
+    } catch {
+      // Storage blocked: sending it again is better than losing it entirely.
+    }
+    return acquisition;
   };
 
   const sendBeacon = (body: string): boolean => {
@@ -136,6 +222,7 @@ export const createAnalyticsTracker = ({
     }
 
     const locale = getLocale?.() ?? null;
+    const entry = takeAcquisition();
     let payload: string;
     try {
       payload = JSON.stringify({
@@ -145,7 +232,11 @@ export const createAnalyticsTracker = ({
         path: (params.pathOverride ?? currentPath()).slice(0, 512),
         locale: locale ?? undefined,
         source,
-        properties: params.properties ?? {},
+        referrer: entry?.referrer ?? undefined,
+        properties:
+          entry && Object.keys(entry.campaign).length > 0
+            ? { ...(params.properties ?? {}), ...entry.campaign }
+            : (params.properties ?? {}),
       });
     } catch {
       return;

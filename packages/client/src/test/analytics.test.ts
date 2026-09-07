@@ -77,4 +77,62 @@ describe('createAnalyticsTracker', () => {
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it('sends the external referrer and campaign parameters once per session', () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{}', { status: 202 }));
+    // No beacon, so the payload arrives as a readable string on the fetch init.
+    Object.defineProperty(navigator, 'sendBeacon', { value: undefined, configurable: true });
+    Object.defineProperty(document, 'referrer', {
+      value: 'https://www.google.com/search?q=playlist+sync',
+      configurable: true,
+    });
+    window.history.replaceState({}, '', '/?utm_source=newsletter&utm_medium=email&ignored=1');
+
+    const tracker = createAnalyticsTracker({
+      baseUrl: '/api',
+      source: 'site',
+      sessionStorageKey: 'acq.session',
+      allowLocal: true,
+    });
+
+    tracker.track({ eventName: 'site_page_view', target: 'marketing' });
+    tracker.track({ eventName: 'site_cta_click', target: 'marketing' });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    const bodyAt = (index: number) =>
+      JSON.parse(String((fetchMock.mock.calls[index][1] as RequestInit).body));
+
+    const first = bodyAt(0);
+    expect(first.referrer).toBe('https://www.google.com/search?q=playlist+sync');
+    expect(first.properties).toMatchObject({ utm_source: 'newsletter', utm_medium: 'email' });
+    expect(first.properties.ignored).toBeUndefined();
+
+    // The second event of the same session carries no acquisition data.
+    const second = bodyAt(1);
+    expect(second.referrer).toBeUndefined();
+    expect(second.properties.utm_source).toBeUndefined();
+  });
+
+  it('treats a hop from our own site as internal rather than a referrer', () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('{}', { status: 202 }));
+    Object.defineProperty(navigator, 'sendBeacon', { value: undefined, configurable: true });
+    Object.defineProperty(document, 'referrer', {
+      value: `${window.location.origin}/pricing`,
+      configurable: true,
+    });
+    window.history.replaceState({}, '', '/');
+
+    createAnalyticsTracker({
+      baseUrl: '/api',
+      source: 'site',
+      sessionStorageKey: 'internal.session',
+      allowLocal: true,
+    }).track({ eventName: 'site_page_view', target: 'marketing' });
+
+    const body = JSON.parse(String((fetchMock.mock.calls[0][1] as RequestInit).body));
+    expect(body.referrer).toBeUndefined();
+  });
 });
