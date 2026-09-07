@@ -10,7 +10,7 @@ export type CtaSize = 'md' | 'lg';
 // - dangerSoft: low-risk destructive/cleanup action.
 // - ghost: subtle inline utility action.
 const CTA_BASE =
-  'inline-flex cursor-pointer appearance-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-2 border-solid font-black leading-none no-underline transition select-none focus-ring-brand disabled:cursor-not-allowed disabled:opacity-60';
+  'inline-flex cursor-pointer appearance-none items-center justify-center gap-1.5 whitespace-nowrap rounded-full border-2 border-solid font-black leading-none no-underline transition select-none focus-ring-brand disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0 aria-disabled:pointer-events-none aria-disabled:opacity-60';
 
 const CTA_SIZES: Record<CtaSize, string> = {
   md: 'px-3 py-2 text-xs',

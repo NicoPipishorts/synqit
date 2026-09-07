@@ -12,8 +12,10 @@ export type StatItem = {
   hintActive?: boolean;
   /** Small icon rendered before the label, e.g. `<Users size={14} aria-hidden="true" />`. */
   icon?: ReactNode;
-  /** Colour of the tape strip on the card's corner. */
+  /** Colour of the tape strip on the card's top edge. */
   tone?: TapeTone;
+  /** Where along the top edge the tape lands; picked per card by StatGrid. */
+  tapeClassName?: string;
 };
 
 export type StatCardProps = Omit<StatItem, 'id'> & { className?: string };
@@ -26,6 +28,7 @@ export const StatCard = ({
   hintActive,
   icon,
   tone = 'lime',
+  tapeClassName,
   className,
 }: StatCardProps) => (
   <div
@@ -34,7 +37,7 @@ export const StatCard = ({
       className,
     )}
   >
-    <TapeStrip tone={tone} />
+    <TapeStrip tone={tone} className={tapeClassName} />
     <div className="flex items-center gap-1.5 text-app-text-secondary">
       {icon}
       <span className="text-[11px] font-black uppercase tracking-[0.16em]">{label}</span>
@@ -64,11 +67,26 @@ type StatGridProps = {
 
 const TONES: TapeTone[] = ['lime', 'pink', 'sky', 'gradient'];
 
+// Tape placements along the top edge, so a row of cards never looks stamped.
+const TAPE_SPOTS = [
+  'left-6 -rotate-6',
+  'left-[58%] rotate-3',
+  'left-[32%] -rotate-2',
+  'left-auto right-8 rotate-6',
+  'left-[45%] -rotate-4',
+  'left-8 rotate-2',
+];
+
 /** Responsive grid of StatCards: two columns on small screens, four from `lg`. */
 export const StatGrid = ({ stats, className }: StatGridProps) => (
   <section className={cn('grid grid-cols-2 gap-4 pt-2 sm:gap-5 lg:grid-cols-4', className)}>
     {stats.map(({ id, tone, ...stat }, index) => (
-      <StatCard key={id} tone={tone ?? TONES[index % TONES.length]} {...stat} />
+      <StatCard
+        key={id}
+        tone={tone ?? TONES[index % TONES.length]}
+        tapeClassName={TAPE_SPOTS[index % TAPE_SPOTS.length]}
+        {...stat}
+      />
     ))}
   </section>
 );

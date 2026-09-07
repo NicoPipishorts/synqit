@@ -7,8 +7,9 @@ import {
   SurfaceCard,
   useToast,
 } from '@synqit/ui';
-import { ImagePlus, Pencil, ShieldCheck, UserRound } from 'lucide-react';
-import { ChangeEvent, DragEvent, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Check, Pencil, Sparkles, UserRound } from 'lucide-react';
+import { type ReactNode, ChangeEvent, DragEvent, useRef, useState } from 'react';
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { CTAButton, CTALink } from '../components/ui/cta';
@@ -21,8 +22,30 @@ import { useProfileCompletion } from '../hooks/useProfileCompletion';
 import { useProfileSettings } from '../hooks/useProfileSettings';
 import { callApi, toApiError } from '../lib/api';
 import { updateStoredAuthUser } from '../lib/auth';
+import { fetchIntegrations, queryKeys } from '../lib/queries';
 
 const MAX_AVATAR_BYTES = 8_000_000;
+
+/** Wraps a setup CTA; when the task is done a lime check sticker sits on its corner. */
+const TaskCta = ({
+  done,
+  doneLabel,
+  children,
+}: {
+  done: boolean;
+  doneLabel: string;
+  children: ReactNode;
+}) => (
+  <span className="relative inline-flex">
+    {children}
+    {done ? (
+      <span className="absolute -right-2 -top-2 inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-app-text bg-brand-lime text-brand-dark shadow-sticker-sm">
+        <Check size={13} strokeWidth={3} aria-hidden="true" />
+        <span className="sr-only">{doneLabel}</span>
+      </span>
+    ) : null}
+  </span>
+);
 
 export const ProfilePage = () => {
   const { t } = useI18n();
@@ -36,7 +59,22 @@ export const ProfilePage = () => {
   const [isSavingAvatar, setIsSavingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const avatarSrc = auth?.avatarUrl ?? settings.avatarDataUrl ?? null;
-  const needsProfileOnboarding = showPersonalInfoPrompt || !avatarSrc;
+  const integrationsQuery = useQuery({
+    queryKey: queryKeys.integrations.list(),
+    queryFn: fetchIntegrations,
+    enabled: Boolean(auth),
+    staleTime: 60_000,
+  });
+  const hasConnectedPlatform = Object.values(integrationsQuery.data ?? {}).some(
+    (status) => status === 'connected',
+  );
+  const profileTasks = [
+    { id: 'avatar', done: Boolean(avatarSrc) },
+    { id: 'identity', done: !showPersonalInfoPrompt },
+    { id: 'platforms', done: hasConnectedPlatform },
+  ];
+  const doneTaskCount = profileTasks.filter((task) => task.done).length;
+  const isProfileComplete = doneTaskCount === profileTasks.length;
 
   const fileToDataUrl = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -210,7 +248,42 @@ export const ProfilePage = () => {
         </div>
       </article>
 
-      {needsProfileOnboarding ? (
+      {isProfileComplete ? (
+        <OnboardingPanel
+          eyebrow={t('profile.readyEyebrow')}
+          title={t('profile.readyTitle')}
+          body={t('profile.readyBody')}
+          icon={<Sparkles size={24} aria-hidden="true" />}
+          actions={
+            <>
+              <CTALink
+                to="/profile/personal-info"
+                variant="primary"
+                size="lg"
+                className="justify-center"
+              >
+                {t('profile.readyCtaPreferences')}
+              </CTALink>
+              <CTALink
+                to="/profile/security"
+                variant="secondary"
+                size="lg"
+                className="justify-center"
+              >
+                {t('profile.readyCtaPassword')}
+              </CTALink>
+              <CTALink
+                to="/profile/platforms"
+                variant="secondary"
+                size="lg"
+                className="justify-center"
+              >
+                {t('profile.readyCtaConnections')}
+              </CTALink>
+            </>
+          }
+        />
+      ) : (
         <OnboardingPanel
           eyebrow={t('profile.onboardingEyebrow')}
           title={t('profile.onboardingTitle')}
@@ -219,52 +292,54 @@ export const ProfilePage = () => {
           note={t('profile.onboardingNote')}
           actions={
             <>
-              <CTAButton
-                type="button"
-                variant="primary"
-                size="lg"
-                className="justify-center"
-                onClick={() => setIsAvatarModalOpen(true)}
-              >
-                {t('profile.onboardingCtaAvatar')}
-              </CTAButton>
-              <CTALink
-                to="/profile/personal-info"
-                variant="secondary"
-                size="lg"
-                className="justify-center"
-              >
-                {t('profile.onboardingCtaProfile')}
-              </CTALink>
-              <CTALink
-                to="/profile/platforms"
-                variant="secondary"
-                size="lg"
-                className="justify-center"
-              >
-                {t('profile.onboardingCtaPlatforms')}
-              </CTALink>
+              <TaskCta done={profileTasks[0].done} doneLabel={t('profile.taskDone')}>
+                <CTAButton
+                  type="button"
+                  variant={profileTasks[0].done ? 'secondary' : 'primary'}
+                  size="lg"
+                  className="w-full justify-center"
+                  disabled={profileTasks[0].done}
+                  onClick={() => setIsAvatarModalOpen(true)}
+                >
+                  <span className={profileTasks[0].done ? 'line-through decoration-2' : ''}>
+                    {t('profile.onboardingCtaAvatar')}
+                  </span>
+                </CTAButton>
+              </TaskCta>
+              <TaskCta done={profileTasks[1].done} doneLabel={t('profile.taskDone')}>
+                <CTALink
+                  to="/profile/personal-info"
+                  variant={!profileTasks[0].done || profileTasks[1].done ? 'secondary' : 'primary'}
+                  size="lg"
+                  className="w-full justify-center"
+                  disabled={profileTasks[1].done}
+                >
+                  <span className={profileTasks[1].done ? 'line-through decoration-2' : ''}>
+                    {t('profile.onboardingCtaProfile')}
+                  </span>
+                </CTALink>
+              </TaskCta>
+              <TaskCta done={profileTasks[2].done} doneLabel={t('profile.taskDone')}>
+                <CTALink
+                  to="/profile/platforms"
+                  variant={
+                    profileTasks[0].done && profileTasks[1].done && !profileTasks[2].done
+                      ? 'primary'
+                      : 'secondary'
+                  }
+                  size="lg"
+                  className="w-full justify-center"
+                  disabled={profileTasks[2].done}
+                >
+                  <span className={profileTasks[2].done ? 'line-through decoration-2' : ''}>
+                    {t('profile.onboardingCtaPlatforms')}
+                  </span>
+                </CTALink>
+              </TaskCta>
             </>
           }
-          steps={[
-            {
-              icon: <ImagePlus size={18} aria-hidden="true" />,
-              title: t('profile.onboardingStepAvatarTitle'),
-              body: t('profile.onboardingStepAvatarBody'),
-            },
-            {
-              icon: <UserRound size={18} aria-hidden="true" />,
-              title: t('profile.onboardingStepIdentityTitle'),
-              body: t('profile.onboardingStepIdentityBody'),
-            },
-            {
-              icon: <ShieldCheck size={18} aria-hidden="true" />,
-              title: t('profile.onboardingStepReadyTitle'),
-              body: t('profile.onboardingStepReadyBody'),
-            },
-          ]}
         />
-      ) : null}
+      )}
 
       <SurfaceCard>
         <div className="grid gap-1">

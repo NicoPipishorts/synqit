@@ -48,6 +48,9 @@ services:
       - '127.0.0.1:3001:3001'
     volumes:
       - /srv/synqit/data/uploads/avatars:/app/data/uploads/avatars
+      # Event cover images live next to avatars; without this mount every deploy
+      # (`up --force-recreate`) wiped them and the stored URLs went dead.
+      - /srv/synqit/data/uploads/event-images:/app/data/uploads/event-images
     depends_on:
       postgres:
         condition: service_healthy
