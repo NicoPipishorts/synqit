@@ -281,7 +281,7 @@ const AppShell = () => {
             <a
               href={buildAppUrl('/auth/login')}
               data-analytics-label="header_login"
-              className="rounded-full border border-app-border bg-app-elevated px-5 py-2.5 text-[15px] font-bold text-app-text shadow-[0_18px_42px_-22px_rgba(34,34,34,0.44),0_8px_18px_-14px_rgba(34,34,34,0.28)] transition hover:border-brand-lime hover:text-brand-lime dark:bg-app-card"
+              className="rounded-full border-2 border-app-text bg-app-elevated px-5 py-2.5 text-[15px] font-black text-app-text shadow-sticker-sm transition hover:bg-brand-lime hover:text-brand-dark motion-safe:hover:-translate-y-0.5 dark:bg-app-card"
             >
               {t('accountMenu.login')}
             </a>

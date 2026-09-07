@@ -62,15 +62,14 @@ const buildEdgePath = (width: number, radius: number, height: number, amp: numbe
     .join(' ');
 };
 
-// Hand-drawn marker stroke hugging the sheet's bottom edge and wrapping its
-// rounded corners. Measured from the real container width so nothing distorts.
+// Highlighter stroke hugging the sheet's bottom edge and wrapping its rounded
+// corners. Measured from the real container width so nothing distorts.
 const MarkerSeam = ({ width }: { width: number }) => {
   if (width <= 0) return null;
   const radius = cornerRadius(width);
   const height = radius + SIDE_RUN + OUTER_MARGIN + 8;
-  const main = buildEdgePath(width, radius, height, 1.6);
-  const second = buildEdgePath(width, radius, height - 5, 1.2);
-  const pencil = buildEdgePath(width, radius, height - 4, 0.7);
+  const main = buildEdgePath(width, radius, height, 0.6);
+  const second = buildEdgePath(width, radius, height - 4, 0.5);
 
   return (
     <svg
@@ -83,21 +82,10 @@ const MarkerSeam = ({ width }: { width: number }) => {
       // that far below the sheet puts the line exactly on the edge: half white, half footer.
       style={{ bottom: -OUTER_MARGIN, overflow: 'visible' }}
     >
-      <defs>
-        <filter id="marker-rough" x="-2%" y="-10%" width="104%" height="120%">
-          <feTurbulence type="fractalNoise" baseFrequency="0.05 0.9" numOctaves="2" seed="5" />
-          <feDisplacementMap
-            in="SourceGraphic"
-            scale="3"
-            xChannelSelector="R"
-            yChannelSelector="G"
-          />
-        </filter>
-      </defs>
-      <g fill="none" strokeLinecap="round" strokeLinejoin="round" filter="url(#marker-rough)">
-        <path d={second} stroke="var(--color-brand-lime)" strokeWidth={9} opacity={0.6} />
-        <path d={main} stroke="var(--color-brand-lime)" strokeWidth={11} />
-        <path d={pencil} stroke="var(--syn-text)" strokeWidth={2} opacity={0.7} />
+      {/* Two soft highlighter passes, no roughening: smooth like the title highlight. */}
+      <g fill="none" strokeLinecap="round" strokeLinejoin="round">
+        <path d={second} stroke="var(--color-brand-lime)" strokeWidth={10} opacity={0.55} />
+        <path d={main} stroke="var(--color-brand-lime)" strokeWidth={14} opacity={0.92} />
       </g>
     </svg>
   );
