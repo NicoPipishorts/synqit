@@ -43,13 +43,13 @@ export const DashboardFollowersRow = ({
 }: DashboardFollowersRowProps) => (
   <section className="grid gap-4">
     <div className="px-1">
-      <h2 className="text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
+      <h2 className="text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
         {title}
       </h2>
       <p className="mt-0.5 text-xs text-app-text-secondary">{subtitle}</p>
     </div>
 
-    <div className="rounded-2xl border border-app-border bg-app-elevated px-4 py-4 dark:bg-app-card shadow-soft-lift">
+    <div className="rounded-3xl border-2 border-app-text bg-app-elevated px-4 py-4 shadow-sticker dark:bg-app-card">
       {followers.length === 0 ? (
         <p className="text-sm text-app-text-secondary">{emptyLabel}</p>
       ) : (
@@ -59,7 +59,7 @@ export const DashboardFollowersRow = ({
             return (
               <div
                 key={follower.userId}
-                className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-app-border bg-app-surface text-sm font-bold text-brand-dark shadow-soft-lift dark:text-brand-white"
+                className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-app-text bg-app-surface text-sm font-black text-brand-dark shadow-sticker-sm dark:text-brand-white"
                 title={follower.name}
               >
                 {avatarSrc ? (
@@ -79,7 +79,7 @@ export const DashboardFollowersRow = ({
             to={viewAllTo}
             aria-label={viewAllLabel}
             title={viewAllLabel}
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-dashed border-app-border bg-app-surface text-app-text-secondary shadow-soft-lift transition hover:border-brand-pink hover:text-brand-pink"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-dashed border-app-text bg-app-surface text-app-text transition hover:bg-brand-lime hover:text-brand-dark"
           >
             <ArrowRight size={18} aria-hidden="true" />
           </Link>

@@ -25,10 +25,9 @@ export const IconButton = ({
   <button
     type={props.type ?? 'button'}
     className={cn(
-      'inline-flex cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-surface text-app-text transition hover:border-brand-lime focus-ring-brand dark:bg-app-elevated',
+      'inline-flex cursor-pointer items-center justify-center rounded-full border-2 border-app-text bg-app-surface text-app-text transition hover:bg-brand-lime hover:text-brand-dark motion-safe:hover:-translate-y-0.5 focus-ring-brand dark:bg-app-elevated',
       ICON_BUTTON_SIZES[size],
-      withShadow &&
-        'shadow-[0_10px_24px_-14px_rgba(34,34,34,0.34),0_4px_10px_-6px_rgba(34,34,34,0.22)]',
+      withShadow && 'shadow-sticker-sm',
       className,
     )}
     {...props}

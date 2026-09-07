@@ -1,3 +1,4 @@
+import { Sticker } from '@synqit/ui';
 import { type ReactNode } from 'react';
 
 import { CircleChevronBackButton } from '../ui/CircleChevronBackButton';
@@ -31,13 +32,13 @@ export const AppPageHeader = ({
         {backTo ? <CircleChevronBackButton to={backTo} label={backLabel ?? title} /> : null}
         <div className={`grid flex-1 gap-3${backTo ? ' ml-12 sm:ml-14' : ''}`}>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between ">
-            <div className="grid gap-1">
+            <div className="flex flex-col items-start gap-2">
               {eyebrow ? (
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary">
+                <Sticker tone="paper" tilt="-rotate-2">
                   {eyebrow}
-                </p>
+                </Sticker>
               ) : null}
-              <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+              <h1 className="text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
                 {title}
               </h1>
               {description ? (
@@ -47,7 +48,7 @@ export const AppPageHeader = ({
                   {description}
                 </p>
               ) : null}
-              {actions ? <div className="flex w-full sm:hidden">{actions}</div> : null}
+              {actions ? <div className="flex w-full pt-2 sm:hidden">{actions}</div> : null}
             </div>
             {actions ? <div className="hidden items-center gap-2 sm:flex">{actions}</div> : null}
           </div>

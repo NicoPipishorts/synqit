@@ -28,7 +28,7 @@ export const PublicTracksPanel = ({
     <div className="grid gap-3">
       {!isProviderPlaylistMissing ? (
         <div className="flex items-center justify-between gap-2">
-          <p className="pl-4 text-xs font-semibold text-app-text-secondary">
+          <p className="pl-1 text-xs font-black uppercase tracking-[0.14em] text-app-text-secondary">
             {t('eventPublicPage.currentTracks', { count: tracks.length })}
           </p>
           <button
@@ -36,7 +36,7 @@ export const PublicTracksPanel = ({
             aria-label={t('eventPublicPage.refresh')}
             disabled={isLoading}
             onClick={onRefresh}
-            className="group flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-surface transition hover:border-brand-pink disabled:opacity-50 dark:bg-app-elevated"
+            className="group flex h-8 w-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 border-app-text bg-app-surface shadow-sticker-sm transition hover:bg-brand-lime disabled:opacity-50 dark:bg-app-elevated"
           >
             <RefreshCcw
               size={13}
@@ -53,9 +53,13 @@ export const PublicTracksPanel = ({
         <TrackSkeletonList />
       ) : tracks.length > 0 ? (
         <>
-          <ul className="grid gap-3">
-            {tracks.slice(0, visibleCount).map((track) => (
-              <AddedTrackRow key={`${track.providerTrackId}-${track.addedAt}`} track={track} />
+          <ul className="grid gap-4 pt-1">
+            {tracks.slice(0, visibleCount).map((track, index) => (
+              <AddedTrackRow
+                key={`${track.providerTrackId}-${track.addedAt}`}
+                track={track}
+                index={index}
+              />
             ))}
           </ul>
           {tracks.length > visibleCount ? (

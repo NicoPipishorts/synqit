@@ -72,7 +72,7 @@ export const ProviderSelectionStep = ({
                       onClick={() => onProviderSelect(value)}
                       disabled={isConnectingProvider}
                       aria-label={providerLabels[value]}
-                      className={`relative inline-flex items-center justify-center rounded-full transition ${
+                      className={`relative inline-flex items-center justify-center rounded-full transition motion-safe:hover:-translate-y-0.5 ${
                         isConnectingProvider ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                       }`}
                     >
@@ -88,7 +88,7 @@ export const ProviderSelectionStep = ({
                         provider={value}
                         sizeClassName="h-24 w-24 sm:h-24 sm:w-24"
                         imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}
-                        className="ring-2 ring-brand-lime/70 ring-offset-1 ring-offset-app-bg"
+                        className="ring-[3px] ring-brand-lime ring-offset-2 ring-offset-app-bg"
                       />
                     </span>
                   )}
@@ -100,7 +100,7 @@ export const ProviderSelectionStep = ({
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.7 }}
                         transition={{ duration: 0.18, ease: CREATE_FLOW_STEP_SLIDE_EASE }}
-                        className="absolute top-3.75 right-3.75 inline-flex h-6 w-6 items-center justify-center rounded-full border border-app-border bg-brand-lime text-brand-white shadow-soft-lift"
+                        className="absolute top-3.75 right-3.75 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-app-text bg-brand-lime text-brand-dark shadow-sticker-sm"
                       >
                         <Check size={15} strokeWidth={4} aria-hidden="true" />
                       </motion.span>
@@ -114,7 +114,7 @@ export const ProviderSelectionStep = ({
                         transition={{ duration: 0.18, ease: CREATE_FLOW_STEP_SLIDE_EASE }}
                         onClick={onProviderClear}
                         aria-label={unselectAriaLabel}
-                        className="absolute top-3.75 right-3.75 inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-brand-pink text-white shadow-soft-lift transition hover:opacity-80"
+                        className="absolute top-3.75 right-3.75 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-app-text bg-brand-pink text-white shadow-sticker-sm transition hover:opacity-80"
                       >
                         <X size={13} strokeWidth={3} aria-hidden="true" />
                       </motion.button>

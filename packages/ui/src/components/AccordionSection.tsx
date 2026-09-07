@@ -15,12 +15,12 @@ export const AccordionSection = ({
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <section className="rounded-xl border border-app-border bg-app-elevated p-3 dark:bg-app-card">
+    <section className="rounded-2xl border-2 border-app-text bg-app-elevated p-3 shadow-sticker-sm dark:bg-app-card">
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         aria-expanded={isOpen}
-        className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg text-left text-sm font-black text-app-text transition hover:text-brand-lime"
+        className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg text-left text-sm font-black text-app-text transition hover:text-brand-pink"
       >
         <span>{title}</span>
         <ChevronDown

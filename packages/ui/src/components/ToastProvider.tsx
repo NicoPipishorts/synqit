@@ -19,11 +19,9 @@ const DEFAULT_DURATION_MS = 3600;
 const DEFAULT_ERROR_DURATION_MS = 5500;
 
 const TOAST_CLASSES: Record<ToastVariant, string> = {
-  success:
-    'border-brand-lime/60 bg-[#e8f5b0] text-[#587700] dark:border-brand-lime/40 dark:bg-[#1a2e00] dark:text-[#d5ff63]',
-  error:
-    'border-brand-pink/60 bg-[#fce8f1] text-[#a91159] dark:border-brand-pink/40 dark:bg-[#2e0018] dark:text-[#ffb4d9]',
-  info: 'border-app-border bg-app-elevated text-app-text dark:bg-app-card',
+  success: 'bg-brand-lime text-brand-dark',
+  error: 'bg-brand-pink text-brand-white',
+  info: 'bg-app-elevated text-app-text dark:bg-app-card',
 };
 
 const ToastIcon = ({ variant }: { variant: ToastVariant }) => {
@@ -102,18 +100,18 @@ export const ToastProvider = ({
               {toasts.map((toast) => (
                 <div
                   key={toast.id}
-                  className={`pointer-events-auto flex items-center gap-3 rounded-xl border px-3.5 py-3 shadow-xl backdrop-blur ${TOAST_CLASSES[toast.variant]}`}
+                  className={`pointer-events-auto flex items-center gap-3 rounded-2xl border-2 border-app-text px-3.5 py-3 shadow-sticker ${TOAST_CLASSES[toast.variant]}`}
                   role="status"
                   aria-live={toast.variant === 'error' ? 'assertive' : 'polite'}
                 >
                   <div className="shrink-0">
                     <ToastIcon variant={toast.variant} />
                   </div>
-                  <p className="flex-1 text-sm font-medium leading-5">{toast.message}</p>
+                  <p className="flex-1 text-sm font-bold leading-5">{toast.message}</p>
                   <button
                     type="button"
                     onClick={() => dismissToast(toast.id)}
-                    className="shrink-0 rounded-md border border-current/20 p-1.5 transition hover:bg-black/5 dark:hover:bg-white/10"
+                    className="shrink-0 rounded-full border-2 border-current/50 p-1.5 transition hover:bg-black/10 dark:hover:bg-white/10"
                     aria-label={dismissLabel}
                   >
                     <X size={14} aria-hidden="true" />

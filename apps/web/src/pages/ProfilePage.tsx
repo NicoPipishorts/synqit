@@ -1,5 +1,12 @@
 import { authUserSchema } from '@synqit/shared';
-import { OnboardingPanel, SurfaceCard, CircularImage, NotificationDot, useToast } from '@synqit/ui';
+import {
+  CircularImage,
+  NotificationDot,
+  OnboardingPanel,
+  Sticker,
+  SurfaceCard,
+  useToast,
+} from '@synqit/ui';
 import { ImagePlus, Pencil, ShieldCheck, UserRound } from 'lucide-react';
 import { ChangeEvent, DragEvent, useRef, useState } from 'react';
 
@@ -152,10 +159,10 @@ export const ProfilePage = () => {
       <article>
         <div className="grid grid-cols-[minmax(0,14rem)_auto] items-start gap-5 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 sm:pb-8 sm:px-2">
           <div className="grid gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-app-text-secondary">
+            <Sticker tone="paper" tilt="-rotate-2" className="mb-1">
               {t('profile.pill')}
-            </p>
-            <h1 className="text-2xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+            </Sticker>
+            <h1 className="text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
               {t('profile.pageTitle')}
             </h1>
             <p className="text-sm text-app-text-secondary sm:text-base">
@@ -167,8 +174,8 @@ export const ProfilePage = () => {
           </div>
 
           <div className="relative">
-            <div className="h-24 w-24 rounded-full bg-brand-gradient p-0.5 sm:h-28 sm:w-28 lg:h-32 lg:w-32">
-              <div className="h-full w-full overflow-hidden rounded-full bg-app-bg">
+            <div className="h-24 w-24 rounded-full border-[3px] border-app-text bg-app-elevated p-1 shadow-sticker dark:bg-app-card sm:h-28 sm:w-28 lg:h-32 lg:w-32">
+              <div className="h-full w-full overflow-hidden rounded-full bg-brand-lime">
                 {avatarSrc ? (
                   <img
                     src={avatarSrc}
@@ -176,8 +183,16 @@ export const ProfilePage = () => {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-app-text-muted">
-                    {t('profile.noAvatar')}
+                  <div
+                    className="flex h-full w-full items-center justify-center text-brand-dark"
+                    role="img"
+                    aria-label={t('profile.noAvatar')}
+                  >
+                    <UserRound
+                      className="h-10 w-10 sm:h-12 sm:w-12"
+                      strokeWidth={2.25}
+                      aria-hidden="true"
+                    />
                   </div>
                 )}
               </div>
@@ -186,7 +201,7 @@ export const ProfilePage = () => {
               type="button"
               onClick={() => setIsAvatarModalOpen(true)}
               aria-label={t('profile.editAvatar')}
-              className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated p-1.5 text-xs font-semibold shadow-soft-lift transition hover:border-brand-pink dark:bg-app-card sm:gap-1.5 sm:px-3 sm:py-1"
+              className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border-2 border-app-text bg-app-elevated p-1.5 text-xs font-black shadow-sticker-sm transition hover:bg-brand-lime hover:text-brand-dark dark:bg-app-card sm:gap-1.5 sm:px-3 sm:py-1"
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">{t('profile.editAvatar')}</span>
@@ -364,10 +379,10 @@ export const ProfilePage = () => {
               }
             }}
             disabled={isSavingAvatar}
-            className={`rounded-2xl border-2 border-dashed px-4 py-8 text-center text-sm font-medium transition ${
+            className={`rounded-2xl border-2 border-dashed px-4 py-8 text-center text-sm font-bold transition ${
               isAvatarDragActive
-                ? 'border-brand-pink bg-brand-pink/10'
-                : 'border-app-border bg-app-bg hover:border-brand-lime dark:bg-app-elevated'
+                ? 'border-app-text bg-brand-lime/25 shadow-sticker-sm'
+                : 'border-app-text/60 bg-app-surface hover:border-app-text hover:bg-brand-lime/10 dark:bg-app-elevated'
             } ${isSavingAvatar ? 'cursor-not-allowed opacity-60' : ''}`}
           >
             <p>{t('profile.avatarDropLabel')}</p>

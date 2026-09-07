@@ -1,4 +1,4 @@
-import { IconButton } from '@synqit/ui';
+import { IconButton, TapeStrip } from '@synqit/ui';
 import { ExternalLink, Music2, Settings2 } from 'lucide-react';
 
 import { EventMagicLinkRow } from './EventMagicLinkRow';
@@ -18,14 +18,19 @@ export const HostEventCard = ({ event }: HostEventCardProps) => {
   const isRevoked = event.magicLinkRevokedAt !== null;
 
   return (
-    <div className="grid min-w-0 gap-4 overflow-hidden rounded-2xl border border-app-border bg-app-bg p-4 shadow-soft-lift transition duration-150 hover:border-brand-lime/40 dark:bg-app-card">
+    <div className="relative grid min-w-0 gap-4 rounded-3xl border-2 border-app-text bg-app-elevated p-4 shadow-sticker transition duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[6px_6px_0_0_var(--syn-text)] dark:bg-app-card">
+      <TapeStrip tone="lime" />
       <div className="flex min-w-0 items-start gap-3">
         {coverUrl ? (
-          <img src={coverUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+          <img
+            src={coverUrl}
+            alt=""
+            className="h-12 w-12 shrink-0 rounded-xl border-2 border-app-text object-cover"
+          />
         ) : (
           <span
             aria-hidden="true"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]"
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 border-app-text bg-brand-lime text-brand-dark"
           >
             <Music2 size={18} />
           </span>
@@ -78,7 +83,7 @@ export const HostEventCard = ({ event }: HostEventCardProps) => {
       </div>
 
       {isRevoked ? (
-        <p className="rounded-lg border border-app-border px-3 py-2 text-xs text-app-text-muted">
+        <p className="rounded-xl border border-dashed border-app-text/40 px-3 py-2 text-xs text-app-text-muted">
           {t('eventsPage.linkRevoked')}
         </p>
       ) : null}

@@ -32,7 +32,7 @@ export const SyncPlaylistPicker = ({
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
-            className="flex items-center gap-3 rounded-xl border border-app-border bg-app-elevated/60 p-3 animate-pulse"
+            className="flex items-center gap-3 rounded-2xl border-2 border-app-border-strong bg-app-elevated/60 p-3 animate-pulse"
           >
             <div className="h-10 w-10 shrink-0 rounded-lg bg-app-border" />
             <div className="grid flex-1 gap-1.5">
@@ -69,10 +69,10 @@ export const SyncPlaylistPicker = ({
               <button
                 type="button"
                 onClick={() => onSelect(playlist)}
-                className={`group flex w-full items-center gap-3 rounded-xl border p-3 text-left bg-app-elevated/60 transition-colors duration-150 dark:hover:bg-app-card select-none ${
+                className={`group flex w-full items-center gap-3 rounded-2xl border-2 p-3 text-left transition duration-150 select-none ${
                   isSelected
-                    ? 'cursor-default border-brand-pink'
-                    : 'cursor-pointer border-app-border hover:border-brand-pink'
+                    ? 'cursor-default border-app-text bg-brand-lime/15 shadow-sticker-sm'
+                    : 'cursor-pointer border-app-border-strong bg-app-elevated/60 hover:border-app-text hover:bg-app-elevated dark:hover:bg-app-card'
                 }`}
               >
                 <div className="relative shrink-0">
@@ -80,15 +80,15 @@ export const SyncPlaylistPicker = ({
                     <img
                       src={playlist.coverImageUrl}
                       alt=""
-                      className="h-10 w-10 rounded-lg object-cover"
+                      className="h-10 w-10 rounded-lg border-2 border-app-text object-cover"
                     />
                   ) : (
-                    <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-app-border text-app-text-muted">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-lg border-2 border-app-text bg-app-surface text-app-text-muted">
                       <ListMusic size={16} aria-hidden="true" />
                     </span>
                   )}
                   <span
-                    className={`pointer-events-none absolute -right-1.5 -bottom-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-brand-pink text-white shadow-sm transition-all duration-150 ${
+                    className={`pointer-events-none absolute -right-1.5 -bottom-1.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-app-text bg-brand-lime text-brand-dark transition-all duration-150 ${
                       isSelected
                         ? 'opacity-100 scale-100'
                         : 'opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100'
@@ -100,7 +100,7 @@ export const SyncPlaylistPicker = ({
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <div className="flex min-w-0 items-center gap-2">
                     <p
-                      className={`min-w-0 flex-1 truncate text-sm font-bold transition-colors duration-150 ${isSelected ? 'text-brand-pink' : 'text-brand-dark dark:text-brand-white group-hover:text-brand-pink'}`}
+                      className={`min-w-0 flex-1 truncate text-sm font-bold transition-colors duration-150 ${isSelected ? 'text-brand-dark dark:text-brand-white' : 'text-brand-dark dark:text-brand-white'}`}
                     >
                       {playlist.name}
                     </p>

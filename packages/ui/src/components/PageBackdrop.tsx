@@ -1,4 +1,4 @@
-// Page-wide background texture: soft colour washes, a halftone dot grid and a
+// Page-wide background texture shared by the site and the app: soft colour washes, a halftone dot grid and a
 // paper grain. Everything is plain CSS backgrounds (no blur filters), so it
 // stays cheap on phones and never creates extra compositing layers.
 
