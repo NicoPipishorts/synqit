@@ -251,12 +251,7 @@ export const HostEventDetailsPage = () => {
     saveEventMutation.mutate();
   };
 
-  const tabIndicatorTransform =
-    activeTab === 'tracks'
-      ? 'translateX(100%)'
-      : activeTab === 'share'
-        ? 'translateX(200%)'
-        : 'translateX(0)';
+  const tabIndex = activeTab === 'tracks' ? 1 : activeTab === 'share' ? 2 : 0;
   const showEditMetaCard = activeTab === 'edit';
   const isReopenDisabled = event?.closeReason === 'provider_playlist_missing';
   const eventActionButtonClassName =
@@ -310,7 +305,7 @@ export const HostEventDetailsPage = () => {
               <img
                 src={event.coverImageUrl}
                 alt=""
-                className="h-23 w-23 rounded-full border-4 border-app-border object-cover shadow-lg sm:h-28 sm:w-28"
+                className="h-23 w-23 rounded-full border-[3px] border-app-text object-cover shadow-sticker sm:h-28 sm:w-28"
               />
             ) : (
               <button
@@ -318,7 +313,7 @@ export const HostEventDetailsPage = () => {
                 disabled={isUploadingImage}
                 onClick={() => document.getElementById('hero-image-input')?.click()}
                 aria-label={t('eventsPage.changeCoverImage')}
-                className="group flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-full border-4 border-dashed border-app-border bg-app-elevated transition duration-200 hover:border-brand-pink sm:h-28 sm:w-28 dark:bg-app-card disabled:opacity-50"
+                className="group flex h-20 w-20 cursor-pointer flex-col items-center justify-center gap-1 rounded-full border-[3px] border-dashed border-app-text bg-app-elevated transition duration-200 hover:bg-brand-lime/20 sm:h-28 sm:w-28 dark:bg-app-card disabled:opacity-50"
               >
                 <ImagePlus
                   className="h-6 w-6 text-app-text-secondary transition duration-200 group-hover:text-brand-pink sm:h-7 sm:w-7"
@@ -332,7 +327,7 @@ export const HostEventDetailsPage = () => {
                 disabled={isUploadingImage}
                 onClick={() => document.getElementById('hero-image-input')?.click()}
                 aria-label={t('eventsPage.changeCoverImage')}
-                className="group absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated p-1.5 shadow-soft-lift transition duration-200 hover:border-brand-pink motion-safe:hover:-translate-y-0.5 dark:bg-app-card disabled:opacity-50"
+                className="group absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border-2 border-app-text bg-app-elevated p-1.5 shadow-sticker-sm transition duration-200 hover:bg-brand-lime motion-safe:hover:-translate-y-0.5 dark:bg-app-card disabled:opacity-50"
               >
                 <Pencil
                   className="h-3.5 w-3.5 transition-transform duration-200 ease-out motion-safe:group-hover:-rotate-12 motion-safe:group-hover:scale-110"
@@ -344,8 +339,18 @@ export const HostEventDetailsPage = () => {
           </div>
 
           <div className="grid gap-1 pt-1">
-            <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-              {event?.name ?? t('eventsPage.loadingDetails')}
+            <h1 className="text-3xl font-black leading-[1.05] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-5xl">
+              {event ? (
+                <span className="relative inline-block px-2">
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-x-0 inset-y-[8%] -skew-x-6 -rotate-1 rounded-md bg-brand-lime"
+                  />
+                  <span className="relative text-brand-dark">{event.name}</span>
+                </span>
+              ) : (
+                t('eventsPage.loadingDetails')
+              )}
             </h1>
             {event?.description ? (
               <p className="text-sm text-app-text-secondary sm:text-base">{event.description}</p>
@@ -354,18 +359,22 @@ export const HostEventDetailsPage = () => {
 
           {/* Tab bar */}
           {event ? (
-            <div className="relative grid w-full max-w-md grid-cols-3 overflow-hidden rounded-3xl border border-app-border bg-app-elevated shadow-soft-lift dark:bg-app-card">
+            <div className="relative grid w-full max-w-md grid-cols-3 rounded-full border-2 border-app-text bg-app-elevated p-1 shadow-sticker dark:bg-app-card">
               <div
-                className="absolute inset-0 w-1/3 bg-brand-lime transition-transform duration-200 ease-in-out"
-                style={{ transform: tabIndicatorTransform }}
+                aria-hidden="true"
+                className="absolute inset-y-1 rounded-full border-2 border-app-text bg-brand-lime transition-[left] duration-200 ease-in-out"
+                style={{
+                  left: `calc(${tabIndex * 33.333}% + 0.25rem)`,
+                  width: 'calc(33.333% - 0.5rem)',
+                }}
               />
               <button
                 type="button"
                 onClick={() => setActiveTab('edit')}
-                className={`group relative z-10 inline-flex cursor-pointer items-center justify-center gap-1.5 py-3 text-xs font-extrabold leading-none transition-colors duration-200 focus-ring-brand ${
+                className={`group relative z-10 inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black uppercase tracking-[0.06em] leading-none transition-colors duration-200 focus-ring-brand ${
                   activeTab === 'edit'
                     ? 'text-brand-dark'
-                    : 'bg-brand-dark/5 text-app-text-secondary hover:bg-brand-lime/15 hover:text-app-text'
+                    : 'text-app-text-secondary hover:text-app-text'
                 }`}
               >
                 <span
@@ -380,10 +389,10 @@ export const HostEventDetailsPage = () => {
               <button
                 type="button"
                 onClick={() => setActiveTab('tracks')}
-                className={`group relative z-10 inline-flex cursor-pointer items-center justify-center gap-1.5 py-3 text-xs font-extrabold leading-none transition-colors duration-200 focus-ring-brand ${
+                className={`group relative z-10 inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black uppercase tracking-[0.06em] leading-none transition-colors duration-200 focus-ring-brand ${
                   activeTab === 'tracks'
                     ? 'text-brand-dark'
-                    : 'bg-brand-dark/5 text-app-text-secondary hover:bg-brand-lime/15 hover:text-app-text'
+                    : 'text-app-text-secondary hover:text-app-text'
                 }`}
               >
                 <span
@@ -398,10 +407,10 @@ export const HostEventDetailsPage = () => {
               <button
                 type="button"
                 onClick={() => setActiveTab('share')}
-                className={`group relative z-10 inline-flex cursor-pointer items-center justify-center gap-1.5 py-3 text-xs font-extrabold leading-none transition-colors duration-200 focus-ring-brand ${
+                className={`group relative z-10 inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-full py-2.5 text-xs font-black uppercase tracking-[0.06em] leading-none transition-colors duration-200 focus-ring-brand ${
                   activeTab === 'share'
                     ? 'text-brand-dark'
-                    : 'bg-brand-dark/5 text-app-text-secondary hover:bg-brand-lime/15 hover:text-app-text'
+                    : 'text-app-text-secondary hover:text-app-text'
                 }`}
               >
                 <span
@@ -425,21 +434,21 @@ export const HostEventDetailsPage = () => {
               <SurfaceCard className="flex flex-col gap-4">
                 {/* Streaming service */}
                 <div className="grid gap-1.5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-app-text-secondary">
                     {t('eventsPage.streamingServiceLabel')}
                   </p>
-                  <div className="flex items-center gap-2.5 rounded-xl border border-app-border bg-app-bg px-3 py-2.5 dark:bg-app-elevated">
+                  <div className="flex items-center gap-2.5 px-0.5 py-1">
                     <EventProviderIcon
                       provider={event.provider}
                       sizeClassName="h-7 w-7 shrink-0"
                       className="dark:shadow-glow-pink"
                     />
-                    <span className="text-sm font-semibold text-app-text">
+                    <span className="text-base font-black text-brand-dark dark:text-brand-white">
                       {event.provider === 'apple' ? 'Apple Music' : 'Spotify'}
                     </span>
                   </div>
                   {event.closeReason === 'provider_playlist_missing' ? (
-                    <p className="rounded-xl border border-brand-pink/35 bg-brand-pink/10 px-3 py-2 text-xs text-[#b41563] dark:text-[#ff8ac0]">
+                    <p className="rounded-xl border-2 border-app-text bg-brand-pink/15 px-3 py-2 text-xs font-semibold text-app-text">
                       {t('eventsPage.providerPlaylistDeletedBody')}
                     </p>
                   ) : null}
@@ -447,10 +456,10 @@ export const HostEventDetailsPage = () => {
 
                 {/* Status */}
                 <div className="grid gap-1.5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-app-text-secondary">
                     {t('eventsPage.statusLabel')}
                   </p>
-                  <div className="flex items-center gap-2.5 rounded-xl border border-app-border bg-app-bg px-3 py-2.5 dark:bg-app-elevated">
+                  <div className="flex items-center gap-2.5 px-0.5 py-1">
                     <EventStatusIndicator
                       status={event.status}
                       closeReason={event.closeReason}
@@ -458,7 +467,7 @@ export const HostEventDetailsPage = () => {
                       mode="dot"
                       dotSize="md"
                     />
-                    <span className="text-sm font-semibold text-app-text">
+                    <span className="text-base font-black text-brand-dark dark:text-brand-white">
                       {event.status === 'open'
                         ? t('eventsPage.statusOpen')
                         : event.closeReason === 'provider_playlist_missing'
@@ -494,13 +503,13 @@ export const HostEventDetailsPage = () => {
             {/* Right col — disconnected warning + tab panel */}
             <div className="flex flex-col gap-4">
               {event.providerConnectionStatus === 'not_connected' ? (
-                <article className="rounded-2xl border border-amber-400/45 bg-amber-400/10 p-5 shadow-soft-lift dark:bg-amber-300/10">
+                <article className="relative rounded-3xl border-2 border-app-text bg-[#ffc400]/25 p-5 shadow-sticker">
                   <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                     <div className="grid gap-1">
-                      <h2 className="text-base font-bold text-amber-800 dark:text-amber-200">
+                      <h2 className="text-base font-black text-brand-dark dark:text-brand-white">
                         {t('eventsPage.providerDisconnectedTitle')}
                       </h2>
-                      <p className="text-sm text-amber-700 dark:text-amber-200/90">
+                      <p className="text-sm text-app-text-secondary">
                         {t('eventsPage.providerDisconnectedBody')}
                       </p>
                     </div>

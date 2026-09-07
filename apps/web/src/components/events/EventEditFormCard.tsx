@@ -54,7 +54,7 @@ export const EventEditFormCard = ({
             maxLength={100}
             value={editName}
             onChange={(nextEvent) => onNameChange(nextEvent.target.value)}
-            className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+            className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
           />
         </label>
         <label className="grid gap-1 text-sm">
@@ -63,7 +63,7 @@ export const EventEditFormCard = ({
             maxLength={500}
             value={editDescription}
             onChange={(nextEvent) => onDescriptionChange(nextEvent.target.value)}
-            className="min-h-24 rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+            className="min-h-24 rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
           />
         </label>
         <div className="flex flex-wrap justify-end gap-2">
