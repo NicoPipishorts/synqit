@@ -1,4 +1,4 @@
-import type { ProviderPlaylistItem, ProviderPlaylistTrack, SyncItem } from '@synqit/shared';
+import type { ProviderPlaylistItem, ProviderPlaylistTrack } from '@synqit/shared';
 import { Sticker, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -30,12 +30,12 @@ import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
 import {
-  createSync,
+  createTransfer,
   fetchIntegrations,
   fetchProviderPlaylistTrackCount,
   fetchProviderPlaylistTracks,
   fetchProviderPlaylists,
-  importSync,
+  fetchTransferBatch,
   queryKeys,
   syncQueryKeys,
 } from '../lib/queries';
@@ -256,13 +256,8 @@ export const TransferPage = () => {
   const [allPlaylists, setAllPlaylists] = useState<ProviderPlaylistItem[]>([]);
   const [hasMorePlaylists, setHasMorePlaylists] = useState(false);
   const [isConnectingProvider, setIsConnectingProvider] = useState<Provider | null>(null);
-  const [resultSync, setResultSync] = useState<SyncItem | null>(null);
-  const [resultCounts, setResultCounts] = useState<{
-    matchedCount: number;
-    skippedCount: number;
-  } | null>(null);
+  const [transferBatchId, setTransferBatchId] = useState<string | null>(null);
   const [transferProgressCount, setTransferProgressCount] = useState(0);
-  const [isTransferResponseReady, setIsTransferResponseReady] = useState(false);
 
   const integrationsQuery = useQuery({
     queryKey: queryKeys.integrations.list(),
@@ -336,20 +331,16 @@ export const TransferPage = () => {
     setPlaylistOffset(0);
     setAllPlaylists([]);
     setHasMorePlaylists(false);
-    setResultSync(null);
-    setResultCounts(null);
+    setTransferBatchId(null);
     setTransferProgressCount(0);
-    setIsTransferResponseReady(false);
     if (step > 1) {
       setStep(1);
     }
   }, [sourceProvider]);
 
   useEffect(() => {
-    setResultSync(null);
-    setResultCounts(null);
+    setTransferBatchId(null);
     setTransferProgressCount(0);
-    setIsTransferResponseReady(false);
   }, [destinationProvider]);
 
   useEffect(() => {
@@ -414,6 +405,26 @@ export const TransferPage = () => {
   const previewTracks = selectedPlaylistTracksQuery.data ?? [];
   const transferTracks = previewTracks.length > 0 ? previewTracks : [];
 
+  // The batch is queued server-side; progress is polled rather than awaited,
+  // so a long playlist no longer has to finish inside one request.
+  const transferBatchQuery = useQuery({
+    queryKey: syncQueryKeys.transferBatch(transferBatchId ?? ''),
+    queryFn: () => fetchTransferBatch(transferBatchId!),
+    enabled: transferBatchId !== null,
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'completed' || status === 'partial' || status === 'failed' ? false : 1500;
+    },
+  });
+
+  const transferItem = transferBatchQuery.data?.items[0] ?? null;
+  const isTransferSettled =
+    transferItem?.status === 'completed' || transferItem?.status === 'failed';
+  const resultCounts =
+    transferItem && transferItem.matchedCount !== null && transferItem.skippedCount !== null
+      ? { matchedCount: transferItem.matchedCount, skippedCount: transferItem.skippedCount }
+      : null;
+
   const transferMutation = useMutation({
     mutationFn: async () => {
       if (sourceProvider === destinationProvider) {
@@ -423,44 +434,29 @@ export const TransferPage = () => {
         throw new Error('missing_playlist');
       }
 
-      const created = await createSync({
-        provider: sourceProvider,
-        providerPlaylistId: selectedPlaylist.providerPlaylistId,
-        name: selectedPlaylist.name,
-        trackCount: selectedPlaylist.trackCount,
-        syncMode: 'host_only',
-        kind: 'transfer',
+      return createTransfer({
+        sourceProvider,
+        destinationProvider,
+        playlists: [
+          {
+            providerPlaylistId: selectedPlaylist.providerPlaylistId,
+            name: selectedPlaylist.name,
+            trackCount: selectedPlaylist.trackCount,
+          },
+        ],
       });
-      const imported = await importSync({
-        magicLinkToken: created.sync.magicLinkToken,
-        recipientProvider: destinationProvider,
-      });
-
-      return { created, imported };
     },
     onMutate: () => {
-      setResultSync(null);
-      setResultCounts(null);
-      setIsTransferResponseReady(false);
+      setTransferBatchId(null);
       setTransferProgressCount(0);
     },
-    onSuccess: ({ created, imported }) => {
-      setResultSync(created.sync);
-      setResultCounts({
-        matchedCount: imported.matchedCount,
-        skippedCount: imported.skippedCount,
-      });
-      setIsTransferResponseReady(true);
-      showToast(t('transferPage.success', { name: created.sync.name }), { variant: 'success' });
+    onSuccess: (batch) => {
+      setTransferBatchId(batch.id);
       trackAnalyticsEvent({
-        eventName: 'playlist_transfer_succeeded',
+        eventName: 'playlist_transfer_queued',
         target: 'transfer',
-        properties: {
-          sourceProvider,
-          destinationProvider,
-        },
+        properties: { sourceProvider, destinationProvider },
       });
-      void queryClient.invalidateQueries({ queryKey: syncQueryKeys.all() });
     },
     onError: (error) => {
       let messageKey = 'transferPage.error';
@@ -479,43 +475,63 @@ export const TransferPage = () => {
       trackAnalyticsEvent({
         eventName: 'playlist_transfer_failed',
         target: 'transfer',
-        properties: {
-          sourceProvider,
-          destinationProvider,
-          message,
-        },
+        properties: { sourceProvider, destinationProvider, message },
       });
     },
   });
 
+  // Surface the outcome once the queued job reports back.
   useEffect(() => {
-    if (!transferMutation.isPending) {
+    if (!transferItem || !isTransferSettled) {
+      return;
+    }
+    if (transferItem.status === 'completed') {
+      showToast(t('transferPage.success', { name: transferItem.name }), { variant: 'success' });
+      void queryClient.invalidateQueries({ queryKey: syncQueryKeys.all() });
+      trackAnalyticsEvent({
+        eventName: 'playlist_transfer_succeeded',
+        target: 'transfer',
+        properties: { sourceProvider, destinationProvider },
+      });
+    } else {
+      showToast(t('transferPage.error', { message: transferItem.errorMessage ?? '' }), {
+        variant: 'error',
+      });
+    }
+    // Only react to the transition into a settled state.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transferItem?.id, transferItem?.status, isTransferSettled]);
+
+  // The row animation runs while the job is in flight but deliberately stops
+  // one short of the end: only the server reporting the item settled fills it
+  // in. Previously a timer decided when the transfer "finished".
+  const isTransferInFlight =
+    transferMutation.isPending || (transferBatchId !== null && !isTransferSettled);
+
+  useEffect(() => {
+    const total = Math.max(transferTracks.length, 1);
+
+    if (isTransferSettled) {
+      setTransferProgressCount(total);
+      return;
+    }
+    if (!isTransferInFlight) {
       return;
     }
 
-    const total = Math.max(transferTracks.length, 1);
     const intervalId = window.setInterval(() => {
-      setTransferProgressCount((current) => {
-        if (current >= total) {
-          window.clearInterval(intervalId);
-          return current;
-        }
-        return current + 1;
-      });
+      setTransferProgressCount((current) => (current >= total - 1 ? current : current + 1));
     }, 260);
 
     return () => window.clearInterval(intervalId);
-  }, [transferMutation.isPending, transferTracks.length]);
+  }, [isTransferInFlight, isTransferSettled, transferTracks.length]);
 
-  const transferAnimationComplete =
-    !transferMutation.isPending &&
-    isTransferResponseReady &&
-    transferProgressCount >= Math.max(transferTracks.length, 1);
+  const transferAnimationComplete = transferItem?.status === 'completed';
   const matchedCount = resultCounts?.matchedCount ?? 0;
 
   const canAdvanceFromStep1 = bothConnected && sourceProvider !== destinationProvider;
   const canAdvanceFromStep2 = selectedPlaylist !== null;
-  const isBusy = transferMutation.isPending || isConnectingProvider !== null;
+  const isBusy = isTransferInFlight || isConnectingProvider !== null;
 
   const stepItems = [
     { value: 1 as const, label: t('transferPage.stepProviders') },
@@ -564,13 +580,13 @@ export const TransferPage = () => {
       return;
     }
 
-    if (!transferMutation.isPending && !transferAnimationComplete) {
+    if (!isTransferInFlight && !transferAnimationComplete) {
       transferMutation.mutate();
     }
   };
 
   const handleBack = () => {
-    if (step === 1 || transferMutation.isPending) {
+    if (step === 1 || isTransferInFlight) {
       return;
     }
     if (step === 2 && selectedPlaylist) {
@@ -906,7 +922,7 @@ export const TransferPage = () => {
                       variant="ghost"
                       className="rounded-xl px-3 py-2 text-xs"
                       onClick={() => goToStep(2)}
-                      disabled={transferMutation.isPending}
+                      disabled={isTransferInFlight}
                     >
                       <ChevronLeft size={14} aria-hidden="true" />
                       {t('transferPage.backToPlaylistChoice')}
@@ -916,9 +932,9 @@ export const TransferPage = () => {
                       <CTAButton
                         variant="primary"
                         onClick={handleNext}
-                        disabled={transferMutation.isPending}
+                        disabled={isTransferInFlight}
                       >
-                        {transferMutation.isPending
+                        {isTransferInFlight
                           ? t('transferPage.transferring')
                           : t('transferPage.startTransfer')}
                       </CTAButton>
@@ -969,7 +985,7 @@ export const TransferPage = () => {
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-xs font-semibold uppercase tracking-[0.22em] text-brand-white/55">
-                          {transferMutation.isPending
+                          {isTransferInFlight
                             ? t('transferPage.transferringListTitle')
                             : transferAnimationComplete
                               ? t('transferPage.transferDoneTitle')
@@ -1010,7 +1026,7 @@ export const TransferPage = () => {
                   )}
                 </article>
 
-                {transferAnimationComplete && resultSync ? (
+                {transferAnimationComplete ? (
                   <div className="flex flex-wrap gap-2">
                     <CTALink to="/transfer" variant="primary">
                       {t('transferPage.openSync')}
@@ -1019,10 +1035,8 @@ export const TransferPage = () => {
                       variant="ghost"
                       onClick={() => {
                         setSelectedPlaylist(null);
-                        setResultSync(null);
-                        setResultCounts(null);
+                        setTransferBatchId(null);
                         setTransferProgressCount(0);
-                        setIsTransferResponseReady(false);
                         goToStep(2);
                       }}
                     >
@@ -1040,11 +1054,7 @@ export const TransferPage = () => {
                 <div />
               ) : step < 3 ? (
                 <>
-                  <CTAButton
-                    variant="secondary"
-                    onClick={handleBack}
-                    disabled={transferMutation.isPending}
-                  >
+                  <CTAButton variant="secondary" onClick={handleBack} disabled={isTransferInFlight}>
                     {t('syncCreatePage.back')}
                   </CTAButton>
 

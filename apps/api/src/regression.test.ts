@@ -13,6 +13,7 @@ import { eventsStore } from './events/store';
 import { buildServer } from './index';
 import { decryptToken, encryptToken } from './integrations/crypto';
 import { notificationRunsStore } from './jobs/notification-runs-store';
+import { closeTransfersQueue } from './jobs/transfers-queue';
 import { buildWeeklyRecapDigests } from './jobs/weekly-recap-digests';
 import { syncsStore } from './syncs/store';
 
@@ -236,6 +237,7 @@ describe('API regression', () => {
   });
 
   after(async () => {
+    await closeTransfersQueue().catch(() => undefined);
     if (previousRegistrationEmailEnabled === undefined) {
       delete process.env.AUTH_REGISTRATION_EMAIL_ENABLED;
     } else {
@@ -3523,6 +3525,162 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
     // songs, so neither should receive a recap.
     assert.equal(byUser.has(visitor.user.id), false);
     assert.equal(byUser.has(staleOwner.user.id), false);
+  });
+
+  it('transfers: rejects a batch whose source and destination match', async () => {
+    const email = `${TEST_EMAIL_PREFIX}transfer-same-${randomUUID()}@synqit.test`;
+    const user = await registerUser(app, email);
+    await connectProvider(app, { provider: 'spotify', accessToken: user.tokens.accessToken });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/transfers',
+      headers: authHeader(user.tokens.accessToken),
+      payload: {
+        sourceProvider: 'spotify',
+        destinationProvider: 'spotify',
+        playlists: [{ providerPlaylistId: 'playlist-1', name: 'Same provider', trackCount: 3 }],
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.equal((parseBody(response.body) as { code: string }).code, 'invalid_request');
+  });
+
+  it('transfers: requires both providers to be connected', async () => {
+    const email = `${TEST_EMAIL_PREFIX}transfer-unconnected-${randomUUID()}@synqit.test`;
+    const user = await registerUser(app, email);
+    // Source only; the destination is deliberately left unconnected.
+    await connectProvider(app, { provider: 'spotify', accessToken: user.tokens.accessToken });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/transfers',
+      headers: authHeader(user.tokens.accessToken),
+      payload: {
+        sourceProvider: 'spotify',
+        destinationProvider: 'apple',
+        playlists: [{ providerPlaylistId: 'playlist-1', name: 'Needs both', trackCount: 3 }],
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+    assert.equal((parseBody(response.body) as { code: string }).code, 'provider_not_connected');
+  });
+
+  it('transfers: rejects the same playlist selected twice', async () => {
+    const email = `${TEST_EMAIL_PREFIX}transfer-dupe-${randomUUID()}@synqit.test`;
+    const user = await registerUser(app, email);
+    await connectProvider(app, { provider: 'spotify', accessToken: user.tokens.accessToken });
+    await connectProvider(app, { provider: 'apple', accessToken: user.tokens.accessToken });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/transfers',
+      headers: authHeader(user.tokens.accessToken),
+      payload: {
+        sourceProvider: 'spotify',
+        destinationProvider: 'apple',
+        playlists: [
+          { providerPlaylistId: 'playlist-1', name: 'One', trackCount: 3 },
+          { providerPlaylistId: 'playlist-1', name: 'One again', trackCount: 3 },
+        ],
+      },
+    });
+
+    assert.equal(response.statusCode, 400);
+  });
+
+  it('transfers: queues a batch and reports it back with one item per playlist', async () => {
+    const email = `${TEST_EMAIL_PREFIX}transfer-batch-${randomUUID()}@synqit.test`;
+    const user = await registerUser(app, email);
+    await connectProvider(app, { provider: 'spotify', accessToken: user.tokens.accessToken });
+    await connectProvider(app, { provider: 'apple', accessToken: user.tokens.accessToken });
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/transfers',
+      headers: authHeader(user.tokens.accessToken),
+      payload: {
+        sourceProvider: 'spotify',
+        destinationProvider: 'apple',
+        playlists: [
+          { providerPlaylistId: 'playlist-a', name: 'Playlist A', trackCount: 12 },
+          { providerPlaylistId: 'playlist-b', name: 'Playlist B', trackCount: null },
+        ],
+      },
+    });
+
+    assert.equal(createResponse.statusCode, 202);
+    const created = parseBody(createResponse.body) as {
+      batch: {
+        id: string;
+        status: string;
+        sourceProvider: string;
+        destinationProvider: string;
+        items: Array<{
+          name: string;
+          status: string;
+          position: number;
+          matchedCount: number | null;
+        }>;
+      };
+    };
+
+    assert.equal(created.batch.status, 'queued');
+    assert.equal(created.batch.sourceProvider, 'spotify');
+    assert.equal(created.batch.destinationProvider, 'apple');
+    assert.equal(created.batch.items.length, 2);
+    // Items keep the submitted order so the UI can show a stable list.
+    assert.deepEqual(
+      created.batch.items.map((item) => item.name),
+      ['Playlist A', 'Playlist B'],
+    );
+    assert.deepEqual(
+      created.batch.items.map((item) => item.position),
+      [0, 1],
+    );
+    assert.ok(created.batch.items.every((item) => item.status === 'queued'));
+    assert.ok(created.batch.items.every((item) => item.matchedCount === null));
+
+    const readResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/transfers/${created.batch.id}`,
+      headers: authHeader(user.tokens.accessToken),
+    });
+    assert.equal(readResponse.statusCode, 200);
+    const read = parseBody(readResponse.body) as { batch: { id: string; items: unknown[] } };
+    assert.equal(read.batch.id, created.batch.id);
+    assert.equal(read.batch.items.length, 2);
+  });
+
+  it('transfers: a batch is not readable by another user', async () => {
+    const ownerEmail = `${TEST_EMAIL_PREFIX}transfer-owner-${randomUUID()}@synqit.test`;
+    const otherEmail = `${TEST_EMAIL_PREFIX}transfer-other-${randomUUID()}@synqit.test`;
+    const owner = await registerUser(app, ownerEmail);
+    const other = await registerUser(app, otherEmail);
+    await connectProvider(app, { provider: 'spotify', accessToken: owner.tokens.accessToken });
+    await connectProvider(app, { provider: 'apple', accessToken: owner.tokens.accessToken });
+
+    const createResponse = await app.inject({
+      method: 'POST',
+      url: '/v1/transfers',
+      headers: authHeader(owner.tokens.accessToken),
+      payload: {
+        sourceProvider: 'spotify',
+        destinationProvider: 'apple',
+        playlists: [{ providerPlaylistId: 'playlist-private', name: 'Private', trackCount: 1 }],
+      },
+    });
+    assert.equal(createResponse.statusCode, 202);
+    const batchId = (parseBody(createResponse.body) as { batch: { id: string } }).batch.id;
+
+    const readResponse = await app.inject({
+      method: 'GET',
+      url: `/v1/transfers/${batchId}`,
+      headers: authHeader(other.tokens.accessToken),
+    });
+    assert.equal(readResponse.statusCode, 404);
   });
 
   it('recap: claims a notification period only once', async () => {

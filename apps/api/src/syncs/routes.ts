@@ -1,5 +1,6 @@
 import {
   createSyncRequestSchema,
+  createTransferRequestSchema,
   importSyncRequestSchema,
   importSyncResponseSchema,
   providerPlaylistListResponseSchema,
@@ -11,40 +12,48 @@ import {
   syncListResponseSchema,
   syncPublicResponseSchema,
   syncResponseSchema,
+  transferBatchResponseSchema,
   updateSyncRequestSchema,
 } from '@synqit/shared';
 import { FastifyInstance } from 'fastify';
 
 import { requireOwnedSync } from './guards';
+import { importSyncForRecipient } from './import-engine';
 import { syncsStore } from './store';
-import { buildTrackFingerprint } from './track-fingerprint';
+import { transfersStore, type TransferBatchRecord } from './transfer-store';
 import { requireAuthenticatedUserId, resolveAuthenticatedUserId } from '../auth/guards';
 import { withAppleMusicUserToken } from '../integrations/apple-client';
-import {
-  listAppleLibraryPlaylists,
-  listApplePlaylistTracks,
-  searchAppleCatalogTracks,
-  createAppleLibraryPlaylist,
-  addAppleTracksToPlaylist,
-} from '../integrations/apple-music';
+import { listAppleLibraryPlaylists, listApplePlaylistTracks } from '../integrations/apple-music';
 import { mapProviderApiError } from '../integrations/provider-errors';
-import { mapWithConcurrency, withProviderRetry } from '../integrations/provider-throttle';
 import { isSpotifyOauthLiveMode } from '../integrations/spotify';
 import { withSpotifyAccessTokenRetry, IntegrationError } from '../integrations/spotify-client';
-import { listSpotifyUserPlaylists, createSpotifyPlaylist } from '../integrations/spotify-playlists';
-import {
-  ProviderApiError,
-  listSpotifyPlaylistTracks,
-  searchSpotifyTracks,
-  addSpotifyTracksToPlaylist,
-} from '../integrations/spotify-tracks';
+import { listSpotifyUserPlaylists } from '../integrations/spotify-playlists';
+import { ProviderApiError, listSpotifyPlaylistTracks } from '../integrations/spotify-tracks';
 import { integrationStore } from '../integrations/store';
+import { enqueueTransferPlaylistJob } from '../jobs/transfers-queue';
 
 const DEFAULT_SYNC_LINK_BASE_URL = 'http://127.0.0.1:5173';
 
-// Providers rate-limit per app, not per playlist, so keep the search pool
-// small enough that one big transfer does not starve everyone else.
-const TRANSFER_SEARCH_CONCURRENCY = 6;
+const toTransferBatch = (batch: TransferBatchRecord) => ({
+  id: batch.id,
+  sourceProvider: batch.sourceProvider,
+  destinationProvider: batch.destinationProvider,
+  status: batch.status,
+  createdAt: batch.createdAt.toISOString(),
+  completedAt: batch.completedAt?.toISOString() ?? null,
+  items: batch.items.map((item) => ({
+    id: item.id,
+    providerPlaylistId: item.providerPlaylistId,
+    name: item.name,
+    trackCount: item.trackCount,
+    status: item.status,
+    syncId: item.syncId,
+    matchedCount: item.matchedCount,
+    skippedCount: item.skippedCount,
+    errorMessage: item.errorMessage,
+    position: item.position,
+  })),
+});
 
 const MOCK_PLAYLISTS = [
   {
@@ -695,251 +704,89 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
         .send({ code: 'provider_not_connected', message: 'Connect your streaming service first.' });
     }
 
-    // -----------------------------------------------------------------------
-    // 1. Fetch source tracks from sender's provider
-    // -----------------------------------------------------------------------
-    let sourceTracks: Array<{
-      name: string;
-      artist: string;
-      providerTrackId: string;
-      durationMs: number;
-    }> = [];
-
-    if (sync.provider === 'spotify') {
-      if (isSpotifyOauthLiveMode()) {
-        try {
-          const { result } = await withSpotifyAccessTokenRetry({
-            userId: sync.senderUserId,
-            run: (accessToken) =>
-              listSpotifyPlaylistTracks({
-                accessToken,
-                providerPlaylistId: sync.providerPlaylistId,
-              }),
-          });
-          sourceTracks = result;
-        } catch (err) {
-          if (err instanceof ProviderApiError) {
-            const mapped = mapProviderApiError(err);
-            return reply.status(502).send({ code: 'provider_error', message: mapped.message });
-          }
-          throw err;
-        }
-      }
-    } else {
-      try {
-        const tracks = await withAppleMusicUserToken({
-          userId: sync.senderUserId,
-          run: (ctx) =>
-            listApplePlaylistTracks({ ...ctx, providerPlaylistId: sync.providerPlaylistId }),
-        });
-        sourceTracks = tracks;
-      } catch (err) {
-        if (err instanceof ProviderApiError) {
-          const mapped = mapProviderApiError(err);
-          return reply.status(502).send({ code: 'provider_error', message: mapped.message });
-        }
-        throw err;
-      }
-    }
-
-    // -----------------------------------------------------------------------
-    // 2. Match tracks in recipient's provider and collect matched IDs
-    // -----------------------------------------------------------------------
-    if (sourceTracks.length > 0) {
-      await syncsStore.recordTrackActivity({
-        syncId: sync.id,
-        tracks: sourceTracks,
-        seenAt: new Date(),
-        bootstrapSeenAt: sync.lastSyncedAt ?? sync.createdAt,
+    try {
+      const { matchedCount, skippedCount } = await importSyncForRecipient({
+        sync,
+        recipientUserId: userId,
+        recipientProvider,
       });
+
+      return reply.send(importSyncResponseSchema.parse({ ok: true, matchedCount, skippedCount }));
+    } catch (err) {
+      if (err instanceof ProviderApiError) {
+        const mapped = mapProviderApiError(err);
+        return reply.status(502).send({ code: 'provider_error', message: mapped.message });
+      }
+      throw err;
     }
-
-    type MatchOutcome =
-      | { status: 'matched'; recipientTrackId: string; sourceTrackFingerprint: string }
-      | { status: 'skipped'; providerTrackId: string };
-
-    // Resolve recipient credentials once for the whole run. Doing it per track
-    // meant a database read and a token decrypt for every song in the playlist.
-    const recipientCredentials =
-      recipientProvider === 'spotify'
-        ? ({
-            provider: 'spotify',
-            // Null outside live mode: the route still walks the tracks so the
-            // same-provider shortcut below behaves as it always has.
-            accessToken: isSpotifyOauthLiveMode()
-              ? (await withSpotifyAccessTokenRetry({ userId, run: async (at) => at })).accessToken
-              : null,
-          } as const)
-        : ({
-            provider: 'apple',
-            tokens: await withAppleMusicUserToken({ userId, run: async (ctx) => ctx }),
-          } as const);
-
-    const searchForMatch = async (track: (typeof sourceTracks)[number]): Promise<MatchOutcome> => {
-      if (recipientProvider === sync.provider && track.providerTrackId) {
-        return {
-          status: 'matched',
-          recipientTrackId: track.providerTrackId,
-          sourceTrackFingerprint: buildTrackFingerprint(track),
-        };
-      }
-
-      const query = `${track.name} ${track.artist}`;
-      try {
-        const results = await withProviderRetry(() => {
-          if (recipientCredentials.provider === 'spotify') {
-            return recipientCredentials.accessToken
-              ? searchSpotifyTracks({
-                  accessToken: recipientCredentials.accessToken,
-                  query,
-                  limit: 1,
-                })
-              : Promise.resolve([]);
-          }
-          return searchAppleCatalogTracks({
-            developerToken: recipientCredentials.tokens.developerToken,
-            storefront: 'us',
-            query,
-            limit: 1,
-          });
-        });
-
-        const first = results[0];
-        if (first && first.name.toLowerCase().includes(track.name.toLowerCase())) {
-          return {
-            status: 'matched',
-            recipientTrackId: first.providerTrackId,
-            sourceTrackFingerprint: buildTrackFingerprint(track),
-          };
-        }
-      } catch {
-        // Fall through: an unresolvable search is a skipped track, not a
-        // failed transfer. withProviderRetry has already absorbed rate limits.
-      }
-
-      return { status: 'skipped', providerTrackId: track.providerTrackId };
-    };
-
-    // Searching stays one request per track (no provider offers a batch
-    // lookup), but a small pool keeps a long playlist from running end to end.
-    const matchOutcomes = await mapWithConcurrency(
-      sourceTracks,
-      TRANSFER_SEARCH_CONCURRENCY,
-      searchForMatch,
-    );
-
-    const matchedTracks = matchOutcomes.flatMap((outcome) =>
-      outcome.status === 'matched'
-        ? [
-            {
-              recipientTrackId: outcome.recipientTrackId,
-              sourceTrackFingerprint: outcome.sourceTrackFingerprint,
-            },
-          ]
-        : [],
-    );
-
-    // -----------------------------------------------------------------------
-    // 3. Create playlist in recipient's provider and add matched tracks
-    // -----------------------------------------------------------------------
-    const playlistName = `${sync.name} (via Synqit)`;
-    let recipientProviderPlaylistId: string | null = null;
-    const syncedSourceTrackFingerprints: string[] = [];
-
-    // Maps the batched add result back to source tracks. Two source tracks can
-    // resolve to the same recipient id, so each id holds a queue of
-    // fingerprints and every successful add consumes one.
-    const pendingFingerprintsByTrackId = new Map<string, string[]>();
-    for (const track of matchedTracks) {
-      const pending = pendingFingerprintsByTrackId.get(track.recipientTrackId);
-      if (pending) {
-        pending.push(track.sourceTrackFingerprint);
-      } else {
-        pendingFingerprintsByTrackId.set(track.recipientTrackId, [track.sourceTrackFingerprint]);
-      }
-    }
-    const recordAdded = (addedTrackIds: readonly string[]): void => {
-      for (const recipientTrackId of addedTrackIds) {
-        const fingerprint = pendingFingerprintsByTrackId.get(recipientTrackId)?.shift();
-        if (fingerprint) {
-          syncedSourceTrackFingerprints.push(fingerprint);
-        }
-      }
-    };
-
-    if (recipientCredentials.provider === 'spotify') {
-      const { accessToken } = recipientCredentials;
-      if (accessToken) {
-        try {
-          const created = await createSpotifyPlaylist({
-            accessToken,
-            name: playlistName,
-            description: '',
-          });
-          recipientProviderPlaylistId = created.providerPlaylistId;
-          const { addedTrackIds } = await addSpotifyTracksToPlaylist({
-            accessToken,
-            providerPlaylistId: created.providerPlaylistId,
-            providerTrackIds: matchedTracks.map((track) => track.recipientTrackId),
-          });
-          recordAdded(addedTrackIds);
-        } catch (err) {
-          if (err instanceof ProviderApiError) {
-            const mapped = mapProviderApiError(err);
-            return reply.status(502).send({ code: 'provider_error', message: mapped.message });
-          }
-          throw err;
-        }
-      }
-    } else {
-      const { tokens } = recipientCredentials;
-      try {
-        const created = await createAppleLibraryPlaylist({
-          ...tokens,
-          name: playlistName,
-          description: '',
-        });
-        recipientProviderPlaylistId = created.providerPlaylistId;
-        const { addedTrackIds } = await addAppleTracksToPlaylist({
-          ...tokens,
-          providerPlaylistId: created.providerPlaylistId,
-          providerTrackIds: matchedTracks.map((track) => track.recipientTrackId),
-        });
-        recordAdded(addedTrackIds);
-      } catch (err) {
-        if (err instanceof ProviderApiError) {
-          const mapped = mapProviderApiError(err);
-          return reply.status(502).send({ code: 'provider_error', message: mapped.message });
-        }
-        throw err;
-      }
-    }
-
-    const matchedCount = syncedSourceTrackFingerprints.length;
-    await syncsStore.upsertImport({
-      syncId: sync.id,
-      recipientUserId: userId,
-      recipientProvider,
-      recipientProviderPlaylistId,
-      syncedSourceTrackFingerprints,
-      syncedRecipientTrackFingerprints: syncedSourceTrackFingerprints,
-      status: 'completed',
-      matchedCount,
-      skippedCount: Math.max(0, sourceTracks.length - matchedCount),
-      lastSyncedAt: new Date(),
-      lastError: null,
-    });
-
-    return reply.send(
-      importSyncResponseSchema.parse({
-        ok: true,
-        matchedCount,
-        skippedCount: Math.max(0, sourceTracks.length - matchedCount),
-      }),
-    );
   });
 
   // DELETE /syncs/link/:token/import  (auth required)
+  // ---------------------------------------------------------------------
+  // Transfers
+  // ---------------------------------------------------------------------
+
+  // POST /transfers  (auth required)
+  // Queues a batch and returns immediately; the work runs on the transfers
+  // queue so a large library does not have to finish inside one request.
+  app.post('/transfers', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const body = createTransferRequestSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ code: 'invalid_request', message: body.error.message });
+    }
+    const { sourceProvider, destinationProvider, playlists } = body.data;
+
+    for (const provider of [sourceProvider, destinationProvider]) {
+      const integration = await integrationStore.findIntegration({ userId, provider });
+      if (!integration) {
+        return reply.status(400).send({
+          code: 'provider_not_connected',
+          message: 'Connect both streaming services first.',
+        });
+      }
+    }
+
+    const batch = await transfersStore.createBatch({
+      userId,
+      sourceProvider,
+      destinationProvider,
+      playlists,
+    });
+
+    try {
+      for (const item of batch.items) {
+        await enqueueTransferPlaylistJob({ batchId: batch.id, itemId: item.id });
+      }
+    } catch (err) {
+      request.log.error({ err, batchId: batch.id }, 'failed to enqueue transfer jobs');
+      return reply.status(503).send({
+        code: 'queue_unavailable',
+        message: 'Transfers are temporarily unavailable. Please try again shortly.',
+      });
+    }
+
+    return reply
+      .status(202)
+      .send(transferBatchResponseSchema.parse({ batch: toTransferBatch(batch) }));
+  });
+
+  // GET /transfers/:batchId  (auth required) — polled for progress
+  app.get('/transfers/:batchId', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const { batchId } = request.params as { batchId: string };
+    const batch = await transfersStore.findBatch({ batchId, userId });
+    if (!batch) {
+      return reply.status(404).send({ code: 'not_found', message: 'Transfer not found.' });
+    }
+
+    return reply.send(transferBatchResponseSchema.parse({ batch: toTransferBatch(batch) }));
+  });
+
   app.delete('/syncs/link/:token/import', async (request, reply) => {
     const userId = await requireAuthenticatedUserId(request, reply);
     if (!userId) return;

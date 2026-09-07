@@ -1021,6 +1021,93 @@ export const importSyncResponseSchema = z.object({
 });
 export type ImportSyncResponse = z.infer<typeof importSyncResponseSchema>;
 
+// ---------------------------------------------------------------------------
+// Transfers
+//
+// A transfer batch moves one or more playlists from one provider to another.
+// Each playlist is its own item so it can succeed, fail and retry on its own.
+// ---------------------------------------------------------------------------
+
+export const transferItemStatusSchema = z.enum(['queued', 'running', 'completed', 'failed']);
+export type TransferItemStatus = z.infer<typeof transferItemStatusSchema>;
+
+/** `partial` means every item finished but at least one failed. */
+export const transferBatchStatusSchema = z.enum([
+  'queued',
+  'running',
+  'completed',
+  'partial',
+  'failed',
+]);
+export type TransferBatchStatus = z.infer<typeof transferBatchStatusSchema>;
+
+export const transferPlaylistSelectionSchema = z.object({
+  providerPlaylistId: z.string().min(1),
+  name: z.string().min(1).max(200),
+  trackCount: z.number().int().nonnegative().nullable(),
+});
+export type TransferPlaylistSelection = z.infer<typeof transferPlaylistSelectionSchema>;
+
+/** The cap is a guard rail on one request, not the plan entitlement. */
+export const TRANSFER_MAX_PLAYLISTS_PER_BATCH = 50;
+
+export const createTransferRequestSchema = z
+  .object({
+    sourceProvider: providerSchema,
+    destinationProvider: providerSchema,
+    playlists: z
+      .array(transferPlaylistSelectionSchema)
+      .min(1)
+      .max(TRANSFER_MAX_PLAYLISTS_PER_BATCH),
+  })
+  .refine((data) => data.sourceProvider !== data.destinationProvider, {
+    message: 'Source and destination providers must differ.',
+    path: ['destinationProvider'],
+  })
+  .refine(
+    (data) =>
+      new Set(data.playlists.map((playlist) => playlist.providerPlaylistId)).size ===
+      data.playlists.length,
+    { message: 'The same playlist cannot be selected twice.', path: ['playlists'] },
+  );
+export type CreateTransferRequest = z.infer<typeof createTransferRequestSchema>;
+
+export const transferItemSchema = z.object({
+  id: z.string(),
+  providerPlaylistId: z.string(),
+  name: z.string(),
+  trackCount: z.number().int().nonnegative().nullable(),
+  status: transferItemStatusSchema,
+  syncId: z.string().nullable(),
+  matchedCount: z.number().int().nonnegative().nullable(),
+  skippedCount: z.number().int().nonnegative().nullable(),
+  errorMessage: z.string().nullable(),
+  position: z.number().int().nonnegative(),
+});
+export type TransferItem = z.infer<typeof transferItemSchema>;
+
+export const transferBatchSchema = z.object({
+  id: z.string(),
+  sourceProvider: providerSchema,
+  destinationProvider: providerSchema,
+  status: transferBatchStatusSchema,
+  createdAt: z.string(),
+  completedAt: z.string().nullable(),
+  items: z.array(transferItemSchema),
+});
+export type TransferBatch = z.infer<typeof transferBatchSchema>;
+
+export const transferBatchResponseSchema = z.object({
+  batch: transferBatchSchema,
+});
+export type TransferBatchResponse = z.infer<typeof transferBatchResponseSchema>;
+
+export const transferPlaylistJobSchema = z.object({
+  batchId: z.string().uuid(),
+  itemId: z.string().uuid(),
+});
+export type TransferPlaylistJob = z.infer<typeof transferPlaylistJobSchema>;
+
 export const dashboardOwnerEventActivitySchema = z.object({
   eventId: z.string(),
   name: z.string(),
@@ -1194,10 +1281,15 @@ export type WeeklyRecapEmailPreviewJob = z.infer<typeof weeklyRecapEmailPreviewJ
 export const QUEUES = {
   sync: 'sync',
   notifications: 'notifications',
+  // Consumed in-process by the API, which is where provider clients, token
+  // decryption and Prisma already live. Kept separate from `sync` so the
+  // standalone worker does not pick jobs it cannot run.
+  transfers: 'transfers',
 } as const;
 
 export const JOBS = {
   pullPlaylists: 'sync:pullPlaylists',
+  transferPlaylist: 'transfers:transferPlaylist',
   sendRegistrationConfirmationEmail: 'notifications:sendRegistrationConfirmationEmail',
   sendRegistrationConfirmationEmailPreview:
     'notifications:sendRegistrationConfirmationEmailPreview',

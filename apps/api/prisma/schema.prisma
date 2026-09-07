@@ -183,6 +183,7 @@ model users {
   user_preferences       user_preferences?
   playlist_syncs         playlist_syncs[]
   playlist_sync_imports  playlist_sync_imports[]
+  transfer_batches       transfer_batches[]
 
   @@index([account_state], map: "idx_users_account_state")
   @@index([deletion_scheduled_for], map: "idx_users_deletion_scheduled_for")
@@ -259,9 +260,48 @@ model playlist_syncs {
   users                        users                          @relation(fields: [sender_user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   playlist_sync_imports        playlist_sync_imports[]
   playlist_sync_track_activity playlist_sync_track_activity[]
+  transfer_items               transfer_items[]
 
   @@index([sender_user_id], map: "idx_playlist_syncs_sender_user_id")
   @@index([kind], map: "idx_playlist_syncs_kind")
+}
+
+model transfer_batches {
+  id                   String           @id
+  user_id              String
+  source_provider      String
+  destination_provider String
+  status               String           @default("queued")
+  created_at           DateTime         @db.Timestamptz(6)
+  updated_at           DateTime         @db.Timestamptz(6)
+  completed_at         DateTime?        @db.Timestamptz(6)
+  users                users            @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  transfer_items       transfer_items[]
+
+  @@index([user_id], map: "idx_transfer_batches_user_id")
+  @@index([status], map: "idx_transfer_batches_status")
+}
+
+model transfer_items {
+  id                   String           @id
+  batch_id             String
+  provider_playlist_id String
+  name                 String
+  track_count          Int?
+  position             Int
+  status               String           @default("queued")
+  sync_id              String?
+  matched_count        Int?
+  skipped_count        Int?
+  error_message        String?
+  created_at           DateTime         @db.Timestamptz(6)
+  updated_at           DateTime         @db.Timestamptz(6)
+  transfer_batches     transfer_batches @relation(fields: [batch_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  playlist_syncs       playlist_syncs?  @relation(fields: [sync_id], references: [id], onDelete: SetNull, onUpdate: NoAction)
+
+  @@unique([batch_id, provider_playlist_id], map: "uniq_transfer_items_batch_playlist")
+  @@index([batch_id], map: "idx_transfer_items_batch_id")
+  @@index([status], map: "idx_transfer_items_status")
 }
 
 model playlist_sync_imports {
