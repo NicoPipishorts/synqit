@@ -1,4 +1,4 @@
-import { SurfaceCard, useToast } from '@synqit/ui';
+import { Highlight, SurfaceCard, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { ImagePlus, Link2, ListMusic, Pencil } from 'lucide-react';
@@ -340,17 +340,7 @@ export const HostEventDetailsPage = () => {
 
           <div className="grid gap-1 pt-1">
             <h1 className="text-3xl font-black leading-[1.05] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-5xl">
-              {event ? (
-                <span className="relative inline-block px-2">
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-x-0 inset-y-[8%] -skew-x-6 -rotate-1 rounded-md bg-brand-lime"
-                  />
-                  <span className="relative text-brand-dark">{event.name}</span>
-                </span>
-              ) : (
-                t('eventsPage.loadingDetails')
-              )}
+              {event ? <Highlight>{event.name}</Highlight> : t('eventsPage.loadingDetails')}
             </h1>
             {event?.description ? (
               <p className="text-sm text-app-text-secondary sm:text-base">{event.description}</p>

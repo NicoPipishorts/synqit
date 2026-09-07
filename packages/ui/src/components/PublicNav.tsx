@@ -36,7 +36,7 @@ export const PublicNav = ({
     <nav aria-label={ariaLabel} className={className}>
       <div
         onMouseLeave={() => setHoveredId(null)}
-        className="flex items-center gap-1.5 rounded-full border border-app-border/70 bg-white/92 px-2 py-1.5 shadow-[0_18px_42px_-22px_rgba(34,34,34,0.42),0_8px_18px_-14px_rgba(34,34,34,0.26)] backdrop-blur-[6px] dark:bg-app-card/92"
+        className="flex items-center gap-1 rounded-full border-2 border-app-text bg-app-elevated px-1.5 py-1.5 shadow-sticker dark:bg-app-card"
       >
         {items.map((item) => {
           const isActive = activeId === item.id;
@@ -54,21 +54,19 @@ export const PublicNav = ({
                 <motion.span
                   layoutId={`${layoutGroupId}-hover`}
                   transition={{ type: 'spring', stiffness: 430, damping: 35, mass: 0.85 }}
-                  className="absolute inset-0 z-0 rounded-full bg-app-surface dark:bg-app-card"
+                  className="absolute inset-0 z-0 rounded-full bg-app-surface dark:bg-app-elevated"
                 />
               ) : null}
               {isActive ? (
                 <motion.span
                   layoutId={`${layoutGroupId}-active`}
                   transition={{ type: 'spring', stiffness: 430, damping: 35, mass: 0.85 }}
-                  className="absolute inset-0 z-[1] rounded-full bg-brand-dark dark:bg-brand-white"
+                  className="absolute inset-0 z-[1] rounded-full border-2 border-app-text bg-brand-lime shadow-sticker-sm"
                 />
               ) : null}
               <span
                 className={`relative z-10 ${
-                  isActive
-                    ? 'text-brand-white dark:text-brand-dark'
-                    : 'text-app-text-secondary hover:text-app-text'
+                  isActive ? 'text-brand-dark' : 'text-app-text-secondary hover:text-app-text'
                 }`}
               >
                 {item.label}

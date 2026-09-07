@@ -1,4 +1,4 @@
-import { Sticker, type StickerTone } from '@synqit/ui';
+import { Highlight, Sticker, type StickerTone } from '@synqit/ui';
 import { motion, type Variants } from 'framer-motion';
 import { ArrowDown, ArrowLeftRight, PartyPopper, Share2 } from 'lucide-react';
 import { type ReactNode } from 'react';
@@ -174,14 +174,7 @@ export const HomePage = () => {
                 variants={FADE_UP}
                 className="text-[2.75rem] font-black leading-[0.98] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-6xl lg:text-[4.25rem]"
               >
-                {t('home.hero.titleLead')}{' '}
-                <span className="relative inline-block px-1">
-                  <span
-                    aria-hidden="true"
-                    className="absolute inset-x-0 inset-y-[6%] -skew-x-6 -rotate-1 rounded-md bg-brand-lime"
-                  />
-                  <span className="relative text-brand-dark">{t('home.hero.titleHighlight')}</span>
-                </span>
+                {t('home.hero.titleLead')} <Highlight>{t('home.hero.titleHighlight')}</Highlight>
               </motion.h1>
               <motion.p
                 variants={FADE_UP}

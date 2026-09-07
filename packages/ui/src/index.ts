@@ -54,6 +54,7 @@ export { PublicNav, type PublicNavItem } from './components/PublicNav';
 export { PublicMobileNav, type PublicMobileNavItem } from './components/PublicMobileNav';
 
 // Decoration
+export { Highlight } from './components/Highlight';
 export { Sticker, type StickerProps, type StickerTone } from './components/Sticker';
 export { CircularImage } from './components/CircularImage';
 export { DotPatternOverlay } from './components/DotPatternOverlay';

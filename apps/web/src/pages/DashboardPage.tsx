@@ -1,4 +1,4 @@
-import { OnboardingPanel, RouteLoadingScreen, Sticker, useToast } from '@synqit/ui';
+import { Highlight, OnboardingPanel, RouteLoadingScreen, Sticker, useToast } from '@synqit/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   CalendarDays,
@@ -499,13 +499,7 @@ export const DashboardPage = () => {
                 {greetingName && headingTitle.includes(greetingName) ? (
                   <>
                     {headingTitle.slice(0, headingTitle.indexOf(greetingName))}
-                    <span className="relative inline-block px-1">
-                      <span
-                        aria-hidden="true"
-                        className="absolute inset-x-0 inset-y-[8%] -skew-x-6 -rotate-1 rounded-md bg-brand-lime"
-                      />
-                      <span className="relative text-brand-dark">{greetingName}</span>
-                    </span>
+                    <Highlight>{greetingName}</Highlight>
                     {headingTitle.slice(headingTitle.indexOf(greetingName) + greetingName.length)}
                   </>
                 ) : (
