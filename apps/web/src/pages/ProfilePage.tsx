@@ -186,7 +186,7 @@ export const ProfilePage = () => {
               type="button"
               onClick={() => setIsAvatarModalOpen(true)}
               aria-label={t('profile.editAvatar')}
-              className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border border-app-border bg-app-elevated p-1.5 text-xs font-semibold shadow-soft-lift transition hover:border-brand-pink dark:bg-app-card sm:gap-1.5 sm:px-3 sm:py-1"
+              className="absolute -bottom-2 left-1/2 inline-flex -translate-x-1/2 cursor-pointer items-center justify-center rounded-full border-2 border-app-text bg-app-elevated p-1.5 text-xs font-black shadow-sticker-sm transition hover:bg-brand-lime hover:text-brand-dark dark:bg-app-card sm:gap-1.5 sm:px-3 sm:py-1"
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               <span className="hidden sm:inline">{t('profile.editAvatar')}</span>
@@ -364,10 +364,10 @@ export const ProfilePage = () => {
               }
             }}
             disabled={isSavingAvatar}
-            className={`rounded-2xl border-2 border-dashed px-4 py-8 text-center text-sm font-medium transition ${
+            className={`rounded-2xl border-2 border-dashed px-4 py-8 text-center text-sm font-bold transition ${
               isAvatarDragActive
-                ? 'border-brand-pink bg-brand-pink/10'
-                : 'border-app-border bg-app-bg hover:border-brand-lime dark:bg-app-elevated'
+                ? 'border-app-text bg-brand-lime/25 shadow-sticker-sm'
+                : 'border-app-text/60 bg-app-surface hover:border-app-text hover:bg-brand-lime/10 dark:bg-app-elevated'
             } ${isSavingAvatar ? 'cursor-not-allowed opacity-60' : ''}`}
           >
             <p>{t('profile.avatarDropLabel')}</p>

@@ -94,28 +94,31 @@ export const Modal = ({
             exit={panelExit}
             transition={panelTransition}
             className={cn(
-              'relative z-10 max-h-[85svh] w-full max-w-lg overflow-y-auto rounded-t-3xl border-2 border-b-0 border-app-text bg-app-elevated p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] dark:bg-app-card sm:max-h-[90svh] sm:rounded-3xl sm:border-b-2 sm:p-7 sm:shadow-[6px_6px_0_0_var(--syn-text)]',
+              'relative z-10 flex max-h-[85svh] w-full max-w-lg flex-col rounded-t-3xl border-2 border-b-0 border-app-text bg-app-elevated dark:bg-app-card sm:max-h-[90svh] sm:rounded-3xl sm:border-b-2 sm:shadow-[6px_6px_0_0_var(--syn-text)]',
               panelClassName,
             )}
           >
-            {/* grab handle on the phone sheet, tape on the desktop dialog */}
-            <div
-              aria-hidden="true"
-              className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-app-text/30 sm:hidden"
-            />
+            {/* Tape overhangs the panel edge, so it lives outside the scrolling wrapper. */}
             <TapeStrip tone="lime" className="hidden sm:block" />
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h3 className="text-xl font-black tracking-tight text-brand-dark dark:text-brand-white">
-                {title}
-              </h3>
-              <IconButton
-                onClick={onClose}
-                aria-label={closeLabel}
-                size="sm"
-                icon={<X size={16} aria-hidden="true" />}
+            <div className="min-h-0 flex-1 overflow-y-auto rounded-[inherit] p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:p-7">
+              {/* grab handle on the phone sheet */}
+              <div
+                aria-hidden="true"
+                className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-app-text/30 sm:hidden"
               />
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-xl font-black tracking-tight text-brand-dark dark:text-brand-white">
+                  {title}
+                </h3>
+                <IconButton
+                  onClick={onClose}
+                  aria-label={closeLabel}
+                  size="sm"
+                  icon={<X size={16} aria-hidden="true" />}
+                />
+              </div>
+              {children}
             </div>
-            {children}
           </motion.div>
         </div>
       ) : null}
