@@ -519,6 +519,13 @@ export const analyticsTrackRequestSchema = z.object({
   path: z.string().min(1).max(512),
   locale: z.enum(['en', 'fr']).optional(),
   source: z.enum(['web', 'site']).default('web'),
+  /**
+   * Where this session came from, sent once on its first event. The `Referer`
+   * header cannot supply this: analytics beacons go cross-origin to the API, so
+   * browsers trim that header to our own origin under the default
+   * `strict-origin-when-cross-origin` policy.
+   */
+  referrer: z.string().max(512).optional(),
   properties: analyticsPropertiesSchema.default({}),
 });
 export type AnalyticsTrackRequest = z.infer<typeof analyticsTrackRequestSchema>;

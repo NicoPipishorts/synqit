@@ -97,10 +97,15 @@ export const registerAnalyticsRoutes = async (app: FastifyInstance): Promise<voi
         path: parsed.data.path,
         locale: parsed.data.locale ?? resolveOptionalLocale(request),
         source: parsed.data.source,
+        // Prefer what the client captured: beacons reach us cross-origin, so the
+        // `Referer` header is trimmed to our own origin and says nothing about
+        // where the visitor actually came from. The header is only a fallback
+        // for same-origin callers that send no explicit referrer.
         referrer:
-          typeof request.headers.referer === 'string'
+          parsed.data.referrer ??
+          (typeof request.headers.referer === 'string'
             ? request.headers.referer.slice(0, 512)
-            : null,
+            : null),
         properties: parsed.data.properties,
       });
     } catch (error) {
