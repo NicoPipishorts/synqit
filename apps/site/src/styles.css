@@ -20,6 +20,18 @@ html {
   }
 }
 
+/* The canvas behind the page sheet. iOS Safari fills the status-bar band and any
+   overscroll with this, not with what the page paints, so plain --syn-bg showed a
+   white strip above the backdrop at the top of the page. These are the colours the
+   sheet's own top edge renders as, once the washes, dots and grain are over it. */
+html {
+  background: #f1f1f1;
+}
+
+html.dark {
+  background: #1d1d1d;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
