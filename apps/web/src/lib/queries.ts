@@ -20,6 +20,10 @@ import {
   eventTracksResponseSchema,
   importSyncRequestSchema,
   importSyncResponseSchema,
+  createTransferRequestSchema,
+  transferBatchResponseSchema,
+  type TransferBatch,
+  type TransferPlaylistSelection,
   integrationDisconnectResponseSchema,
   integrationListResponseSchema,
   oauthCallbackResponseSchema,
@@ -525,6 +529,7 @@ export const syncQueryKeys = {
     ['syncs', 'providerPlaylistTrackCount', provider, providerPlaylistId] as const,
   providerPlaylistTracks: (provider: string, providerPlaylistId: string) =>
     ['syncs', 'providerPlaylistTracks', provider, providerPlaylistId] as const,
+  transferBatch: (batchId: string) => ['syncs', 'transferBatch', batchId] as const,
 };
 
 // ---------------------------------------------------------------------------
@@ -771,6 +776,39 @@ export const importSync = async (params: {
     (payload) => importSyncResponseSchema.parse(payload),
   );
   return result;
+};
+
+/**
+ * Queues a transfer batch. Returns immediately with the batch; progress is
+ * read back from `fetchTransferBatch`.
+ */
+export const createTransfer = async (params: {
+  sourceProvider: 'spotify' | 'apple';
+  destinationProvider: 'spotify' | 'apple';
+  playlists: TransferPlaylistSelection[];
+}): Promise<TransferBatch> => {
+  const token = requireToken();
+  const body = createTransferRequestSchema.parse(params);
+  const result = await callApi(
+    '/v1/transfers',
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+    (payload) => transferBatchResponseSchema.parse(payload),
+  );
+  return result.batch;
+};
+
+export const fetchTransferBatch = async (batchId: string): Promise<TransferBatch> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/transfers/${encodeURIComponent(batchId)}`,
+    { headers: { authorization: `Bearer ${token}` } },
+    (payload) => transferBatchResponseSchema.parse(payload),
+  );
+  return result.batch;
 };
 
 export const unsubscribeSync = async (magicLinkToken: string): Promise<{ ok: true }> => {

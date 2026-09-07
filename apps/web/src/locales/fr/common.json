@@ -1019,22 +1019,26 @@
       "tabEvents": "Événement",
       "tabSharing": "Partage",
       "recommended": "Le plus populaire",
+      "recommendedValue": "Meilleur rapport",
       "footnote": "Prix en EUR. Les tarifs peuvent évoluer avant le lancement.",
       "navLink": "Tarifs",
       "teaserCta": "Voir tous les tarifs",
       "pageTitle": "Tarifs",
-      "pageSubtitle": "Les événements sont à coût unique. Le partage est gratuit — passez Pro quand vous curatez pour une audience.",
+      "pageSubtitle": "Les événements sont à coût unique. Le partage est gratuit. Le transfert de bibliothèque est gratuit à l’essai.",
       "featuresLabel": "Fonctionnalités",
       "eventsTitle": "Playlists d’événement",
       "eventsSubtitle": "Coût unique, par événement. Payez seulement quand vous organisez.",
       "sharingTitle": "Playlists partagées",
       "sharingSubtitle": "Partage gratuit. Débloquez une playlist une fois, ou passez Pro pour les curateurs.",
+      "transferTitle": "Transférer votre bibliothèque",
+      "transferSubtitle": "Faites passer vos playlists une bonne fois. Gratuit pour essayer, un prix unique pour tout finir.",
       "backHome": "Retour à l’accueil",
       "sec": {
         "eventBasics": "Essentiel événement",
         "keepsake": "Souvenir & conservation",
         "sharingBasics": "Partage",
-        "curators": "Pro / Curateurs"
+        "curators": "Pro / Curateurs",
+        "transferBasics": "Transfert de bibliothèque"
       },
       "row": {
         "magicLink": "Contributions des invités via lien magique",
@@ -1056,7 +1060,13 @@
         "biSync": "Synchronisation bidirectionnelle + plus rapide",
         "unlimitedPlaylists": "Playlists synchronisées illimitées",
         "channelPage": "Page de chaîne personnalisée",
-        "seats": "Sièges d’équipe"
+        "seats": "Sièges d’équipe",
+        "transferDirection": "Transfert entre Spotify et Apple Music",
+        "transferPlaylists": "Playlists transférables",
+        "transferTrackCap": "Titres par playlist",
+        "transferBatch": "Sélectionner plusieurs playlists à la fois",
+        "transferResume": "Reprise et nouvelle tentative automatiques",
+        "transferReport": "Rapport de correspondance (transférés / ignorés)"
       },
       "val": {
         "cap25": "25",
@@ -1068,7 +1078,9 @@
         "forever": "Pour toujours",
         "noLimit": "Sans limite",
         "basic": "Basiques",
-        "advanced": "Avancées"
+        "advanced": "Avancées",
+        "count3": "3 au total",
+        "tracks100": "Jusqu’à 100"
       },
       "events": {
         "free": {
@@ -1138,7 +1150,23 @@
       "teaserEvents": "Événements",
       "teaserEventsBody": "Gratuit jusqu’à 25 invités, puis un prix unique par événement.",
       "teaserSharing": "Partage",
-      "teaserSharingBody": "Gratuit pour les petits cercles. 5 € débloquent une playlist pour toujours."
+      "teaserSharingBody": "Gratuit pour les petits cercles. 5 € débloquent une playlist pour toujours.",
+      "teaserTransfer": "Transfert",
+      "teaserTransferBody": "3 playlists offertes. 9 € pour transférer toute votre bibliothèque.",
+      "transfer": {
+        "free": {
+          "name": "Gratuit",
+          "price": "Gratuit",
+          "note": "3 playlists, une à la fois",
+          "cta": "Essayer un transfert"
+        },
+        "pack": {
+          "name": "Pack Transfert",
+          "price": "9 €",
+          "note": "paiement unique, bibliothèque entière",
+          "cta": "Prendre le pack"
+        }
+      }
     }
   },
   "modal": {

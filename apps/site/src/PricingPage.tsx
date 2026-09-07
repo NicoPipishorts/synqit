@@ -60,6 +60,25 @@ const SHARING_TABLE: PricingTable = {
   ],
 };
 
+const TRANSFER_TABLE: PricingTable = {
+  planKeys: ['transfer.free', 'transfer.pack'],
+  recommendedIndex: 1,
+  recommendedLabelKey: 'home.pricing.recommendedValue',
+  sections: [
+    {
+      label: 'transferBasics',
+      rows: [
+        { label: 'transferDirection', cells: [true, true] },
+        { label: 'transferPlaylists', cells: ['count3', 'unlimited'] },
+        { label: 'transferTrackCap', cells: ['tracks100', 'unlimited'] },
+        { label: 'transferReport', cells: [true, true] },
+        { label: 'transferBatch', cells: [false, true] },
+        { label: 'transferResume', cells: [false, true] },
+      ],
+    },
+  ],
+};
+
 export const PricingPage = () => {
   const { t } = useI18n();
 
@@ -90,6 +109,13 @@ export const PricingPage = () => {
         title={t('home.pricing.sharingTitle')}
         subtitle={t('home.pricing.sharingSubtitle')}
         table={SHARING_TABLE}
+      />
+      <PricingTableBlock
+        index="03"
+        tone="ink"
+        title={t('home.pricing.transferTitle')}
+        subtitle={t('home.pricing.transferSubtitle')}
+        table={TRANSFER_TABLE}
       />
 
       <p className="text-center text-xs text-app-text-muted">{t('home.pricing.footnote')}</p>
