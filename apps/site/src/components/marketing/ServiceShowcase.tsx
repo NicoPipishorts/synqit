@@ -565,10 +565,12 @@ const Pivot = ({
 
 // ─── Deck of cards: swipe, arrows or dots pick the flow ───────────────────────
 
+// The back cards fan to opposite sides. Offsetting them both the same way piles
+// the deck's visual weight off to one side of the column it sits in.
 const DECK_DEPTH = [
   { x: 0, y: 0, rotate: 0, scale: 1 },
-  { x: 12, y: -16, rotate: 2.5, scale: 0.96 },
-  { x: 24, y: -30, rotate: -2, scale: 0.92 },
+  { x: 13, y: -15, rotate: 3, scale: 0.965 },
+  { x: -13, y: -27, rotate: -3, scale: 0.93 },
 ];
 
 const HOVER_SPRING = { stiffness: 260, damping: 22 };
