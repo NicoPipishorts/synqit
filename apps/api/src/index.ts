@@ -20,10 +20,12 @@ import { registerEventRoutes } from './events/routes';
 import { registerIntegrationRoutes } from './integrations/routes';
 import { startAccountDeletionScheduler } from './jobs/account-deletion';
 import { closeNotificationsQueue } from './jobs/notifications-queue';
+import { closeTransfersQueue } from './jobs/transfers-queue';
 import { startWeeklyRecapScheduler } from './jobs/weekly-recap';
 import { registerMetricsEndpoint } from './observability/metrics';
 import { startAutoSyncScheduler } from './syncs/auto-sync';
 import { registerSyncRoutes } from './syncs/routes';
+import { startTransferWorker } from './syncs/transfer-worker';
 
 const APP_VERSION = process.env.APP_VERSION ?? '0.1.0';
 const PORT = Number(process.env.PORT ?? 3001);
@@ -200,12 +202,14 @@ export const start = async () => {
   let stopAutoSyncScheduler: (() => void) | null = null;
   let stopAccountDeletionScheduler: (() => void) | null = null;
   let stopWeeklyRecapScheduler: (() => void) | null = null;
+  let stopTransferWorker: (() => Promise<void>) | null = null;
 
   try {
     await app.listen({ port: PORT, host: HOST });
     stopAutoSyncScheduler = startAutoSyncScheduler(app.log);
     stopAccountDeletionScheduler = startAccountDeletionScheduler(app.log);
     stopWeeklyRecapScheduler = startWeeklyRecapScheduler(app.log);
+    stopTransferWorker = startTransferWorker(app.log);
   } catch (error) {
     app.log.error(error);
     process.exit(1);
@@ -215,8 +219,10 @@ export const start = async () => {
     stopAutoSyncScheduler?.();
     stopAccountDeletionScheduler?.();
     stopWeeklyRecapScheduler?.();
+    await stopTransferWorker?.().catch(() => undefined);
     await app.close();
     await closeNotificationsQueue().catch(() => undefined);
+    await closeTransfersQueue().catch(() => undefined);
   };
 
   process.on('SIGINT', () => {

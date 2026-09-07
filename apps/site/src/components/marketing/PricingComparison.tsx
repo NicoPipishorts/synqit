@@ -14,6 +14,8 @@ type Section = { label: string; rows: Row[] };
 export type PricingTable = {
   planKeys: string[];
   recommendedIndex: number;
+  /** Overrides the "Most popular" badge; use where that claim would not be true yet. */
+  recommendedLabelKey?: string;
   sections: Section[];
 };
 
@@ -54,6 +56,7 @@ export const PricingComparison = ({ table }: { table: PricingTable }) => {
   const { t } = useI18n();
   const cols = table.planKeys.length;
   const isRecommended = (i: number) => i === table.recommendedIndex;
+  const recommendedLabel = t(table.recommendedLabelKey ?? 'home.pricing.recommended');
   const registerHref = buildAppUrl('/auth/register');
 
   return (
@@ -69,7 +72,7 @@ export const PricingComparison = ({ table }: { table: PricingTable }) => {
           >
             {isRecommended(i) ? (
               <Sticker tone="lime" tilt="rotate-2" className="absolute -top-3.5 right-5">
-                {t('home.pricing.recommended')}
+                {recommendedLabel}
               </Sticker>
             ) : null}
             <div className="flex items-end justify-between gap-4">
@@ -145,7 +148,7 @@ export const PricingComparison = ({ table }: { table: PricingTable }) => {
                     tilt="rotate-2"
                     className="absolute left-1/2 top-3 -translate-x-1/2"
                   >
-                    {t('home.pricing.recommended')}
+                    {recommendedLabel}
                   </Sticker>
                 ) : null}
                 <p className="text-sm font-black uppercase tracking-[0.14em] text-app-text-muted">
