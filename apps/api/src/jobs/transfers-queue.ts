@@ -27,7 +27,15 @@ export const createTransfersConnection = (params?: { forWorker?: boolean }): Con
     ...readRedisConnectionConfig(),
     ...(params?.forWorker
       ? { maxRetriesPerRequest: null }
-      : { enableOfflineQueue: false, connectTimeout: 1200, maxRetriesPerRequest: 1 }),
+      : {
+          enableOfflineQueue: false,
+          connectTimeout: 1200,
+          maxRetriesPerRequest: 1,
+          // Give up rather than reconnect forever. Without this, enqueueing
+          // against an unreachable Redis hangs the caller instead of failing,
+          // and the route can never return its 503.
+          retryStrategy: (attempt: number) => (attempt > 2 ? null : 200),
+        }),
   }) as ConnectionOptions;
 
 /**
