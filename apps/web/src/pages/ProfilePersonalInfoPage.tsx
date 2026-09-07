@@ -275,9 +275,9 @@ export const ProfilePersonalInfoPage = () => {
                 tabIndex={0}
                 title={t('profile.emailLockedHint')}
                 aria-label={t('profile.emailLockedHint')}
-                className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-app-text text-app-text-secondary"
+                className="inline-flex cursor-help items-center text-app-text-secondary hover:text-app-text"
               >
-                <Info size={10} strokeWidth={2.5} aria-hidden="true" />
+                <Info size={14} strokeWidth={2.25} aria-hidden="true" />
               </span>
             </span>
             <input
