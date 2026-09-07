@@ -403,7 +403,7 @@ export const ProviderConnectionsPage = () => {
 
   return (
     <div className="grid gap-5">
-      <article className="rounded-2xl border border-app-border bg-app-bg p-5 shadow-soft-lift dark:bg-app-elevated">
+      <article className="rounded-3xl border-2 border-app-text bg-app-elevated p-5 shadow-sticker dark:bg-app-card">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
             {t('profile.connectionsServicesTitle')}
@@ -441,7 +441,7 @@ export const ProviderConnectionsPage = () => {
                   void runProviderAction(provider, 'connect');
                 }
               }}
-              className={`grid min-w-38 sm:min-w-40 gap-1 rounded-xl border border-app-border bg-app-elevated px-4 py-3 text-left shadow-soft-lift transition dark:bg-app-card ${
+              className={`grid min-w-38 sm:min-w-40 gap-1 rounded-2xl border-2 border-app-text bg-app-elevated px-4 py-3 text-left shadow-sticker-sm transition dark:bg-app-card ${
                 isConnected
                   ? 'cursor-default grayscale'
                   : 'hover:border-brand-lime hover:shadow-glow-lime cursor-pointer'
@@ -450,7 +450,7 @@ export const ProviderConnectionsPage = () => {
               <img
                 src={providerMeta.iconPath}
                 alt={providerMeta.label}
-                className="h-10 w-10 rounded-full object-cover"
+                className="h-10 w-10 rounded-full border-2 border-app-text object-cover"
               />
               <p className="text-sm font-semibold text-app-text">{providerMeta.label}</p>
               <p className="text-xs text-app-text-secondary">
@@ -469,20 +469,20 @@ export const ProviderConnectionsPage = () => {
             ({ provider, providerMeta, isBusy, connectedAt, expiresAt, eventsLinked }) => (
               <article
                 key={provider}
-                className="flex flex-col rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card"
+                className="relative flex flex-col rounded-3xl border-2 border-app-text bg-app-elevated p-5 shadow-sticker dark:bg-app-card"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <img
                       src={providerMeta.iconPath}
                       alt={providerMeta.label}
-                      className="h-12 w-12 rounded-full object-cover"
+                      className="h-12 w-12 rounded-full border-2 border-app-text object-cover"
                     />
                     <h3 className="text-lg font-bold text-brand-dark dark:text-brand-white">
                       {providerMeta.label}
                     </h3>
                   </div>
-                  <span className="rounded-full border border-brand-lime/40 bg-brand-lime/15 px-2.5 py-1 text-xs font-semibold text-[#6d9600] dark:text-[#d5ff5c]">
+                  <span className="rounded-full border-2 border-app-text bg-brand-lime px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.1em] text-brand-dark shadow-sticker-sm">
                     {t('profile.connectionConnectedTag')}
                   </span>
                 </div>

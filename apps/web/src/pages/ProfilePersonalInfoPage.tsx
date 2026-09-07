@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import countries from 'i18n-iso-countries';
 import enCountryNames from 'i18n-iso-countries/langs/en.json';
 import frCountryNames from 'i18n-iso-countries/langs/fr.json';
+import { Info } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
@@ -243,11 +244,9 @@ export const ProfilePersonalInfoPage = () => {
         description={t('profile.personalInfoDescription')}
       />
 
-      <SurfaceCard
-        className={`w-full ${showCompletionPrompt ? 'border-brand-pink/45 bg-brand-pink/5 dark:bg-brand-pink/10' : ''}`}
-      >
+      <SurfaceCard className="w-full">
         {showCompletionPrompt ? (
-          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-brand-pink/40 bg-brand-pink/10 px-4 py-3 text-sm text-app-text">
+          <div className="mb-4 flex items-start gap-3 rounded-2xl border-2 border-app-text bg-brand-pink/15 px-4 py-3 text-sm text-app-text shadow-sticker-sm">
             <NotificationDot className="mt-0.5 h-3 w-3 shrink-0 ring-0" />
             <div className="grid gap-1">
               <p className="font-semibold text-[#b41563] dark:text-[#ff8ac0]">
@@ -265,15 +264,28 @@ export const ProfilePersonalInfoPage = () => {
               onChange={(event) => updateField('displayName', event.target.value)}
               placeholder={t('profile.displayNamePlaceholder')}
               disabled={isLoading || isSaving}
-              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+              className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
             />
           </label>
           <label className="grid gap-1 text-sm">
-            <span>{t('profile.emailLabel')}</span>
-            <div className="rounded-xl border border-app-border bg-app-elevated px-3 py-2 text-app-text-secondary dark:bg-app-card">
-              {auth?.userEmail ?? ''}
-            </div>
-            <p className="text-xs text-app-text-secondary">{t('profile.emailLockedHint')}</p>
+            <span className="inline-flex items-center gap-1.5">
+              {t('profile.emailLabel')}
+              <span
+                role="img"
+                tabIndex={0}
+                title={t('profile.emailLockedHint')}
+                aria-label={t('profile.emailLockedHint')}
+                className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full border border-app-text text-app-text-secondary"
+              >
+                <Info size={10} strokeWidth={2.5} aria-hidden="true" />
+              </span>
+            </span>
+            <input
+              value={auth?.userEmail ?? ''}
+              readOnly
+              aria-readonly="true"
+              className="rounded-xl border-2 border-dashed border-app-text/40 bg-app-surface px-3 py-2 text-app-text-secondary outline-none dark:bg-app-elevated"
+            />
           </label>
           <label className="grid gap-1 text-sm">
             <span>{t('profile.firstNameLabel')}</span>
@@ -282,7 +294,7 @@ export const ProfilePersonalInfoPage = () => {
               onChange={(event) => updateField('firstName', event.target.value)}
               placeholder={t('profile.firstNamePlaceholder')}
               disabled={isLoading || isSaving}
-              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+              className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
             />
           </label>
           <label className="grid gap-1 text-sm">
@@ -292,7 +304,7 @@ export const ProfilePersonalInfoPage = () => {
               onChange={(event) => updateField('lastName', event.target.value)}
               placeholder={t('profile.lastNamePlaceholder')}
               disabled={isLoading || isSaving}
-              className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+              className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
             />
           </label>
           <label className="grid gap-1 text-sm md:col-span-2">
@@ -306,13 +318,13 @@ export const ProfilePersonalInfoPage = () => {
                 }
                 placeholder={t('profile.birthDayPlaceholder')}
                 disabled={isLoading || isSaving}
-                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
               />
               <select
                 value={draft.birthMonth}
                 onChange={(event) => updateField('birthMonth', event.target.value)}
                 disabled={isLoading || isSaving}
-                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
               >
                 <option value="">{t('profile.birthMonthPlaceholder')}</option>
                 {monthOptions.map((monthOption) => (
@@ -329,7 +341,7 @@ export const ProfilePersonalInfoPage = () => {
                 }
                 placeholder={t('profile.birthYearPlaceholder')}
                 disabled={isLoading || isSaving}
-                className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
               />
             </div>
           </label>
@@ -350,10 +362,10 @@ export const ProfilePersonalInfoPage = () => {
                 }}
                 placeholder={t('profile.countryPlaceholder')}
                 disabled={isLoading || isSaving}
-                className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                className="w-full rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
               />
               {isCountryMenuOpen ? (
-                <div className="absolute z-[120] mt-1 max-h-32 w-full overflow-auto rounded-xl border border-app-border bg-app-elevated p-0.5 shadow-soft-lift dark:bg-app-card">
+                <div className="absolute z-[120] mt-1 max-h-32 w-full overflow-auto rounded-xl border-2 border-app-text bg-app-elevated p-1 shadow-sticker-sm dark:bg-app-card">
                   {filteredCountryOptions.length > 0 ? (
                     filteredCountryOptions.map((countryName) => (
                       <button
@@ -364,7 +376,7 @@ export const ProfilePersonalInfoPage = () => {
                           updateField('country', countryName);
                           setIsCountryMenuOpen(false);
                         }}
-                        className="flex w-full cursor-pointer items-center rounded-md px-2 py-1 text-left text-xs text-app-text transition hover:bg-brand-lime/20"
+                        className="flex w-full cursor-pointer items-center rounded-lg px-2 py-1 text-left text-xs font-semibold text-app-text transition hover:bg-brand-lime"
                       >
                         {countryName}
                       </button>
