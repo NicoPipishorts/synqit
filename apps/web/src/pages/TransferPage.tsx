@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
+  ArrowLeft,
   ArrowLeftRight,
+  ArrowRight,
   Check,
   CheckCircle2,
   ChevronLeft,
@@ -722,20 +724,52 @@ export const TransferPage = () => {
                     }}
                     disabled={isBusy}
                     aria-label={t('transferPage.swap')}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                    whileHover={{ scale: 1.08 }}
+                    whileTap={{ scale: 0.92 }}
                     className="group inline-flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border-2 border-app-text bg-app-elevated text-app-text shadow-sticker transition-colors hover:bg-brand-lime hover:text-brand-dark disabled:cursor-not-allowed disabled:opacity-60 dark:bg-app-card"
                   >
-                    {/* The icon half-turns on hover to hint the flip, then completes a full
-                        half-turn per click so the arrows visibly swap sides. */}
-                    <motion.span
+                    {/* Two arrows: on hover each nudges outward; on click each flies out its own
+                        way and comes back from the opposite side, so they visibly trade places.
+                        The group is turned 90° while the cards are stacked (below lg). */}
+                    <span
                       aria-hidden="true"
-                      animate={{ rotate: swapSpin * 180 }}
-                      transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-                      className="inline-flex rotate-90 transition-transform duration-300 group-hover:rotate-[135deg] lg:rotate-0 lg:group-hover:rotate-45"
+                      className="relative block h-7 w-8 rotate-90 lg:rotate-0"
                     >
-                      <ArrowLeftRight size={20} strokeWidth={2.5} />
-                    </motion.span>
+                      <motion.span
+                        key={`left-${swapSpin}`}
+                        initial={false}
+                        animate={
+                          swapSpin > 0
+                            ? { x: [0, -26, 26, 0], opacity: [1, 0, 0, 1] }
+                            : { x: 0, opacity: 1 }
+                        }
+                        transition={{ duration: 0.55, times: [0, 0.4, 0.5, 1], ease: 'easeInOut' }}
+                        className="absolute left-0 top-0"
+                      >
+                        <ArrowLeft
+                          size={15}
+                          strokeWidth={2.75}
+                          className="transition-transform duration-200 group-hover:-translate-x-1"
+                        />
+                      </motion.span>
+                      <motion.span
+                        key={`right-${swapSpin}`}
+                        initial={false}
+                        animate={
+                          swapSpin > 0
+                            ? { x: [0, 26, -26, 0], opacity: [1, 0, 0, 1] }
+                            : { x: 0, opacity: 1 }
+                        }
+                        transition={{ duration: 0.55, times: [0, 0.4, 0.5, 1], ease: 'easeInOut' }}
+                        className="absolute bottom-0 right-0"
+                      >
+                        <ArrowRight
+                          size={15}
+                          strokeWidth={2.75}
+                          className="transition-transform duration-200 group-hover:translate-x-1"
+                        />
+                      </motion.span>
+                    </span>
                   </motion.button>
                 </div>
 
