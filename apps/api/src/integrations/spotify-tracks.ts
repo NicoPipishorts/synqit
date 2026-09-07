@@ -1,5 +1,9 @@
-import type { Provider } from '@synqit/shared';
 import { z } from 'zod';
+
+import { ProviderApiError, parseRetryAfterSeconds } from './provider-api-error';
+import { chunk, withProviderRetry } from './provider-throttle';
+
+const SPOTIFY_ADD_TRACKS_CHUNK_SIZE = 100;
 
 type SpotifyTrackSearchResult = {
   providerTrackId: string;
@@ -10,25 +14,6 @@ type SpotifyTrackSearchResult = {
   artworkUrl: string | null;
   previewUrl: string | null;
 };
-
-class ProviderApiError extends Error {
-  provider: Provider;
-  statusCode: number;
-  details: unknown;
-
-  constructor(params: {
-    provider: Provider;
-    statusCode: number;
-    message: string;
-    details?: unknown;
-  }) {
-    super(params.message);
-    this.name = 'ProviderApiError';
-    this.provider = params.provider;
-    this.statusCode = params.statusCode;
-    this.details = params.details ?? null;
-  }
-}
 
 const spotifySearchResponseSchema = z.object({
   tracks: z.object({
@@ -118,6 +103,7 @@ const toSpotifyApiError = (params: {
   statusCode: number;
   payload: unknown;
   wwwAuthenticate: string | null;
+  retryAfter?: string | null;
 }): ProviderApiError => {
   const fallbackMessage =
     params.action === 'search'
@@ -145,6 +131,7 @@ const toSpotifyApiError = (params: {
     provider: 'spotify',
     statusCode: params.statusCode,
     message,
+    retryAfterSeconds: parseRetryAfterSeconds(params.retryAfter ?? null),
     details: {
       payload: params.payload,
       wwwAuthenticate: params.wwwAuthenticate,
@@ -178,6 +165,7 @@ export const searchSpotifyTracks = async (params: {
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
+      retryAfter: response.headers.get('retry-after'),
     });
   }
 
@@ -193,10 +181,10 @@ export const searchSpotifyTracks = async (params: {
   }));
 };
 
-export const addSpotifyTrackToPlaylist = async (params: {
+const postSpotifyTrackUris = async (params: {
   accessToken: string;
   providerPlaylistId: string;
-  providerTrackId: string;
+  providerTrackIds: readonly string[];
 }): Promise<void> => {
   const url = `https://api.spotify.com/v1/playlists/${encodeURIComponent(
     params.providerPlaylistId,
@@ -209,7 +197,7 @@ export const addSpotifyTrackToPlaylist = async (params: {
       'content-type': 'application/json',
     },
     body: JSON.stringify({
-      uris: [`spotify:track:${params.providerTrackId}`],
+      uris: params.providerTrackIds.map((id) => `spotify:track:${id}`),
     }),
   });
 
@@ -220,8 +208,66 @@ export const addSpotifyTrackToPlaylist = async (params: {
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
+      retryAfter: response.headers.get('retry-after'),
     });
   }
+};
+
+export const addSpotifyTrackToPlaylist = async (params: {
+  accessToken: string;
+  providerPlaylistId: string;
+  providerTrackId: string;
+}): Promise<void> =>
+  postSpotifyTrackUris({
+    accessToken: params.accessToken,
+    providerPlaylistId: params.providerPlaylistId,
+    providerTrackIds: [params.providerTrackId],
+  });
+
+/**
+ * Adds many tracks with one request per 100, which is Spotify's per-call cap.
+ *
+ * A rejected chunk is retried one track at a time: a batch can fail because a
+ * single id is unavailable in the user's market, and that should cost one
+ * track rather than the whole chunk. Returns the ids actually added, in the
+ * order they were requested, so callers can account for what was dropped.
+ */
+export const addSpotifyTracksToPlaylist = async (params: {
+  accessToken: string;
+  providerPlaylistId: string;
+  providerTrackIds: readonly string[];
+}): Promise<{ addedTrackIds: string[] }> => {
+  const addedTrackIds: string[] = [];
+
+  for (const batch of chunk(params.providerTrackIds, SPOTIFY_ADD_TRACKS_CHUNK_SIZE)) {
+    try {
+      await withProviderRetry(() =>
+        postSpotifyTrackUris({
+          accessToken: params.accessToken,
+          providerPlaylistId: params.providerPlaylistId,
+          providerTrackIds: batch,
+        }),
+      );
+      addedTrackIds.push(...batch);
+    } catch {
+      for (const providerTrackId of batch) {
+        try {
+          await withProviderRetry(() =>
+            postSpotifyTrackUris({
+              accessToken: params.accessToken,
+              providerPlaylistId: params.providerPlaylistId,
+              providerTrackIds: [providerTrackId],
+            }),
+          );
+          addedTrackIds.push(providerTrackId);
+        } catch {
+          // Leave it out of the result; the caller reports it as skipped.
+        }
+      }
+    }
+  }
+
+  return { addedTrackIds };
 };
 
 export const listSpotifyPlaylistTracks = async (params: {
@@ -250,6 +296,7 @@ export const listSpotifyPlaylistTracks = async (params: {
         statusCode: response.status,
         payload,
         wwwAuthenticate: response.headers.get('www-authenticate'),
+        retryAfter: response.headers.get('retry-after'),
       });
     }
 
@@ -308,6 +355,7 @@ export const removeSpotifyTrackFromPlaylist = async (params: {
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
+      retryAfter: response.headers.get('retry-after'),
     });
   }
 };

@@ -270,7 +270,7 @@ export const HomePage = () => {
             <h2 className="text-center text-2xl font-black leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
               {t('home.pricing.teaserTitle')}
             </h2>
-            <div className="mt-8 grid gap-4 sm:grid-cols-2">
+            <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="flex flex-col gap-3 rounded-2xl border border-app-border bg-app-surface p-5">
                 <Sticker tone="lime" tilt="-rotate-1">
                   {t('home.pricing.teaserEvents')}
@@ -285,6 +285,14 @@ export const HomePage = () => {
                 </Sticker>
                 <p className="text-sm leading-relaxed text-app-text-secondary">
                   {t('home.pricing.teaserSharingBody')}
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 rounded-2xl border border-app-border bg-app-surface p-5 sm:col-span-2 lg:col-span-1">
+                <Sticker tone="ink" tilt="-rotate-1">
+                  {t('home.pricing.teaserTransfer')}
+                </Sticker>
+                <p className="text-sm leading-relaxed text-app-text-secondary">
+                  {t('home.pricing.teaserTransferBody')}
                 </p>
               </div>
             </div>

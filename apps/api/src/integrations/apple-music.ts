@@ -2,7 +2,8 @@ import type { ProviderPlaylistItem } from '@synqit/shared';
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
-import { ProviderApiError } from './spotify-tracks';
+import { ProviderApiError, parseRetryAfterSeconds } from './provider-api-error';
+import { chunk, withProviderRetry } from './provider-throttle';
 
 type AppleTrackSearchResult = {
   providerTrackId: string;
@@ -118,6 +119,8 @@ export type ApplePlaylistAttributes = {
   description: string | null;
 };
 
+const APPLE_ADD_TRACKS_CHUNK_SIZE = 100;
+
 const toAppleApiError = (params: {
   action:
     | 'search'
@@ -131,6 +134,7 @@ const toAppleApiError = (params: {
   statusCode: number;
   payload: unknown;
   wwwAuthenticate: string | null;
+  retryAfter?: string | null;
 }): ProviderApiError => {
   const actionMessageByType = {
     search: 'Apple Music search failed',
@@ -164,6 +168,7 @@ const toAppleApiError = (params: {
     provider: 'apple',
     statusCode: params.statusCode,
     message,
+    retryAfterSeconds: parseRetryAfterSeconds(params.retryAfter ?? null),
     details: {
       action: params.action,
       payload: params.payload,
@@ -276,6 +281,7 @@ export const listAppleLibraryPlaylists = async (params: {
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
+      retryAfter: response.headers.get('retry-after'),
     });
   }
 
@@ -320,6 +326,7 @@ export const searchAppleCatalogTracks = async (params: {
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
+      retryAfter: response.headers.get('retry-after'),
     });
   }
 
@@ -364,6 +371,7 @@ export const createAppleLibraryPlaylist = async (params: {
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
+      retryAfter: response.headers.get('retry-after'),
     });
   }
 
@@ -402,6 +410,7 @@ export const getAppleUserStorefront = async (params: {
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
+      retryAfter: response.headers.get('retry-after'),
     });
   }
 
@@ -416,6 +425,7 @@ export const getAppleUserStorefront = async (params: {
         action: 'resolve_storefront',
         payload,
         wwwAuthenticate: response.headers.get('www-authenticate'),
+        retryAfter: response.headers.get('retry-after'),
       },
     });
   }
@@ -423,11 +433,11 @@ export const getAppleUserStorefront = async (params: {
   return storefrontId.toLowerCase();
 };
 
-export const addAppleTrackToPlaylist = async (params: {
+const postAppleTrackIds = async (params: {
   developerToken: string;
   musicUserToken: string;
   providerPlaylistId: string;
-  providerTrackId: string;
+  providerTrackIds: readonly string[];
 }): Promise<void> => {
   const response = await fetch(
     `https://api.music.apple.com/v1/me/library/playlists/${encodeURIComponent(params.providerPlaylistId)}/tracks`,
@@ -439,12 +449,7 @@ export const addAppleTrackToPlaylist = async (params: {
         contentTypeJson: true,
       }),
       body: JSON.stringify({
-        data: [
-          {
-            id: params.providerTrackId,
-            type: 'songs',
-          },
-        ],
+        data: params.providerTrackIds.map((id) => ({ id, type: 'songs' })),
       }),
     },
   );
@@ -456,8 +461,68 @@ export const addAppleTrackToPlaylist = async (params: {
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
+      retryAfter: response.headers.get('retry-after'),
     });
   }
+};
+
+export const addAppleTrackToPlaylist = async (params: {
+  developerToken: string;
+  musicUserToken: string;
+  providerPlaylistId: string;
+  providerTrackId: string;
+}): Promise<void> =>
+  postAppleTrackIds({
+    developerToken: params.developerToken,
+    musicUserToken: params.musicUserToken,
+    providerPlaylistId: params.providerPlaylistId,
+    providerTrackIds: [params.providerTrackId],
+  });
+
+/**
+ * Adds many tracks per request instead of one call per track. Mirrors the
+ * Spotify helper: a rejected chunk is retried track by track so one song the
+ * catalogue will not accept does not drop the other 99.
+ */
+export const addAppleTracksToPlaylist = async (params: {
+  developerToken: string;
+  musicUserToken: string;
+  providerPlaylistId: string;
+  providerTrackIds: readonly string[];
+}): Promise<{ addedTrackIds: string[] }> => {
+  const addedTrackIds: string[] = [];
+
+  for (const batch of chunk(params.providerTrackIds, APPLE_ADD_TRACKS_CHUNK_SIZE)) {
+    try {
+      await withProviderRetry(() =>
+        postAppleTrackIds({
+          developerToken: params.developerToken,
+          musicUserToken: params.musicUserToken,
+          providerPlaylistId: params.providerPlaylistId,
+          providerTrackIds: batch,
+        }),
+      );
+      addedTrackIds.push(...batch);
+    } catch {
+      for (const providerTrackId of batch) {
+        try {
+          await withProviderRetry(() =>
+            postAppleTrackIds({
+              developerToken: params.developerToken,
+              musicUserToken: params.musicUserToken,
+              providerPlaylistId: params.providerPlaylistId,
+              providerTrackIds: [providerTrackId],
+            }),
+          );
+          addedTrackIds.push(providerTrackId);
+        } catch {
+          // Leave it out of the result; the caller reports it as skipped.
+        }
+      }
+    }
+  }
+
+  return { addedTrackIds };
 };
 
 export const listApplePlaylistTracks = async (params: {
@@ -495,6 +560,7 @@ export const listApplePlaylistTracks = async (params: {
         statusCode: response.status,
         payload,
         wwwAuthenticate: response.headers.get('www-authenticate'),
+        retryAfter: response.headers.get('retry-after'),
       });
     }
 
@@ -560,6 +626,7 @@ const findLibraryTrackForCatalogTrack = async (params: {
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
+      retryAfter: response.headers.get('retry-after'),
     });
   }
 
@@ -809,6 +876,7 @@ export const getAppleLibraryPlaylist = async (params: {
       statusCode: response.status,
       payload,
       wwwAuthenticate: response.headers.get('www-authenticate'),
+      retryAfter: response.headers.get('retry-after'),
     });
   }
 

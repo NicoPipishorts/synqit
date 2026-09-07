@@ -3075,6 +3075,7 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
     const sourcePlaylistId = `apple-source-sync-${randomUUID()}`;
     const recipientPlaylistId = `apple-recipient-sync-${randomUUID()}`;
     const addedTrackIds: string[] = [];
+    let addTrackRequestCount = 0;
 
     process.env.APPLE_TEAM_ID = 'regression-apple-team';
     process.env.APPLE_KEY_ID = 'regression-apple-key';
@@ -3144,9 +3145,14 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
         const body = JSON.parse(rawBody) as {
           data?: Array<{ id?: string }>;
         };
-        const trackId = body.data?.[0]?.id;
-        assert.ok(trackId);
-        addedTrackIds.push(trackId);
+        // Adds are batched, so record every id in the request body.
+        addTrackRequestCount += 1;
+        const trackIds = (body.data ?? []).map((entry) => entry.id);
+        assert.ok(trackIds.length > 0);
+        for (const trackId of trackIds) {
+          assert.ok(trackId);
+          addedTrackIds.push(trackId);
+        }
         return new Response(null, { status: 204 });
       }
 
@@ -3215,6 +3221,8 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
         addedTrackIds,
         Array.from({ length: 9 }, (_, index) => `catalog-song-${index + 1}`),
       );
+      // One request for the whole playlist, not one per track.
+      assert.equal(addTrackRequestCount, 1);
     } finally {
       globalThis.fetch = originalFetch;
       process.env.APPLE_TEAM_ID = previousAppleTeamId;

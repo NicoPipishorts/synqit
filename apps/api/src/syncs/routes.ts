@@ -25,9 +25,10 @@ import {
   listApplePlaylistTracks,
   searchAppleCatalogTracks,
   createAppleLibraryPlaylist,
-  addAppleTrackToPlaylist,
+  addAppleTracksToPlaylist,
 } from '../integrations/apple-music';
 import { mapProviderApiError } from '../integrations/provider-errors';
+import { mapWithConcurrency, withProviderRetry } from '../integrations/provider-throttle';
 import { isSpotifyOauthLiveMode } from '../integrations/spotify';
 import { withSpotifyAccessTokenRetry, IntegrationError } from '../integrations/spotify-client';
 import { listSpotifyUserPlaylists, createSpotifyPlaylist } from '../integrations/spotify-playlists';
@@ -35,11 +36,15 @@ import {
   ProviderApiError,
   listSpotifyPlaylistTracks,
   searchSpotifyTracks,
-  addSpotifyTrackToPlaylist,
+  addSpotifyTracksToPlaylist,
 } from '../integrations/spotify-tracks';
 import { integrationStore } from '../integrations/store';
 
 const DEFAULT_SYNC_LINK_BASE_URL = 'http://127.0.0.1:5173';
+
+// Providers rate-limit per app, not per playlist, so keep the search pool
+// small enough that one big transfer does not starve everyone else.
+const TRANSFER_SEARCH_CONCURRENCY = 6;
 
 const MOCK_PLAYLISTS = [
   {
@@ -749,67 +754,90 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
       });
     }
 
-    const matchedTracks: Array<{ recipientTrackId: string; sourceTrackFingerprint: string }> = [];
-    const skippedTracks: string[] = [];
+    type MatchOutcome =
+      | { status: 'matched'; recipientTrackId: string; sourceTrackFingerprint: string }
+      | { status: 'skipped'; providerTrackId: string };
 
-    for (const track of sourceTracks) {
+    // Resolve recipient credentials once for the whole run. Doing it per track
+    // meant a database read and a token decrypt for every song in the playlist.
+    const recipientCredentials =
+      recipientProvider === 'spotify'
+        ? ({
+            provider: 'spotify',
+            // Null outside live mode: the route still walks the tracks so the
+            // same-provider shortcut below behaves as it always has.
+            accessToken: isSpotifyOauthLiveMode()
+              ? (await withSpotifyAccessTokenRetry({ userId, run: async (at) => at })).accessToken
+              : null,
+          } as const)
+        : ({
+            provider: 'apple',
+            tokens: await withAppleMusicUserToken({ userId, run: async (ctx) => ctx }),
+          } as const);
+
+    const searchForMatch = async (track: (typeof sourceTracks)[number]): Promise<MatchOutcome> => {
       if (recipientProvider === sync.provider && track.providerTrackId) {
-        matchedTracks.push({
+        return {
+          status: 'matched',
           recipientTrackId: track.providerTrackId,
           sourceTrackFingerprint: buildTrackFingerprint(track),
-        });
-        continue;
+        };
       }
 
       const query = `${track.name} ${track.artist}`;
       try {
-        if (recipientProvider === 'spotify') {
-          if (isSpotifyOauthLiveMode()) {
-            const { result: spotifyAccessToken } = await withSpotifyAccessTokenRetry({
-              userId,
-              run: async (at) => at,
-            });
-            const results = await searchSpotifyTracks({
-              accessToken: spotifyAccessToken,
-              query,
-              limit: 1,
-            });
-            const first = results[0];
-            if (first && first.name.toLowerCase().includes(track.name.toLowerCase())) {
-              matchedTracks.push({
-                recipientTrackId: first.providerTrackId,
-                sourceTrackFingerprint: buildTrackFingerprint(track),
-              });
-            } else {
-              skippedTracks.push(track.providerTrackId);
-            }
+        const results = await withProviderRetry(() => {
+          if (recipientCredentials.provider === 'spotify') {
+            return recipientCredentials.accessToken
+              ? searchSpotifyTracks({
+                  accessToken: recipientCredentials.accessToken,
+                  query,
+                  limit: 1,
+                })
+              : Promise.resolve([]);
           }
-        } else {
-          await withAppleMusicUserToken({
-            userId,
-            run: async ({ developerToken }) => {
-              const results = await searchAppleCatalogTracks({
-                developerToken,
-                storefront: 'us',
-                query,
-                limit: 1,
-              });
-              const first = results[0];
-              if (first && first.name.toLowerCase().includes(track.name.toLowerCase())) {
-                matchedTracks.push({
-                  recipientTrackId: first.providerTrackId,
-                  sourceTrackFingerprint: buildTrackFingerprint(track),
-                });
-              } else {
-                skippedTracks.push(track.providerTrackId);
-              }
-            },
+          return searchAppleCatalogTracks({
+            developerToken: recipientCredentials.tokens.developerToken,
+            storefront: 'us',
+            query,
+            limit: 1,
           });
+        });
+
+        const first = results[0];
+        if (first && first.name.toLowerCase().includes(track.name.toLowerCase())) {
+          return {
+            status: 'matched',
+            recipientTrackId: first.providerTrackId,
+            sourceTrackFingerprint: buildTrackFingerprint(track),
+          };
         }
       } catch {
-        skippedTracks.push(track.providerTrackId);
+        // Fall through: an unresolvable search is a skipped track, not a
+        // failed transfer. withProviderRetry has already absorbed rate limits.
       }
-    }
+
+      return { status: 'skipped', providerTrackId: track.providerTrackId };
+    };
+
+    // Searching stays one request per track (no provider offers a batch
+    // lookup), but a small pool keeps a long playlist from running end to end.
+    const matchOutcomes = await mapWithConcurrency(
+      sourceTracks,
+      TRANSFER_SEARCH_CONCURRENCY,
+      searchForMatch,
+    );
+
+    const matchedTracks = matchOutcomes.flatMap((outcome) =>
+      outcome.status === 'matched'
+        ? [
+            {
+              recipientTrackId: outcome.recipientTrackId,
+              sourceTrackFingerprint: outcome.sourceTrackFingerprint,
+            },
+          ]
+        : [],
+    );
 
     // -----------------------------------------------------------------------
     // 3. Create playlist in recipient's provider and add matched tracks
@@ -818,30 +846,43 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     let recipientProviderPlaylistId: string | null = null;
     const syncedSourceTrackFingerprints: string[] = [];
 
-    if (recipientProvider === 'spotify') {
-      if (isSpotifyOauthLiveMode()) {
+    // Maps the batched add result back to source tracks. Two source tracks can
+    // resolve to the same recipient id, so each id holds a queue of
+    // fingerprints and every successful add consumes one.
+    const pendingFingerprintsByTrackId = new Map<string, string[]>();
+    for (const track of matchedTracks) {
+      const pending = pendingFingerprintsByTrackId.get(track.recipientTrackId);
+      if (pending) {
+        pending.push(track.sourceTrackFingerprint);
+      } else {
+        pendingFingerprintsByTrackId.set(track.recipientTrackId, [track.sourceTrackFingerprint]);
+      }
+    }
+    const recordAdded = (addedTrackIds: readonly string[]): void => {
+      for (const recipientTrackId of addedTrackIds) {
+        const fingerprint = pendingFingerprintsByTrackId.get(recipientTrackId)?.shift();
+        if (fingerprint) {
+          syncedSourceTrackFingerprints.push(fingerprint);
+        }
+      }
+    };
+
+    if (recipientCredentials.provider === 'spotify') {
+      const { accessToken } = recipientCredentials;
+      if (accessToken) {
         try {
-          const { result: accessToken } = await withSpotifyAccessTokenRetry({
-            userId,
-            run: async (at) => at,
-          });
           const created = await createSpotifyPlaylist({
             accessToken,
             name: playlistName,
             description: '',
           });
           recipientProviderPlaylistId = created.providerPlaylistId;
-          for (const track of matchedTracks) {
-            await addSpotifyTrackToPlaylist({
-              accessToken,
-              providerPlaylistId: created.providerPlaylistId,
-              providerTrackId: track.recipientTrackId,
-            })
-              .then(() => {
-                syncedSourceTrackFingerprints.push(track.sourceTrackFingerprint);
-              })
-              .catch(() => null);
-          }
+          const { addedTrackIds } = await addSpotifyTracksToPlaylist({
+            accessToken,
+            providerPlaylistId: created.providerPlaylistId,
+            providerTrackIds: matchedTracks.map((track) => track.recipientTrackId),
+          });
+          recordAdded(addedTrackIds);
         } catch (err) {
           if (err instanceof ProviderApiError) {
             const mapped = mapProviderApiError(err);
@@ -851,29 +892,20 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
         }
       }
     } else {
+      const { tokens } = recipientCredentials;
       try {
-        await withAppleMusicUserToken({
-          userId,
-          run: async (ctx) => {
-            const created = await createAppleLibraryPlaylist({
-              ...ctx,
-              name: playlistName,
-              description: '',
-            });
-            recipientProviderPlaylistId = created.providerPlaylistId;
-            for (const track of matchedTracks) {
-              await addAppleTrackToPlaylist({
-                ...ctx,
-                providerPlaylistId: created.providerPlaylistId,
-                providerTrackId: track.recipientTrackId,
-              })
-                .then(() => {
-                  syncedSourceTrackFingerprints.push(track.sourceTrackFingerprint);
-                })
-                .catch(() => null);
-            }
-          },
+        const created = await createAppleLibraryPlaylist({
+          ...tokens,
+          name: playlistName,
+          description: '',
         });
+        recipientProviderPlaylistId = created.providerPlaylistId;
+        const { addedTrackIds } = await addAppleTracksToPlaylist({
+          ...tokens,
+          providerPlaylistId: created.providerPlaylistId,
+          providerTrackIds: matchedTracks.map((track) => track.recipientTrackId),
+        });
+        recordAdded(addedTrackIds);
       } catch (err) {
         if (err instanceof ProviderApiError) {
           const mapped = mapProviderApiError(err);
