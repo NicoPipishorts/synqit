@@ -429,12 +429,12 @@ export const SyncCreatePage = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card sm:p-6"
+              className="relative rounded-3xl border-2 border-app-text bg-app-elevated p-5 shadow-sticker dark:bg-app-card sm:p-6"
             >
               <p className="max-w-full text-sm text-app-text-secondary sm:max-w-[60%]">
                 {t('syncCreatePage.stepConfirmBody')}
               </p>
-              <div className="mt-4 grid gap-3 rounded-xl border border-app-border bg-app-bg p-4 text-sm dark:bg-app-elevated">
+              <div className="mt-4 grid gap-3 rounded-2xl border-2 border-dashed border-app-text/50 bg-app-bg p-4 text-sm dark:bg-app-elevated">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-app-text-secondary">
                     {t('syncCreatePage.summaryProvider')}
@@ -468,12 +468,12 @@ export const SyncCreatePage = () => {
               </div>
 
               {alreadyShared && (
-                <p className="mt-4 rounded-xl border border-brand-pink/50 bg-brand-pink/10 px-4 py-3 text-sm text-app-text">
+                <p className="mt-4 rounded-2xl border-2 border-app-text bg-brand-pink/15 px-4 py-3 text-sm font-semibold text-app-text">
                   {t('syncCreatePage.stepConfirmAlreadyShared')}
                 </p>
               )}
 
-              <p className="mt-4 rounded-xl border border-brand-lime/50 bg-brand-lime/10 px-4 py-3 text-sm text-app-text">
+              <p className="mt-4 rounded-2xl border-2 border-app-text bg-brand-lime/20 px-4 py-3 text-sm font-semibold text-app-text">
                 {t('syncCreatePage.shareNotice')}
               </p>
 

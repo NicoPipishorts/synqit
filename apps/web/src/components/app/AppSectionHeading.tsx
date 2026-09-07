@@ -1,3 +1,4 @@
+import { Sticker } from '@synqit/ui';
 import { type ReactNode } from 'react';
 
 type AppSectionHeadingProps = {
@@ -21,9 +22,9 @@ export const AppSectionHeading = ({
           {title}
         </h2>
         {typeof count === 'number' ? (
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-app-border bg-app-surface px-1.5 text-[11px] font-bold tabular-nums text-app-text-secondary dark:bg-app-card">
+          <Sticker tone="lime" tilt="-rotate-3" className="px-2.5 tabular-nums">
             {count}
-          </span>
+          </Sticker>
         ) : null}
       </div>
       {description ? <p className="text-sm text-app-text-secondary">{description}</p> : null}

@@ -597,7 +597,7 @@ export const EventCreatePage = () => {
                   maxLength={100}
                   value={name}
                   onChange={(event) => setName(event.target.value)}
-                  className="w-full rounded-xl border-2 border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                  className="w-full rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
                   placeholder={t('eventsPage.createFlow.eventNamePlaceholder')}
                 />
               </div>
@@ -626,7 +626,7 @@ export const EventCreatePage = () => {
                   maxLength={500}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  className="min-h-24 w-full rounded-xl border-2 border-app-border bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-brand-lime dark:bg-app-elevated"
+                  className="min-h-24 w-full rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
                   placeholder={t('eventsPage.createFlow.eventDescriptionPlaceholder')}
                 />
               </div>
@@ -641,12 +641,12 @@ export const EventCreatePage = () => {
               initial="enter"
               animate="center"
               exit="exit"
-              className="rounded-2xl border border-app-border bg-app-elevated p-5 shadow-soft-lift dark:bg-app-card sm:p-6"
+              className="relative rounded-3xl border-2 border-app-text bg-app-elevated p-5 shadow-sticker dark:bg-app-card sm:p-6"
             >
               <p className="max-w-full text-sm text-app-text-secondary sm:max-w-[50%]">
                 {t('eventsPage.createFlow.stepReviewBody')}
               </p>
-              <div className="mt-4 grid gap-3 rounded-xl border border-app-border bg-app-bg p-4 text-sm dark:bg-app-elevated">
+              <div className="mt-4 grid gap-3 rounded-2xl border-2 border-dashed border-app-text/50 bg-app-bg p-4 text-sm dark:bg-app-elevated">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-app-text-secondary">
                     {t('eventsPage.createFlow.summaryProvider')}
@@ -675,7 +675,7 @@ export const EventCreatePage = () => {
                 </div>
               </div>
 
-              <p className="mt-4 rounded-xl border border-brand-lime/50 bg-brand-lime/10 px-4 py-3 text-sm text-app-text">
+              <p className="mt-4 rounded-2xl border-2 border-app-text bg-brand-lime/20 px-4 py-3 text-sm font-semibold text-app-text">
                 {t('eventsPage.createFlow.playlistNotice')}
               </p>
 

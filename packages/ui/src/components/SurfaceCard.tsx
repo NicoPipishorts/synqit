@@ -8,14 +8,14 @@ type SurfaceCardProps = {
   as?: 'article' | 'div' | 'section';
 } & HTMLAttributes<HTMLElement>;
 
-/** Elevated card surface used for dashboard panels, lists, and forms. */
+/** Sticker-style card surface used for dashboard panels, lists, and forms. */
 export const SurfaceCard = ({ children, className, as = 'article', ...props }: SurfaceCardProps) =>
   createElement(
     as,
     {
       ...props,
       className: cn(
-        'rounded-2xl border border-app-border bg-app-elevated p-2 sm:p-5 shadow-soft-lift dark:bg-app-card',
+        'relative rounded-3xl border-2 border-app-text bg-app-elevated p-2 shadow-sticker sm:p-5 dark:bg-app-card',
         className,
       ),
     },

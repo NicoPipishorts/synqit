@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { CTAButton } from './cta';
+import { IconButton } from './IconButton';
 
 type SlideOverPanelProps = {
   open: boolean;
@@ -58,26 +58,25 @@ export const SlideOverPanel = ({
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
-            className="absolute inset-0 bg-brand-dark/35 backdrop-blur-[1px]"
+            className="absolute inset-0 bg-brand-dark/45 backdrop-blur-[1px] dark:bg-black/65"
           />
           <motion.aside
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute right-0 top-0 h-full w-full max-w-xl border-l border-app-border bg-app-bg p-4 shadow-2xl sm:p-5"
+            className="absolute right-0 top-0 h-full w-full max-w-xl border-l-2 border-app-text bg-app-bg p-4 shadow-[-6px_0_0_0_var(--syn-text)] sm:p-5"
           >
-            <div className="flex items-center justify-between gap-3 border-b border-app-border pb-3">
-              <h3 className="truncate text-base font-black text-app-text sm:text-lg">{title}</h3>
-              <CTAButton
-                type="button"
-                variant="secondary"
+            <div className="flex items-center justify-between gap-3 border-b-2 border-app-text pb-3">
+              <h3 className="truncate text-base font-black tracking-tight text-app-text sm:text-lg">
+                {title}
+              </h3>
+              <IconButton
                 onClick={onClose}
-                className="h-9 w-9 px-0"
                 aria-label={closeLabel}
-              >
-                <X size={14} aria-hidden="true" />
-              </CTAButton>
+                size="md"
+                icon={<X size={16} aria-hidden="true" />}
+              />
             </div>
             <div className="mt-4 h-[calc(100%-3.5rem)] overflow-y-auto pr-1">{children}</div>
           </motion.aside>

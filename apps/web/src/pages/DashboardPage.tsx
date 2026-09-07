@@ -1,4 +1,4 @@
-import { OnboardingPanel, RouteLoadingScreen, useToast } from '@synqit/ui';
+import { OnboardingPanel, RouteLoadingScreen, Sticker, useToast } from '@synqit/ui';
 import { useQuery } from '@tanstack/react-query';
 import {
   CalendarDays,
@@ -493,13 +493,27 @@ export const DashboardPage = () => {
       ) : !isResolvingEmptyState ? (
         <>
           {/* Page header */}
-          <header className="flex items-start justify-between gap-4 sm:px-2 sm:pb-2">
-            <div className="grid gap-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-app-text-secondary">
+          <header className="flex items-end justify-between gap-4 sm:px-1 sm:pb-2">
+            <div className="flex flex-col items-start gap-3">
+              <Sticker tone="paper" tilt="-rotate-2">
                 {t('dashboard.pill')}
-              </p>
-              <h1 className="text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-                {headingTitle}
+              </Sticker>
+              <h1 className="text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+                {greetingName && headingTitle.includes(greetingName) ? (
+                  <>
+                    {headingTitle.slice(0, headingTitle.indexOf(greetingName))}
+                    <span className="relative inline-block px-1">
+                      <span
+                        aria-hidden="true"
+                        className="absolute inset-x-0 inset-y-[8%] -skew-x-6 -rotate-1 rounded-md bg-brand-lime"
+                      />
+                      <span className="relative text-brand-dark">{greetingName}</span>
+                    </span>
+                    {headingTitle.slice(headingTitle.indexOf(greetingName) + greetingName.length)}
+                  </>
+                ) : (
+                  headingTitle
+                )}
               </h1>
             </div>
             <div className="hidden shrink-0 items-center gap-3 sm:flex">
@@ -540,7 +554,10 @@ export const DashboardPage = () => {
           <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr] lg:items-start">
             <section className="grid gap-4">
               <div className="flex items-center justify-between px-1">
-                <h2 className="text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
+                <h2 className="flex items-center gap-3 text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
+                  <Sticker tone="lime" tilt="-rotate-2">
+                    01
+                  </Sticker>
                   {t('dashboard.overviewTitle')}
                 </h2>
                 {isFetching ? (
@@ -552,12 +569,12 @@ export const DashboardPage = () => {
                 ) : null}
               </div>
 
-              <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card shadow-soft-lift">
+              <div className="overflow-hidden rounded-3xl border-2 border-app-text bg-app-elevated shadow-sticker dark:bg-app-card">
                 {ownedCards.length > 0 ? (
                   <>
-                    <p className="border-b border-app-border bg-app-surface px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-app-text-secondary ">
-                      {t('dashboard.overviewOwnedTitle')}
-                    </p>
+                    <div className="border-b-2 border-app-text bg-app-surface px-4 py-2.5 dark:bg-app-elevated">
+                      <Sticker tone="lime">{t('dashboard.overviewOwnedTitle')}</Sticker>
+                    </div>
                     {ownedCards.map((card) => (
                       <DashboardPlaylistCard key={card.id} {...card} />
                     ))}
@@ -566,9 +583,9 @@ export const DashboardPage = () => {
 
                 {joinedCards.length > 0 ? (
                   <>
-                    <p className="border-b border-app-border bg-app-surface px-4 py-2.5 text-[11px] font-bold uppercase tracking-[0.18em] leading-none text-app-text-secondary ">
-                      {t('dashboard.overviewJoinedTitle')}
-                    </p>
+                    <div className="border-b-2 border-app-text bg-app-surface px-4 py-2.5 dark:bg-app-elevated">
+                      <Sticker tone="pink">{t('dashboard.overviewJoinedTitle')}</Sticker>
+                    </div>
                     {joinedCards.map((card) => (
                       <DashboardPlaylistCard key={card.id} {...card} />
                     ))}
@@ -584,10 +601,13 @@ export const DashboardPage = () => {
             </section>
 
             <section className="grid gap-4 lg:sticky lg:top-28">
-              <h2 className="px-1 text-base font-black tracking-tight text-brand-dark dark:text-brand-white">
+              <h2 className="flex items-center gap-3 px-1 text-lg font-black tracking-tight text-brand-dark dark:text-brand-white">
+                <Sticker tone="pink" tilt="rotate-2">
+                  02
+                </Sticker>
                 {t('dashboard.activityTitle')}
               </h2>
-              <div className="overflow-hidden rounded-2xl border border-app-border bg-app-elevated dark:bg-app-card shadow-soft-lift">
+              <div className="overflow-hidden rounded-3xl border-2 border-app-text bg-app-elevated shadow-sticker dark:bg-app-card">
                 <DashboardActivityFeed
                   items={activityItems}
                   emptyLabel={t('dashboard.activityEmpty')}

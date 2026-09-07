@@ -1,5 +1,5 @@
 import type { SyncItem } from '@synqit/shared';
-import { useToast, IconButton } from '@synqit/ui';
+import { IconButton, TapeStrip, useToast } from '@synqit/ui';
 import {
   Copy,
   ExternalLink,
@@ -23,8 +23,8 @@ type SyncCardProps = {
 };
 
 const ROLE_ACCENT = {
-  owner: 'bg-brand-lime/15 text-[#6d9600] dark:text-[#d5ff5c]',
-  subscriber: 'bg-purple-400/15 text-purple-700 dark:text-purple-300',
+  owner: 'bg-brand-lime text-brand-dark',
+  subscriber: 'bg-brand-pink text-brand-white',
 };
 
 const buildSyncUrl = (token: string): string => {
@@ -138,11 +138,12 @@ export const SyncCard = ({ sync, detailTo, role }: SyncCardProps) => {
   };
 
   return (
-    <div className="grid min-w-0 gap-4 overflow-hidden rounded-2xl border border-app-border bg-app-bg p-4 shadow-soft-lift transition duration-150 hover:border-brand-lime/40 dark:bg-app-card">
+    <div className="relative grid min-w-0 gap-4 rounded-3xl border-2 border-app-text bg-app-elevated p-4 shadow-sticker transition duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[6px_6px_0_0_var(--syn-text)] dark:bg-app-card">
+      <TapeStrip tone={isOwner ? 'lime' : 'pink'} />
       <div className="flex items-start gap-3">
         <span
           aria-hidden="true"
-          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${accent}`}
+          className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-app-text ${accent}`}
         >
           <ListMusic size={18} />
         </span>
@@ -152,7 +153,7 @@ export const SyncCard = ({ sync, detailTo, role }: SyncCardProps) => {
               {sync.name}
             </h2>
             <span
-              className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${accent}`}
+              className={`shrink-0 rounded-full border border-app-text px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${accent}`}
             >
               {roleLabel}
             </span>
@@ -183,7 +184,7 @@ export const SyncCard = ({ sync, detailTo, role }: SyncCardProps) => {
       </div>
 
       {isRevoked ? (
-        <p className="rounded-lg border border-app-border px-3 py-2 text-xs text-app-text-muted">
+        <p className="rounded-xl border border-dashed border-app-text/40 px-3 py-2 text-xs text-app-text-muted">
           {t('eventsPage.linkRevoked')}
         </p>
       ) : (
@@ -234,7 +235,7 @@ export const SyncCard = ({ sync, detailTo, role }: SyncCardProps) => {
               <p className="text-sm text-app-text-secondary">{t('eventsPage.shareSheetBody')}</p>
               <div className="flex gap-3 overflow-x-auto pb-2 pr-2 sm:grid sm:grid-flow-col sm:auto-cols-fr sm:gap-4 sm:overflow-visible sm:pb-1 sm:pr-0 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 <CTAButton
-                  className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl border-0 bg-transparent px-1 py-0 text-[11px] font-semibold text-app-text hover:bg-transparent hover:text-brand-pink sm:min-w-19 sm:gap-2"
+                  className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl !border-0 !bg-transparent !px-1 !py-0 text-[11px] font-bold text-app-text !shadow-none hover:!bg-transparent hover:text-brand-pink hover:!translate-y-0 sm:min-w-19 sm:gap-2"
                   onClick={() => {
                     void copyLink();
                     setIsShareSheetOpen(false);
@@ -243,50 +244,50 @@ export const SyncCard = ({ sync, detailTo, role }: SyncCardProps) => {
                   aria-label={t('eventsPage.shareOptionCopy')}
                   withShadow={false}
                 >
-                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-app-border bg-app-surface shadow-soft-lift transition duration-150 hover:border-brand-lime motion-safe:hover:-translate-y-0.5 dark:bg-app-elevated sm:h-14 sm:w-14">
+                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border-2 border-app-text bg-app-surface shadow-sticker-sm transition duration-150 hover:bg-brand-lime hover:text-brand-dark motion-safe:hover:-translate-y-0.5 dark:bg-app-elevated sm:h-14 sm:w-14">
                     <Copy size={24} aria-hidden="true" className="sm:h-5.5 sm:w-5.5" />
                   </span>
                   <span>{t('eventsPage.shareOptionCopy')}</span>
                 </CTAButton>
                 <CTAButton
-                  className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl border-0 bg-transparent px-1 py-0 text-[11px] font-semibold text-app-text hover:bg-transparent hover:text-brand-pink sm:min-w-19 sm:gap-2"
+                  className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl !border-0 !bg-transparent !px-1 !py-0 text-[11px] font-bold text-app-text !shadow-none hover:!bg-transparent hover:text-brand-pink hover:!translate-y-0 sm:min-w-19 sm:gap-2"
                   onClick={openMessagesShare}
                   variant="secondary"
                   aria-label={t('eventsPage.shareOptionMessages')}
                   withShadow={false}
                 >
-                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-app-border bg-app-surface shadow-soft-lift transition duration-150 hover:border-brand-lime motion-safe:hover:-translate-y-0.5 dark:bg-app-elevated sm:h-14 sm:w-14">
+                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border-2 border-app-text bg-app-surface shadow-sticker-sm transition duration-150 hover:bg-brand-lime hover:text-brand-dark motion-safe:hover:-translate-y-0.5 dark:bg-app-elevated sm:h-14 sm:w-14">
                     <MessageCircle size={24} aria-hidden="true" className="sm:h-5.5 sm:w-5.5" />
                   </span>
                   <span>{t('eventsPage.shareOptionMessages')}</span>
                 </CTAButton>
                 <CTAButton
-                  className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl border-0 bg-transparent px-1 py-0 text-[11px] font-semibold text-app-text hover:bg-transparent hover:text-brand-pink sm:min-w-19 sm:gap-2"
+                  className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl !border-0 !bg-transparent !px-1 !py-0 text-[11px] font-bold text-app-text !shadow-none hover:!bg-transparent hover:text-brand-pink hover:!translate-y-0 sm:min-w-19 sm:gap-2"
                   onClick={openWhatsAppShare}
                   variant="secondary"
                   aria-label={t('eventsPage.shareOptionWhatsApp')}
                   withShadow={false}
                 >
-                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-app-border bg-app-surface shadow-soft-lift transition duration-150 hover:border-brand-lime motion-safe:hover:-translate-y-0.5 dark:bg-app-elevated sm:h-14 sm:w-14">
+                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border-2 border-app-text bg-app-surface shadow-sticker-sm transition duration-150 hover:bg-brand-lime hover:text-brand-dark motion-safe:hover:-translate-y-0.5 dark:bg-app-elevated sm:h-14 sm:w-14">
                     <Share2 size={24} aria-hidden="true" className="sm:h-5.5 sm:w-5.5" />
                   </span>
                   <span>{t('eventsPage.shareOptionWhatsApp')}</span>
                 </CTAButton>
                 <CTAButton
-                  className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl border-0 bg-transparent px-1 py-0 text-[11px] font-semibold text-app-text hover:bg-transparent hover:text-brand-pink sm:min-w-19 sm:gap-2"
+                  className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl !border-0 !bg-transparent !px-1 !py-0 text-[11px] font-bold text-app-text !shadow-none hover:!bg-transparent hover:text-brand-pink hover:!translate-y-0 sm:min-w-19 sm:gap-2"
                   onClick={openMailShare}
                   variant="secondary"
                   aria-label={t('eventsPage.shareOptionMail')}
                   withShadow={false}
                 >
-                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-app-border bg-app-surface shadow-soft-lift transition duration-150 hover:border-brand-lime motion-safe:hover:-translate-y-0.5 dark:bg-app-elevated sm:h-14 sm:w-14">
+                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border-2 border-app-text bg-app-surface shadow-sticker-sm transition duration-150 hover:bg-brand-lime hover:text-brand-dark motion-safe:hover:-translate-y-0.5 dark:bg-app-elevated sm:h-14 sm:w-14">
                     <Mail size={24} aria-hidden="true" className="sm:h-5.5 sm:w-5.5" />
                   </span>
                   <span>{t('eventsPage.shareOptionMail')}</span>
                 </CTAButton>
                 {canUseNativeShare ? (
                   <CTAButton
-                    className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl border-0 bg-transparent px-1 py-0 text-[11px] font-semibold text-app-text hover:bg-transparent hover:text-brand-pink sm:min-w-19 sm:gap-2"
+                    className="h-auto min-w-20 shrink-0 flex-col gap-1.5 rounded-2xl !border-0 !bg-transparent !px-1 !py-0 text-[11px] font-bold text-app-text !shadow-none hover:!bg-transparent hover:text-brand-pink hover:!translate-y-0 sm:min-w-19 sm:gap-2"
                     onClick={() => {
                       void openNativeShare();
                     }}
@@ -294,7 +295,7 @@ export const SyncCard = ({ sync, detailTo, role }: SyncCardProps) => {
                     aria-label={t('eventsPage.shareOptionMore')}
                     withShadow={false}
                   >
-                    <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border border-app-border bg-app-surface shadow-soft-lift transition duration-150 hover:border-brand-lime motion-safe:hover:-translate-y-0.5 dark:bg-app-elevated sm:h-14 sm:w-14">
+                    <span className="inline-flex h-16 w-16 items-center justify-center rounded-full border-2 border-app-text bg-app-surface shadow-sticker-sm transition duration-150 hover:bg-brand-lime hover:text-brand-dark motion-safe:hover:-translate-y-0.5 dark:bg-app-elevated sm:h-14 sm:w-14">
                       <MoreHorizontal size={24} aria-hidden="true" className="sm:h-5.5 sm:w-5.5" />
                     </span>
                     <span>{t('eventsPage.shareOptionMore')}</span>
