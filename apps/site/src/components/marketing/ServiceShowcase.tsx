@@ -280,7 +280,17 @@ const VERTICAL = { d: 'M24 6 C12 18, 36 32, 24 42 C19 48, 24 50, 24 54 L24 66' }
 // back over the line instead of leaving a gap where the line stops.
 const ARROWHEAD = 'M-15 -9 L0 0 L-15 9';
 
-const DRAW = 0.6;
+// The vertical branch is a fifth of the horizontal one's length, so the same
+// timing is over before the eye follows it down to the phone — and that trip
+// down is the whole point of it on a phone. It gets both longer and a steadier
+// stroke: the desktop curve spends a third of the trip in its first hundred
+// milliseconds, which is what reads as too fast over a short line.
+type DrawSpec = { duration: number; ease: [number, number, number, number] };
+
+const DRAW: Record<'horizontal' | 'vertical', DrawSpec> = {
+  horizontal: { duration: 0.6, ease: [0.32, 0.8, 0.36, 1] },
+  vertical: { duration: 1.1, ease: [0.35, 0.15, 0.35, 1] },
+};
 
 const Branch = ({
   tone,
@@ -292,6 +302,7 @@ const Branch = ({
   className?: string;
 }) => {
   const horizontal = orientation === 'horizontal';
+  const draw = DRAW[orientation];
   const svgRef = useRef<SVGSVGElement | null>(null);
   const headRef = useRef<SVGGElement | null>(null);
   const [measured, setMeasured] = useState(0);
@@ -324,11 +335,11 @@ const Branch = ({
     progress.set(0);
     settle.set(1);
     const runs = [
-      animate(progress, 1, { duration: DRAW, ease: [0.32, 0.8, 0.36, 1] }),
-      animate(settle, [1, 1.25, 0.95, 1.05, 1], { delay: DRAW - 0.1, duration: 0.55 }),
+      animate(progress, 1, draw),
+      animate(settle, [1, 1.25, 0.95, 1.05, 1], { delay: draw.duration - 0.1, duration: 0.55 }),
     ];
     return () => runs.forEach((run) => run.stop());
-  }, [tone, progress, settle]);
+  }, [tone, draw, progress, settle]);
 
   // Framer holds on to the style values it saw first for properties it does not
   // animate, so the motion path has to be written straight to the node whenever
