@@ -1159,6 +1159,14 @@
     "planDesc": "Launch host playlists and collect tracks instantly.",
     "getStarted": "Share a Playlist",
     "dashboard": "Dashboard",
-    "copyright": "© {{year}} Synqit"
+    "copyright": "© {{year}} Synqit",
+    "legal": "Legal",
+    "privacy": "Privacy",
+    "terms": "Terms",
+    "legalNotice": "Legal notice",
+    "cookies": "Cookies"
+  },
+  "legal": {
+    "otherPages": "Other legal pages"
   }
 }

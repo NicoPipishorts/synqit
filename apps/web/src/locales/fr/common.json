@@ -1159,6 +1159,14 @@
     "planDesc": "Lancez des événements hôte et collectez des titres instantanément.",
     "getStarted": "Partage une playlist",
     "dashboard": "Tableau de bord",
-    "copyright": "© {{year}} Synqit"
+    "copyright": "© {{year}} Synqit",
+    "legal": "Légal",
+    "privacy": "Confidentialité",
+    "terms": "Conditions",
+    "legalNotice": "Mentions légales",
+    "cookies": "Cookies"
+  },
+  "legal": {
+    "otherPages": "Autres pages légales"
   }
 }
