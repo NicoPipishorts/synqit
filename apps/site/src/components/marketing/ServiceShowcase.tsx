@@ -285,11 +285,13 @@ const ARROWHEAD = 'M-15 -9 L0 0 L-15 9';
 // down is the whole point of it on a phone. It gets both longer and a steadier
 // stroke: the desktop curve spends a third of the trip in its first hundred
 // milliseconds, which is what reads as too fast over a short line.
-type DrawSpec = { duration: number; ease: [number, number, number, number] };
+type DrawSpec = { duration: number; delay?: number; ease: [number, number, number, number] };
 
 const DRAW: Record<'horizontal' | 'vertical', DrawSpec> = {
   horizontal: { duration: 0.6, ease: [0.32, 0.8, 0.36, 1] },
-  vertical: { duration: 1.1, ease: [0.35, 0.15, 0.35, 1] },
+  // Held back a beat so it starts once the swiped card has settled, then drawn
+  // slowly enough that it is still moving when the eye arrives at it.
+  vertical: { duration: 1.7, delay: 0.15, ease: [0.4, 0.1, 0.35, 1] },
 };
 
 const Branch = ({
@@ -336,7 +338,10 @@ const Branch = ({
     settle.set(1);
     const runs = [
       animate(progress, 1, draw),
-      animate(settle, [1, 1.25, 0.95, 1.05, 1], { delay: draw.duration - 0.1, duration: 0.55 }),
+      animate(settle, [1, 1.25, 0.95, 1.05, 1], {
+        delay: (draw.delay ?? 0) + draw.duration - 0.1,
+        duration: 0.55,
+      }),
     ];
     return () => runs.forEach((run) => run.stop());
   }, [tone, draw, progress, settle]);
