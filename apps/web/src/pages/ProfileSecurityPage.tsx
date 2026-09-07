@@ -111,7 +111,7 @@ export const ProfileSecurityPage = () => {
             value={currentPassword}
             onChange={setCurrentPassword}
             placeholder={t('profile.currentPassword')}
-            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+            inputClassName="w-full rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
             autoComplete="current-password"
             required
           />
@@ -119,7 +119,7 @@ export const ProfileSecurityPage = () => {
             value={newPassword}
             onChange={setNewPassword}
             placeholder={t('profile.newPassword')}
-            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+            inputClassName="w-full rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
             autoComplete="new-password"
             required
             minLength={PASSWORD_MIN_LENGTH}
@@ -129,7 +129,7 @@ export const ProfileSecurityPage = () => {
             value={confirmPassword}
             onChange={setConfirmPassword}
             placeholder={t('profile.confirmPassword')}
-            inputClassName="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+            inputClassName="w-full rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 pr-10 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
             autoComplete="new-password"
             required
             minLength={PASSWORD_MIN_LENGTH}
@@ -157,7 +157,7 @@ export const ProfileSecurityPage = () => {
         </CTAButton>
       </SurfaceCard>
 
-      <article className="flex flex-col rounded-2xl border border-brand-pink/40 bg-brand-pink/5 p-5 shadow-soft-lift dark:bg-brand-pink/10">
+      <article className="relative flex flex-col rounded-3xl border-2 border-app-text bg-app-elevated p-5 shadow-sticker dark:bg-app-card">
         <h2 className="text-xl font-bold text-brand-dark dark:text-brand-white">
           {t('profile.deleteZoneTitle')}
         </h2>
@@ -193,7 +193,7 @@ export const ProfileSecurityPage = () => {
               autoCorrect="off"
               spellCheck={false}
               placeholder={deleteConfirmationWord}
-              className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text outline-none transition focus:border-brand-pink dark:bg-app-elevated"
+              className="w-full rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2.5 text-base leading-6 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
             />
           </label>
 

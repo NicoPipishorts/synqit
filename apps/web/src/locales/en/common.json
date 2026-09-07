@@ -342,7 +342,14 @@
     "deleteAccountTypePrompt": "Type {{value}} to confirm account deletion.",
     "deleteAccountConfirm": "Confirm deletion",
     "cancel": "Cancel",
-    "error": "Error: {{message}}"
+    "error": "Error: {{message}}",
+    "taskDone": "Done",
+    "readyEyebrow": "Profile complete",
+    "readyTitle": "Here is your profile.",
+    "readyBody": "Everything is in place. From here you can adjust your preferences, change your password, or manage your connected platforms.",
+    "readyCtaPreferences": "Preferences",
+    "readyCtaPassword": "Password & security",
+    "readyCtaConnections": "Connections"
   },
   "dashboard": {
     "pill": "Host Workspace",
