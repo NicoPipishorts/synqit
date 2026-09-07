@@ -178,8 +178,8 @@ export const AddedTrackRow = ({ track, index }: AddedTrackRowProps) => (
     {typeof index === 'number' ? (
       <Sticker
         tone="paper"
-        tilt="-rotate-3"
-        className="absolute -left-2 -top-2.5 px-2 py-0 text-[10px] tabular-nums"
+        tilt="rotate-3"
+        className="absolute -right-2 -top-2.5 px-2 py-0 text-[10px] tabular-nums"
       >
         {String(index + 1).padStart(2, '0')}
       </Sticker>

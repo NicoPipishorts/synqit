@@ -128,8 +128,8 @@ const SyncTrackRow = ({ track, index }: { track: SyncPublicTrack; index: number 
   <li className="relative flex min-w-0 items-center gap-3 rounded-2xl border-2 border-app-text bg-app-elevated px-3 py-3 shadow-sticker-sm dark:bg-app-card">
     <Sticker
       tone="paper"
-      tilt="-rotate-3"
-      className="absolute -left-2 -top-2.5 px-2 py-0 text-[10px] tabular-nums"
+      tilt="rotate-3"
+      className="absolute -right-2 -top-2.5 px-2 py-0 text-[10px] tabular-nums"
     >
       {String(index + 1).padStart(2, '0')}
     </Sticker>
