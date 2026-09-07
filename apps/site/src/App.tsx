@@ -42,7 +42,12 @@ const isPricingRoutePath = (pathname: string): boolean => normalizePath(pathname
 // (login / create) shows one continuous animated loader instead of a frozen page.
 const AppHandoffScreen = () => (
   <div className="flex min-h-screen items-center justify-center bg-app-bg px-4 pt-24">
-    <div aria-hidden="true" className="route-loader-logo h-24 w-24 sm:h-28 sm:w-28" />
+    <img
+      src="/assets/logos/loader.svg"
+      alt=""
+      aria-hidden="true"
+      className="route-loader-logo h-24 w-24 sm:h-28 sm:w-28"
+    />
   </div>
 );
 
