@@ -291,7 +291,7 @@ const DRAW: Record<'horizontal' | 'vertical', DrawSpec> = {
   horizontal: { duration: 0.6, ease: [0.32, 0.8, 0.36, 1] },
   // Held back a beat so it starts once the swiped card has settled, then drawn
   // slowly enough that it is still moving when the eye arrives at it.
-  vertical: { duration: 1.7, delay: 0.15, ease: [0.4, 0.1, 0.35, 1] },
+  vertical: { duration: 1.35, delay: 0.1, ease: [0.4, 0.1, 0.35, 1] },
 };
 
 const Branch = ({
@@ -684,7 +684,7 @@ export const ServiceShowcase = ({ services, swipeHint }: ServiceShowcaseProps) =
     // side from `lg`, so the whole story sits in one screenful.
     <div
       ref={sectionRef}
-      className="flex flex-col items-center gap-3 lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(4rem,1fr)_auto] lg:items-center lg:gap-0"
+      className="flex flex-col items-center gap-7 lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(4rem,1fr)_auto] lg:items-center lg:gap-0"
     >
       <div className="w-full max-w-[23rem] lg:max-w-none lg:justify-self-start">
         {isTouchDevice ? (
