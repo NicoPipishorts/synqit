@@ -6,7 +6,6 @@ import {
   Link2,
   ListMusic,
   Music,
-  Plus,
   Radio,
   RefreshCcw,
   Sparkles,
@@ -426,8 +425,6 @@ export const DashboardPage = () => {
   const isFetching = syncsQuery.isFetching || dashboardSummaryQuery.isFetching;
   const isResolvingEmptyState =
     (!syncsQuery.data || !dashboardSummaryQuery.data) && !hasDashboardContent && isInitialLoad;
-  const newEventTo = activeDraft ? `/playlists/new?draftId=${activeDraft.id}` : '/playlists/new';
-  const newEventLabel = activeDraft ? t('dashboard.ctaResumeDraft') : t('dashboard.ctaCreateEvent');
 
   const personalInfo = personalInfoQuery.data;
   const greetingName = personalInfo?.displayName?.trim() || personalInfo?.firstName?.trim() || null;
@@ -493,7 +490,7 @@ export const DashboardPage = () => {
       ) : !isResolvingEmptyState ? (
         <>
           {/* Page header */}
-          <header className="flex items-end justify-between gap-4 sm:px-1 sm:pb-2">
+          <header className="flex items-end gap-4 sm:px-1 sm:pb-2">
             <div className="flex flex-col items-start gap-3">
               <Sticker tone="paper" tilt="-rotate-2">
                 {t('dashboard.pill')}
@@ -516,26 +513,7 @@ export const DashboardPage = () => {
                 )}
               </h1>
             </div>
-            <div className="hidden shrink-0 items-center gap-3 sm:flex">
-              <CTALink to="/synced-lists/new" variant="secondary" size="lg">
-                {t('dashboard.ctaCreateSyncedPlaylist')}
-              </CTALink>
-              <CTALink to={newEventTo} variant="primary" size="lg">
-                <Plus size={16} aria-hidden="true" />
-                {newEventLabel}
-              </CTALink>
-            </div>
           </header>
-
-          <div className="grid gap-3 sm:hidden">
-            <CTALink to={newEventTo} variant="primary" className="w-full justify-center">
-              <Plus size={16} aria-hidden="true" />
-              {newEventLabel}
-            </CTALink>
-            <CTALink to="/synced-lists/new" variant="secondary" className="w-full justify-center">
-              {t('dashboard.ctaCreateSyncedPlaylist')}
-            </CTALink>
-          </div>
 
           {/* Stat band */}
           <DashboardStats stats={stats} />
