@@ -1,6 +1,8 @@
 import { motion } from 'framer-motion';
 import { type ReactNode, useState } from 'react';
 
+import { NAV_BAR_CLASS, NAV_ITEM_CLASS } from './nav-classes';
+
 export type PublicNavItem = {
   id: string;
   href: string;
@@ -34,10 +36,7 @@ export const PublicNav = ({
 
   return (
     <nav aria-label={ariaLabel} className={className}>
-      <div
-        onMouseLeave={() => setHoveredId(null)}
-        className="flex items-center gap-1 rounded-full border-2 border-app-text bg-app-elevated px-1.5 py-1.5 shadow-sticker dark:bg-app-card"
-      >
+      <div onMouseLeave={() => setHoveredId(null)} className={NAV_BAR_CLASS}>
         {items.map((item) => {
           const isActive = activeId === item.id;
           const isHovered = hoveredId === item.id;
@@ -48,7 +47,7 @@ export const PublicNav = ({
               aria-current={isActive ? 'page' : undefined}
               onMouseEnter={() => setHoveredId(item.id)}
               onPointerDown={() => onActivate?.(item.id)}
-              className="relative inline-flex h-10 items-center rounded-full px-3 text-sm font-black tracking-[0.01em] transition focus-ring-brand lg:px-4"
+              className={NAV_ITEM_CLASS}
             >
               {isHovered ? (
                 <motion.span

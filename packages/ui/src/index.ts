@@ -51,6 +51,7 @@ export { BrandLogo } from './components/BrandLogo';
 export { ThemeToggle, type ThemeToggleVariant } from './components/ThemeToggle';
 export { LanguageSwitcher, type LanguageOption } from './components/LanguageSwitcher';
 export { PublicNav, type PublicNavItem } from './components/PublicNav';
+export { NAV_BAR_CLASS, NAV_ITEM_CLASS } from './components/nav-classes';
 export { PublicMobileNav, type PublicMobileNavItem } from './components/PublicMobileNav';
 
 // Decoration
