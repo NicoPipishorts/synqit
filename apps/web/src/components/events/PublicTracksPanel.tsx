@@ -53,9 +53,13 @@ export const PublicTracksPanel = ({
         <TrackSkeletonList />
       ) : tracks.length > 0 ? (
         <>
-          <ul className="grid gap-3">
-            {tracks.slice(0, visibleCount).map((track) => (
-              <AddedTrackRow key={`${track.providerTrackId}-${track.addedAt}`} track={track} />
+          <ul className="grid gap-4 pt-1">
+            {tracks.slice(0, visibleCount).map((track, index) => (
+              <AddedTrackRow
+                key={`${track.providerTrackId}-${track.addedAt}`}
+                track={track}
+                index={index}
+              />
             ))}
           </ul>
           {tracks.length > visibleCount ? (

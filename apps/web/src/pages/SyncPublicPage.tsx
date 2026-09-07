@@ -1,6 +1,6 @@
 import type { SyncPublicTrack } from '@synqit/shared';
 import { providerSchema } from '@synqit/shared';
-import { useToast } from '@synqit/ui';
+import { Sticker, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -124,8 +124,15 @@ const ProviderSheet = ({
 // Track row (read-only, matching EventPublicPage style)
 // ---------------------------------------------------------------------------
 
-const SyncTrackRow = ({ track }: { track: SyncPublicTrack }) => (
-  <li className="flex min-w-0 items-center gap-3 rounded-2xl border-2 border-app-border-strong bg-app-elevated px-3 py-3 dark:bg-app-card">
+const SyncTrackRow = ({ track, index }: { track: SyncPublicTrack; index: number }) => (
+  <li className="relative flex min-w-0 items-center gap-3 rounded-2xl border-2 border-app-text bg-app-elevated px-3 py-3 shadow-sticker-sm dark:bg-app-card">
+    <Sticker
+      tone="paper"
+      tilt="rotate-3"
+      className="absolute -right-2 -top-2.5 px-2 py-0 text-[10px] tabular-nums"
+    >
+      {String(index + 1).padStart(2, '0')}
+    </Sticker>
     {track.artworkUrl ? (
       <img
         src={track.artworkUrl}
@@ -519,7 +526,11 @@ export const SyncPublicPage = () => {
               <motion.div
                 layout
                 transition={{ layout: { duration: 0.28, ease: [0.22, 1, 0.36, 1] } }}
-                className="relative w-full max-w-xl rounded-3xl border-2 border-app-text bg-app-elevated px-4 py-4 text-left shadow-sticker dark:bg-app-card"
+                className={`relative w-full max-w-xl text-left ${
+                  showImportProgressCard
+                    ? 'rounded-3xl border-2 border-app-text bg-app-elevated px-4 py-4 shadow-sticker dark:bg-app-card'
+                    : 'rounded-2xl border border-dashed border-app-text/35 bg-app-elevated/50 px-4 py-3 dark:bg-app-card/40'
+                }`}
               >
                 <div className="relative">
                   <AnimatePresence initial={false} mode="wait">
@@ -714,14 +725,14 @@ export const SyncPublicPage = () => {
                         transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                         className="flex items-start gap-3"
                       >
-                        <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border-2 border-app-text bg-brand-lime text-brand-dark">
-                          <ShieldCheck size={16} aria-hidden="true" />
+                        <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-app-text/40 text-app-text-secondary">
+                          <ShieldCheck size={14} aria-hidden="true" />
                         </span>
-                        <div className="grid gap-1">
-                          <p className="text-sm font-black text-brand-dark dark:text-brand-white">
+                        <div className="grid gap-0.5">
+                          <p className="text-xs font-black uppercase tracking-[0.12em] text-app-text-secondary">
                             {t('syncPublicPage.ownerManagedTitle')}
                           </p>
-                          <p className="text-sm text-app-text-secondary">
+                          <p className="text-xs leading-5 text-app-text-secondary">
                             {t('syncPublicPage.ownerManagedBody')}
                           </p>
                         </div>
@@ -757,9 +768,9 @@ export const SyncPublicPage = () => {
                 </div>
               ) : (
                 <>
-                  <ul className="grid gap-3">
+                  <ul className="grid gap-4 pt-1">
                     {sync.tracks.slice(0, visibleTracks).map((track, i) => (
-                      <SyncTrackRow key={`${track.name}-${i}`} track={track} />
+                      <SyncTrackRow key={`${track.name}-${i}`} track={track} index={i} />
                     ))}
                   </ul>
                   {sync.tracks.length > visibleTracks && (
