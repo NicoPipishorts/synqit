@@ -970,7 +970,9 @@
         "body": "Moving to a new streaming service? Synqit matches every track and rebuilds your playlists in the new library.",
         "cta": "Transfer a playlist"
       },
-      "swipeHint": "Swipe for the next one"
+      "swipeHint": "Swipe for the next one",
+      "prev": "Previous service",
+      "next": "Next service"
     },
     "how": {
       "lead": "Tap a card to walk through the real screens, step by step.",
