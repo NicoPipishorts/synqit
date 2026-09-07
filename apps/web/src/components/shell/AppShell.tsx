@@ -194,15 +194,20 @@ export const AppShell = () => {
 
   return (
     <div className="relative min-h-screen overflow-x-clip text-app-text transition-colors">
-      {isPrivateRoute ? <PageBackdrop /> : null}
+      {isPrivateRoute ? (
+        // Fixed so the washes and grain also sit under the status bar / home indicator.
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+          <PageBackdrop />
+        </div>
+      ) : null}
       <header className="fixed inset-x-0 top-0 z-50">
         {isNavBlurActive && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-app-bg/30 shadow-[0_4px_12px_-10px_rgba(0,0,0,0.22)] backdrop-blur-md"
+            className="pointer-events-none absolute inset-x-0 -top-px bottom-0 bg-app-bg/35 backdrop-blur-[6px] [mask-image:linear-gradient(to_bottom,black_60%,transparent)]"
           />
         )}
-        <div className="relative z-10 grid w-full grid-cols-[1fr_auto_1fr] items-center px-4 pb-2 pt-4 sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
+        <div className="relative z-10 grid w-full grid-cols-[1fr_auto_1fr] items-center px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
           <div className="flex items-center">
             {isPrivateRoute ? (
               <Link to="/" aria-label="Synqit home" className="inline-flex">
