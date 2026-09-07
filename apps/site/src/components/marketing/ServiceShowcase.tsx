@@ -302,7 +302,7 @@ const DRAW: Record<'horizontal' | 'vertical', DrawSpec> = {
   horizontal: { duration: 0.6, ease: [0.32, 0.8, 0.36, 1] },
   // Held back a beat so it starts once the swiped card has settled, then drawn
   // at a constant speed: any ease-in makes a short line read as a flick.
-  vertical: { duration: 0.95, delay: 0.1, ease: 'linear' },
+  vertical: { duration: 0.7, delay: 0.08, ease: 'linear' },
 };
 
 const Branch = ({
