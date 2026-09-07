@@ -35,6 +35,7 @@ export {
   type ToastVariant,
 } from './hooks/useToast';
 export { NotificationDot } from './components/NotificationDot';
+export { Tooltip } from './components/Tooltip';
 export { RouteLoadingScreen } from './components/RouteLoadingScreen';
 
 // Forms

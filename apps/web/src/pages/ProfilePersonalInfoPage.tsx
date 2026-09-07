@@ -1,5 +1,5 @@
 import { personalInfoResponseSchema } from '@synqit/shared';
-import { SurfaceCard, NotificationDot, useToast } from '@synqit/ui';
+import { NotificationDot, SurfaceCard, Tooltip, useToast } from '@synqit/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import countries from 'i18n-iso-countries';
 import enCountryNames from 'i18n-iso-countries/langs/en.json';
@@ -270,15 +270,12 @@ export const ProfilePersonalInfoPage = () => {
           <label className="grid gap-1 text-sm">
             <span className="inline-flex items-center gap-1.5">
               {t('profile.emailLabel')}
-              <span
-                role="img"
-                tabIndex={0}
-                title={t('profile.emailLockedHint')}
-                aria-label={t('profile.emailLockedHint')}
-                className="inline-flex cursor-help items-center text-app-text-secondary hover:text-app-text"
+              <Tooltip
+                label={t('profile.emailLockedHint')}
+                className="text-app-text-secondary hover:text-app-text"
               >
                 <Info size={14} strokeWidth={2.25} aria-hidden="true" />
-              </span>
+              </Tooltip>
             </span>
             <input
               value={auth?.userEmail ?? ''}
