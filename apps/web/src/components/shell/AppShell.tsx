@@ -196,7 +196,10 @@ export const AppShell = () => {
     <div className="relative min-h-screen overflow-x-clip text-app-text transition-colors">
       {isPrivateRoute ? (
         // Fixed so the washes and grain also sit under the status bar / home indicator.
-        <div aria-hidden="true" className="pointer-events-none fixed inset-0 -z-10">
+        // z-0 with its own base colour rather than a negative z-index: negative
+        // stacking contexts paint before any ancestor background, so an opaque body
+        // flattened the washes back to plain --syn-bg.
+        <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-0 bg-app-bg">
           <PageBackdrop />
         </div>
       ) : null}

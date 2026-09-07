@@ -5,7 +5,9 @@
 @source "../../../packages/ui/src";
 
 /* The document behind the fixed backdrop: tinted like the washes so browser bars
-   (theme-color) and overscroll never flash plain white or plain black. */
+   (theme-color), overscroll and the boot loader never flash plain white or plain
+   black. Body stays transparent so this shows through — an opaque body background
+   paints after negative stacking contexts and would flatten the backdrop. */
 html {
   background: #f3eef3;
 }
@@ -17,7 +19,7 @@ html.dark {
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--syn-bg);
+  background: transparent;
   color: var(--syn-text);
   font-family:
     "General Sans",
