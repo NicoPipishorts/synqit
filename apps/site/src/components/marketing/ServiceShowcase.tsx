@@ -2,6 +2,7 @@ import { Sticker, type StickerTone } from '@synqit/ui';
 import {
   animate,
   AnimatePresence,
+  type Easing,
   motion,
   type MotionValue,
   type PanInfo,
@@ -272,26 +273,36 @@ const buildWave = (width: number) => {
   return { d };
 };
 
-/** Fixed 48×88, rendered 1:1, ending straight down at the phone. */
-const VERTICAL = { d: 'M24 6 C12 18, 36 32, 24 42 C19 48, 24 50, 24 54 L24 66' };
+/** Fixed 48×112, rendered 1:1, ending straight down at the phone. */
+const VERTICAL = { d: 'M24 8 C12 24, 36 40, 24 56 C15 68, 33 76, 24 84 L24 96' };
 
-// Open chevron pointing along +x with its *vertex* on the origin: the origin is
-// the point that rides the path, so anchoring the tip there lets the legs sweep
-// back over the line instead of leaving a gap where the line stops.
-const ARROWHEAD = 'M-15 -9 L0 0 L-15 9';
+// Both point along +x with their *vertex* on the origin: the origin is the point
+// that rides the path, so anchoring the tip there lets the head sit on the line
+// instead of leaving a gap where the line stops.
+//
+// The two branches carry different heads because they are never seen together —
+// one is hidden below `lg`, the other above it. An open chevron reads well at the
+// end of the long desktop line; on the short vertical one the same head looks
+// like an oversized nib, so that gets a smaller solid one with a concave back.
+const ARROWHEAD = {
+  horizontal: 'M-15 -9 L0 0 L-15 9',
+  // Sits 3px forward of the path's end so its body hides the line's round cap,
+  // which would otherwise poke out as a nub past the solid tip.
+  vertical: 'M3 0 L-8.5 -6.5 Q-5.5 0 -8.5 6.5 Z',
+} as const;
 
 // The vertical branch is a fifth of the horizontal one's length, so the same
 // timing is over before the eye follows it down to the phone — and that trip
 // down is the whole point of it on a phone. It gets both longer and a steadier
 // stroke: the desktop curve spends a third of the trip in its first hundred
 // milliseconds, which is what reads as too fast over a short line.
-type DrawSpec = { duration: number; delay?: number; ease: [number, number, number, number] };
+type DrawSpec = { duration: number; delay?: number; ease: Easing };
 
 const DRAW: Record<'horizontal' | 'vertical', DrawSpec> = {
   horizontal: { duration: 0.6, ease: [0.32, 0.8, 0.36, 1] },
   // Held back a beat so it starts once the swiped card has settled, then drawn
-  // slowly enough that it is still moving when the eye arrives at it.
-  vertical: { duration: 1.7, delay: 0.15, ease: [0.4, 0.1, 0.35, 1] },
+  // at a constant speed: any ease-in makes a short line read as a flick.
+  vertical: { duration: 0.7, delay: 0.08, ease: 'linear' },
 };
 
 const Branch = ({
@@ -321,7 +332,7 @@ const Branch = ({
 
   const shape = horizontal ? buildWave(Math.max(measured, 140)) : VERTICAL;
   const width = horizontal ? Math.max(measured, 140) : 48;
-  const height = horizontal ? 48 : 88;
+  const height = horizontal ? 48 : 112;
 
   // One source of truth for the line and the arrowhead, so the head can never
   // drift off the tip the way two separately timed animations would.
@@ -361,7 +372,7 @@ const Branch = ({
       ref={svgRef}
       aria-hidden="true"
       viewBox={`0 0 ${width} ${height}`}
-      className={`${horizontal ? 'h-12 w-full' : 'h-[5.5rem] w-12'} ${TONE[tone].stroke} transition-colors duration-500 ${className ?? ''}`.trim()}
+      className={`${horizontal ? 'h-12 w-full' : 'h-28 w-12'} ${TONE[tone].stroke} transition-colors duration-500 ${className ?? ''}`.trim()}
     >
       <motion.path
         d={shape.d}
@@ -373,10 +384,10 @@ const Branch = ({
       />
       <motion.g ref={headRef} style={{ offsetDistance }}>
         <motion.path
-          d={ARROWHEAD}
-          fill="none"
+          d={ARROWHEAD[orientation]}
+          fill={horizontal ? 'none' : 'currentColor'}
           stroke="currentColor"
-          strokeWidth={4}
+          strokeWidth={horizontal ? 4 : 1.5}
           strokeLinecap="round"
           strokeLinejoin="round"
           style={{ scale: settle }}
@@ -542,6 +553,9 @@ const TILT_SPRING = { stiffness: 90, damping: 22, mass: 0.6 };
 // [value at section entering, resting, leaving].
 const DECK_PIVOT = { rotate: [-8, -1.5, 4], y: [80, 0, -50] };
 const PHONE_PIVOT = { rotate: [4, 0.5, -3], y: [55, 0, -34] };
+// Between the two it connects, so neither end of the line drifts into what it
+// points at. No rotation: the branch reads as a drawn line, not a card.
+const BRANCH_PIVOT = { rotate: [0, 0, 0], y: [68, 0, -42] };
 
 const Pivot = ({
   progress,
@@ -678,13 +692,19 @@ export const ServiceShowcase = ({ services, swipeHint }: ServiceShowcaseProps) =
     />
   );
   const phone = <FlowPhone service={service} index={active} />;
+  const branch = (
+    <>
+      <Branch tone={service.tone} orientation="vertical" className="lg:hidden" />
+      <Branch tone={service.tone} orientation="horizontal" className="hidden lg:block" />
+    </>
+  );
 
   return (
     // One layout at every size: deck → branch → phone. Stacked on phones, side by
     // side from `lg`, so the whole story sits in one screenful.
     <div
       ref={sectionRef}
-      className="flex flex-col items-center gap-3 lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(4rem,1fr)_auto] lg:items-center lg:gap-0"
+      className="flex flex-col items-center gap-7 lg:grid lg:grid-cols-[minmax(0,26rem)_minmax(4rem,1fr)_auto] lg:items-center lg:gap-0"
     >
       <div className="w-full max-w-[23rem] lg:max-w-none lg:justify-self-start">
         {isTouchDevice ? (
@@ -697,8 +717,17 @@ export const ServiceShowcase = ({ services, swipeHint }: ServiceShowcaseProps) =
       </div>
 
       <div className="flex w-full justify-center">
-        <Branch tone={service.tone} orientation="vertical" className="lg:hidden" />
-        <Branch tone={service.tone} orientation="horizontal" className="hidden lg:block" />
+        {isTouchDevice ? (
+          branch
+        ) : (
+          <Pivot
+            progress={scrollYProgress}
+            spec={BRANCH_PIVOT}
+            className="flex w-full justify-center"
+          >
+            {branch}
+          </Pivot>
+        )}
       </div>
 
       <div className="lg:justify-self-end">
