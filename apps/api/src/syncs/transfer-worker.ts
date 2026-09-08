@@ -115,6 +115,15 @@ export const startTransferWorker = (logger: FastifyBaseLogger): (() => Promise<v
     },
   );
 
+  // A Worker holds a blocking Redis connection and emits 'error' when that
+  // connection has trouble. Without a listener, Node turns an EventEmitter
+  // 'error' into an uncaught exception — which would take the whole API down
+  // over a transient Redis blip, not just transfers. Log and carry on; BullMQ
+  // reconnects on its own.
+  worker.on('error', (error) => {
+    logger.error({ err: error }, 'transfer worker connection error');
+  });
+
   worker.on('failed', (job, error) => {
     logger.error(
       {

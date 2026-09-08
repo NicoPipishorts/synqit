@@ -151,3 +151,7 @@ docs/screenshots
 
 # Ladle static build output
 packages/ui/build/
+
+# Raw design exports staged for import (never committed)
+_incoming/
+.incoming/

@@ -66,6 +66,9 @@ const getTransfersQueue = (): Queue => {
   }
 
   const queue = new Queue(QUEUES.transfers, { connection: createTransfersConnection() });
+  // Same reasoning as the worker: an unhandled 'error' event would become an
+  // uncaught exception. Enqueue failures are surfaced to the caller instead.
+  queue.on('error', () => undefined);
   cachedQueue = { redisUrl, queue };
   return queue;
 };
