@@ -7,6 +7,18 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/web/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/web/apple-touch-icon.png" />
     <link rel="shortcut icon" href="/assets/icons/web/favicon.ico" />
+
+    <!-- Satoshi carries the display weights. Without it the stack fell through to
+         whatever the visitor had installed — usually Manrope, which stops at
+         ExtraBold 800, so every `font-black` heading quietly rendered at 800.
+         The @font-face rules come from api.fontshare.com, the files from the cdn
+         host, hence both preconnects. -->
+    <link rel="preconnect" href="https://api.fontshare.com" />
+    <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap"
+    />
     <title>Synqit</title>
   </head>
   <body>
