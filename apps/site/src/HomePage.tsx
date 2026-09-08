@@ -219,7 +219,10 @@ export const HomePage = () => {
       </RevealSection>
 
       {/* ── Services + how it works (one interactive section) ─────────── */}
-      <RevealSection id="how" trackId="services" className="relative scroll-mt-24 py-16 sm:py-24">
+      {/* The showcase is tall, so the anchor lands tight under the fixed navbar rather
+          than a full section-padding below it: that reclaimed space is what brings the
+          phone's lower half into the first screen. */}
+      <RevealSection id="how" trackId="services" className="relative scroll-mt-12 py-16 sm:py-24">
         <Container className="flex flex-col gap-4">
           <SectionIntro eyebrow={t('home.services.eyebrow')} title={t('home.services.title')} />
           <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
