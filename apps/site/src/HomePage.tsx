@@ -194,7 +194,7 @@ export const HomePage = () => {
                 </HeroLink>
                 <a
                   href="#how"
-                  className="focus-ring-brand inline-flex items-center gap-1.5 rounded-full py-2 text-xs font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-base"
+                  className="focus-ring-brand inline-flex items-center gap-1.5 rounded-full py-2 text-[13px] font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-base"
                 >
                   {t('home.hero.ctaSecondary')}
                   <ArrowDown

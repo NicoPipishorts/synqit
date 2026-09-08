@@ -212,6 +212,22 @@ const AppShell = () => {
   // Intercept clicks on internal-route links and swap the page client-side,
   // instead of letting the browser do a full document reload. A document-level
   // listener catches every anchor (nav, logo, hero CTAs) without per-link wiring.
+  // Chrome keeps this page in the back/forward cache when the login link hands off
+  // to app.<domain>, and restores it with its React state intact — including the
+  // handoff loader, which then has nothing left to navigate to and simply sits
+  // there until the visitor reloads. `pageshow` with `persisted` is the only
+  // signal that a restore happened, since no remount occurs.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setIsLeavingToApp(false);
+      }
+    };
+
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, []);
+
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
       if (
@@ -273,6 +289,10 @@ const AppShell = () => {
         event.preventDefault();
         setIsLeavingToApp(true);
         requestAnimationFrame(() => window.location.assign(url.href));
+        // Safety net: if the navigation never commits (blocked, offline, an
+        // extension cancelling it), give the page back rather than leaving the
+        // visitor on a loader with no way out but a reload.
+        window.setTimeout(() => setIsLeavingToApp(false), 8000);
       }
     };
 
@@ -304,7 +324,7 @@ const AppShell = () => {
             data-analytics-label="logo"
             className="inline-flex shrink-0 mt-3 sm:mt-0"
           >
-            <BrandLogo className="h-12 w-auto sm:h-24" />
+            <BrandLogo className="h-[3.6rem] w-auto sm:h-24" />
           </a>
 
           <PublicNav
