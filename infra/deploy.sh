@@ -16,6 +16,15 @@ export IMAGE_TAG
 echo "==> Logging into GHCR"
 echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-stdin
 
+# Reclaim before pulling, never after: a deploy that runs out of disk dies during
+# `pull`, so a prune placed below it is exactly where it cannot help. Each deploy
+# leaves ~2.5 GB of newly untagged images behind (api and worker are ~1.1 GB each),
+# which filled the VPS after ~16 releases and failed the deploy on 2026-09-07.
+# `until=24h` keeps roughly a day of releases to roll back to. Images backing a
+# running container are never removed, so the live stack is untouched.
+echo "==> Reclaiming images older than 24h"
+docker image prune -af --filter "until=24h"
+
 echo "==> Pulling images for tag: ${IMAGE_TAG}"
 docker compose -f docker-compose.ci.yml pull
 
