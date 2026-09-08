@@ -130,8 +130,7 @@
      own spring-spin keyframes, and both are lost through `mask-image`: a mask
      reads alpha only, and CSS animations inside an SVG do not run when that SVG
      is referenced as a mask or background. Only a real image element renders it
-     as drawn. The float below is the one thing layered on top; the halo comes
-     from a filter inside the SVG. */
+     as drawn. The float below is the one thing layered on top. */
   .route-loader-logo {
     object-fit: contain;
     animation: route-loader-float 2.4s ease-in-out infinite;
