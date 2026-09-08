@@ -49,7 +49,13 @@ const AppHandoffScreen = () => (
       src="/assets/logos/loader.svg"
       alt=""
       aria-hidden="true"
-      className="route-loader-logo h-24 w-24 sm:h-28 sm:w-28"
+      className="route-loader-logo h-24 w-24 dark:hidden sm:h-28 sm:w-28"
+    />
+    <img
+      src="/assets/logos/loader-dark.svg"
+      alt=""
+      aria-hidden="true"
+      className="route-loader-logo hidden h-24 w-24 dark:block sm:h-28 sm:w-28"
     />
   </div>
 );

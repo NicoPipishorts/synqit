@@ -8,6 +8,44 @@
    their last bit of weight from a hairline stroke rather than a font-weight.
    Sized in em so it tracks the heading it sits on, and painted behind the fill
    so the counters stay open instead of filling in. */
+/* The hero's scroll cue draws itself once on arrival. Done in CSS rather than
+   through the hero's motion tree: that tree runs `initial={false}` on touch, and
+   a child animating its own `pathLength` inside it ends up stuck at 0. Normalising
+   with `pathLength="1"` lets one dash length cover the line whatever its real
+   geometry, so the keyframes never need to know how long the path is. */
+@keyframes hero-cue-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes hero-cue-head {
+  to {
+    opacity: 1;
+  }
+}
+
+.hero-cue-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: hero-cue-draw 0.9s linear 0.35s forwards;
+}
+
+.hero-cue-head {
+  opacity: 0;
+  /* Lands as the line reaches the tip, never out ahead of it. */
+  animation: hero-cue-head 0.2s linear 1.15s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cue-line,
+  .hero-cue-head {
+    animation: none;
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
 @utility text-display-heavy {
   -webkit-text-stroke: 0.02em currentColor;
   paint-order: stroke fill;
