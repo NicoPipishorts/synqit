@@ -18,7 +18,7 @@ export const HeroScrollCue = ({ label }: { label: string }) => {
       aria-label={label}
       className="focus-ring-brand -mb-45 mt-1 block w-12 text-app-text transition hover:text-brand-pink sm:hidden"
     >
-      <svg viewBox={`0 0 ${width} ${height}`} aria-hidden="true" className="h-60 w-12">
+      <svg viewBox={`0 0 ${width} ${height}`} aria-hidden="true" className="h-[214px] w-12">
         <path
           className="hero-cue-line"
           d={HERO_CUE_BRANCH_D}
