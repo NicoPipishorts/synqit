@@ -19,7 +19,7 @@ const SIZE_CLASS_NAME: Record<HeroLinkSize, string> = {
    * against "Get started free" — and at `md` the pair needs 421px of a 335px row,
    * so it wrapped. Back to `md` from `sm:` up, where there is room.
    */
-  hero: 'min-h-10 px-3 py-2.5 text-xs sm:min-h-11 sm:px-5 sm:py-3 sm:text-base',
+  hero: 'min-h-10 px-2.5 py-2.5 text-[13px] sm:min-h-11 sm:px-5 sm:py-3 sm:text-base',
 };
 
 type HeroLinkProps = {

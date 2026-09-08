@@ -1,6 +1,14 @@
 // Page-wide background texture shared by the site and the app: soft colour washes, a halftone dot grid and a
 // paper grain. Everything is plain CSS backgrounds (no blur filters), so it
 // stays cheap on phones and never creates extra compositing layers.
+//
+// No blend modes here, deliberately. These layers span the whole page sheet —
+// north of 7000px on a phone — and `mix-blend-mode` on a layer that tall forces
+// the compositor into a separate render surface and a readback of everything
+// beneath it, which cannot go down the fast path. Scroll quicker than the
+// rasteriser and the tiles it has not caught up with paint white. The grain is
+// monochrome at a tenth of an alpha, so plain compositing lands within a shade
+// of what multiply and screen were doing anyway.
 
 const grain = (rgb: string, alpha: number) =>
   `url("data:image/svg+xml;utf8,${encodeURIComponent(
@@ -36,13 +44,7 @@ export const PageBackdrop = () => (
     {/* dot grid, fading out towards the far bottom where the CTA card and seam live */}
     <div className="bg-halftone absolute inset-0 opacity-80 [mask-image:linear-gradient(to_bottom,black_0%,black_85%,transparent_100%)]" />
     {/* paper grain */}
-    <div
-      className="absolute inset-0 mix-blend-multiply dark:hidden"
-      style={{ backgroundImage: GRAIN_LIGHT }}
-    />
-    <div
-      className="absolute inset-0 hidden mix-blend-screen dark:block"
-      style={{ backgroundImage: GRAIN_DARK }}
-    />
+    <div className="absolute inset-0 dark:hidden" style={{ backgroundImage: GRAIN_LIGHT }} />
+    <div className="absolute inset-0 hidden dark:block" style={{ backgroundImage: GRAIN_DARK }} />
   </div>
 );

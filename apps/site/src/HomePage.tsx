@@ -10,6 +10,7 @@ import { ArrowDown, ArrowLeftRight, ArrowRight, PartyPopper, Share2 } from 'luci
 import { type ReactNode } from 'react';
 
 import { HeroScreens } from './components/marketing/HeroScreens';
+import { HeroScrollCue } from './components/marketing/HeroScrollCue';
 import { HighlightedText } from './components/marketing/HighlightedText';
 import { MarketingPageShell } from './components/marketing/MarketingPageShell';
 import { RevealSection } from './components/marketing/RevealSection';
@@ -19,6 +20,7 @@ import { HeroLink } from './components/ui/HeroLink';
 import { buildAppUrl } from './lib/app-url';
 import { useI18n } from './lib/i18n';
 import { isTouchDevice } from './lib/motion';
+import { useIsPhone } from './lib/viewport';
 
 // ─── Animation variants ────────────────────────────────────────────────────────
 
@@ -90,6 +92,7 @@ const SectionIntro = ({
 
 export const HomePage = () => {
   const { t } = useI18n();
+  const isPhone = useIsPhone();
   const registerHref = buildAppUrl('/auth/register');
   const vibeWords = t('home.vibe.words')
     .split('|')
@@ -155,7 +158,7 @@ export const HomePage = () => {
       <RevealSection
         revealOnScroll={false}
         trackId="hero"
-        className="relative overflow-hidden pb-14 pt-28 sm:pb-24 sm:pt-40"
+        className="relative flex min-h-svh items-center overflow-visible pb-24 pt-16 sm:block sm:min-h-0 sm:overflow-hidden sm:pb-24 sm:pt-40"
       >
         <Container>
           <motion.div
@@ -164,7 +167,7 @@ export const HomePage = () => {
             variants={STAGGER}
             className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-6"
           >
-            <div className="flex flex-col items-start gap-6 sm:gap-7">
+            <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:gap-7 sm:text-left">
               <motion.div variants={FADE_UP}>
                 <Sticker tone="paper" tilt="-rotate-2">
                   {t('home.hero.eyebrow')}
@@ -172,7 +175,7 @@ export const HomePage = () => {
               </motion.div>
               <motion.h1
                 variants={FADE_UP}
-                className="text-[2.75rem] font-black text-display-heavy leading-[0.98] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-6xl lg:text-[4.25rem]"
+                className="text-[3.25rem] font-black text-display-heavy leading-[0.98] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-6xl lg:text-[4.25rem]"
               >
                 <HighlightedText value={t('home.hero.title')} />
               </motion.h1>
@@ -182,13 +185,16 @@ export const HomePage = () => {
               >
                 {t('home.hero.description')}
               </motion.p>
-              <motion.div variants={FADE_UP} className="flex flex-wrap items-center gap-3 sm:gap-4">
+              <motion.div
+                variants={FADE_UP}
+                className="mt-4 flex flex-wrap items-center justify-center gap-3 sm:mt-0 sm:justify-start sm:gap-4"
+              >
                 <HeroLink href={registerHref} variant="lime" size="hero">
                   {t('home.hero.ctaPrimary')}
                 </HeroLink>
                 <a
                   href="#how"
-                  className="focus-ring-brand inline-flex items-center gap-1.5 rounded-full py-2 text-xs font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-base"
+                  className="focus-ring-brand inline-flex items-center gap-1.5 rounded-full py-2 text-[13px] font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-base"
                 >
                   {t('home.hero.ctaSecondary')}
                   <ArrowDown
@@ -198,26 +204,34 @@ export const HomePage = () => {
                   />
                 </a>
               </motion.div>
+              <motion.div variants={FADE_UP}>
+                <HeroScrollCue label={t('home.hero.ctaSecondary')} />
+              </motion.div>
             </div>
 
-            <motion.div
-              variants={FADE_UP}
-              className="relative mx-auto flex w-full max-w-[19rem] justify-center py-6 sm:max-w-sm lg:max-w-md lg:py-10"
-            >
-              <div
-                aria-hidden="true"
-                className="absolute left-[4%] top-[12%] h-[55%] w-[70%] rounded-full bg-brand-lime/35 blur-3xl dark:bg-brand-lime/20"
-              />
-              <div
-                aria-hidden="true"
-                className="absolute bottom-[8%] right-[0%] h-[45%] w-[62%] rounded-full bg-brand-pink/30 blur-3xl dark:bg-brand-pink/20"
-              />
-              <HeroScreens
-                images={HERO_SCREENS.map((screen) => screen.src)}
-                captions={HERO_SCREENS.map((screen) => t(screen.captionKey))}
-                className="relative z-10 w-[13.5rem] sm:w-[15.5rem] lg:w-[17.5rem]"
-              />
-            </motion.div>
+            {/* Skipped on phones: above the fold there is no room for it beside the
+                copy, and mounting it pre-warms ten screenshots and starts a swap
+                timer — all of it upfront work for something nobody sees there. */}
+            {isPhone ? null : (
+              <motion.div
+                variants={FADE_UP}
+                className="relative mx-auto flex w-full max-w-[19rem] justify-center py-6 sm:max-w-sm lg:max-w-md lg:py-10"
+              >
+                <div
+                  aria-hidden="true"
+                  className="absolute left-[4%] top-[12%] h-[55%] w-[70%] rounded-full bg-brand-lime/35 blur-3xl dark:bg-brand-lime/20"
+                />
+                <div
+                  aria-hidden="true"
+                  className="absolute bottom-[8%] right-[0%] h-[45%] w-[62%] rounded-full bg-brand-pink/30 blur-3xl dark:bg-brand-pink/20"
+                />
+                <HeroScreens
+                  images={HERO_SCREENS.map((screen) => screen.src)}
+                  captions={HERO_SCREENS.map((screen) => t(screen.captionKey))}
+                  className="relative z-10 w-[13.5rem] sm:w-[15.5rem] lg:w-[17.5rem]"
+                />
+              </motion.div>
+            )}
           </motion.div>
         </Container>
       </RevealSection>
@@ -226,7 +240,11 @@ export const HomePage = () => {
       {/* The showcase is tall, so the anchor lands tight under the fixed navbar rather
           than a full section-padding below it: that reclaimed space is what brings the
           phone's lower half into the first screen. */}
-      <RevealSection id="how" trackId="services" className="relative scroll-mt-12 py-16 sm:py-24">
+      <RevealSection
+        id="how"
+        trackId="services"
+        className="relative scroll-mt-12 pb-16 pt-2 sm:py-24"
+      >
         <Container className="flex flex-col gap-4">
           <SectionIntro
             eyebrow={t('home.services.eyebrow')}
@@ -248,9 +266,15 @@ export const HomePage = () => {
             <span className="text-xs font-black uppercase tracking-[0.22em] sm:text-sm">
               {t('home.compatStrip.label')}
             </span>
-            <span className="flex items-center gap-3">
+            {/* Smaller and closer together on a phone: the row grows with every
+                service added, and at h-7 five of them already dominate the band. */}
+            <span className="flex items-center gap-2 sm:gap-3">
               {[...CONNECT_SERVICES, ...LINK_SERVICES].map((service) => (
-                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                <ServiceLogo
+                  key={service.id}
+                  service={service.id}
+                  className="h-5 w-5 sm:h-7 sm:w-7"
+                />
               ))}
             </span>
             <a
