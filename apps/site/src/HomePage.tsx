@@ -245,17 +245,14 @@ export const HomePage = () => {
         trackId="services"
         className="relative scroll-mt-12 pb-16 pt-2 sm:py-24"
       >
-        <Container className="flex flex-col gap-4">
+        <Container>
           <SectionIntro
             eyebrow={t('home.services.eyebrow')}
             title=<HighlightedText value={t('home.services.title')} />
           />
-          <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
-            {t('home.how.lead')}
-          </p>
         </Container>
         <div className="mx-auto mt-8 w-full max-w-6xl px-5 sm:px-6 lg:mt-12 lg:px-8">
-          <ServiceShowcase services={services} swipeHint={t('home.services.swipeHint')} />
+          <ServiceShowcase services={services} />
         </div>
 
         {/* The marquee's band from lower down, held still and tilted the other way:
