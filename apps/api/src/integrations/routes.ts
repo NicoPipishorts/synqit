@@ -23,6 +23,13 @@ import {
   isSpotifyOauthLiveMode,
 } from './spotify';
 import { integrationStore } from './store';
+import {
+  buildTidalAuthorizationUrl,
+  createTidalPkcePair,
+  DEFAULT_TIDAL_SCOPES,
+  exchangeTidalAuthorizationCode,
+  isTidalOauthLiveMode,
+} from './tidal';
 import { requireAuthenticatedUserId } from '../auth/guards';
 
 const DEFAULT_OAUTH_STATE_TTL_SECONDS = 10 * 60;
@@ -107,15 +114,29 @@ const buildMockAuthorizationUrl = (params: { provider: Provider; state: string }
   }).toString()}`;
 };
 
-const getProviderScopes = (provider: Provider): string[] => {
-  if (provider === 'spotify') {
-    return (process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES).split(/\s+/).filter(Boolean);
-  }
-
-  return (process.env.APPLE_SCOPES ?? DEFAULT_APPLE_SCOPES).split(/\s+/).filter(Boolean);
+const PROVIDER_SCOPE_DEFAULTS: Record<Provider, () => string> = {
+  spotify: () => process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES,
+  apple: () => process.env.APPLE_SCOPES ?? DEFAULT_APPLE_SCOPES,
+  tidal: () => process.env.TIDAL_SCOPES ?? DEFAULT_TIDAL_SCOPES,
 };
 
-const getProviderAuthorizationUrl = (params: { provider: Provider; state: string }): string => {
+const getProviderScopes = (provider: Provider): string[] =>
+  PROVIDER_SCOPE_DEFAULTS[provider]().split(/\s+/).filter(Boolean);
+
+const getProviderAuthorizationUrl = (params: {
+  provider: Provider;
+  state: string;
+  /** Set only for providers that use PKCE (TIDAL). */
+  codeChallenge?: string;
+}): string => {
+  if (params.provider === 'tidal' && isTidalOauthLiveMode() && params.codeChallenge) {
+    return buildTidalAuthorizationUrl({
+      state: params.state,
+      scopes: process.env.TIDAL_SCOPES ?? DEFAULT_TIDAL_SCOPES,
+      codeChallenge: params.codeChallenge,
+    });
+  }
+
   if (params.provider === 'spotify' && isSpotifyOauthLiveMode()) {
     return buildSpotifyAuthorizationUrl({
       state: params.state,
@@ -131,6 +152,7 @@ const getProviderAuthorizationUrl = (params: { provider: Provider; state: string
 const exchangeProviderAuthorizationCode = async (params: {
   provider: Provider;
   code: string;
+  codeVerifier: string | null;
 }): Promise<{
   accessToken: string;
   refreshToken: string;
@@ -139,6 +161,16 @@ const exchangeProviderAuthorizationCode = async (params: {
 }> => {
   if (params.provider === 'spotify' && isSpotifyOauthLiveMode()) {
     return exchangeSpotifyAuthorizationCode(params.code);
+  }
+
+  if (params.provider === 'tidal' && isTidalOauthLiveMode()) {
+    if (!params.codeVerifier) {
+      throw new Error('TIDAL sign-in expired. Start the connection again.');
+    }
+    return exchangeTidalAuthorizationCode({
+      code: params.code,
+      codeVerifier: params.codeVerifier,
+    });
   }
 
   return {
@@ -296,16 +328,21 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
     }
 
     const nextPath = parseOauthNextPath((request.query as { next?: string }).next);
+    // TIDAL is authorization code + PKCE: the verifier has to outlive the
+    // redirect, so it rides along with the OAuth state row.
+    const pkce = providerResult.data === 'tidal' ? createTidalPkcePair() : null;
     const oauthState = await integrationStore.createPendingOauthState({
       userId,
       provider: providerResult.data,
       ttlMs: oauthStateTtlMs,
       state: buildOauthState(nextPath),
+      codeVerifier: pkce?.codeVerifier ?? null,
     });
 
     const authorizationUrl = getProviderAuthorizationUrl({
       provider: providerResult.data,
       state: oauthState.state,
+      codeChallenge: pkce?.codeChallenge,
     });
 
     return oauthStartResponseSchema.parse({
@@ -359,6 +396,7 @@ export const registerIntegrationRoutes = async (app: FastifyInstance): Promise<v
       tokenExchangeResult = await exchangeProviderAuthorizationCode({
         provider: providerResult.data,
         code: queryResult.data.code,
+        codeVerifier: oauthState.codeVerifier,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Token exchange failed.';

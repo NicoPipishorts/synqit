@@ -7,10 +7,10 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { EventEditFormCard } from '../components/events/EventEditFormCard';
 import { EventMagicLinkCard } from '../components/events/EventMagicLinkCard';
-import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { EventStatusIndicator } from '../components/events/EventStatusIndicator';
 import { EventTracksCard } from '../components/events/EventTracksCard';
 import { HostEventDetailsHeader } from '../components/events/HostEventDetailsHeader';
+import { ProviderIcon } from '../components/providers/ProviderIcon';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
@@ -428,7 +428,7 @@ export const HostEventDetailsPage = () => {
                     {t('eventsPage.streamingServiceLabel')}
                   </p>
                   <div className="flex items-center gap-2.5 px-0.5 py-1">
-                    <EventProviderIcon
+                    <ProviderIcon
                       provider={event.provider}
                       sizeClassName="h-7 w-7 shrink-0"
                       className="dark:shadow-glow-pink"

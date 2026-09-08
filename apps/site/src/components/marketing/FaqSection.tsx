@@ -13,6 +13,9 @@ type Capability = (typeof CAPABILITIES)[number];
 const MATRIX: Record<MusicServiceId, Record<Capability, boolean>> = {
   spotify: { connect: true, events: true, sync: true, transferIn: true, importFrom: true },
   apple: { connect: true, events: true, sync: true, transferIn: true, importFrom: true },
+  // Connect, sync and transfer work; guest event hosting is still Spotify and
+  // Apple Music only, so this row is deliberately not all-yes.
+  tidal: { connect: true, events: false, sync: true, transferIn: true, importFrom: true },
   deezer: { connect: false, events: false, sync: false, transferIn: false, importFrom: true },
   youtube: { connect: false, events: false, sync: false, transferIn: false, importFrom: true },
 };

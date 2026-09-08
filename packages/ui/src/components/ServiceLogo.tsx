@@ -1,6 +1,6 @@
 import { cn } from '../utils/cn';
 
-export type MusicServiceId = 'spotify' | 'apple' | 'deezer' | 'youtube';
+export type MusicServiceId = 'spotify' | 'apple' | 'tidal' | 'deezer' | 'youtube';
 
 /**
  * How a music service reaches Synqit:
@@ -21,11 +21,16 @@ export type MusicService = {
 export const MUSIC_SERVICES: Record<MusicServiceId, MusicService> = {
   spotify: { id: 'spotify', name: 'Spotify', access: 'connect' },
   apple: { id: 'apple', name: 'Apple Music', access: 'connect' },
+  tidal: { id: 'tidal', name: 'TIDAL', access: 'connect' },
   deezer: { id: 'deezer', name: 'Deezer', access: 'link' },
   youtube: { id: 'youtube', name: 'YouTube Music', access: 'link' },
 };
 
-/** Services a listener signs in to. */
+/**
+ * Services a listener signs in to, in the order the UI offers them. TIDAL is deliberately
+ * absent: the API supports it, but we have no official TIDAL brand mark yet, so showing it
+ * would render a missing image. Add it here once `Tidal.png` lands in the apps' public assets.
+ */
 export const CONNECT_SERVICES: readonly MusicService[] = [
   MUSIC_SERVICES.spotify,
   MUSIC_SERVICES.apple,
@@ -43,9 +48,16 @@ export const LINK_SERVICES: readonly MusicService[] = [
 const MARK_SRC: Record<MusicServiceId, string> = {
   spotify: '/assets/logos/Providers/Spotify.png',
   apple: '/assets/logos/Providers/AppleMusic.png',
+  tidal: '/assets/logos/Providers/Tidal.png',
   deezer: '/assets/logos/Providers/Deezer.png',
   youtube: '/assets/logos/Providers/YouTubeMusic.png',
 };
+
+/**
+ * Path to a service's brand mark, for the rare place that needs its own `<img>` styling
+ * (the profile connection cards crop to a bordered circle). Prefer `ServiceLogo` otherwise.
+ */
+export const getServiceMarkSrc = (service: MusicServiceId): string => MARK_SRC[service];
 
 export type ServiceLogoProps = {
   service: MusicServiceId;

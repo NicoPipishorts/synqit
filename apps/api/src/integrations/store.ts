@@ -23,6 +23,8 @@ type PendingOauthStateRecord = {
   state: string;
   userId: string;
   provider: Provider;
+  /** PKCE verifier for providers that need one (TIDAL); null otherwise. */
+  codeVerifier: string | null;
   createdAt: Date;
   expiresAt: Date;
 };
@@ -46,6 +48,7 @@ type PendingOauthStateRow = {
   state: string;
   user_id: string;
   provider: string;
+  code_verifier: string | null;
   created_at: Date;
   expires_at: Date;
 };
@@ -69,6 +72,7 @@ const toPendingOauthStateRecord = (row: PendingOauthStateRow): PendingOauthState
   state: row.state,
   userId: row.user_id,
   provider: providerSchema.parse(row.provider),
+  codeVerifier: row.code_verifier,
   createdAt: new Date(row.created_at),
   expiresAt: new Date(row.expires_at),
 });
@@ -188,6 +192,7 @@ export const integrationStore = {
     provider: Provider;
     ttlMs: number;
     state?: string;
+    codeVerifier?: string | null;
   }): Promise<PendingOauthStateRecord> {
     await purgeExpiredOauthStates();
 
@@ -197,6 +202,7 @@ export const integrationStore = {
       state: params.state?.trim().length ? params.state : randomBytes(24).toString('base64url'),
       userId: params.userId,
       provider: params.provider,
+      codeVerifier: params.codeVerifier ?? null,
       createdAt: new Date(now),
       expiresAt: new Date(now + params.ttlMs),
     };
@@ -207,6 +213,7 @@ export const integrationStore = {
         state: oauthState.state,
         user_id: oauthState.userId,
         provider: oauthState.provider,
+        code_verifier: oauthState.codeVerifier,
         created_at: oauthState.createdAt,
         expires_at: oauthState.expiresAt,
       },

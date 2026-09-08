@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Check, ChevronRight, LoaderCircle, Music2, X } from 'lucide-react';
 
 import type { Provider } from '../../lib/types';
-import { EventProviderIcon } from '../events/EventProviderIcon';
+import { ProviderIcon } from '../providers/ProviderIcon';
 import { CTAButton } from '../ui/cta';
 
 // Building blocks shared by the provider-to-provider transfer flow and the
@@ -58,7 +58,7 @@ export const ProviderCard = ({
             : notConnectedLabel}
         </p>
       </div>
-      <EventProviderIcon provider={selectedProvider} sizeClassName="h-14 w-14 sm:h-16 sm:w-16" />
+      <ProviderIcon provider={selectedProvider} sizeClassName="h-14 w-14 sm:h-16 sm:w-16" />
     </div>
 
     <div className="mt-5 grid gap-2">

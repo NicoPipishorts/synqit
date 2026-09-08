@@ -768,8 +768,6 @@
       "stepReview": "Review",
       "stepProviderTitle": "Step 1. Choose a streaming service",
       "stepProviderBody": "Select your music streaming service.",
-      "providerSpotify": "Spotify",
-      "providerApple": "Apple Music",
       "providerNotConnected": "This streaming service is not connected yet.",
       "providerNotConnectedHelp": "Connect it first, then continue to naming and final creation.",
       "providerNotSelected": "No streaming service selected",
@@ -959,7 +957,7 @@
       "ctaSecondary": "See how it works",
       "ctaLogin": "Sign in",
       "worksWith": "Works with",
-      "worksWithHint": "Spotify and Apple Music connect to your account. Deezer and YouTube come in through a link."
+      "worksWithNote": "What each service can do"
     },
     "services": {
       "eyebrow": "What Synqit does",

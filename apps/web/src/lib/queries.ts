@@ -10,6 +10,8 @@
 
 import {
   createSyncRequestSchema,
+  eventProviderSchema,
+  providerSchema,
   dashboardSummaryResponseSchema,
   deleteEventDraftResponseSchema,
   eventDraftListResponseSchema,
@@ -59,7 +61,7 @@ import {
   type SyncPublicItem,
   type UserPreferences,
 } from '@synqit/shared';
-import type { EventDraft } from '@synqit/shared';
+import type { EventDraft, EventProvider, Provider } from '@synqit/shared';
 
 import { callApi } from './api';
 import { toApiAssetUrl } from './apiAssetUrl';
@@ -211,7 +213,23 @@ export const fetchDraft = async (draftId: string): Promise<EventDraft> => {
 // ---------------------------------------------------------------------------
 
 export type IntegrationStatus = 'connected' | 'not_connected';
-export type IntegrationMap = Record<'spotify' | 'apple', IntegrationStatus>;
+export type IntegrationMap = Record<Provider, IntegrationStatus>;
+
+/**
+ * Seed a per-provider record from the schema rather than a hand-written literal, so adding a
+ * provider to `providerSchema` cannot leave a key silently missing here.
+ */
+const seedByProvider = <T>(value: () => T): Record<Provider, T> =>
+  Object.fromEntries(providerSchema.options.map((provider) => [provider, value()])) as Record<
+    Provider,
+    T
+  >;
+
+const seedByEventProvider = <T>(value: () => T): Record<EventProvider, T> =>
+  Object.fromEntries(eventProviderSchema.options.map((provider) => [provider, value()])) as Record<
+    EventProvider,
+    T
+  >;
 
 export type ProviderIntegrationState = {
   status: IntegrationStatus;
@@ -220,9 +238,14 @@ export type ProviderIntegrationState = {
 };
 
 export type IntegrationsSnapshot = {
-  byProvider: Record<'spotify' | 'apple', ProviderIntegrationState>;
-  eventCountByProvider: Record<'spotify' | 'apple', number>;
+  byProvider: Record<Provider, ProviderIntegrationState>;
+  eventCountByProvider: Record<EventProvider, number>;
 };
+
+/** Every provider disconnected. Use as the fallback while the integrations query loads. */
+export const EMPTY_INTEGRATION_MAP: IntegrationMap = seedByProvider<IntegrationStatus>(
+  () => 'not_connected',
+);
 
 export const fetchIntegrations = async (): Promise<IntegrationMap> => {
   const token = requireToken();
@@ -231,7 +254,7 @@ export const fetchIntegrations = async (): Promise<IntegrationMap> => {
     { method: 'GET', headers: { authorization: `Bearer ${token}` } },
     (payload) => integrationListResponseSchema.parse(payload),
   );
-  const map: IntegrationMap = { spotify: 'not_connected', apple: 'not_connected' };
+  const map: IntegrationMap = { ...EMPTY_INTEGRATION_MAP };
   for (const integration of result.integrations) {
     map[integration.provider] = integration.status;
   }
@@ -263,10 +286,9 @@ export const fetchIntegrationsSnapshot = async (): Promise<IntegrationsSnapshot>
     ),
   ]);
 
-  const byProvider: IntegrationsSnapshot['byProvider'] = {
-    spotify: { status: 'not_connected', connectedAt: null, expiresAt: null },
-    apple: { status: 'not_connected', connectedAt: null, expiresAt: null },
-  };
+  const byProvider: IntegrationsSnapshot['byProvider'] = seedByProvider<ProviderIntegrationState>(
+    () => ({ status: 'not_connected', connectedAt: null, expiresAt: null }),
+  );
   for (const integration of integrationResult.integrations) {
     byProvider[integration.provider] = {
       status: integration.status,
@@ -275,10 +297,8 @@ export const fetchIntegrationsSnapshot = async (): Promise<IntegrationsSnapshot>
     };
   }
 
-  const eventCountByProvider: IntegrationsSnapshot['eventCountByProvider'] = {
-    spotify: 0,
-    apple: 0,
-  };
+  const eventCountByProvider: IntegrationsSnapshot['eventCountByProvider'] =
+    seedByEventProvider<number>(() => 0);
   for (const event of eventResult.events) {
     eventCountByProvider[event.provider] += 1;
   }
@@ -385,7 +405,7 @@ export const regenerateMagicLink = async (eventId: string): Promise<HostEvent> =
 
 export const createDraft = async (params: {
   step: 1 | 2 | 3 | 4;
-  provider: 'spotify' | 'apple' | null;
+  provider: EventProvider | null;
   name: string;
   description: string;
 }): Promise<EventDraft> => {
@@ -405,7 +425,7 @@ export const createDraft = async (params: {
 export const updateDraft = async (params: {
   draftId: string;
   step: 1 | 2 | 3 | 4;
-  provider: 'spotify' | 'apple' | null;
+  provider: EventProvider | null;
   name: string;
   description: string;
 }): Promise<EventDraft> => {
@@ -437,7 +457,7 @@ export const deleteDraft = async (draftId: string): Promise<void> => {
 };
 
 export const createEvent = async (params: {
-  provider: 'spotify' | 'apple';
+  provider: EventProvider;
   name: string;
   description: string;
   draftId: string | null;
@@ -468,7 +488,7 @@ export const createEvent = async (params: {
 // Provider (integration) mutations
 // ---------------------------------------------------------------------------
 
-export const disconnectProvider = async (provider: 'spotify' | 'apple'): Promise<void> => {
+export const disconnectProvider = async (provider: Provider): Promise<void> => {
   const token = requireToken();
   await callApi(
     `/v1/auth/${provider}/disconnect`,
@@ -640,7 +660,7 @@ export const untrackEvent = async (
 };
 
 export const fetchProviderPlaylists = async (params: {
-  provider: 'spotify' | 'apple';
+  provider: Provider;
   limit?: number;
   offset?: number;
 }): Promise<{ playlists: ProviderPlaylistItem[]; hasMore: boolean }> => {
@@ -658,7 +678,7 @@ export const fetchProviderPlaylists = async (params: {
 };
 
 export const fetchProviderPlaylistTrackCount = async (params: {
-  provider: 'spotify' | 'apple';
+  provider: Provider;
   providerPlaylistId: string;
 }): Promise<number> => {
   const token = requireToken();
@@ -677,7 +697,7 @@ export const fetchProviderPlaylistTrackCount = async (params: {
 };
 
 export const fetchProviderPlaylistTracks = async (params: {
-  provider: 'spotify' | 'apple';
+  provider: Provider;
   providerPlaylistId: string;
 }): Promise<ProviderPlaylistTrack[]> => {
   const token = requireToken();
@@ -701,7 +721,7 @@ export const fetchProviderPlaylistTracks = async (params: {
 // ---------------------------------------------------------------------------
 
 export const createSync = async (params: {
-  provider: 'spotify' | 'apple';
+  provider: Provider;
   providerPlaylistId: string;
   name: string;
   trackCount: number | null;
@@ -774,7 +794,7 @@ export const regenerateSyncMagicLink = async (
 
 export const importSync = async (params: {
   magicLinkToken: string;
-  recipientProvider: 'spotify' | 'apple';
+  recipientProvider: Provider;
 }): Promise<ImportSyncResponse> => {
   const token = requireToken();
   const body = importSyncRequestSchema.parse({ recipientProvider: params.recipientProvider });
@@ -795,8 +815,8 @@ export const importSync = async (params: {
  * read back from `fetchTransferBatch`.
  */
 export const createTransfer = async (params: {
-  sourceProvider: 'spotify' | 'apple';
-  destinationProvider: 'spotify' | 'apple';
+  sourceProvider: Provider;
+  destinationProvider: Provider;
   playlists: TransferPlaylistSelection[];
 }): Promise<TransferBatch> => {
   const token = requireToken();
@@ -866,7 +886,7 @@ export const previewExternalPlaylist = async (
 
 export const createExternalImport = async (params: {
   url: string;
-  recipientProvider: 'spotify' | 'apple';
+  recipientProvider: Provider;
 }): Promise<ExternalImportItem> => {
   const token = requireToken();
   const body = createExternalImportRequestSchema.parse(params);

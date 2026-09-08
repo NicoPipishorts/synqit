@@ -3,7 +3,7 @@ import { TapeStrip } from '@synqit/ui';
 import { ArrowLeftRight } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
-import { EventProviderIcon } from '../events/EventProviderIcon';
+import { ProviderIcon } from '../providers/ProviderIcon';
 
 type TransferCardProps = {
   sync: SyncItem;
@@ -54,7 +54,7 @@ export const TransferCard = ({ sync }: TransferCardProps) => {
               : ''}
           </p>
         </div>
-        <EventProviderIcon provider={sync.provider} sizeClassName="h-8 w-8 shrink-0" />
+        <ProviderIcon provider={sync.provider} sizeClassName="h-8 w-8 shrink-0" />
       </div>
 
       {formattedDate ? (

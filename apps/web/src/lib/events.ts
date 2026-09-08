@@ -1,4 +1,7 @@
-export type EventProvider = 'spotify' | 'apple';
+import type { EventProvider } from '@synqit/shared';
+
+export type { EventProvider };
+
 export type EventStatus = 'open' | 'closed';
 export type ProviderConnectionStatus = 'connected' | 'not_connected';
 export type EventCloseReason = 'provider_playlist_missing';
@@ -35,20 +38,6 @@ export type EventTrackItem = {
   artworkUrl: string | null;
   addedAt: string;
   addedBy: string;
-};
-
-export const getEventProviderAsset = (provider: EventProvider): { src: string; alt: string } => {
-  if (provider === 'apple') {
-    return {
-      src: '/assets/logos/Providers/AppleMusic.png',
-      alt: 'Apple Music',
-    };
-  }
-
-  return {
-    src: '/assets/logos/Providers/Spotify.png',
-    alt: 'Spotify',
-  };
 };
 
 export const getPublicEventPath = (magicLinkToken: string): string => {

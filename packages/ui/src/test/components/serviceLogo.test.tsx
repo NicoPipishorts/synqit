@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 
 import {
   CONNECT_SERVICES,
+  getServiceMarkSrc,
   LINK_SERVICES,
   MUSIC_SERVICES,
   ServiceChip,
@@ -20,9 +21,24 @@ describe('service catalog', () => {
     expect(Object.values(MUSIC_SERVICES).map((service) => service.name)).toEqual([
       'Spotify',
       'Apple Music',
+      'TIDAL',
       'Deezer',
       'YouTube Music',
     ]);
+  });
+
+  it('holds TIDAL back until it has an official brand mark', () => {
+    // The API supports TIDAL, but showing it before `Tidal.png` ships would render a broken
+    // image. Delete this test in the same change that adds the asset and lists TIDAL above.
+    expect(MUSIC_SERVICES.tidal.access).toBe('connect');
+    expect(CONNECT_SERVICES.map((service) => service.id)).not.toContain('tidal');
+  });
+
+  it('gives every offered service its own brand mark', () => {
+    const offered = [...CONNECT_SERVICES, ...LINK_SERVICES];
+    const marks = offered.map((service) => getServiceMarkSrc(service.id));
+    expect(marks.every((mark) => mark.length > 0)).toBe(true);
+    expect(new Set(marks).size).toBe(offered.length);
   });
 });
 

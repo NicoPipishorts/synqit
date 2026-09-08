@@ -2,7 +2,7 @@ import type { ExternalImportItem } from '@synqit/shared';
 import { Link2 } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
-import { EventProviderIcon } from '../events/EventProviderIcon';
+import { ProviderIcon } from '../providers/ProviderIcon';
 
 const formatTimestamp = (value: string | null): string | null => {
   if (!value) {
@@ -75,7 +75,7 @@ export const ExternalImportCard = ({ item }: { item: ExternalImportItem }) => {
               : ''}
           </p>
         </div>
-        <EventProviderIcon provider={item.recipientProvider} sizeClassName="h-8 w-8 shrink-0" />
+        <ProviderIcon provider={item.recipientProvider} sizeClassName="h-8 w-8 shrink-0" />
       </div>
 
       {item.status === 'failed' && item.lastError ? (

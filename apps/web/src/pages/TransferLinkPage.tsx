@@ -9,7 +9,7 @@ import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { CreateFlowStepBreadcrumbs } from '../components/create-flow/CreateFlowStepBreadcrumbs';
 import { CREATE_FLOW_STEP_SLIDE_VARIANTS } from '../components/create-flow/flowMotion';
-import { EventProviderIcon } from '../components/events/EventProviderIcon';
+import { ProviderIcon } from '../components/providers/ProviderIcon';
 import { PlaylistTrackRow, ProviderCard } from '../components/syncs/TransferPrimitives';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
@@ -18,6 +18,7 @@ import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
 import {
+  EMPTY_INTEGRATION_MAP,
   createExternalImport,
   fetchExternalImport,
   fetchExternalSources,
@@ -74,10 +75,7 @@ export const TransferLinkPage = () => {
       query.state.data && isTerminal(query.state.data.status) ? false : POLL_INTERVAL_MS,
   });
 
-  const providerStatusByType = integrationsQuery.data ?? {
-    spotify: 'not_connected' as const,
-    apple: 'not_connected' as const,
-  };
+  const providerStatusByType = integrationsQuery.data ?? EMPTY_INTEGRATION_MAP;
   const destinationConnected = providerStatusByType[destinationProvider] === 'connected';
   const sources = sourcesQuery.data?.sources ?? { deezer: true, youtube: false };
   const maxTracks = sourcesQuery.data?.maxTracks ?? 500;
@@ -342,7 +340,7 @@ export const TransferLinkPage = () => {
                       className="text-app-text-secondary"
                       aria-hidden="true"
                     />
-                    <EventProviderIcon provider={destinationProvider} sizeClassName="h-10 w-10" />
+                    <ProviderIcon provider={destinationProvider} sizeClassName="h-10 w-10" />
                   </div>
                 </div>
 
@@ -470,7 +468,7 @@ export const TransferLinkPage = () => {
                           {activeImport?.name ?? preview?.name ?? ''}
                         </p>
                       </div>
-                      <EventProviderIcon provider={destinationProvider} sizeClassName="h-8 w-8" />
+                      <ProviderIcon provider={destinationProvider} sizeClassName="h-8 w-8" />
                     </div>
                     <div className="mt-3 h-2 overflow-hidden rounded-full bg-brand-white/15">
                       <motion.div

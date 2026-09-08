@@ -3,8 +3,9 @@ import {
   type AdminAnalyticsUserDetailResponse,
   type AdminPermissionLevel,
   type AdminPermissionScope,
+  type Provider,
 } from '@synqit/shared';
-import { useToast } from '@synqit/ui';
+import { MUSIC_SERVICES, useToast } from '@synqit/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { AlertTriangle, KeyRound, RotateCcw, Shield, Trash2 } from 'lucide-react';
@@ -49,8 +50,7 @@ const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> =>
     AccessLevelUi
   >;
 
-const providerLabel = (provider: 'spotify' | 'apple'): string =>
-  provider === 'spotify' ? 'Spotify' : 'Apple Music';
+const providerLabel = (provider: Provider): string => MUSIC_SERVICES[provider].name;
 
 const getUserTitle = (user: AnalyticsUserDetail): string => {
   const displayName = user.personalInfo.displayName?.trim();

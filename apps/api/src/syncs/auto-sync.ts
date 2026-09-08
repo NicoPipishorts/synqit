@@ -1,24 +1,14 @@
+import type { Provider } from '@synqit/shared';
 import { createHash } from 'node:crypto';
 
 import { syncsStore, type SyncImportRecord, type SyncWithImportsRecord } from './store';
 import { buildTrackFingerprint } from './track-fingerprint';
-import { withAppleMusicUserToken } from '../integrations/apple-client';
-import { getAppleUserStorefront } from '../integrations/apple-music';
-import { listApplePlaylistTracks } from '../integrations/apple-music';
-import { searchAppleCatalogTracks } from '../integrations/apple-music';
-import { findAppleCatalogSongByIsrc } from '../integrations/apple-music';
-import { addAppleTrackToPlaylist } from '../integrations/apple-music';
-import { createAppleLibraryPlaylist } from '../integrations/apple-music';
 import { mapProviderApiError } from '../integrations/provider-errors';
+import { getProviderAdapter, getProviderLabel } from '../integrations/provider-registry';
 import { isSpotifyOauthLiveMode } from '../integrations/spotify';
-import { IntegrationError } from '../integrations/spotify-client';
-import { withSpotifyAccessTokenRetry } from '../integrations/spotify-client';
-import { createSpotifyPlaylist } from '../integrations/spotify-playlists';
+import { IntegrationError, withSpotifyAccessTokenRetry } from '../integrations/spotify-client';
 import { getSpotifyPlaylistSummary } from '../integrations/spotify-playlists';
 import { ProviderApiError } from '../integrations/spotify-tracks';
-import { addSpotifyTrackToPlaylist } from '../integrations/spotify-tracks';
-import { listSpotifyPlaylistTracks } from '../integrations/spotify-tracks';
-import { searchSpotifyTracks } from '../integrations/spotify-tracks';
 
 type Logger = {
   info: (payload: unknown, message?: string) => void;
@@ -107,11 +97,10 @@ const computeNextPollPlan = (params: {
   };
 };
 
-const toErrorMessage = (error: unknown, provider?: 'spotify' | 'apple'): string => {
+const toErrorMessage = (error: unknown, provider?: Provider): string => {
   if (error instanceof ProviderApiError) {
     if (provider && error.statusCode === 403) {
-      const providerLabel = provider === 'spotify' ? 'Spotify' : 'Apple Music';
-      return `Reconnect ${providerLabel}`;
+      return `Reconnect ${getProviderLabel(provider)}`;
     }
 
     return mapProviderApiError(error).message;
@@ -230,33 +219,14 @@ const loadSourceTracks = async (sync: SyncWithImportsRecord): Promise<SyncTrack[
 };
 
 const loadPlaylistTracks = async (params: {
-  provider: 'spotify' | 'apple';
+  provider: Provider;
   userId: string;
   providerPlaylistId: string;
-}): Promise<SyncTrack[]> => {
-  if (params.provider === 'spotify') {
-    const { result } = await withSpotifyAccessTokenRetry({
-      userId: params.userId,
-      run: (accessToken) =>
-        listSpotifyPlaylistTracks({
-          accessToken,
-          providerPlaylistId: params.providerPlaylistId,
-        }),
-    });
-    return result;
-  }
-
-  const tracks = await withAppleMusicUserToken({
+}): Promise<SyncTrack[]> =>
+  getProviderAdapter(params.provider).listPlaylistTracks({
     userId: params.userId,
-    run: (ctx) =>
-      listApplePlaylistTracks({
-        ...ctx,
-        providerPlaylistId: params.providerPlaylistId,
-      }),
+    providerPlaylistId: params.providerPlaylistId,
   });
-
-  return tracks;
-};
 
 const loadImportTracks = async (importRecord: SyncImportRecord): Promise<SyncTrack[]> => {
   if (!importRecord.recipientProviderPlaylistId) {
@@ -270,130 +240,49 @@ const loadImportTracks = async (importRecord: SyncImportRecord): Promise<SyncTra
   });
 };
 
+/**
+ * Finds the same recording on another service: exact by ISRC when the source
+ * carries one, else the closest text match by fingerprint, else the top result.
+ */
 export const findProviderMatch = async (params: {
-  provider: 'spotify' | 'apple';
+  provider: Provider;
   userId: string;
   track: SyncTrack;
 }): Promise<string | null> => {
-  return params.provider === 'spotify'
-    ? findSpotifyMatch({ userId: params.userId, track: params.track })
-    : findAppleMatch({ userId: params.userId, track: params.track });
-};
-
-const findSpotifyMatch = async (params: {
-  userId: string;
-  track: SyncTrack;
-}): Promise<string | null> => {
-  if (!isSpotifyOauthLiveMode()) {
+  const adapter = getProviderAdapter(params.provider);
+  if (!adapter.isLiveMode()) {
     return null;
   }
 
-  const sourceFingerprint = buildTrackFingerprint(params.track);
-  const { result: accessToken } = await withSpotifyAccessTokenRetry({
-    userId: params.userId,
-    run: async (token) => token,
-  });
-
-  // Exact match by ISRC when the source provides one (Deezer, Spotify, Apple).
   if (params.track.isrc) {
-    const byIsrc = await searchSpotifyTracks({
-      accessToken,
-      query: `isrc:${params.track.isrc}`,
-      limit: 1,
-    });
-    if (byIsrc[0]) {
-      return byIsrc[0].providerTrackId;
+    const exact = await adapter.findTrackByIsrc({ userId: params.userId, isrc: params.track.isrc });
+    if (exact) {
+      return exact.providerTrackId;
     }
   }
 
-  const results = await searchSpotifyTracks({
-    accessToken,
+  const results = await adapter.searchTracks({
+    userId: params.userId,
     query: `${params.track.name} ${params.track.artist}`,
     limit: 5,
   });
-
-  const exact = results.find((result) => buildTrackFingerprint(result) === sourceFingerprint);
-  if (exact) {
-    return exact.providerTrackId;
-  }
-
-  const fallback = results[0];
-  return fallback?.providerTrackId ?? null;
-};
-
-const findAppleMatch = async (params: {
-  userId: string;
-  track: SyncTrack;
-}): Promise<string | null> => {
   const sourceFingerprint = buildTrackFingerprint(params.track);
-
-  return withAppleMusicUserToken({
-    userId: params.userId,
-    run: async (ctx) => {
-      const storefront = await getAppleUserStorefront(ctx);
-
-      if (params.track.isrc) {
-        const byIsrc = await findAppleCatalogSongByIsrc({
-          developerToken: ctx.developerToken,
-          storefront,
-          isrc: params.track.isrc,
-        });
-        if (byIsrc) {
-          return byIsrc.providerTrackId;
-        }
-      }
-
-      const results = await searchAppleCatalogTracks({
-        developerToken: ctx.developerToken,
-        storefront,
-        query: `${params.track.name} ${params.track.artist}`,
-        limit: 5,
-      });
-
-      const exact = results.find((result) => buildTrackFingerprint(result) === sourceFingerprint);
-      if (exact) {
-        return exact.providerTrackId;
-      }
-
-      return results[0]?.providerTrackId ?? null;
-    },
-  });
+  const exact = results.find((result) => buildTrackFingerprint(result) === sourceFingerprint);
+  return (exact ?? results[0])?.providerTrackId ?? null;
 };
 
-/** Creates an empty playlist in the user's library; null when Spotify is not in live mode. */
 export const createRecipientPlaylist = async (params: {
   userId: string;
-  provider: 'spotify' | 'apple';
+  provider: Provider;
   name: string;
 }): Promise<string | null> => {
-  if (params.provider === 'spotify') {
-    if (!isSpotifyOauthLiveMode()) {
-      return null;
-    }
-
-    const { result: accessToken } = await withSpotifyAccessTokenRetry({
-      userId: params.userId,
-      run: async (token) => token,
-    });
-    const created = await createSpotifyPlaylist({
-      accessToken,
-      name: params.name,
-      description: '',
-    });
-    return created.providerPlaylistId;
+  const adapter = getProviderAdapter(params.provider);
+  // A service without credentials cannot own a playlist; callers treat null as
+  // "skip this import" rather than an error.
+  if (!adapter.isLiveMode()) {
+    return null;
   }
-
-  return withAppleMusicUserToken({
-    userId: params.userId,
-    run: async (ctx) => {
-      const created = await createAppleLibraryPlaylist({
-        ...ctx,
-        name: params.name,
-        description: '',
-      });
-      return created.providerPlaylistId;
-    },
-  });
+  return adapter.createPlaylist({ userId: params.userId, name: params.name });
 };
 
 const ensureRecipientPlaylist = async (params: {
@@ -413,31 +302,14 @@ const ensureRecipientPlaylist = async (params: {
 
 export const addTrackToRecipientPlaylist = async (params: {
   userId: string;
-  provider: SyncImportRecord['recipientProvider'];
+  provider: Provider;
   recipientProviderPlaylistId: string;
   recipientTrackId: string;
 }): Promise<void> => {
-  if (params.provider === 'spotify') {
-    const { result: accessToken } = await withSpotifyAccessTokenRetry({
-      userId: params.userId,
-      run: async (token) => token,
-    });
-    await addSpotifyTrackToPlaylist({
-      accessToken,
-      providerPlaylistId: params.recipientProviderPlaylistId,
-      providerTrackId: params.recipientTrackId,
-    });
-    return;
-  }
-
-  await withAppleMusicUserToken({
+  await getProviderAdapter(params.provider).addTracks({
     userId: params.userId,
-    run: async (ctx) =>
-      addAppleTrackToPlaylist({
-        ...ctx,
-        providerPlaylistId: params.recipientProviderPlaylistId,
-        providerTrackId: params.recipientTrackId,
-      }),
+    providerPlaylistId: params.recipientProviderPlaylistId,
+    providerTrackIds: [params.recipientTrackId],
   });
 };
 
@@ -492,15 +364,11 @@ const syncSourceToImport = async (params: {
     const matchedRecipientTrackId =
       params.importRecord.recipientProvider === params.sync.provider
         ? sourceTrack.providerTrackId
-        : params.importRecord.recipientProvider === 'spotify'
-          ? await findSpotifyMatch({
-              userId: params.importRecord.recipientUserId,
-              track: sourceTrack,
-            })
-          : await findAppleMatch({
-              userId: params.importRecord.recipientUserId,
-              track: sourceTrack,
-            });
+        : await findProviderMatch({
+            provider: params.importRecord.recipientProvider,
+            userId: params.importRecord.recipientUserId,
+            track: sourceTrack,
+          });
 
     if (!matchedRecipientTrackId) {
       continue;

@@ -43,6 +43,7 @@ import {
   searchAppleCatalogTracks,
 } from '../integrations/apple-music';
 import { mapProviderApiError } from '../integrations/provider-errors';
+import { getProviderAdapter, getProviderLabel } from '../integrations/provider-registry';
 import { isSpotifyOauthLiveMode } from '../integrations/spotify';
 import { withSpotifyAccessTokenRetry, IntegrationError } from '../integrations/spotify-client';
 import {
@@ -569,6 +570,16 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const selectedProvider = parsedBody.data.provider;
+    // Guest search and moderation are still provider-specific in this file, so
+    // a service can be connectable and syncable without being able to host an
+    // event. Refuse clearly instead of creating a playlist nobody can add to.
+    if (!getProviderAdapter(selectedProvider).supportsEvents) {
+      return reply.status(400).send({
+        code: 'provider_not_supported_for_events',
+        message: `${getProviderLabel(selectedProvider)} cannot host an event playlist yet.`,
+      });
+    }
+
     const integration = await integrationStore.findIntegration({
       userId,
       provider: selectedProvider,

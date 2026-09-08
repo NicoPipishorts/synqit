@@ -7,8 +7,9 @@ import {
   type AdminAnalyticsUserSummary,
   type AdminPermissionLevel,
   type AdminPermissionScope,
+  type Provider,
 } from '@synqit/shared';
-import { AccordionSection, SlideOverPanel } from '@synqit/ui';
+import { AccordionSection, MUSIC_SERVICES, SlideOverPanel } from '@synqit/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -63,8 +64,7 @@ const defaultScopeLevels = (): Record<AdminPermissionScope, AccessLevelUi> =>
     AccessLevelUi
   >;
 
-const providerLabel = (provider: 'spotify' | 'apple'): string =>
-  provider === 'spotify' ? 'Spotify' : 'Apple Music';
+const providerLabel = (provider: Provider): string => MUSIC_SERVICES[provider].name;
 
 export const AdminAnalyticsPage = () => {
   const { t, locale } = useI18n();

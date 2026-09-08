@@ -1,5 +1,12 @@
-import { providerSchema } from '@synqit/shared';
-import { LINK_SERVICES, ServiceChip, useToast } from '@synqit/ui';
+import { isEventProvider, providerSchema } from '@synqit/shared';
+import {
+  CONNECT_SERVICES,
+  getServiceMarkSrc,
+  LINK_SERVICES,
+  MUSIC_SERVICES,
+  ServiceChip,
+  useToast,
+} from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouterState } from '@tanstack/react-router';
 import { RefreshCcw, Trash2 } from 'lucide-react';
@@ -21,10 +28,21 @@ import { CTAButton, CTALink, CTAMobileIconLabel } from '../ui/cta';
 
 type ProviderAction = 'connect' | 'refresh' | 'disconnect';
 
-const PROVIDER_META: Record<Provider, { label: string; iconPath: string }> = {
-  spotify: { label: 'Spotify', iconPath: '/assets/logos/Providers/Spotify.png' },
-  apple: { label: 'Apple Music', iconPath: '/assets/logos/Providers/AppleMusic.png' },
-};
+/** Names and brand marks come from the shared catalogue so every surface agrees. */
+const PROVIDER_META: Record<Provider, { label: string; iconPath: string }> = Object.fromEntries(
+  providerSchema.options.map((provider) => [
+    provider,
+    { label: MUSIC_SERVICES[provider].name, iconPath: getServiceMarkSrc(provider) },
+  ]),
+) as Record<Provider, { label: string; iconPath: string }>;
+
+/**
+ * Providers we actually offer a connect card for. The catalogue holds back any service whose
+ * brand mark we do not have yet, so this can be shorter than `providerSchema.options`.
+ */
+const CONNECTABLE_PROVIDERS: Provider[] = providerSchema.options.filter((provider) =>
+  CONNECT_SERVICES.some((service) => service.id === provider),
+);
 
 const snapshotFetchOptions = {
   queryKey: queryKeys.integrations.snapshot(),
@@ -103,7 +121,7 @@ export const ProviderConnections = () => {
         connectedCount: Object.values(snapshotQuery.data.byProvider).filter(
           (i) => i.status === 'connected',
         ).length,
-        totalProviders: providerSchema.options.length,
+        totalProviders: CONNECTABLE_PROVIDERS.length,
       },
     });
   }, [snapshotQuery.data]);
@@ -255,7 +273,7 @@ export const ProviderConnections = () => {
 
   const providerCards = useMemo(
     () =>
-      providerSchema.options.map((provider) => {
+      CONNECTABLE_PROVIDERS.map((provider) => {
         const integration = snapshot?.byProvider[provider] ?? {
           status: 'not_connected' as const,
           connectedAt: null,
@@ -268,7 +286,10 @@ export const ProviderConnections = () => {
           isBusy: Boolean(busyProviders[provider]),
           connectedAt: formatDateTime(integration.connectedAt),
           expiresAt: formatDateTime(integration.expiresAt),
-          eventsLinked: snapshot?.eventCountByProvider[provider] ?? 0,
+          // Only event-capable services can have events pointed at them.
+          eventsLinked: isEventProvider(provider)
+            ? (snapshot?.eventCountByProvider[provider] ?? 0)
+            : 0,
         };
       }),
     [busyProviders, formatDateTime, snapshot],

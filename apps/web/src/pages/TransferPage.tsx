@@ -18,7 +18,7 @@ import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { CreateFlowStepBreadcrumbs } from '../components/create-flow/CreateFlowStepBreadcrumbs';
 import { CREATE_FLOW_STEP_SLIDE_VARIANTS } from '../components/create-flow/flowMotion';
-import { EventProviderIcon } from '../components/events/EventProviderIcon';
+import { ProviderIcon } from '../components/providers/ProviderIcon';
 import { SyncPlaylistPicker } from '../components/syncs/SyncPlaylistPicker';
 import {
   PlaylistTrackRow,
@@ -32,6 +32,7 @@ import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
 import {
+  EMPTY_INTEGRATION_MAP,
   createTransfer,
   fetchIntegrations,
   fetchProviderPlaylistTrackCount,
@@ -71,10 +72,7 @@ export const TransferPage = () => {
     staleTime: 60_000,
   });
 
-  const providerStatusByType = integrationsQuery.data ?? {
-    spotify: 'not_connected',
-    apple: 'not_connected',
-  };
+  const providerStatusByType = integrationsQuery.data ?? EMPTY_INTEGRATION_MAP;
 
   const sourceConnected = providerStatusByType[sourceProvider] === 'connected';
   const destinationConnected = providerStatusByType[destinationProvider] === 'connected';
@@ -686,7 +684,7 @@ export const TransferPage = () => {
                         ) : null}
                       </div>
                       <div className="flex items-center gap-2">
-                        <EventProviderIcon provider={sourceProvider} sizeClassName="h-10 w-10" />
+                        <ProviderIcon provider={sourceProvider} sizeClassName="h-10 w-10" />
                       </div>
                     </div>
 
@@ -831,13 +829,13 @@ export const TransferPage = () => {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <EventProviderIcon provider={sourceProvider} sizeClassName="h-8 w-8" />
+                        <ProviderIcon provider={sourceProvider} sizeClassName="h-8 w-8" />
                         <ArrowLeftRight
                           size={16}
                           className="text-brand-white/55"
                           aria-hidden="true"
                         />
-                        <EventProviderIcon provider={destinationProvider} sizeClassName="h-8 w-8" />
+                        <ProviderIcon provider={destinationProvider} sizeClassName="h-8 w-8" />
                       </div>
                     </div>
                   </div>

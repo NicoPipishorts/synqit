@@ -50,6 +50,7 @@ export {
 export { BrandLogo } from './components/BrandLogo';
 export {
   CONNECT_SERVICES,
+  getServiceMarkSrc,
   LINK_SERVICES,
   MUSIC_SERVICES,
   ServiceChip,
