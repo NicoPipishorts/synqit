@@ -61,8 +61,22 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
             <Link to="/auth/login" className="hover:text-brand-lime">
               {t('footer.login')}
             </Link>
-            <a href={buildSiteUrl('/faq')} className="hover:text-brand-lime">
+            {/* Cross-origin, so both open a new tab rather than dropping the app. */}
+            <a
+              href={buildSiteUrl('/faq')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-brand-lime"
+            >
               {t('footer.faq')}
+            </a>
+            <a
+              href={buildSiteUrl('/')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-brand-lime"
+            >
+              {t('footer.website')}
             </a>
           </div>
 

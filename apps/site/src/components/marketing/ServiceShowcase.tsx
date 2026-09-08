@@ -490,7 +490,7 @@ const FlowPhone = ({ service, index }: { service: Service; index: number }) => {
           dragMomentum={false}
           onDragEnd={onDragEnd}
           style={{ touchAction: 'pan-y' }}
-          className="relative w-[15.5rem] cursor-grab rounded-[2.9rem] border-[3px] border-app-text bg-app-bg p-1.5 shadow-[6px_6px_0_0_var(--syn-text)] active:cursor-grabbing sm:w-[17rem]"
+          className="relative w-[17.5rem] cursor-grab rounded-[2.9rem] border-[3px] border-app-text bg-app-bg p-1.5 shadow-[6px_6px_0_0_var(--syn-text)] active:cursor-grabbing sm:w-[17rem]"
         >
           {/* Every screen stays mounted; only opacity changes, so swaps never flash or slide. */}
           <div className="relative aspect-[9/19.5] overflow-hidden rounded-[2.4rem] bg-app-card">
