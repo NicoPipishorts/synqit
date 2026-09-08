@@ -973,7 +973,6 @@
         "body": "Tu passes à un nouveau service de streaming ? Synqit associe chaque titre et reconstruit tes playlists dans ta nouvelle bibliothèque.",
         "cta": "Transférer une playlist"
       },
-      "swipeHint": "Glisse pour voir la suite",
       "prev": "Service précédent",
       "next": "Service suivant"
     },
@@ -982,7 +981,6 @@
       "cta": "Voir ce que permet chaque service"
     },
     "how": {
-      "lead": "Touche une carte pour parcourir les vrais écrans, étape par étape.",
       "stepLabel": "Étape {{n}} sur {{total}}",
       "stepsCount": "{{count}} étapes",
       "prev": "Étape précédente",
@@ -1036,7 +1034,7 @@
       "eventsTitle": "Playlists d’événement",
       "eventsSubtitle": "Coût unique, par événement. Payez seulement quand vous organisez.",
       "sharingTitle": "Playlists partagées",
-      "sharingSubtitle": "Partage gratuit. Débloquez une playlist une fois, ou passez Pro pour les curateurs.",
+      "sharingSubtitle": "Partage gratuit. Débloquez une playlist une fois, ou passez Pro pour les créateurs.",
       "transferTitle": "Transférer votre bibliothèque",
       "transferSubtitle": "Faites passer vos playlists une bonne fois. Gratuit pour essayer, un prix unique pour tout finir.",
       "backHome": "Retour à l’accueil",
@@ -1044,7 +1042,7 @@
         "eventBasics": "Essentiel événement",
         "keepsake": "Souvenir & conservation",
         "sharingBasics": "Partage",
-        "curators": "Pro / Curateurs",
+        "curators": "Pro / Créateurs",
         "transferBasics": "Transfert de bibliothèque"
       },
       "row": {
@@ -1143,7 +1141,7 @@
           "feat4": "Statistiques d’abonnés"
         },
         "curators": {
-          "name": "Curators",
+          "name": "Créateurs",
           "price": "12 €",
           "note": "par mois, facturation mensuelle",
           "cta": "Nous contacter",
