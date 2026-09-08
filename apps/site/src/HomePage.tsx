@@ -1,13 +1,6 @@
-import {
-  CONNECT_SERVICES,
-  Highlight,
-  LINK_SERVICES,
-  ServiceLogo,
-  Sticker,
-  type StickerTone,
-} from '@synqit/ui';
+import { CONNECT_SERVICES, Highlight, LINK_SERVICES, Sticker, type StickerTone } from '@synqit/ui';
 import { motion, type Variants } from 'framer-motion';
-import { ArrowDown, ArrowLeftRight, PartyPopper, Share2 } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, ArrowRight, PartyPopper, Share2 } from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import { HeroScreens } from './components/marketing/HeroScreens';
@@ -76,33 +69,37 @@ const SectionIntro = ({
   </div>
 );
 
-// Which service does what is a table, not a hero sentence: the row carries a
-// footnote marker and the answer lives on the FAQ page, under the matrix.
-const ProviderLogos = ({ label, note }: { label: string; note: string }) => (
-  <div className="flex flex-col items-start gap-1.5">
-    <div className="flex items-center gap-3">
+// A row of marks does not scale: it runs out of width on a phone and needs a new
+// asset every time a service is added. Names as text wrap instead of overflowing,
+// and they come from the shared catalogue, so the line grows on its own. It trails
+// off into the FAQ matrix, which is where "what each one can do" lives.
+const HeroServiceLine = ({ label, note }: { label: string; note: string }) => {
+  const names = [...CONNECT_SERVICES, ...LINK_SERVICES].map((service) => service.name);
+
+  return (
+    <div className="flex max-w-sm flex-col items-start gap-1 lg:max-w-md">
       <span className="text-xs font-bold uppercase tracking-[0.16em] text-app-text-muted">
         {label}
       </span>
-      {CONNECT_SERVICES.map((service) => (
-        <ServiceLogo key={service.id} service={service.id} />
-      ))}
-      <span aria-hidden className="h-5 w-px bg-app-border" />
-      {LINK_SERVICES.map((service) => (
-        <ServiceLogo key={service.id} service={service.id} />
-      ))}
-      <span aria-hidden className="self-start text-sm font-black leading-none text-brand-pink">
-        *
-      </span>
+      <a
+        href="/faq#matrix"
+        aria-label={note}
+        title={note}
+        className="focus-ring-brand group flex items-start gap-1.5 rounded-2xl text-sm font-semibold leading-snug text-app-text transition hover:text-brand-pink"
+      >
+        {/* The ellipsis is glued to the last name so it can never wrap alone. */}
+        <span className="underline decoration-brand-pink decoration-2 underline-offset-4">
+          {`${names.join(', ')}\u2026`}
+        </span>
+        <ArrowRight
+          size={15}
+          aria-hidden
+          className="mt-[3px] shrink-0 text-brand-pink transition group-hover:translate-x-0.5"
+        />
+      </a>
     </div>
-    <a
-      href="/faq#matrix"
-      className="focus-ring-brand rounded-full text-xs font-semibold text-app-text-secondary underline decoration-brand-pink decoration-1 underline-offset-4 transition hover:text-brand-pink"
-    >
-      <span aria-hidden>*</span> {note}
-    </a>
-  </div>
-);
+  );
+};
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
@@ -213,7 +210,7 @@ export const HomePage = () => {
                 </a>
               </motion.div>
               <motion.div variants={FADE_UP}>
-                <ProviderLogos
+                <HeroServiceLine
                   label={t('home.hero.worksWith')}
                   note={t('home.hero.worksWithNote')}
                 />

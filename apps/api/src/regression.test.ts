@@ -12,6 +12,7 @@ import { prisma } from './db/prisma';
 import { eventsStore } from './events/store';
 import { buildServer } from './index';
 import { decryptToken, encryptToken } from './integrations/crypto';
+import { EVENT_CAPABLE_PROVIDERS, getProviderAdapter } from './integrations/provider-registry';
 import { notificationRunsStore } from './jobs/notification-runs-store';
 import { closeTransfersQueue } from './jobs/transfers-queue';
 import { buildWeeklyRecapDigests } from './jobs/weekly-recap-digests';
@@ -4161,6 +4162,42 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
     } finally {
       scenario.restore();
     }
+  });
+
+  it('events: refuses a provider that cannot host an event', async () => {
+    const hostEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const hostUser = await registerUser(app, hostEmail);
+
+    await connectProvider(app, {
+      provider: 'tidal',
+      accessToken: hostUser.tokens.accessToken,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/playlists',
+      headers: authHeader(hostUser.tokens.accessToken),
+      payload: {
+        provider: 'tidal',
+        name: 'Should not be created',
+        description: 'TIDAL cannot host events yet.',
+      },
+    });
+
+    // A clear domain error, not a silently broken event and not a generic 400.
+    assert.equal(response.statusCode, 400);
+    const body = parseBody(response.body) as { code: string };
+    assert.equal(body.code, 'provider_not_supported_for_events');
+  });
+
+  it('providers: every provider in the schema has an adapter', () => {
+    for (const provider of providerSchema.options) {
+      const adapter = getProviderAdapter(provider);
+      assert.equal(adapter.id, provider);
+      assert.ok(adapter.label.length > 0);
+    }
+    // Only the adapters that claim event support may host events.
+    assert.deepEqual([...EVENT_CAPABLE_PROVIDERS].sort(), ['apple', 'spotify']);
   });
 
   it('recap: claims a notification period only once', async () => {
