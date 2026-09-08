@@ -17,6 +17,7 @@ import { useI18n } from '../hooks/useI18n';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { isAuthenticated } from '../lib/auth';
+import { PROVIDER_LABELS } from '../lib/providers';
 import {
   EMPTY_INTEGRATION_MAP,
   fetchIntegrations,
@@ -101,7 +102,7 @@ const ProviderSheet = ({
             >
               <ProviderIcon provider={p} sizeClassName="h-8 w-8" />
               <span className="text-sm font-bold capitalize text-brand-dark dark:text-brand-white">
-                {p === 'spotify' ? 'Spotify' : 'Apple Music'}
+                {PROVIDER_LABELS[p]}
               </span>
             </button>
           ))}

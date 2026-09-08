@@ -31,6 +31,7 @@ import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
+import { CONNECTABLE_PROVIDERS, PROVIDER_LABELS } from '../lib/providers';
 import {
   EMPTY_INTEGRATION_MAP,
   createTransfer,
@@ -182,7 +183,7 @@ export const TransferPage = () => {
           await connectAppleMusic();
         } else {
           await openProviderOauthPopup({
-            provider: 'spotify',
+            provider,
             nextPath: '/transfer',
           });
         }
@@ -190,7 +191,7 @@ export const TransferPage = () => {
         await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
         showToast(
           t('profile.connectionConnected', {
-            provider: provider === 'spotify' ? 'Spotify' : 'Apple Music',
+            provider: PROVIDER_LABELS[provider],
           }),
           { variant: 'success' },
         );
@@ -405,17 +406,20 @@ export const TransferPage = () => {
   };
 
   const [swapSpin, setSwapSpin] = useState(0);
+  /** Source and destination must differ; pick any other connectable service. */
+  const otherProvider = (provider: Provider): Provider =>
+    CONNECTABLE_PROVIDERS.find((candidate) => candidate !== provider) ?? provider;
   const handleSelectSourceProvider = (provider: Provider) => {
     setSourceProvider(provider);
     if (provider === destinationProvider) {
-      setDestinationProvider(provider === 'spotify' ? 'apple' : 'spotify');
+      setDestinationProvider(otherProvider(provider));
     }
   };
 
   const handleSelectDestinationProvider = (provider: Provider) => {
     setDestinationProvider(provider);
     if (provider === sourceProvider) {
-      setSourceProvider(provider === 'spotify' ? 'apple' : 'spotify');
+      setSourceProvider(otherProvider(provider));
     }
   };
 
@@ -424,8 +428,8 @@ export const TransferPage = () => {
     setDestinationProvider(sourceProvider);
   };
 
-  const sourceLabel = sourceProvider === 'spotify' ? 'Spotify' : 'Apple Music';
-  const destinationLabel = destinationProvider === 'spotify' ? 'Spotify' : 'Apple Music';
+  const sourceLabel = PROVIDER_LABELS[sourceProvider];
+  const destinationLabel = PROVIDER_LABELS[destinationProvider];
   // Round-trip: the chosen source playlist was itself created by a previous
   // Synqit transfer from the provider we're now sending it back to.
   const isRoundTrip =
@@ -445,8 +449,7 @@ export const TransferPage = () => {
 
   // Re-transfer: this same source playlist was already transferred before.
   // Stronger warning when it was sent to the destination we picked now.
-  const providerLabel = (provider: Provider) =>
-    provider === 'spotify' ? 'Spotify' : 'Apple Music';
+  const providerLabel = (provider: Provider) => PROVIDER_LABELS[provider];
   const priorTransfer = selectedPlaylist?.priorTransfer ?? null;
   const hasPriorTransfer = priorTransfer != null && priorTransfer.destinationProviders.length > 0;
   const alreadyTransferredToDestination =

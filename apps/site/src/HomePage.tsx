@@ -278,14 +278,16 @@ export const HomePage = () => {
         </Container>
         <Container className="mt-10 lg:mt-14">
           <ServiceCompatibility />
-          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+          {/* Centred under the two cards: it answers both of them, so hanging it
+              off the left edge made it read as a footnote to the first one. */}
+          <div className="mt-8 flex justify-center">
             <a
               href="/faq#matrix"
-              className="focus-ring-brand rounded-full text-sm font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink"
+              className="focus-ring-brand inline-flex items-center gap-1 rounded-full text-sm font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink"
             >
               {t('home.compat.seeAll')}
+              <ArrowRight size={14} aria-hidden />
             </a>
-            <p className="text-xs text-app-text-muted">{t('home.compat.footnote')}</p>
           </div>
         </Container>
       </RevealSection>

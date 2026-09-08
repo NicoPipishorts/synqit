@@ -3,6 +3,7 @@ import { TapeStrip } from '@synqit/ui';
 import { ArrowLeftRight } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
+import { PROVIDER_LABELS } from '../../lib/providers';
 import { ProviderIcon } from '../providers/ProviderIcon';
 
 type TransferCardProps = {
@@ -25,7 +26,7 @@ const formatTransferTimestamp = (value: string | null): string | null => {
 
 export const TransferCard = ({ sync }: TransferCardProps) => {
   const { t } = useI18n();
-  const sourceLabel = sync.provider === 'spotify' ? 'Spotify' : 'Apple Music';
+  const sourceLabel = PROVIDER_LABELS[sync.provider];
   const formattedDate = formatTransferTimestamp(sync.lastSyncedAt ?? sync.createdAt);
 
   return (

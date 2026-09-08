@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import {
   CONNECT_SERVICES,
   getServiceMarkSrc,
+  isMonochromeServiceMark,
   LINK_SERVICES,
   MUSIC_SERVICES,
   ServiceChip,
@@ -11,7 +12,7 @@ import {
 
 describe('service catalog', () => {
   it('splits services by how they reach Synqit', () => {
-    expect(CONNECT_SERVICES.map((service) => service.id)).toEqual(['spotify', 'apple']);
+    expect(CONNECT_SERVICES.map((service) => service.id)).toEqual(['spotify', 'apple', 'tidal']);
     expect(LINK_SERVICES.map((service) => service.id)).toEqual(['deezer', 'youtube']);
     expect(CONNECT_SERVICES.every((service) => service.access === 'connect')).toBe(true);
     expect(LINK_SERVICES.every((service) => service.access === 'link')).toBe(true);
@@ -25,13 +26,6 @@ describe('service catalog', () => {
       'Deezer',
       'YouTube Music',
     ]);
-  });
-
-  it('holds TIDAL back until it has an official brand mark', () => {
-    // The API supports TIDAL, but showing it before `Tidal.png` ships would render a broken
-    // image. Delete this test in the same change that adds the asset and lists TIDAL above.
-    expect(MUSIC_SERVICES.tidal.access).toBe('connect');
-    expect(CONNECT_SERVICES.map((service) => service.id)).not.toContain('tidal');
   });
 
   it('gives every offered service its own brand mark', () => {
@@ -65,6 +59,26 @@ describe('ServiceLogo', () => {
   it('drops out of the accessibility tree when a neighbouring label names it', () => {
     render(<ServiceLogo service="youtube" alt="" />);
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
+  });
+
+  it('paints a monochrome mark with the surrounding text colour', () => {
+    // TIDAL ships one shape in black and in white. Drawing either would hide it on half the
+    // surfaces we use, so it is masked and takes `currentColor` instead.
+    expect(isMonochromeServiceMark('tidal')).toBe(true);
+    expect(isMonochromeServiceMark('spotify')).toBe(false);
+
+    const { container } = render(<ServiceLogo service="tidal" />);
+    const mark = screen.getByRole('img', { name: 'TIDAL' });
+    expect(mark.tagName).toBe('SPAN');
+    expect(mark.className).toContain('bg-current');
+    expect(mark.getAttribute('style')).toContain(getServiceMarkSrc('tidal'));
+    expect(container.querySelector('img')).toBeNull();
+  });
+
+  it('names a masked mark, and hides it when a label already does', () => {
+    const { container } = render(<ServiceLogo service="tidal" alt="" />);
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
+    expect(container.firstElementChild?.getAttribute('aria-hidden')).toBe('true');
   });
 });
 

@@ -94,10 +94,6 @@ export const AppShell = () => {
   const isPublicAuthRoute = pathname === '/auth/login' || pathname === '/auth/register';
   const isRegisterRoute = pathname === '/auth/register';
   const publicAuthActiveItem: PublicNavItemId | null = isRegisterRoute ? 'share' : null;
-  // On the login screen the CTA invites you to register ("Share now"); on the
-  // register screen it flips back to "Login".
-  const authCtaTo = isRegisterRoute ? '/auth/login' : '/auth/register';
-  const authCtaLabel = isRegisterRoute ? t('accountMenu.login') : t('accountMenu.shareNow');
   const navItems = [
     { to: '/dashboard', label: t('accountMenu.dashboard') },
     { to: '/playlists', label: t('accountMenu.myEvents') },
@@ -250,14 +246,17 @@ export const AppShell = () => {
           </div>
           <div className="flex items-center justify-end gap-2">
             {isPublicAuthRoute ? (
-              <>
+              // The register screen keeps a shortcut back to login. The login
+              // screen has none: its form already ends on "Share one now", and a
+              // second register button in the header only competed with it.
+              isRegisterRoute ? (
                 <Link
-                  to={authCtaTo}
+                  to="/auth/login"
                   className="hidden rounded-full border border-app-border bg-app-elevated px-5 py-2.5 text-[15px] font-bold text-app-text shadow-soft-lift transition hover:border-brand-lime hover:text-brand-lime md:inline-flex dark:bg-app-card"
                 >
-                  {authCtaLabel}
+                  {t('accountMenu.login')}
                 </Link>
-              </>
+              ) : null
             ) : (
               <AccountMenu />
             )}

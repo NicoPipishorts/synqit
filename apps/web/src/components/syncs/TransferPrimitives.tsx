@@ -2,6 +2,7 @@ import type { ProviderPlaylistTrack } from '@synqit/shared';
 import { motion } from 'framer-motion';
 import { Check, ChevronRight, LoaderCircle, Music2, X } from 'lucide-react';
 
+import { CONNECTABLE_PROVIDERS, PROVIDER_LABELS } from '../../lib/providers';
 import type { Provider } from '../../lib/types';
 import { ProviderIcon } from '../providers/ProviderIcon';
 import { CTAButton } from '../ui/cta';
@@ -50,7 +51,7 @@ export const ProviderCard = ({
           {title}
         </p>
         <p className="text-2xl font-black text-brand-dark dark:text-brand-white">
-          {selectedProvider === 'spotify' ? 'Spotify' : 'Apple Music'}
+          {PROVIDER_LABELS[selectedProvider]}
         </p>
         <p className="text-sm text-app-text-secondary">
           {providerStatusByType[selectedProvider] === 'connected'
@@ -62,7 +63,7 @@ export const ProviderCard = ({
     </div>
 
     <div className="mt-5 grid gap-2">
-      {(['spotify', 'apple'] as const).map((provider) => {
+      {CONNECTABLE_PROVIDERS.map((provider) => {
         const isSelected = selectedProvider === provider;
         const isConnected = providerStatusByType[provider] === 'connected';
         return (
@@ -74,7 +75,7 @@ export const ProviderCard = ({
               disabled={isBusy}
             >
               {isSelected ? <Check size={14} aria-hidden="true" /> : null}
-              {provider === 'spotify' ? 'Spotify' : 'Apple Music'}
+              {PROVIDER_LABELS[provider]}
             </CTAButton>
             {!isConnected ? (
               <CTAButton

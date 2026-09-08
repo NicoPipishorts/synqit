@@ -17,6 +17,7 @@ import { useI18n } from '../hooks/useI18n';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { HostEvent } from '../lib/events';
+import { PROVIDER_LABELS } from '../lib/providers';
 import {
   closeEvent,
   deleteEventImage,
@@ -434,7 +435,7 @@ export const HostEventDetailsPage = () => {
                       className="dark:shadow-glow-pink"
                     />
                     <span className="text-base font-black text-brand-dark dark:text-brand-white">
-                      {event.provider === 'apple' ? 'Apple Music' : 'Spotify'}
+                      {PROVIDER_LABELS[event.provider]}
                     </span>
                   </div>
                   {event.closeReason === 'provider_playlist_missing' ? (

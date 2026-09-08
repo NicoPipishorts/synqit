@@ -17,6 +17,7 @@ import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
+import { PROVIDER_LABELS } from '../lib/providers';
 import {
   EMPTY_INTEGRATION_MAP,
   createExternalImport,
@@ -34,8 +35,7 @@ type LinkStep = 1 | 2 | 3;
 
 const POLL_INTERVAL_MS = 1_500;
 
-const providerLabel = (provider: Provider): string =>
-  provider === 'spotify' ? 'Spotify' : 'Apple Music';
+const providerLabel = (provider: Provider): string => PROVIDER_LABELS[provider];
 
 const isTerminal = (status: ExternalImportItem['status']): boolean =>
   status === 'completed' || status === 'failed';
@@ -92,7 +92,7 @@ export const TransferLinkPage = () => {
       if (provider === 'apple') {
         await connectAppleMusic();
       } else {
-        await openProviderOauthPopup({ provider: 'spotify', nextPath: '/transfer/link' });
+        await openProviderOauthPopup({ provider, nextPath: '/transfer/link' });
       }
       await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
       showToast(t('profile.connectionConnected', { provider: providerLabel(provider) }), {

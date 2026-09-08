@@ -13,6 +13,7 @@ import {
 import { useState } from 'react';
 
 import { useI18n } from '../../hooks/useI18n';
+import { PROVIDER_LABELS } from '../../lib/providers';
 import { CTAButton, CTALink } from '../ui/cta';
 import { Modal } from '../ui/Modal';
 
@@ -62,7 +63,7 @@ const formatSyncErrorMessage = (
 
   if (sync.lastError === 'Forbidden') {
     return t('syncedListsPage.destinationPlaylistAccessError', {
-      provider: sync.provider === 'spotify' ? 'Spotify' : 'Apple Music',
+      provider: PROVIDER_LABELS[sync.provider],
     });
   }
 

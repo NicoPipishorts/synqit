@@ -1,5 +1,4 @@
 import type { ProviderPlaylistItem, SyncItem } from '@synqit/shared';
-import { providerSchema } from '@synqit/shared';
 import { useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
@@ -202,7 +201,7 @@ export const SyncCreatePage = () => {
 
   useEffect(() => {
     if (!integrationsQuery.data || provider !== null || step !== 1) return;
-    const connectedProviders = providerSchema.options.filter(
+    const connectedProviders = CONNECTABLE_PROVIDERS.filter(
       (p) => integrationsQuery.data[p] === 'connected',
     );
     if (connectedProviders.length === 1) {
@@ -238,17 +237,17 @@ export const SyncCreatePage = () => {
         }
 
         const popupResult = await openProviderOauthPopup({
-          provider: 'spotify',
+          provider: selectedProvider,
           nextPath: '/auth/provider-connected',
         });
         await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
         const snapshot = queryClient.getQueryData<Record<Provider, ProviderIntegrationStatus>>(
           queryKeys.integrations.list(),
         );
-        if (snapshot?.spotify === 'connected' || popupResult === 'connected') {
+        if (snapshot?.[selectedProvider] === 'connected' || popupResult === 'connected') {
           showToast(
             t('profile.connectionConnected', {
-              provider: PROVIDER_LABELS.spotify,
+              provider: PROVIDER_LABELS[selectedProvider],
             }),
             { variant: 'success' },
           );
@@ -258,7 +257,7 @@ export const SyncCreatePage = () => {
         if (popupResult === 'blocked' || popupResult === 'error' || popupResult === 'timeout') {
           showToast(
             t('profile.connectionFailed', {
-              provider: PROVIDER_LABELS.spotify,
+              provider: PROVIDER_LABELS[selectedProvider],
             }),
             { variant: 'error' },
           );

@@ -1,10 +1,10 @@
 import { isEventProvider, providerSchema } from '@synqit/shared';
 import {
   CONNECT_SERVICES,
-  getServiceMarkSrc,
   LINK_SERVICES,
   MUSIC_SERVICES,
   ServiceChip,
+  ServiceLogo,
   useToast,
 } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -28,13 +28,10 @@ import { CTAButton, CTALink, CTAMobileIconLabel } from '../ui/cta';
 
 type ProviderAction = 'connect' | 'refresh' | 'disconnect';
 
-/** Names and brand marks come from the shared catalogue so every surface agrees. */
-const PROVIDER_META: Record<Provider, { label: string; iconPath: string }> = Object.fromEntries(
-  providerSchema.options.map((provider) => [
-    provider,
-    { label: MUSIC_SERVICES[provider].name, iconPath: getServiceMarkSrc(provider) },
-  ]),
-) as Record<Provider, { label: string; iconPath: string }>;
+/** Names come from the shared catalogue so every surface agrees; marks come from ServiceLogo. */
+const PROVIDER_META: Record<Provider, { label: string }> = Object.fromEntries(
+  providerSchema.options.map((provider) => [provider, { label: MUSIC_SERVICES[provider].name }]),
+) as Record<Provider, { label: string }>;
 
 /**
  * Providers we actually offer a connect card for. The catalogue holds back any service whose
@@ -180,7 +177,7 @@ export const ProviderConnections = () => {
           await connectAppleMusic();
         } else {
           popupResult = await openProviderOauthPopup({
-            provider: 'spotify',
+            provider,
             nextPath: '/auth/provider-connected',
           });
         }
@@ -351,11 +348,9 @@ export const ProviderConnections = () => {
                     : 'cursor-pointer hover:border-brand-lime hover:shadow-glow-lime'
                 } ${isBusy ? 'opacity-60' : ''}`}
               >
-                <img
-                  src={meta.iconPath}
-                  alt={meta.label}
-                  className="h-10 w-10 rounded-full border-2 border-app-text object-cover"
-                />
+                <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-app-text bg-app-bg text-app-text">
+                  <ServiceLogo service={provider} alt="" className="h-6 w-6" />
+                </span>
                 <p className="text-sm font-semibold text-app-text">{meta.label}</p>
                 <p className="text-xs text-app-text-secondary">
                   {isConnected
@@ -377,11 +372,9 @@ export const ProviderConnections = () => {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={meta.iconPath}
-                      alt={meta.label}
-                      className="h-12 w-12 rounded-full border-2 border-app-text object-cover"
-                    />
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-app-text bg-app-bg text-app-text">
+                      <ServiceLogo service={provider} alt="" className="h-7 w-7" />
+                    </span>
                     <h3 className="text-lg font-bold text-brand-dark dark:text-brand-white">
                       {meta.label}
                     </h3>

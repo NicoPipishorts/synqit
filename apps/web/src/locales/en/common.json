@@ -20,7 +20,6 @@
     "loggingOut": "Logging out...",
     "accountAccess": "Account access",
     "login": "Login",
-    "shareNow": "Share now",
     "createAccount": "Share your first playlist"
   },
   "languageSwitcher": {
@@ -1183,14 +1182,14 @@
     "compat": {
       "eyebrow": "Works with",
       "title": "Two ways to bring your music in",
-      "lead": "Spotify and Apple Music connect to your account, so Synqit can work inside your own library. Deezer and YouTube come in through a public link, with nothing to sign in to.",
+      "lead": "Some services connect to your account, so Synqit can work inside your own library. Others come in through a public link, with nothing to sign in to.",
       "connect": {
         "sticker": "Connect once",
         "title": "Sign in once, and every feature is available",
         "body": "Link the service you actually listen on. Synqit reads and writes playlists in your own library, so every feature is available.",
         "point1": "Host an event playlist your guests add to",
         "point2": "Share a playlist that stays in sync for followers",
-        "point3": "Transfer a playlist from Spotify to Apple Music, or the other way round",
+        "point3": "Transfer a playlist from one connected service to another",
         "more": "More about connecting"
       },
       "link": {
@@ -1198,17 +1197,16 @@
         "title": "Paste a link, keep the playlist",
         "body": "Found a playlist somewhere else? Paste its public link and Synqit rebuilds it in the service you connected.",
         "point1": "One-way import: into your library, not back out",
-        "point2": "Deezer links match track for track",
-        "point3": "YouTube matches on song title, so some picks may differ",
+        "point2": "Sources that carry a recording ID, like Deezer, match track for track",
+        "point3": "Sources that give only a title, like YouTube, may pick a different version",
         "more": "More about link imports"
       },
-      "footnote": "More services will be added as their APIs allow it.",
       "seeAll": "See what each service supports"
     },
     "faq": {
       "eyebrow": "Questions",
       "title": "What works with what",
-      "lead": "The short version: Spotify and Apple Music do everything, Deezer and YouTube are places you import from.",
+      "lead": "The short version: services you connect do everything, services you paste a link from are import sources. The table below spells it out service by service.",
       "sticker": "Good to know",
       "matrix": {
         "question": "What exactly can each service do?",
@@ -1224,23 +1222,23 @@
       },
       "connect": {
         "question": "Which services can I connect to Synqit?",
-        "answer": "Spotify and Apple Music. You sign in once, and from then on Synqit reads and writes playlists in your own library, so every feature is available: event playlists, shared playlists, and transfers."
+        "answer": "The ones marked Connect in the table above. You sign in once, and from then on Synqit reads and writes playlists in your own library, so the features that service supports are open to you: event playlists, shared playlists, and transfers."
       },
       "link": {
-        "question": "Can I use Deezer or YouTube Music?",
-        "answer": "Yes, as a source. Paste the link to a public playlist and Synqit rebuilds it in the service you connected. There is no account to link and no password to give. Synqit never writes anything back to Deezer or YouTube, and private playlists cannot be read."
+        "question": "Can I use a service I cannot connect?",
+        "answer": "Yes, as a source. Paste the link to a public playlist and Synqit rebuilds it in the service you connected. There is no account to link and no password to give. Synqit never writes anything back to the source, and private playlists cannot be read."
       },
       "guests": {
         "question": "Do my guests need an account to add songs?",
-        "answer": "No. They open your link, search, and add. No app to install, no sign-up, whatever service they listen on. The playlist itself lives in your Spotify or Apple Music."
+        "answer": "No. They open your link, search, and add. No app to install, no sign-up, whatever service they listen on. The playlist itself lives in your own library, on the service you host from."
       },
       "syncDirection": {
         "question": "Does a shared playlist sync both ways?",
-        "answer": "No. Followers receive every track you add, on whichever of the two services they use. Anything they add on their side stays theirs, so your playlist is never changed by someone else."
+        "answer": "No. Followers receive every track you add, on whichever connected service they use. Anything they add on their side stays theirs, so your playlist is never changed by someone else."
       },
       "skipped": {
         "question": "Why do some tracks get skipped?",
-        "answer": "Catalogues differ between services, and a song that exists on one is not always on another. Deezer links carry a recording ID, so those matches are exact. YouTube titles are free text, so a few tracks can match a different version or be missed."
+        "answer": "Catalogues differ between services, and a song that exists on one is not always on another. Where a source carries a recording ID, as Deezer does, matches are exact. Where it only gives a title as free text, as YouTube does, a few tracks can match a different version or be missed."
       },
       "linkPrivacy": {
         "question": "Who can open my playlist link?",
@@ -1248,7 +1246,7 @@
       },
       "leaving": {
         "question": "What happens to my playlists if I stop using Synqit?",
-        "answer": "Nothing. Every playlist Synqit creates is a real playlist in your own Spotify or Apple Music library. It stays there, with all its tracks, whether or not you keep using Synqit."
+        "answer": "Nothing. Every playlist Synqit creates is a real playlist in your own library, on your own account. It stays there, with all its tracks, whether or not you keep using Synqit."
       },
       "cta": "Create your first playlist",
       "backHome": "Back to the home page"

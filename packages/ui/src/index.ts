@@ -51,6 +51,7 @@ export { BrandLogo } from './components/BrandLogo';
 export {
   CONNECT_SERVICES,
   getServiceMarkSrc,
+  isMonochromeServiceMark,
   LINK_SERVICES,
   MUSIC_SERVICES,
   ServiceChip,

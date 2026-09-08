@@ -26,14 +26,11 @@ export const MUSIC_SERVICES: Record<MusicServiceId, MusicService> = {
   youtube: { id: 'youtube', name: 'YouTube Music', access: 'link' },
 };
 
-/**
- * Services a listener signs in to, in the order the UI offers them. TIDAL is deliberately
- * absent: the API supports it, but we have no official TIDAL brand mark yet, so showing it
- * would render a missing image. Add it here once `Tidal.png` lands in the apps' public assets.
- */
+/** Services a listener signs in to, in the order the UI offers them. */
 export const CONNECT_SERVICES: readonly MusicService[] = [
   MUSIC_SERVICES.spotify,
   MUSIC_SERVICES.apple,
+  MUSIC_SERVICES.tidal,
 ];
 
 /** Services that arrive as a pasted public playlist link. */
@@ -54,10 +51,22 @@ const MARK_SRC: Record<MusicServiceId, string> = {
 };
 
 /**
+ * Marks that carry no colour of their own. TIDAL ships a black and a white version of the
+ * same shape, so instead of picking one we paint it with the surrounding text colour. That
+ * keeps it legible on the light page, in dark mode, and on the compatibility strip, which
+ * inverts against the theme and would have hidden a fixed black or white mark on one of them.
+ */
+const MONOCHROME_MARKS: ReadonlySet<MusicServiceId> = new Set(['tidal']);
+
+/**
  * Path to a service's brand mark, for the rare place that needs its own `<img>` styling
  * (the profile connection cards crop to a bordered circle). Prefer `ServiceLogo` otherwise.
  */
 export const getServiceMarkSrc = (service: MusicServiceId): string => MARK_SRC[service];
+
+/** True when the mark takes its colour from the surrounding text rather than its own file. */
+export const isMonochromeServiceMark = (service: MusicServiceId): boolean =>
+  MONOCHROME_MARKS.has(service);
 
 export type ServiceLogoProps = {
   service: MusicServiceId;
@@ -66,16 +75,42 @@ export type ServiceLogoProps = {
   alt?: string;
 };
 
-/** Square service mark at a consistent size and corner radius across all four services. */
-export const ServiceLogo = ({ service, className, alt }: ServiceLogoProps) => (
-  <img
-    src={MARK_SRC[service]}
-    alt={alt ?? MUSIC_SERVICES[service].name}
-    className={cn('inline-block h-8 w-8 shrink-0 object-contain', className)}
-    loading="lazy"
-    decoding="async"
-  />
-);
+/** Square service mark at a consistent size across every service. */
+export const ServiceLogo = ({ service, className, alt }: ServiceLogoProps) => {
+  const label = alt ?? MUSIC_SERVICES[service].name;
+
+  if (MONOCHROME_MARKS.has(service)) {
+    // Masked rather than drawn, so `bg-current` gives it the surrounding text colour.
+    return (
+      <span
+        role={label ? 'img' : undefined}
+        aria-label={label || undefined}
+        aria-hidden={label ? undefined : true}
+        className={cn('inline-block h-8 w-8 shrink-0 bg-current', className)}
+        style={{
+          maskImage: `url("${MARK_SRC[service]}")`,
+          WebkitMaskImage: `url("${MARK_SRC[service]}")`,
+          maskSize: 'contain',
+          WebkitMaskSize: 'contain',
+          maskRepeat: 'no-repeat',
+          WebkitMaskRepeat: 'no-repeat',
+          maskPosition: 'center',
+          WebkitMaskPosition: 'center',
+        }}
+      />
+    );
+  }
+
+  return (
+    <img
+      src={MARK_SRC[service]}
+      alt={label}
+      className={cn('inline-block h-8 w-8 shrink-0 object-contain', className)}
+      loading="lazy"
+      decoding="async"
+    />
+  );
+};
 
 export type ServiceChipProps = {
   service: MusicServiceId;
