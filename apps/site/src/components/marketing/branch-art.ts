@@ -28,8 +28,9 @@ export const VERTICAL_BRANCH_VIEWBOX = { width: 48, height: 112 } as const;
  * as a tick there instead of a journey.
  *
  * Three full wobbles of 48 each from y=8, then a straight run into the tip —
- * 190 units drawn, an eighth shorter than the four-wobble version it replaces,
- * which ran past where it needed to stop. Every
+ * 162 units drawn. The wobbles are fixed at 48 each; length is trimmed off the
+ * straight run into the tip, which keeps the endpoint below the last curve's end
+ * — pulling it above puts a barb past the arrowhead. Every
  * segment has to keep heading *down*: pulling the final `L` above the last curve's
  * end makes the stroke double back, which shows up as a barb past the arrowhead.
  * To shorten it, drop a wobble rather than move the endpoint. The last wobble's
@@ -37,13 +38,13 @@ export const VERTICAL_BRANCH_VIEWBOX = { width: 48, height: 112 } as const;
  * and the straight run continues it without a kink.
  */
 export const HERO_CUE_BRANCH_D =
-  'M24 8 C12 24, 36 40, 24 56 C12 72, 36 88, 24 104 C12 120, 24 140, 24 152 L24 198';
+  'M24 8 C12 24, 36 40, 24 56 C12 72, 36 88, 24 104 C12 120, 24 140, 24 152 L24 170';
 
-export const HERO_CUE_TIP = { x: 24, y: 198 } as const;
+export const HERO_CUE_TIP = { x: 24, y: 170 } as const;
 
 /**
  * 1 user unit = 1px when rendered, so the stroke keeps the branch's weight. The
  * 16 below the tip is room for the head, which rides the path and overhangs its
  * end.
  */
-export const HERO_CUE_VIEWBOX = { width: 48, height: 214 } as const;
+export const HERO_CUE_VIEWBOX = { width: 48, height: 186 } as const;

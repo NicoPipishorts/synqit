@@ -5,7 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/web/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/web/favicon-16x16.png" />
-    <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/web/apple-touch-icon.png" />
+    <!-- iOS home screen takes the real app icon set, not the favicon: these are
+         opaque on brand lime, which is what iOS needs — it paints transparent
+         pixels in a home-screen icon solid black. -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/icons/ios/AppIcon.appiconset/Icon-60@3x.png" />
+    <link rel="apple-touch-icon" sizes="167x167" href="/assets/icons/ios/AppIcon.appiconset/Icon-83.5@2x.png" />
+    <link rel="apple-touch-icon" sizes="152x152" href="/assets/icons/ios/AppIcon.appiconset/Icon-76@2x.png" />
+    <link rel="apple-touch-icon" sizes="120x120" href="/assets/icons/ios/AppIcon.appiconset/Icon-60@2x.png" />
     <link rel="shortcut icon" href="/assets/icons/web/favicon.ico" />
 
     <!-- Satoshi carries the display weights. Without it the stack fell through to
