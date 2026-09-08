@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useState } from 'react';
 
 import { AuthHeroImage } from './AuthHeroImage';
 import { useI18n } from '../../hooks/useI18n';
+import { getSiteOrigin } from '../../lib/site-url';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 
 type AuthPageLayoutProps = {
@@ -14,26 +15,6 @@ type AuthPageLayoutProps = {
   children: ReactNode;
   mobileNavActiveId?: string | null;
   showMobileNav?: boolean;
-};
-
-const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
-
-const getSiteOrigin = (): string => {
-  const configured = import.meta.env.VITE_SITE_URL?.trim();
-  if (configured) {
-    return trimTrailingSlash(configured);
-  }
-
-  if (typeof window === 'undefined') {
-    return 'http://127.0.0.1:4173';
-  }
-
-  const { protocol, hostname } = window.location;
-  if (hostname === '127.0.0.1' || hostname === 'localhost') {
-    return `${protocol}//${hostname === 'localhost' ? 'localhost' : '127.0.0.1'}:4173`;
-  }
-
-  return `${protocol}//${hostname.replace(/^app\./, '')}`;
 };
 
 export const AuthPageLayout = ({

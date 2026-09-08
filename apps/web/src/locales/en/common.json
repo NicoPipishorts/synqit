@@ -947,7 +947,8 @@
   "home": {
     "nav": {
       "product": "Product",
-      "share": "Share a playlist"
+      "share": "Share a playlist",
+      "faq": "FAQ"
     },
     "hero": {
       "eyebrow": "Music without borders",
@@ -1189,7 +1190,8 @@
         "body": "Link the service you actually listen on. Synqit reads and writes playlists in your own library, so every feature is available.",
         "point1": "Host an event playlist your guests add to",
         "point2": "Share a playlist that stays in sync for followers",
-        "point3": "Transfer a playlist from Spotify to Apple Music, or the other way round"
+        "point3": "Transfer a playlist from Spotify to Apple Music, or the other way round",
+        "more": "More about connecting"
       },
       "link": {
         "sticker": "No account needed",
@@ -1197,9 +1199,11 @@
         "body": "Found a playlist somewhere else? Paste its public link and Synqit rebuilds it in the service you connected.",
         "point1": "One-way import: into your library, not back out",
         "point2": "Deezer links match track for track",
-        "point3": "YouTube matches on song title, so some picks may differ"
+        "point3": "YouTube matches on song title, so some picks may differ",
+        "more": "More about link imports"
       },
-      "footnote": "More services will be added as their APIs allow it."
+      "footnote": "More services will be added as their APIs allow it.",
+      "seeAll": "See what each service supports"
     },
     "faq": {
       "eyebrow": "Questions",
@@ -1245,7 +1249,9 @@
       "leaving": {
         "question": "What happens to my playlists if I stop using Synqit?",
         "answer": "Nothing. Every playlist Synqit creates is a real playlist in your own Spotify or Apple Music library. It stays there, with all its tracks, whether or not you keep using Synqit."
-      }
+      },
+      "cta": "Create your first playlist",
+      "backHome": "Back to the home page"
     }
   },
   "modal": {
@@ -1271,7 +1277,8 @@
     "privacy": "Privacy",
     "terms": "Terms",
     "legalNotice": "Legal notice",
-    "cookies": "Cookies"
+    "cookies": "Cookies",
+    "faq": "FAQ"
   },
   "legal": {
     "otherPages": "Other legal pages"
@@ -1319,6 +1326,7 @@
     "note": {
       "deezer": "Matches track for track",
       "youtube": "Matches on song title"
-    }
+    },
+    "matchingFaq": "Why does that happen?"
   }
 }

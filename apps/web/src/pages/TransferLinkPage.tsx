@@ -26,6 +26,7 @@ import {
   queryKeys,
   syncQueryKeys,
 } from '../lib/queries';
+import { buildSiteUrl } from '../lib/site-url';
 import type { Provider } from '../lib/types';
 
 type LinkStep = 1 | 2 | 3;
@@ -358,7 +359,15 @@ export const TransferLinkPage = () => {
                 ) : null}
                 {preview.source === 'youtube' ? (
                   <p className="rounded-2xl border border-app-border bg-app-surface/70 px-4 py-3 text-sm text-app-text-secondary">
-                    {t('transferLinkPage.youtubeMatchNote')}
+                    {t('transferLinkPage.youtubeMatchNote')}{' '}
+                    <a
+                      href={buildSiteUrl('/faq#skipped')}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold underline decoration-brand-pink decoration-2 underline-offset-2 hover:text-app-text"
+                    >
+                      {t('transferLinkPage.matchingFaq')}
+                    </a>
                   </p>
                 ) : null}
 

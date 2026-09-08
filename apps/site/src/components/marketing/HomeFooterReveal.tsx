@@ -72,6 +72,9 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
                 <a href="/pricing" className="hover:text-brand-lime">
                   {t('home.pricing.navLink')}
                 </a>
+                <a href="/faq" className="hover:text-brand-lime">
+                  {t('footer.faq')}
+                </a>
                 <a href={buildAppUrl('/auth/register')} className="hover:text-brand-lime">
                   {t('footer.start')}
                 </a>
@@ -128,6 +131,9 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
             </a>
             <a href="/pricing" className="hover:text-brand-lime">
               {t('home.pricing.navLink')}
+            </a>
+            <a href="/faq" className="hover:text-brand-lime">
+              {t('footer.faq')}
             </a>
             <a href={buildAppUrl('/auth/register')} className="hover:text-brand-lime">
               {t('footer.start')}

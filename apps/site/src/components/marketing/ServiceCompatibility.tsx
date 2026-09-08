@@ -8,7 +8,7 @@ import {
   TapeStrip,
   type TapeTone,
 } from '@synqit/ui';
-import { Check, KeyRound, Link2 } from 'lucide-react';
+import { ArrowRight, Check, KeyRound, Link2 } from 'lucide-react';
 import { type ComponentType } from 'react';
 
 import { useI18n } from '../../lib/i18n';
@@ -23,6 +23,9 @@ type AccessCardProps = {
   body: string;
   services: readonly MusicService[];
   points: readonly string[];
+  /** Deep link to the FAQ answer that expands on this card. */
+  moreHref: string;
+  moreLabel: string;
 };
 
 const AccessCard = ({
@@ -35,6 +38,8 @@ const AccessCard = ({
   body,
   services,
   points,
+  moreHref,
+  moreLabel,
 }: AccessCardProps) => (
   <article className="relative flex h-full flex-col gap-5 rounded-3xl border-2 border-app-text bg-app-elevated p-6 shadow-sticker dark:bg-app-card sm:p-7">
     <TapeStrip tone={tapeTone} />
@@ -66,7 +71,7 @@ const AccessCard = ({
       <p className="text-sm leading-relaxed text-app-text-secondary sm:text-base">{body}</p>
     </div>
 
-    <ul className="mt-auto grid gap-2">
+    <ul className="grid gap-2">
       {points.map((point) => (
         <li key={point} className="flex items-start gap-2 text-sm text-app-text">
           <Check size={16} className="mt-0.5 shrink-0 text-brand-pink" aria-hidden />
@@ -74,6 +79,14 @@ const AccessCard = ({
         </li>
       ))}
     </ul>
+
+    <a
+      href={moreHref}
+      className="focus-ring-brand mt-auto inline-flex w-fit items-center gap-1 rounded-full pt-1 text-sm font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink"
+    >
+      {moreLabel}
+      <ArrowRight size={14} aria-hidden />
+    </a>
   </article>
 );
 
@@ -100,6 +113,8 @@ export const ServiceCompatibility = () => {
           t('home.compat.connect.point2'),
           t('home.compat.connect.point3'),
         ]}
+        moreHref="/faq#connect"
+        moreLabel={t('home.compat.connect.more')}
       />
 
       <AccessCard
@@ -116,6 +131,8 @@ export const ServiceCompatibility = () => {
           t('home.compat.link.point2'),
           t('home.compat.link.point3'),
         ]}
+        moreHref="/faq#link"
+        moreLabel={t('home.compat.link.more')}
       />
     </div>
   );

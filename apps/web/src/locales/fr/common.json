@@ -947,7 +947,8 @@
   "home": {
     "nav": {
       "product": "Le Produit",
-      "share": "Partager une playlist"
+      "share": "Partager une playlist",
+      "faq": "FAQ"
     },
     "hero": {
       "eyebrow": "La musique sans frontières",
@@ -1189,7 +1190,8 @@
         "body": "Reliez le service sur lequel vous écoutez vraiment. Synqit lit et écrit les playlists de votre bibliothèque, donc toutes les fonctions sont disponibles.",
         "point1": "Créez une playlist d'événement que vos invités alimentent",
         "point2": "Partagez une playlist qui reste synchronisée pour vos abonnés",
-        "point3": "Transférez une playlist de Spotify vers Apple Music, ou l'inverse"
+        "point3": "Transférez une playlist de Spotify vers Apple Music, ou l'inverse",
+        "more": "En savoir plus sur la connexion"
       },
       "link": {
         "sticker": "Sans compte",
@@ -1197,9 +1199,11 @@
         "body": "Une playlist repérée ailleurs ? Collez son lien public et Synqit la reconstruit dans le service que vous avez connecté.",
         "point1": "Import à sens unique : vers votre bibliothèque, jamais dans l'autre sens",
         "point2": "Les liens Deezer correspondent titre pour titre",
-        "point3": "YouTube s'appuie sur le titre du morceau, certains choix peuvent différer"
+        "point3": "YouTube s'appuie sur le titre du morceau, certains choix peuvent différer",
+        "more": "En savoir plus sur l'import par lien"
       },
-      "footnote": "D'autres services seront ajoutés dès que leurs API le permettront."
+      "footnote": "D'autres services seront ajoutés dès que leurs API le permettront.",
+      "seeAll": "Voir ce que permet chaque service"
     },
     "faq": {
       "eyebrow": "Questions",
@@ -1245,7 +1249,9 @@
       "leaving": {
         "question": "Que deviennent mes playlists si j'arrête d'utiliser Synqit ?",
         "answer": "Rien. Chaque playlist créée par Synqit est une vraie playlist dans votre bibliothèque Spotify ou Apple Music. Elle y reste, avec tous ses morceaux, que vous continuiez ou non à utiliser Synqit."
-      }
+      },
+      "cta": "Créez votre première playlist",
+      "backHome": "Retour à l'accueil"
     }
   },
   "modal": {
@@ -1271,7 +1277,8 @@
     "privacy": "Confidentialité",
     "terms": "Conditions",
     "legalNotice": "Mentions légales",
-    "cookies": "Cookies"
+    "cookies": "Cookies",
+    "faq": "FAQ"
   },
   "legal": {
     "otherPages": "Autres pages légales"
@@ -1319,6 +1326,7 @@
     "note": {
       "deezer": "Correspondance titre pour titre",
       "youtube": "Correspondance par titre de morceau"
-    }
+    },
+    "matchingFaq": "Pourquoi ?"
   }
 }

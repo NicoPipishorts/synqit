@@ -2,6 +2,7 @@ import { BrandLogo, CONNECT_SERVICES, LINK_SERVICES, ServiceLogo } from '@synqit
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '../../hooks/useI18n';
+import { buildSiteUrl } from '../../lib/site-url';
 import { HeroCtaLink } from '../ui/HeroCtaLink';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { ThemeToggle } from '../ui/ThemeToggle';
@@ -52,6 +53,9 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
             <Link to="/auth/login" className="hover:text-brand-lime">
               {t('footer.login')}
             </Link>
+            <a href={buildSiteUrl('/faq')} className="hover:text-brand-lime">
+              {t('footer.faq')}
+            </a>
           </div>
 
           <div className="hidden content-start gap-2 text-sm sm:grid">
