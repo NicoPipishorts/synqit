@@ -1,9 +1,9 @@
 import type { ExternalImportItem, ExternalPlaylistPreviewResponse } from '@synqit/shared';
-import { useToast } from '@synqit/ui';
+import { LINK_SERVICES, MUSIC_SERVICES, ServiceChip, ServiceLogo, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AlertTriangle, ArrowLeftRight, CheckCircle2, ChevronLeft, Link2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
@@ -81,17 +81,6 @@ export const TransferLinkPage = () => {
   const sources = sourcesQuery.data?.sources ?? { deezer: true, youtube: false };
   const maxTracks = sourcesQuery.data?.maxTracks ?? 500;
   const activeImport = importQuery.data ?? null;
-
-  const supportedSourcesLabel = useMemo(
-    () =>
-      [
-        sources.deezer ? t('transferLinkPage.sourceDeezer') : null,
-        sources.youtube ? t('transferLinkPage.sourceYoutube') : null,
-      ]
-        .filter(Boolean)
-        .join(', '),
-    [sources.deezer, sources.youtube, t],
-  );
 
   const goToStep = (next: LinkStep) => {
     setStepDirection(next > step ? 1 : -1);
@@ -258,10 +247,29 @@ export const TransferLinkPage = () => {
                       className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 font-normal text-app-text outline-none transition focus:border-brand-pink"
                     />
                   </label>
-                  <p className="text-xs text-app-text-secondary">
-                    {t('transferLinkPage.supportedSources', { sources: supportedSourcesLabel })}
-                    {!sources.youtube ? ` ${t('transferLinkPage.youtubeDisabled')}` : ''}
-                  </p>
+                  <div className="grid gap-2">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-app-text-muted">
+                      {t('transferLinkPage.supportedSourcesLabel')}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {LINK_SERVICES.map((service) => {
+                        const available =
+                          service.id === 'deezer' ? sources.deezer : sources.youtube;
+                        return (
+                          <ServiceChip
+                            key={service.id}
+                            service={service.id}
+                            muted={!available}
+                            note={
+                              available
+                                ? t(`transferLinkPage.note.${service.id}`)
+                                : t('transferLinkPage.sourceUnavailable')
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-xs text-app-text-secondary">
                       {t('transferLinkPage.switchToProviders')}{' '}
@@ -320,11 +328,10 @@ export const TransferLinkPage = () => {
                       <p className="truncate text-lg font-black text-brand-dark dark:text-brand-white">
                         {preview.name}
                       </p>
-                      <p className="mt-1 text-sm text-app-text-secondary">
-                        {preview.source === 'deezer'
-                          ? t('transferLinkPage.sourceDeezer')
-                          : t('transferLinkPage.sourceYoutube')}{' '}
-                        · {t('transferPage.trackCount', { count: preview.trackCount })}
+                      <p className="mt-1 flex items-center gap-1.5 text-sm text-app-text-secondary">
+                        <ServiceLogo service={preview.source} alt="" className="h-4 w-4 rounded" />
+                        {MUSIC_SERVICES[preview.source].name} ·{' '}
+                        {t('transferPage.trackCount', { count: preview.trackCount })}
                       </p>
                     </div>
                   </div>

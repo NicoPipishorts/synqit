@@ -1,5 +1,5 @@
 import type { ProviderPlaylistItem } from '@synqit/shared';
-import { useToast } from '@synqit/ui';
+import { LINK_SERVICES, ServiceLogo, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -625,6 +625,11 @@ export const TransferPage = () => {
                 <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-app-border px-4 py-3 text-sm text-app-text-secondary lg:col-span-3">
                   <Link2 size={16} aria-hidden="true" />
                   <span>{t('transferPage.importFromLinkHint')}</span>
+                  <span className="flex items-center gap-2">
+                    {LINK_SERVICES.map((service) => (
+                      <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                    ))}
+                  </span>
                   <CTALink to="/transfer/link" variant="ghost" className="ml-auto">
                     {t('transferPage.importFromLinkCta')}
                   </CTALink>

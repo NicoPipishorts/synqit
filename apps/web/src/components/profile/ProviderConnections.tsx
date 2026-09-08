@@ -1,5 +1,5 @@
 import { providerSchema } from '@synqit/shared';
-import { useToast } from '@synqit/ui';
+import { LINK_SERVICES, ServiceChip, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouterState } from '@tanstack/react-router';
 import { RefreshCcw, Trash2 } from 'lucide-react';
@@ -17,7 +17,7 @@ import {
   queryKeys,
 } from '../../lib/queries';
 import { Provider } from '../../lib/types';
-import { CTAButton, CTAMobileIconLabel } from '../ui/cta';
+import { CTAButton, CTALink, CTAMobileIconLabel } from '../ui/cta';
 
 type ProviderAction = 'connect' | 'refresh' | 'disconnect';
 
@@ -415,6 +415,27 @@ export const ProviderConnections = () => {
           )}
         </div>
       ) : null}
+
+      {/* The two link-only services have no account to connect; say so here,
+          where people come looking for a "connect Deezer" button. */}
+      <article className="grid gap-4 rounded-3xl border-2 border-dashed border-app-border p-5 sm:p-6">
+        <div className="flex flex-wrap gap-2">
+          {LINK_SERVICES.map((service) => (
+            <ServiceChip key={service.id} service={service.id} />
+          ))}
+        </div>
+        <div className="grid gap-1">
+          <h3 className="text-lg font-bold text-brand-dark dark:text-brand-white">
+            {t('profile.linkSourcesTitle')}
+          </h3>
+          <p className="text-sm text-app-text-secondary">{t('profile.linkSourcesBody')}</p>
+        </div>
+        <div className="flex justify-end">
+          <CTALink to="/transfer/link" variant="secondary">
+            {t('profile.linkSourcesCta')}
+          </CTALink>
+        </div>
+      </article>
     </div>
   );
 };

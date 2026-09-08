@@ -1,4 +1,11 @@
-import { Highlight, Sticker, type StickerTone } from '@synqit/ui';
+import {
+  CONNECT_SERVICES,
+  Highlight,
+  LINK_SERVICES,
+  ServiceLogo,
+  Sticker,
+  type StickerTone,
+} from '@synqit/ui';
 import { motion, type Variants } from 'framer-motion';
 import { ArrowDown, ArrowLeftRight, PartyPopper, Share2 } from 'lucide-react';
 import { type ReactNode } from 'react';
@@ -6,6 +13,7 @@ import { type ReactNode } from 'react';
 import { HeroScreens } from './components/marketing/HeroScreens';
 import { MarketingPageShell } from './components/marketing/MarketingPageShell';
 import { RevealSection } from './components/marketing/RevealSection';
+import { ServiceCompatibility } from './components/marketing/ServiceCompatibility';
 import { type Service, ServiceShowcase } from './components/marketing/ServiceShowcase';
 import { HeroLink } from './components/ui/HeroLink';
 import { buildAppUrl } from './lib/app-url';
@@ -68,21 +76,21 @@ const SectionIntro = ({
   </div>
 );
 
-const ProviderLogos = ({ label }: { label: string }) => (
-  <div className="flex items-center gap-3">
-    <span className="text-xs font-bold uppercase tracking-[0.16em] text-app-text-muted">
-      {label}
-    </span>
-    <img
-      src="/assets/logos/Providers/Spotify.png"
-      alt="Spotify"
-      className="h-8 w-8 rounded-xl object-contain"
-    />
-    <img
-      src="/assets/logos/Providers/AppleMusic.png"
-      alt="Apple Music"
-      className="h-8 w-8 rounded-xl object-contain"
-    />
+const ProviderLogos = ({ label, hint }: { label: string; hint: string }) => (
+  <div className="flex flex-col gap-1.5">
+    <div className="flex items-center gap-3">
+      <span className="text-xs font-bold uppercase tracking-[0.16em] text-app-text-muted">
+        {label}
+      </span>
+      {CONNECT_SERVICES.map((service) => (
+        <ServiceLogo key={service.id} service={service.id} />
+      ))}
+      <span aria-hidden className="h-5 w-px bg-app-border" />
+      {LINK_SERVICES.map((service) => (
+        <ServiceLogo key={service.id} service={service.id} />
+      ))}
+    </div>
+    <p className="text-xs text-app-text-secondary">{hint}</p>
   </div>
 );
 
@@ -195,7 +203,10 @@ export const HomePage = () => {
                 </a>
               </motion.div>
               <motion.div variants={FADE_UP}>
-                <ProviderLogos label={t('home.hero.worksWith')} />
+                <ProviderLogos
+                  label={t('home.hero.worksWith')}
+                  hint={t('home.hero.worksWithHint')}
+                />
               </motion.div>
             </div>
 
@@ -232,6 +243,28 @@ export const HomePage = () => {
         <div className="mx-auto mt-12 w-full max-w-6xl px-5 sm:px-6 lg:mt-20 lg:px-8">
           <ServiceShowcase services={services} swipeHint={t('home.services.swipeHint')} />
         </div>
+      </RevealSection>
+
+      {/* ── Which services, and what each one can do ──────────────────── */}
+      <RevealSection
+        id="services"
+        trackId="compatibility"
+        className="relative scroll-mt-24 py-16 sm:py-24"
+      >
+        <Container className="flex flex-col gap-4">
+          <SectionIntro
+            eyebrow={t('home.compat.eyebrow')}
+            title={t('home.compat.title')}
+            tone="lime"
+          />
+          <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
+            {t('home.compat.lead')}
+          </p>
+        </Container>
+        <Container className="mt-10 lg:mt-14">
+          <ServiceCompatibility />
+          <p className="mt-6 text-xs text-app-text-muted">{t('home.compat.footnote')}</p>
+        </Container>
       </RevealSection>
 
       {/* ── Statement + marquee ───────────────────────────────────────── */}

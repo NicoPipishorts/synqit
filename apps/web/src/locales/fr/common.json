@@ -349,7 +349,10 @@
     "readyBody": "Tout est en place. D’ici, tu peux ajuster tes préférences, changer ton mot de passe ou gérer tes plateformes connectées.",
     "readyCtaPreferences": "Préférences",
     "readyCtaPassword": "Mot de passe et sécurité",
-    "readyCtaConnections": "Connexions"
+    "readyCtaConnections": "Connexions",
+    "linkSourcesTitle": "Deezer et YouTube n'ont rien à connecter",
+    "linkSourcesBody": "Aucun compte à relier. Collez le lien d'une playlist publique et Synqit la copie dans l'un des services connectés ci-dessus.",
+    "linkSourcesCta": "Importer depuis un lien"
   },
   "dashboard": {
     "pill": "Espace hôte",
@@ -954,7 +957,8 @@
       "ctaPrimary": "Commencer gratuitement",
       "ctaSecondary": "Voir comment ça marche",
       "ctaLogin": "Se connecter",
-      "worksWith": "Compatible avec"
+      "worksWith": "Compatible avec",
+      "worksWithHint": "Spotify et Apple Music se connectent à votre compte. Deezer et YouTube arrivent par un lien."
     },
     "services": {
       "eyebrow": "Ce que fait Synqit",
@@ -1174,6 +1178,28 @@
           "cta": "Prendre le pack"
         }
       }
+    },
+    "compat": {
+      "eyebrow": "Compatible avec",
+      "title": "Deux façons d'importer votre musique",
+      "lead": "Spotify et Apple Music se connectent à votre compte, ce qui permet à Synqit de travailler dans votre propre bibliothèque. Deezer et YouTube arrivent par un lien public, sans rien à connecter.",
+      "connect": {
+        "sticker": "Une seule connexion",
+        "title": "Connectez-vous, tout fonctionne dans les deux sens",
+        "body": "Reliez le service sur lequel vous écoutez vraiment. Synqit lit et écrit les playlists de votre bibliothèque, donc toutes les fonctions sont disponibles.",
+        "point1": "Créez une playlist d'événement que vos invités alimentent",
+        "point2": "Partagez une playlist qui reste synchronisée pour vos abonnés",
+        "point3": "Transférez vos playlists dans les deux sens"
+      },
+      "link": {
+        "sticker": "Sans compte",
+        "title": "Collez un lien, gardez la playlist",
+        "body": "Une playlist repérée ailleurs ? Collez son lien public et Synqit la reconstruit dans le service que vous avez connecté.",
+        "point1": "Import à sens unique vers votre bibliothèque connectée",
+        "point2": "Les liens Deezer correspondent titre pour titre",
+        "point3": "YouTube s'appuie sur le titre du morceau, certains choix peuvent différer"
+      },
+      "footnote": "D'autres services seront ajoutés dès que leurs API le permettront."
     }
   },
   "modal": {
@@ -1215,8 +1241,6 @@
     "linkBody": "Playlists publiques uniquement. Les liens Deezer sont associés par ISRC, donc exacts ; les titres YouTube sont retrouvés par recherche.",
     "linkLabel": "Lien de la playlist",
     "linkPlaceholder": "https://www.deezer.com/playlist/… ou https://music.youtube.com/playlist?list=…",
-    "supportedSources": "Compatible avec : {{sources}}",
-    "youtubeDisabled": "Les imports YouTube ne sont pas encore activés sur ce serveur.",
     "destinationTitle": "Vers",
     "destinationBody": "Choisissez où la playlist doit arriver. Connectez d'abord le service si besoin.",
     "previewCta": "Aperçu de la playlist",
@@ -1244,7 +1268,11 @@
     "startError": "L'import n'a pas pu démarrer : {{message}}",
     "switchToProviders": "Vous passez plutôt de Spotify à Apple Music ?",
     "switchToProvidersCta": "Transférer entre services connectés",
-    "sourceDeezer": "Deezer",
-    "sourceYoutube": "YouTube"
+    "supportedSourcesLabel": "Importer depuis",
+    "sourceUnavailable": "Pas encore activé",
+    "note": {
+      "deezer": "Correspondance titre pour titre",
+      "youtube": "Correspondance par titre de morceau"
+    }
   }
 }

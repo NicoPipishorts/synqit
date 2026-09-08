@@ -349,7 +349,10 @@
     "readyBody": "Everything is in place. From here you can adjust your preferences, change your password, or manage your connected platforms.",
     "readyCtaPreferences": "Preferences",
     "readyCtaPassword": "Password & security",
-    "readyCtaConnections": "Connections"
+    "readyCtaConnections": "Connections",
+    "linkSourcesTitle": "Deezer and YouTube don't need connecting",
+    "linkSourcesBody": "There is no account to link. Paste a public playlist link and Synqit copies it into one of the services you connected above.",
+    "linkSourcesCta": "Import from a link"
   },
   "dashboard": {
     "pill": "Host Workspace",
@@ -954,7 +957,8 @@
       "ctaPrimary": "Get started free",
       "ctaSecondary": "See how it works",
       "ctaLogin": "Sign in",
-      "worksWith": "Works with"
+      "worksWith": "Works with",
+      "worksWithHint": "Spotify and Apple Music connect to your account. Deezer and YouTube come in through a link."
     },
     "services": {
       "eyebrow": "What Synqit does",
@@ -1174,6 +1178,28 @@
           "cta": "Get the pack"
         }
       }
+    },
+    "compat": {
+      "eyebrow": "Works with",
+      "title": "Two ways to bring your music in",
+      "lead": "Spotify and Apple Music connect to your account, so Synqit can work inside your own library. Deezer and YouTube come in through a public link, with nothing to sign in to.",
+      "connect": {
+        "sticker": "Connect once",
+        "title": "Sign in, and everything works both ways",
+        "body": "Link the service you actually listen on. Synqit reads and writes playlists in your own library, so every feature is available.",
+        "point1": "Host an event playlist your guests add to",
+        "point2": "Share a playlist that stays in sync for followers",
+        "point3": "Transfer playlists in either direction"
+      },
+      "link": {
+        "sticker": "No account needed",
+        "title": "Paste a link, keep the playlist",
+        "body": "Found a playlist somewhere else? Paste its public link and Synqit rebuilds it in the service you connected.",
+        "point1": "One-way import into your connected library",
+        "point2": "Deezer links match track for track",
+        "point3": "YouTube matches on song title, so some picks may differ"
+      },
+      "footnote": "More services will be added as their APIs allow it."
     }
   },
   "modal": {
@@ -1215,8 +1241,6 @@
     "linkBody": "Public playlists only. Deezer links match by ISRC, so results are exact; YouTube titles are matched by search.",
     "linkLabel": "Playlist link",
     "linkPlaceholder": "https://www.deezer.com/playlist/… or https://music.youtube.com/playlist?list=…",
-    "supportedSources": "Works with: {{sources}}",
-    "youtubeDisabled": "YouTube imports are not enabled on this server yet.",
     "destinationTitle": "Into",
     "destinationBody": "Choose where the playlist should land. Connect the service first if needed.",
     "previewCta": "Preview playlist",
@@ -1244,7 +1268,11 @@
     "startError": "Import failed to start: {{message}}",
     "switchToProviders": "Moving between Spotify and Apple Music instead?",
     "switchToProvidersCta": "Transfer between connected services",
-    "sourceDeezer": "Deezer",
-    "sourceYoutube": "YouTube"
+    "supportedSourcesLabel": "Import from",
+    "sourceUnavailable": "Not enabled yet",
+    "note": {
+      "deezer": "Matches track for track",
+      "youtube": "Matches on song title"
+    }
   }
 }

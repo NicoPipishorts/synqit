@@ -48,6 +48,18 @@ export {
 
 // Navigation & brand
 export { BrandLogo } from './components/BrandLogo';
+export {
+  CONNECT_SERVICES,
+  LINK_SERVICES,
+  MUSIC_SERVICES,
+  ServiceChip,
+  ServiceLogo,
+  type MusicService,
+  type MusicServiceAccess,
+  type MusicServiceId,
+  type ServiceChipProps,
+  type ServiceLogoProps,
+} from './components/ServiceLogo';
 export { ThemeToggle, type ThemeToggleVariant } from './components/ThemeToggle';
 export { LanguageSwitcher, type LanguageOption } from './components/LanguageSwitcher';
 export { PublicNav, type PublicNavItem } from './components/PublicNav';
