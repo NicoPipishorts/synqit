@@ -1,4 +1,11 @@
-import { CONNECT_SERVICES, Highlight, LINK_SERVICES, Sticker, type StickerTone } from '@synqit/ui';
+import {
+  CONNECT_SERVICES,
+  Highlight,
+  LINK_SERVICES,
+  ServiceLogo,
+  Sticker,
+  type StickerTone,
+} from '@synqit/ui';
 import { motion, type Variants } from 'framer-motion';
 import { ArrowDown, ArrowLeftRight, ArrowRight, PartyPopper, Share2 } from 'lucide-react';
 import { type ReactNode } from 'react';
@@ -51,11 +58,19 @@ const SectionIntro = ({
   title,
   tone = 'paper',
   align = 'left',
+  titleClassName = '',
 }: {
   eyebrow: string;
   title: string;
   tone?: StickerTone;
   align?: 'left' | 'center';
+  /**
+   * Widen a title that would otherwise break awkwardly. Titles are capped at
+   * `max-w-2xl` so a long one wraps into a readable block; pass an `sm:max-w-*`
+   * to let a specific one run the full column on a wide screen. Phones are too
+   * narrow for any of them to fit on one line, so they still wrap there.
+   */
+  titleClassName?: string;
 }) => (
   <div
     className={`flex flex-col gap-4 ${align === 'center' ? 'items-center text-center' : 'items-start'}`}
@@ -63,43 +78,13 @@ const SectionIntro = ({
     <Sticker tone={tone} tilt="-rotate-2">
       {eyebrow}
     </Sticker>
-    <h2 className="max-w-2xl text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+    <h2
+      className={`max-w-2xl text-pretty text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl ${titleClassName}`}
+    >
       {title}
     </h2>
   </div>
 );
-
-// A row of marks does not scale: it runs out of width on a phone and needs a new
-// asset every time a service is added. Names as text wrap instead of overflowing,
-// and they come from the shared catalogue, so the line grows on its own. It trails
-// off into the FAQ matrix, which is where "what each one can do" lives.
-const HeroServiceLine = ({ label, note }: { label: string; note: string }) => {
-  const names = [...CONNECT_SERVICES, ...LINK_SERVICES].map((service) => service.name);
-
-  return (
-    <div className="flex max-w-sm flex-col items-start gap-1 lg:max-w-md">
-      <span className="text-xs font-bold uppercase tracking-[0.16em] text-app-text-muted">
-        {label}
-      </span>
-      <a
-        href="/faq#matrix"
-        aria-label={note}
-        title={note}
-        className="focus-ring-brand group flex items-start gap-1.5 rounded-2xl text-sm font-semibold leading-snug text-app-text transition hover:text-brand-pink"
-      >
-        {/* The ellipsis is glued to the last name so it can never wrap alone. */}
-        <span className="underline decoration-brand-pink decoration-2 underline-offset-4">
-          {`${names.join(', ')}\u2026`}
-        </span>
-        <ArrowRight
-          size={15}
-          aria-hidden
-          className="mt-[3px] shrink-0 text-brand-pink transition group-hover:translate-x-0.5"
-        />
-      </a>
-    </div>
-  );
-};
 
 // ─── Page ──────────────────────────────────────────────────────────────────────
 
@@ -209,12 +194,6 @@ export const HomePage = () => {
                   <ArrowDown size={16} aria-hidden className="motion-safe:animate-bounce" />
                 </a>
               </motion.div>
-              <motion.div variants={FADE_UP}>
-                <HeroServiceLine
-                  label={t('home.hero.worksWith')}
-                  note={t('home.hero.worksWithNote')}
-                />
-              </motion.div>
             </div>
 
             <motion.div
@@ -247,8 +226,35 @@ export const HomePage = () => {
             {t('home.how.lead')}
           </p>
         </Container>
-        <div className="mx-auto mt-12 w-full max-w-6xl px-5 sm:px-6 lg:mt-20 lg:px-8">
+        <div className="mx-auto mt-8 w-full max-w-6xl px-5 sm:px-6 lg:mt-12 lg:px-8">
           <ServiceShowcase services={services} swipeHint={t('home.services.swipeHint')} />
+        </div>
+
+        {/* The marquee's band from lower down, held still and tilted the other way:
+            this one is a fact list, and two bands leaning the same way would read
+            as one repeated element rather than two beats of the page. */}
+        <div className="-mx-6 mt-12 rotate-1 border-y-2 border-app-text bg-brand-dark py-3 text-brand-white dark:bg-brand-white dark:text-brand-dark sm:mt-16">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-8 sm:gap-x-7">
+            <span className="text-xs font-black uppercase tracking-[0.22em] sm:text-sm">
+              {t('home.compatStrip.label')}
+            </span>
+            <span className="flex items-center gap-3">
+              {[...CONNECT_SERVICES, ...LINK_SERVICES].map((service) => (
+                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+              ))}
+            </span>
+            <a
+              href="/faq#matrix"
+              className="focus-ring-brand group inline-flex items-center gap-1.5 rounded-full text-xs font-black uppercase tracking-[0.16em] underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-sm"
+            >
+              {t('home.compatStrip.cta')}
+              <ArrowRight
+                size={14}
+                aria-hidden
+                className="transition group-hover:translate-x-0.5"
+              />
+            </a>
+          </div>
         </div>
       </RevealSection>
 
@@ -263,6 +269,8 @@ export const HomePage = () => {
             eyebrow={t('home.compat.eyebrow')}
             title={t('home.compat.title')}
             tone="lime"
+            // The French title needs ~860px at this size, so 2xl broke it mid-phrase.
+            titleClassName="sm:max-w-4xl"
           />
           <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
             {t('home.compat.lead')}

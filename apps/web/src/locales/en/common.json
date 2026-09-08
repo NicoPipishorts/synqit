@@ -955,9 +955,7 @@
       "description": "Let guests pick the tracks at your party, share one playlist across Spotify and Apple Music, or move your library to a new app. One link does it.",
       "ctaPrimary": "Get started free",
       "ctaSecondary": "See how it works",
-      "ctaLogin": "Sign in",
-      "worksWith": "Works with",
-      "worksWithNote": "What each service can do"
+      "ctaLogin": "Sign in"
     },
     "services": {
       "eyebrow": "What Synqit does",
@@ -983,6 +981,10 @@
       "swipeHint": "Swipe for the next one",
       "prev": "Previous service",
       "next": "Next service"
+    },
+    "compatStrip": {
+      "label": "Works with",
+      "cta": "See what each service supports"
     },
     "how": {
       "lead": "Tap a card to walk through the real screens, step by step.",

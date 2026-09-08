@@ -955,9 +955,7 @@
       "description": "Laisse tes invités choisir les titres de la soirée, partage une playlist entre Spotify et Apple Music, ou déménage ta bibliothèque vers une nouvelle appli. Un seul lien suffit.",
       "ctaPrimary": "Commencer gratuitement",
       "ctaSecondary": "Voir comment ça marche",
-      "ctaLogin": "Se connecter",
-      "worksWith": "Compatible avec",
-      "worksWithNote": "Ce que chaque service permet"
+      "ctaLogin": "Se connecter"
     },
     "services": {
       "eyebrow": "Ce que fait Synqit",
@@ -983,6 +981,10 @@
       "swipeHint": "Glisse pour voir la suite",
       "prev": "Service précédent",
       "next": "Service suivant"
+    },
+    "compatStrip": {
+      "label": "Compatible avec",
+      "cta": "Voir ce que permet chaque service"
     },
     "how": {
       "lead": "Touche une carte pour parcourir les vrais écrans, étape par étape.",
