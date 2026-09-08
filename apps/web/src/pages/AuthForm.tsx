@@ -147,7 +147,6 @@ export const AuthForm = ({ endpoint }: { endpoint: '/v1/auth/register' | '/v1/au
       title={isLogin ? t('auth.welcomeBack') : t('auth.createHost')}
       description={isLogin ? undefined : t('auth.registerLead')}
       showMobileNav
-      showServiceCompatibility
       mobileNavActiveId={isLogin ? 'login' : 'share'}
     >
       <form onSubmit={onSubmit} autoComplete="on" className="mx-auto grid w-full max-w-xl gap-5">
