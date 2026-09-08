@@ -20,10 +20,19 @@ echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${GHCR_USERNAME}" --password-std
 # `pull`, so a prune placed below it is exactly where it cannot help. Each deploy
 # leaves ~2.5 GB of newly untagged images behind (api and worker are ~1.1 GB each),
 # which filled the VPS after ~16 releases and failed the deploy on 2026-09-07.
-# `until=24h` keeps roughly a day of releases to roll back to. Images backing a
-# running container are never removed, so the live stack is untouched.
-echo "==> Reclaiming images older than 24h"
-docker image prune -af --filter "until=24h"
+#
+# No `until=` window. Deploys land several times a day, so any window measured in
+# hours still lets a day of releases stack up — a 24h filter was tried on the box
+# and reclaimed nothing, because every image was younger than that. Unfiltered is
+# also what makes growth bounded rather than merely slower.
+#
+# This is safe at this point in the script: `prune` never removes an image backing
+# a running container, so the live stack is untouched, and it runs before the pull,
+# so the incoming images do not exist yet. Anything it deletes is a previous
+# release, and every previous release is still in GHCR — a rollback is a pull, not
+# a restore.
+echo "==> Reclaiming images not backing a running container"
+docker image prune -af
 
 echo "==> Pulling images for tag: ${IMAGE_TAG}"
 docker compose -f docker-compose.ci.yml pull
