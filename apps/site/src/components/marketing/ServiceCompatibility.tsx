@@ -55,12 +55,17 @@ const AccessCard = ({
       </Sticker>
     </div>
 
-    <div className="flex flex-wrap items-center gap-3">
+    {/* Logos alone, no names: the row has to stay legible as more services land
+        on it, and the marks carry the recognition on their own. The name moves
+        to the image's alt, which is where it was doing the accessible work. */}
+    <div className="flex flex-wrap items-center gap-2.5">
       {services.map((service) => (
-        <span key={service.id} className="flex items-center gap-2">
-          <ServiceLogo service={service.id} alt="" className="h-10 w-10" />
-          <span className="text-sm font-black text-app-text">{service.name}</span>
-        </span>
+        <ServiceLogo
+          key={service.id}
+          service={service.id}
+          alt={service.name}
+          className="h-7 w-7 sm:h-8 sm:w-8"
+        />
       ))}
     </div>
 

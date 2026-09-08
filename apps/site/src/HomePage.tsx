@@ -266,9 +266,15 @@ export const HomePage = () => {
             <span className="text-xs font-black uppercase tracking-[0.22em] sm:text-sm">
               {t('home.compatStrip.label')}
             </span>
-            <span className="flex items-center gap-3">
+            {/* Smaller and closer together on a phone: the row grows with every
+                service added, and at h-7 five of them already dominate the band. */}
+            <span className="flex items-center gap-2 sm:gap-3">
               {[...CONNECT_SERVICES, ...LINK_SERVICES].map((service) => (
-                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                <ServiceLogo
+                  key={service.id}
+                  service={service.id}
+                  className="h-5 w-5 sm:h-7 sm:w-7"
+                />
               ))}
             </span>
             <a

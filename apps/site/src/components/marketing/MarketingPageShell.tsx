@@ -136,9 +136,36 @@ const useNearBottom = () => {
   return { ref, near };
 };
 
+// The spacer has to be at least as tall as the footer plus the corner overlap it
+// is tucked under, or the footer's top simply never clears the sheet — it was
+// hard-coded at 35rem while the footer stood 41rem, so its logo, blurb and
+// service row sat behind the sheet at every scroll position. Measured instead of
+// guessed, so it keeps up as rows are added to the footer.
+const useFooterHeight = () => {
+  const ref = useRef<HTMLElement | null>(null);
+  const [height, setHeight] = useState(0);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    const update = () => setHeight(Math.round(node.getBoundingClientRect().height));
+    update();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', update);
+      return () => window.removeEventListener('resize', update);
+    }
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return { ref, height };
+};
+
 export const MarketingPageShell = ({ children, contentClassName }: MarketingPageShellProps) => {
   const { ref, width } = useElementWidth();
   const { ref: spacerRef, near } = useNearBottom();
+  const { ref: footerRef, height: footerHeight } = useFooterHeight();
 
   return (
     <div className="relative">
@@ -152,10 +179,11 @@ export const MarketingPageShell = ({ children, contentClassName }: MarketingPage
 
       {/* Fixed footer behind the sheet, revealed as the spacer scrolls into view. The
           spacer carries the dark surface so the sheet's rounded corners cut into it. */}
-      <HomeFooterReveal visible={near} />
+      <HomeFooterReveal ref={footerRef} visible={near} />
       <div
         ref={spacerRef}
         aria-hidden
+        style={footerHeight > 0 ? { height: footerHeight + cornerRadius(width) } : undefined}
         className="-mt-[2.75rem] h-[calc(35rem+2.75rem)] bg-brand-dark dark:bg-brand-white sm:-mt-[3.5rem] sm:h-[calc(24rem+3.5rem)] lg:-mt-[4.5rem] lg:h-[calc(26rem+4.5rem)]"
       />
     </div>

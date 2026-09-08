@@ -31,11 +31,19 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               {CONNECT_SERVICES.map((service) => (
-                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                <ServiceLogo
+                  key={service.id}
+                  service={service.id}
+                  className="h-5 w-5 sm:h-6 sm:w-6"
+                />
               ))}
               <span aria-hidden className="h-5 w-px bg-current opacity-20" />
               {LINK_SERVICES.map((service) => (
-                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                <ServiceLogo
+                  key={service.id}
+                  service={service.id}
+                  className="h-5 w-5 sm:h-6 sm:w-6"
+                />
               ))}
             </div>
           </div>

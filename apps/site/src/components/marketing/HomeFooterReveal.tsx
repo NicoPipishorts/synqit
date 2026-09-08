@@ -1,4 +1,5 @@
 import { BrandLogo, CONNECT_SERVICES, LINK_SERVICES, ServiceLogo } from '@synqit/ui';
+import { type Ref } from 'react';
 
 import { LEGAL_ROUTES } from '../../content/legal';
 import { buildAppUrl } from '../../lib/app-url';
@@ -9,9 +10,11 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 type HomeFooterRevealProps = {
   /** Painted only when the bottom of the page sheet is near the viewport. */
   visible?: boolean;
+  /** The shell measures the footer through this to size the spacer that reveals it. */
+  ref?: Ref<HTMLElement>;
 };
 
-export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
+export const HomeFooterReveal = ({ visible = true, ref }: HomeFooterRevealProps) => {
   const { t } = useI18n();
 
   const legalLinks = [
@@ -27,6 +30,7 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
   // the middle of the page while scrolling.
   return (
     <footer
+      ref={ref}
       aria-hidden={!visible}
       className={`fixed inset-x-0 bottom-0 z-0 bg-brand-dark text-brand-white transition-opacity duration-300 dark:bg-brand-white dark:text-brand-dark sm:h-96 lg:h-104 ${
         visible ? 'opacity-100' : 'pointer-events-none opacity-0'
@@ -49,11 +53,19 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
             </p>
             <div className="hidden sm:flex flex-wrap items-center gap-3">
               {CONNECT_SERVICES.map((service) => (
-                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                <ServiceLogo
+                  key={service.id}
+                  service={service.id}
+                  className="h-5 w-5 sm:h-6 sm:w-6"
+                />
               ))}
               <span aria-hidden className="h-5 w-px bg-current opacity-20" />
               {LINK_SERVICES.map((service) => (
-                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                <ServiceLogo
+                  key={service.id}
+                  service={service.id}
+                  className="h-5 w-5 sm:h-6 sm:w-6"
+                />
               ))}
             </div>
           </div>
@@ -112,11 +124,19 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 {CONNECT_SERVICES.map((service) => (
-                  <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                  <ServiceLogo
+                    key={service.id}
+                    service={service.id}
+                    className="h-5 w-5 sm:h-6 sm:w-6"
+                  />
                 ))}
                 <span aria-hidden className="h-5 w-px bg-current opacity-20" />
                 {LINK_SERVICES.map((service) => (
-                  <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                  <ServiceLogo
+                    key={service.id}
+                    service={service.id}
+                    className="h-5 w-5 sm:h-6 sm:w-6"
+                  />
                 ))}
               </div>
             </div>
