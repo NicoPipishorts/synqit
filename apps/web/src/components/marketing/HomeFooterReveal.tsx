@@ -25,17 +25,25 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col justify-between px-4 py-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8">
         <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.35fr_1fr_1fr_1.2fr] lg:gap-10">
           <div className="grid content-center gap-3">
-            <BrandLogo className="h-10 w-auto" surface="inverted" />
+            <BrandLogo className="h-10 w-auto" />
             <p className="max-w-sm text-sm text-center text-brand-white/80 dark:text-brand-dark/75">
               {t('footer.description')}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               {CONNECT_SERVICES.map((service) => (
-                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                <ServiceLogo
+                  key={service.id}
+                  service={service.id}
+                  className="h-5 w-5 sm:h-6 sm:w-6"
+                />
               ))}
               <span aria-hidden className="h-5 w-px bg-current opacity-20" />
               {LINK_SERVICES.map((service) => (
-                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                <ServiceLogo
+                  key={service.id}
+                  service={service.id}
+                  className="h-5 w-5 sm:h-6 sm:w-6"
+                />
               ))}
             </div>
           </div>
@@ -53,8 +61,22 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
             <Link to="/auth/login" className="hover:text-brand-lime">
               {t('footer.login')}
             </Link>
-            <a href={buildSiteUrl('/faq')} className="hover:text-brand-lime">
+            {/* Cross-origin, so both open a new tab rather than dropping the app. */}
+            <a
+              href={buildSiteUrl('/faq')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-brand-lime"
+            >
               {t('footer.faq')}
+            </a>
+            <a
+              href={buildSiteUrl('/')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-brand-lime"
+            >
+              {t('footer.website')}
             </a>
           </div>
 

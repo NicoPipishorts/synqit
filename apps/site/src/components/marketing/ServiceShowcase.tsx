@@ -21,6 +21,7 @@ import {
   useState,
 } from 'react';
 
+import { VERTICAL_ARROWHEAD_D, VERTICAL_BRANCH_D } from './branch-art';
 import { ThemedScreen } from './ThemedScreen';
 import { useI18n } from '../../lib/i18n';
 import { isTouchDevice } from '../../lib/motion';
@@ -183,7 +184,7 @@ const ServiceCard = ({
   const Icon = service.icon;
   return (
     <article
-      className={`relative flex h-full flex-col gap-5 rounded-3xl border-2 border-app-text p-6 transition-colors duration-300 sm:p-7 ${
+      className={`relative flex h-full flex-col gap-4 rounded-3xl border-2 border-app-text p-5 transition-colors duration-300 sm:p-6 ${
         active ? `${tone.active} shadow-sticker` : 'bg-app-elevated shadow-sticker dark:bg-app-card'
       } ${className ?? ''}`.trim()}
     >
@@ -196,20 +197,20 @@ const ServiceCard = ({
         type="button"
         onClick={onSelect}
         aria-pressed={active}
-        className="focus-ring-brand flex flex-1 flex-col gap-5 rounded-2xl text-left"
+        className="focus-ring-brand flex flex-1 flex-col gap-4 rounded-2xl text-left"
       >
         <span className="flex items-start justify-between gap-3">
           <Sticker tone={tone.sticker} tilt={active ? '-rotate-2' : '-rotate-1'}>
             0{index + 1} · {service.tag}
           </Sticker>
           <span
-            className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border-2 border-app-text ${tone.icon}`}
+            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border-2 border-app-text ${tone.icon}`}
           >
-            <Icon size={20} aria-hidden />
+            <Icon size={18} aria-hidden />
           </span>
         </span>
-        <span className="flex flex-1 flex-col gap-2.5">
-          <span className="text-2xl font-black leading-tight tracking-tight text-brand-dark dark:text-brand-white">
+        <span className="flex flex-1 flex-col gap-2">
+          <span className="text-xl font-black leading-tight tracking-tight text-brand-dark dark:text-brand-white">
             {service.title}
           </span>
           <span className="text-sm leading-relaxed text-app-text-secondary sm:text-[15px]">
@@ -276,7 +277,7 @@ const buildWave = (width: number) => {
 };
 
 /** Fixed 48×112, rendered 1:1, ending straight down at the phone. */
-const VERTICAL = { d: 'M24 8 C12 24, 36 40, 24 56 C15 68, 33 76, 24 84 L24 96' };
+const VERTICAL = { d: VERTICAL_BRANCH_D };
 
 // Both point along +x with their *vertex* on the origin: the origin is the point
 // that rides the path, so anchoring the tip there lets the head sit on the line
@@ -290,7 +291,7 @@ const ARROWHEAD = {
   horizontal: 'M-15 -9 L0 0 L-15 9',
   // Sits 3px forward of the path's end so its body hides the line's round cap,
   // which would otherwise poke out as a nub past the solid tip.
-  vertical: 'M3 0 L-8.5 -6.5 Q-5.5 0 -8.5 6.5 Z',
+  vertical: VERTICAL_ARROWHEAD_D,
 } as const;
 
 // The vertical branch is a fifth of the horizontal one's length, so the same
@@ -489,7 +490,7 @@ const FlowPhone = ({ service, index }: { service: Service; index: number }) => {
           dragMomentum={false}
           onDragEnd={onDragEnd}
           style={{ touchAction: 'pan-y' }}
-          className="relative w-[15.5rem] cursor-grab rounded-[2.9rem] border-[3px] border-app-text bg-app-bg p-1.5 shadow-[6px_6px_0_0_var(--syn-text)] active:cursor-grabbing sm:w-[17rem]"
+          className="relative w-[17.5rem] cursor-grab rounded-[2.9rem] border-[3px] border-app-text bg-app-bg p-1.5 shadow-[6px_6px_0_0_var(--syn-text)] active:cursor-grabbing sm:w-[17rem]"
         >
           {/* Every screen stays mounted; only opacity changes, so swaps never flash or slide. */}
           <div className="relative aspect-[9/19.5] overflow-hidden rounded-[2.4rem] bg-app-card">

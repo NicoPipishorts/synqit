@@ -209,9 +209,18 @@ export const AppShell = () => {
         <div className="relative z-10 grid w-full grid-cols-[1fr_auto_1fr] items-center px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pb-3 sm:pt-5 lg:px-8">
           <div className="flex items-center">
             {isPrivateRoute ? (
-              <Link to="/" aria-label="Synqit home" className="inline-flex">
+              /* Inside the app the mark is the way back out to the marketing site,
+                 opened in a new tab so the session and whatever is half-filled in
+                 stay where they are. The bottom nav already carries the route home. */
+              <a
+                href={getSiteOrigin()}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={t('footer.website')}
+                className="inline-flex"
+              >
                 <BrandLogo className="h-12 w-auto sm:h-14 lg:h-20" />
-              </Link>
+              </a>
             ) : (
               <a
                 href={import.meta.env.VITE_SITE_URL ?? '/'}

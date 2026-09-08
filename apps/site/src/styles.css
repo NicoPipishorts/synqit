@@ -8,6 +8,60 @@
    their last bit of weight from a hairline stroke rather than a font-weight.
    Sized in em so it tracks the heading it sits on, and painted behind the fill
    so the counters stay open instead of filling in. */
+/* The hero's scroll cue draws itself once on arrival, and the arrowhead rides the
+   line to its end rather than waiting at the tip — the same trick the showcase's
+   branch uses, so both arrows behave alike. Done in CSS rather than through the
+   hero's motion tree: that tree runs `initial={false}` on touch, and a child
+   animating its own `pathLength` inside it ends up stuck at 0.
+
+   `pathLength="1"` normalises the line so one dash covers it whatever its real
+   geometry; `offset-path` carries the head along the identical path, with
+   `offset-rotate: auto` keeping it pointed the way the line is heading. */
+@keyframes hero-cue-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes hero-cue-travel {
+  to {
+    offset-distance: 100%;
+  }
+}
+
+@keyframes hero-cue-appear {
+  to {
+    opacity: 1;
+  }
+}
+
+.hero-cue-line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: hero-cue-draw 1.1s linear 0.35s forwards;
+}
+
+.hero-cue-head {
+  offset-distance: 0%;
+  offset-rotate: auto;
+  opacity: 0;
+  /* Same duration and delay as the line, so the head sits on the drawing tip the
+     whole way down instead of chasing it or arriving early. */
+  animation:
+    hero-cue-travel 1.1s linear 0.35s forwards,
+    hero-cue-appear 0.15s linear 0.35s forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-cue-line,
+  .hero-cue-head {
+    animation: none;
+    stroke-dashoffset: 0;
+    offset-distance: 100%;
+    opacity: 1;
+  }
+}
+
 @utility text-display-heavy {
   -webkit-text-stroke: 0.02em currentColor;
   paint-order: stroke fill;
