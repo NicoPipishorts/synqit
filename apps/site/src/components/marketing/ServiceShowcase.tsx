@@ -244,9 +244,11 @@ const RUN_IN = 26;
 const RUN_FLAT = 18;
 /** Clearance kept between the arrow tip and the phone. */
 const HEAD_ROOM = 40;
+/** Same, at the other end: the line starts clear of the deck rather than on it. */
+const TAIL_ROOM = 24;
 
 const buildWave = (width: number) => {
-  const from = 8;
+  const from = TAIL_ROOM;
   const to = Math.max(from + 70, width - HEAD_ROOM);
   const waveTo = to - RUN_IN - RUN_FLAT;
   const span = waveTo - from;

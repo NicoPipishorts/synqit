@@ -76,8 +76,10 @@ const SectionIntro = ({
   </div>
 );
 
-const ProviderLogos = ({ label, hint }: { label: string; hint: string }) => (
-  <div className="flex flex-col gap-1.5">
+// Which service does what is a table, not a hero sentence: the row carries a
+// footnote marker and the answer lives on the FAQ page, under the matrix.
+const ProviderLogos = ({ label, note }: { label: string; note: string }) => (
+  <div className="flex flex-col items-start gap-1.5">
     <div className="flex items-center gap-3">
       <span className="text-xs font-bold uppercase tracking-[0.16em] text-app-text-muted">
         {label}
@@ -89,8 +91,16 @@ const ProviderLogos = ({ label, hint }: { label: string; hint: string }) => (
       {LINK_SERVICES.map((service) => (
         <ServiceLogo key={service.id} service={service.id} />
       ))}
+      <span aria-hidden className="self-start text-sm font-black leading-none text-brand-pink">
+        *
+      </span>
     </div>
-    <p className="text-xs text-app-text-secondary">{hint}</p>
+    <a
+      href="/faq#matrix"
+      className="focus-ring-brand rounded-full text-xs font-semibold text-app-text-secondary underline decoration-brand-pink decoration-1 underline-offset-4 transition hover:text-brand-pink"
+    >
+      <span aria-hidden>*</span> {note}
+    </a>
   </div>
 );
 
@@ -205,7 +215,7 @@ export const HomePage = () => {
               <motion.div variants={FADE_UP}>
                 <ProviderLogos
                   label={t('home.hero.worksWith')}
-                  hint={t('home.hero.worksWithHint')}
+                  note={t('home.hero.worksWithNote')}
                 />
               </motion.div>
             </div>
