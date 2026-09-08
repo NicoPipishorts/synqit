@@ -229,7 +229,7 @@ export const HomePage = () => {
             {t('home.how.lead')}
           </p>
         </Container>
-        <div className="mx-auto mt-12 w-full max-w-6xl px-5 sm:px-6 lg:mt-20 lg:px-8">
+        <div className="mx-auto mt-8 w-full max-w-6xl px-5 sm:px-6 lg:mt-12 lg:px-8">
           <ServiceShowcase services={services} swipeHint={t('home.services.swipeHint')} />
         </div>
       </RevealSection>
