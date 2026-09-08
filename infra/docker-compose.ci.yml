@@ -43,6 +43,7 @@ services:
       CORS_ORIGINS: https://app.synqit.fr,https://synqit.fr
       EVENT_LINK_BASE_URL: https://app.synqit.fr
       SPOTIFY_REDIRECT_URI: https://app.synqit.fr/api/v1/auth/spotify/callback
+      TIDAL_REDIRECT_URI: https://app.synqit.fr/api/v1/auth/tidal/callback
       WEB_APP_URL: https://app.synqit.fr
     ports:
       - '127.0.0.1:3001:3001'
