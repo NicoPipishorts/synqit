@@ -1,4 +1,4 @@
-import { BrandLogo, CONNECT_SERVICES, LINK_SERVICES, ServiceLogo } from '@synqit/ui';
+import { CONNECT_SERVICES, LINK_SERVICES, ServiceLogo } from '@synqit/ui';
 import { type Ref } from 'react';
 
 import { LEGAL_ROUTES } from '../../content/legal';
@@ -39,15 +39,6 @@ export const HomeFooterReveal = ({ visible = true, ref }: HomeFooterRevealProps)
       <div className="mx-auto flex h-full w-full max-w-7xl flex-col gap-10 px-4 pb-28 pt-12 sm:justify-center sm:gap-12 sm:px-6 sm:py-14 lg:gap-14 lg:px-8 lg:py-16">
         <div className="grid gap-7 sm:grid-cols-2 lg:grid-cols-[1.6fr_1fr_1fr_1fr] lg:gap-10">
           <div className="grid content-start gap-3">
-            <div className="flex items-center justify-between">
-              <a href="/" className="w-fit">
-                <BrandLogo className="h-10 w-auto" />
-              </a>
-              <div className="flex items-center gap-2 sm:hidden">
-                <LanguageToggle />
-                <ThemeToggle />
-              </div>
-            </div>
             <p className="hidden sm:block max-w-sm text-sm text-brand-white/80 dark:text-brand-dark/75 sm:text-base">
               {t('footer.description')}
             </p>
@@ -190,14 +181,14 @@ export const HomeFooterReveal = ({ visible = true, ref }: HomeFooterRevealProps)
           </div>
         </div>
 
-        <div className="flex items-center justify-center gap-4 border-brand-white/20 pt-5 dark:border-brand-dark/20 sm:border-t">
-          <p className="text-xs text-brand-white/55 dark:text-brand-dark/55">
-            {t('footer.copyright', { year: new Date().getFullYear() })}
-          </p>
-          <div className="hidden sm:flex items-center gap-2">
+        <div className="flex flex-col items-center gap-4 border-brand-white/20 pt-5 dark:border-brand-dark/20 sm:border-t">
+          <div className="flex items-center gap-2">
             <LanguageToggle />
             <ThemeToggle />
           </div>
+          <p className="text-xs text-brand-white/55 dark:text-brand-dark/55">
+            {t('footer.copyright', { year: new Date().getFullYear() })}
+          </p>
         </div>
       </div>
     </footer>
