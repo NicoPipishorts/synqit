@@ -45,7 +45,7 @@ export const AdminLoginPage = () => {
         <div className="hidden rounded-[2rem] border border-brand-white/10 bg-brand-dark p-8 text-brand-white shadow-soft-lift lg:grid">
           <div className="grid content-between gap-10">
             <div className="grid gap-5">
-              <BrandLogo className="h-12 w-auto" surface="dark" />
+              <BrandLogo className="h-12 w-auto" />
               <div className="grid gap-2">
                 <span className="text-xs font-black uppercase tracking-[0.24em] text-brand-white/55">
                   Synqit admin

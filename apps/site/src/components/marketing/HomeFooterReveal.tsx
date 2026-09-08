@@ -37,7 +37,7 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
           <div className="grid content-start gap-3">
             <div className="flex items-center justify-between">
               <a href="/" className="w-fit">
-                <BrandLogo className="h-10 w-auto" surface="inverted" />
+                <BrandLogo className="h-10 w-auto" />
               </a>
               <div className="flex items-center gap-2 sm:hidden">
                 <LanguageToggle />
