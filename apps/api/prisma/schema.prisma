@@ -84,13 +84,14 @@ model integrations {
 }
 
 model oauth_states {
-  id         String   @id
-  state      String   @unique
-  user_id    String
-  provider   String
-  created_at DateTime @db.Timestamptz(6)
-  expires_at DateTime @db.Timestamptz(6)
-  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  id            String   @id
+  state         String   @unique
+  user_id       String
+  provider      String
+  code_verifier String?
+  created_at    DateTime @db.Timestamptz(6)
+  expires_at    DateTime @db.Timestamptz(6)
+  users         users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model refresh_tokens {
@@ -184,6 +185,7 @@ model users {
   playlist_syncs         playlist_syncs[]
   playlist_sync_imports  playlist_sync_imports[]
   transfer_batches       transfer_batches[]
+  external_imports       external_imports[]
 
   @@index([account_state], map: "idx_users_account_state")
   @@index([deletion_scheduled_for], map: "idx_users_deletion_scheduled_for")
@@ -389,4 +391,28 @@ model analyticsEvents {
   @@index([target], map: "idx_analytics_events_target")
   @@index([user_id], map: "idx_analytics_events_user_id")
   @@map("analytics_events")
+}
+
+model external_imports {
+  id                             String    @id
+  user_id                        String
+  source                         String
+  source_url                     String
+  source_playlist_id             String
+  name                           String
+  cover_image_url                String?
+  recipient_provider             String
+  recipient_provider_playlist_id String?
+  status                         String    @default("pending")
+  total_count                    Int       @default(0)
+  matched_count                  Int       @default(0)
+  skipped_count                  Int       @default(0)
+  last_error                     String?
+  created_at                     DateTime  @db.Timestamptz(6)
+  updated_at                     DateTime  @db.Timestamptz(6)
+  completed_at                   DateTime? @db.Timestamptz(6)
+  users                          users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id], map: "idx_external_imports_user_id")
+  @@index([status], map: "idx_external_imports_status")
 }

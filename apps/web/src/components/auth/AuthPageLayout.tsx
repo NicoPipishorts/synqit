@@ -1,9 +1,18 @@
-import { Highlight, PublicMobileNav, Sticker, type PublicMobileNavItem } from '@synqit/ui';
+import {
+  CONNECT_SERVICES,
+  Highlight,
+  LINK_SERVICES,
+  PublicMobileNav,
+  ServiceLogo,
+  Sticker,
+  type PublicMobileNavItem,
+} from '@synqit/ui';
 import { Home, LogIn, Share2, Tag } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
 
 import { AuthHeroImage } from './AuthHeroImage';
 import { useI18n } from '../../hooks/useI18n';
+import { getSiteOrigin } from '../../lib/site-url';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 
 type AuthPageLayoutProps = {
@@ -14,26 +23,12 @@ type AuthPageLayoutProps = {
   children: ReactNode;
   mobileNavActiveId?: string | null;
   showMobileNav?: boolean;
-};
-
-const trimTrailingSlash = (value: string): string => value.replace(/\/+$/, '');
-
-const getSiteOrigin = (): string => {
-  const configured = import.meta.env.VITE_SITE_URL?.trim();
-  if (configured) {
-    return trimTrailingSlash(configured);
-  }
-
-  if (typeof window === 'undefined') {
-    return 'http://127.0.0.1:4173';
-  }
-
-  const { protocol, hostname } = window.location;
-  if (hostname === '127.0.0.1' || hostname === 'localhost') {
-    return `${protocol}//${hostname === 'localhost' ? 'localhost' : '127.0.0.1'}:4173`;
-  }
-
-  return `${protocol}//${hostname.replace(/^app\./, '')}`;
+  /**
+   * Show which services Synqit works with. On for sign-in and sign-up, where someone
+   * is deciding whether it covers the app they listen on; off for password recovery,
+   * where they already have an account and it is only noise.
+   */
+  showServiceCompatibility?: boolean;
 };
 
 export const AuthPageLayout = ({
@@ -43,6 +38,7 @@ export const AuthPageLayout = ({
   children,
   mobileNavActiveId = null,
   showMobileNav = false,
+  showServiceCompatibility = false,
 }: AuthPageLayoutProps) => {
   const { t } = useI18n();
   const [selectedMobileNavItem, setSelectedMobileNavItem] = useState<string | null>(
@@ -118,6 +114,25 @@ export const AuthPageLayout = ({
               />
               {children}
             </div>
+
+            {showServiceCompatibility ? (
+              <div className="flex flex-col items-center gap-2 text-center">
+                <span className="text-[11px] font-black uppercase tracking-[0.18em] text-app-text-muted">
+                  {t('home.compatStrip.label')}
+                </span>
+                <span className="flex items-center gap-2.5">
+                  {[...CONNECT_SERVICES, ...LINK_SERVICES].map((service) => (
+                    <ServiceLogo key={service.id} service={service.id} className="h-6 w-6" />
+                  ))}
+                </span>
+                <a
+                  href={`${siteOrigin}/faq#matrix`}
+                  className="focus-ring-brand rounded-full text-xs font-bold text-app-text-secondary underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink"
+                >
+                  {t('home.compatStrip.cta')}
+                </a>
+              </div>
+            ) : null}
 
             <div className="flex w-full justify-center">
               <div className="flex items-center rounded-full border border-app-border/70 bg-app-elevated/90 px-2 py-1.5 shadow-soft-lift backdrop-blur-md dark:bg-app-card/90">

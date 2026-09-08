@@ -1,4 +1,4 @@
-import { SurfaceCard, useToast } from '@synqit/ui';
+import { ServiceLogo, SurfaceCard, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
 import { Link2, ListMusic, Pencil, Users } from 'lucide-react';
@@ -9,6 +9,7 @@ import { SyncMagicLinkCard } from '../components/syncs/SyncMagicLinkCard';
 import { CircleChevronBackButton } from '../components/ui/CircleChevronBackButton';
 import { useI18n } from '../hooks/useI18n';
 import { toApiError } from '../lib/api';
+import { CONNECTABLE_PROVIDERS, PROVIDER_LABELS } from '../lib/providers';
 import {
   fetchSyncDetail,
   regenerateSyncMagicLink,
@@ -17,17 +18,6 @@ import {
 } from '../lib/queries';
 
 type ManageTab = 'edit' | 'tracks' | 'share';
-
-const SYNC_PROVIDER_META = {
-  spotify: {
-    label: 'Spotify',
-    iconPath: '/assets/logos/Providers/Spotify.png',
-  },
-  apple: {
-    label: 'Apple Music',
-    iconPath: '/assets/logos/Providers/AppleMusic.png',
-  },
-} as const;
 
 const formatSyncTimestamp = (value: string | null): string | null => {
   if (!value) {
@@ -69,10 +59,11 @@ export const SyncDetailsPage = () => {
 
   const sync = syncQuery.data ?? null;
   const formattedLastSyncedAt = formatSyncTimestamp(sync?.lastSyncedAt ?? null);
-  const spotifyCount =
-    sync?.subscriberPlatformStats.find((stat) => stat.provider === 'spotify')?.count ?? 0;
-  const appleCount =
-    sync?.subscriberPlatformStats.find((stat) => stat.provider === 'apple')?.count ?? 0;
+  // One row per connectable service, so a new provider needs no change here.
+  const subscriberCounts = CONNECTABLE_PROVIDERS.map((provider) => ({
+    provider,
+    count: sync?.subscriberPlatformStats.find((stat) => stat.provider === provider)?.count ?? 0,
+  }));
   const tabIndicatorTransform =
     activeTab === 'tracks'
       ? 'translateX(100%)'
@@ -159,7 +150,7 @@ export const SyncDetailsPage = () => {
                 </h1>
                 <p className="text-sm text-app-text-secondary sm:text-base">
                   {t('syncedListsPage.detailDescription', {
-                    provider: sync.provider === 'spotify' ? 'Spotify' : 'Apple Music',
+                    provider: PROVIDER_LABELS[sync.provider],
                   })}
                 </p>
               </div>
@@ -265,22 +256,15 @@ export const SyncDetailsPage = () => {
                             </p>
                           </div>
                           <div className="mt-4 grid gap-4">
-                            <div className="flex items-center justify-between gap-3 text-sm px-1">
-                              <img
-                                src={SYNC_PROVIDER_META.spotify.iconPath}
-                                alt={SYNC_PROVIDER_META.spotify.label}
-                                className="h-5 w-auto object-contain"
-                              />
-                              <span className="text-app-text-secondary">{spotifyCount}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3 text-sm px-1">
-                              <img
-                                src={SYNC_PROVIDER_META.apple.iconPath}
-                                alt={SYNC_PROVIDER_META.apple.label}
-                                className="h-5 w-auto object-contain"
-                              />
-                              <span className="text-app-text-secondary">{appleCount}</span>
-                            </div>
+                            {subscriberCounts.map(({ provider, count }) => (
+                              <div
+                                key={provider}
+                                className="flex items-center justify-between gap-3 px-1 text-sm text-app-text"
+                              >
+                                <ServiceLogo service={provider} className="h-5 w-5" />
+                                <span className="text-app-text-secondary">{count}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>

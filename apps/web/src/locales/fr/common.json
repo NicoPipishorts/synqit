@@ -20,7 +20,6 @@
     "loggingOut": "Déconnexion...",
     "accountAccess": "Accès au compte",
     "login": "Connexion",
-    "shareNow": "Partager maintenant",
     "createAccount": "Partage ta première playlist"
   },
   "languageSwitcher": {
@@ -229,7 +228,7 @@
     "avatarTooLarge": "L'image est trop volumineuse. Utilisez un fichier inférieur à 8 Mo.",
     "avatarReadError": "Impossible de lire le fichier image.",
     "platformsCardTitle": "Plateformes",
-    "platformsCardBody": "Connectez Spotify ou Apple Music et choisissez votre plateforme par défaut.",
+    "platformsCardBody": "Connectez un service musical et choisissez votre plateforme par défaut.",
     "platformsCardCta": "Gérer vos connexions",
     "personalInfoCardTitle": "Infos personnelles",
     "personalInfoCardBody": "Créez et maintenez vos informations de profil personnel.",
@@ -258,7 +257,6 @@
     "platformsDescription": "Consultez les apps disponibles et gérez vos réglages de connexion.",
     "connectionsServicesTitle": "Services",
     "connectionsServicesHint": "Cliquez sur l'icône d'un service pour le connecter. Les services connectés sont en niveaux de gris.",
-    "connectionsServicesHintConnected": "C'est votre service musical préféré. Vous pouvez le déconnecter ici.",
     "connectionsReload": "Actualiser le statut",
     "connectionsLoadError": "Impossible de charger les connexions : {{message}}",
     "connectionTapToConnect": "Connect toi",
@@ -277,8 +275,6 @@
     "connectionConnect": "Connecter",
     "platformAppsTitle": "Plateformes disponibles",
     "platformAppsHint": "Utilisez la page de connexions pour lier les plateformes de vos événements.",
-    "platformSpotifyHint": "Connectez playlists et catalogues Spotify.",
-    "platformAppleHint": "Connectez l'accès et la lecture Apple Music.",
     "platformConnectCta": "Ouvrir les connexions",
     "providerLabel": "Plateforme préférée",
     "platformDefaultHint": "Définissez votre plateforme préférée pour les choix rapides.",
@@ -349,7 +345,10 @@
     "readyBody": "Tout est en place. D’ici, tu peux ajuster tes préférences, changer ton mot de passe ou gérer tes plateformes connectées.",
     "readyCtaPreferences": "Préférences",
     "readyCtaPassword": "Mot de passe et sécurité",
-    "readyCtaConnections": "Connexions"
+    "readyCtaConnections": "Connexions",
+    "linkSourcesTitle": "Deezer et YouTube n'ont rien à connecter",
+    "linkSourcesBody": "Aucun compte à relier. Collez le lien d'une playlist publique et Synqit la copie dans l'un des services connectés ci-dessus.",
+    "linkSourcesCta": "Importer depuis un lien"
   },
   "dashboard": {
     "pill": "Espace hôte",
@@ -656,7 +655,9 @@
     "alreadyTransferredBadge": "Déjà transférée",
     "alreadyTransferredSameDest": "Tu as déjà transféré « {{name}} » vers {{provider}}. Recommencer créera un doublon.",
     "alreadyTransferredOtherDest": "Tu as déjà transféré « {{name}} » vers {{providers}}.",
-    "alreadyTransferredWhen": "Dernier transfert : {{date}}."
+    "alreadyTransferredWhen": "Dernier transfert : {{date}}.",
+    "importFromLinkHint": "Vous avez plutôt une playlist Deezer ou YouTube ?",
+    "importFromLinkCta": "Importer depuis un lien"
   },
   "transferDashboardPage": {
     "title": "Transferts",
@@ -678,7 +679,12 @@
     "onboardingStepMatchTitle": "On associe les titres",
     "onboardingStepMatchBody": "Synqit retrouve chaque morceau sur le service de destination.",
     "onboardingStepMoveTitle": "Dépose-la dans ta bibliothèque",
-    "onboardingStepMoveBody": "Une nouvelle copie apparaît sur ton nouveau service, prête à écouter."
+    "onboardingStepMoveBody": "Une nouvelle copie apparaît sur ton nouveau service, prête à écouter.",
+    "importFromLink": "Importer depuis un lien",
+    "fromLink": "Depuis {{source}}",
+    "linkBadge": "Importée",
+    "statusRunning": "Import… {{done}}/{{total}}",
+    "statusFailed": "Échec"
   },
   "syncPublicPage": {
     "loading": "Chargement...",
@@ -758,8 +764,6 @@
       "stepReview": "Validation",
       "stepProviderTitle": "Étape 1. Choisir un service de streaming",
       "stepProviderBody": "Sélectionnez votre service de musique en streaming.",
-      "providerSpotify": "Spotify",
-      "providerApple": "Apple Music",
       "providerNotConnected": "Ce service de streaming n'est pas encore connecté.",
       "providerNotConnectedHelp": "Connectez-la d'abord, puis continuez avec le nom et la validation.",
       "providerNotSelected": "Aucun service de streaming sélectionné",
@@ -937,7 +941,8 @@
   "home": {
     "nav": {
       "product": "Le Produit",
-      "share": "Partager une playlist"
+      "share": "Partager une playlist",
+      "faq": "FAQ"
     },
     "hero": {
       "eyebrow": "La musique sans frontières",
@@ -946,8 +951,7 @@
       "description": "Laisse tes invités choisir les titres de la soirée, partage une playlist entre Spotify et Apple Music, ou déménage ta bibliothèque vers une nouvelle appli. Un seul lien suffit.",
       "ctaPrimary": "Commencer gratuitement",
       "ctaSecondary": "Voir comment ça marche",
-      "ctaLogin": "Se connecter",
-      "worksWith": "Compatible avec"
+      "ctaLogin": "Se connecter"
     },
     "services": {
       "eyebrow": "Ce que fait Synqit",
@@ -973,6 +977,10 @@
       "swipeHint": "Glisse pour voir la suite",
       "prev": "Service précédent",
       "next": "Service suivant"
+    },
+    "compatStrip": {
+      "label": "Compatible avec",
+      "cta": "Voir ce que permet chaque service"
     },
     "how": {
       "lead": "Touche une carte pour parcourir les vrais écrans, étape par étape.",
@@ -1167,6 +1175,78 @@
           "cta": "Prendre le pack"
         }
       }
+    },
+    "compat": {
+      "eyebrow": "Compatible avec",
+      "title": "Deux façons d'importer votre musique",
+      "lead": "Certains services se connectent à votre compte, ce qui permet à Synqit de travailler dans votre propre bibliothèque. D'autres arrivent par un lien public, sans rien à connecter.",
+      "connect": {
+        "sticker": "Une seule connexion",
+        "title": "Connectez-vous une fois, toutes les fonctions sont disponibles",
+        "body": "Reliez le service sur lequel vous écoutez vraiment. Synqit lit et écrit les playlists de votre bibliothèque, donc toutes les fonctions sont disponibles.",
+        "point1": "Créez une playlist d'événement que vos invités alimentent",
+        "point2": "Partagez une playlist qui reste synchronisée pour vos abonnés",
+        "point3": "Transférez une playlist d'un service connecté vers un autre",
+        "more": "En savoir plus sur la connexion"
+      },
+      "link": {
+        "sticker": "Sans compte",
+        "title": "Collez un lien, gardez la playlist",
+        "body": "Une playlist repérée ailleurs ? Collez son lien public et Synqit la reconstruit dans le service que vous avez connecté.",
+        "point1": "Import à sens unique : vers votre bibliothèque, jamais dans l'autre sens",
+        "point2": "Les sources qui portent un identifiant d'enregistrement, comme Deezer, correspondent titre pour titre",
+        "point3": "Les sources qui ne donnent qu'un titre, comme YouTube, peuvent choisir une autre version",
+        "more": "En savoir plus sur l'import par lien"
+      },
+      "seeAll": "Voir ce que permet chaque service"
+    },
+    "faq": {
+      "eyebrow": "Questions",
+      "title": "Ce qui marche avec quoi",
+      "lead": "En résumé : les services que vous connectez font tout, ceux dont vous collez un lien sont des sources d'import. Le tableau ci-dessous le détaille service par service.",
+      "sticker": "Bon à savoir",
+      "matrix": {
+        "question": "Que permet exactement chaque service ?",
+        "caption": "Ce que chaque service de musique permet dans Synqit",
+        "service": "Service",
+        "connect": "Connexion",
+        "events": "Événements",
+        "sync": "Partage et synchro",
+        "transferIn": "Transfert vers",
+        "importFrom": "Import depuis",
+        "yes": "Disponible",
+        "no": "Non disponible"
+      },
+      "connect": {
+        "question": "Quels services puis-je connecter à Synqit ?",
+        "answer": "Ceux marqués Connexion dans le tableau ci-dessus. Vous vous connectez une fois, et Synqit lit et écrit ensuite les playlists de votre propre bibliothèque : les fonctions prises en charge par ce service vous sont ouvertes, playlists d'événement, playlists partagées et transferts."
+      },
+      "link": {
+        "question": "Puis-je utiliser un service que je ne peux pas connecter ?",
+        "answer": "Oui, comme source. Collez le lien d'une playlist publique et Synqit la reconstruit dans le service que vous avez connecté. Aucun compte à relier, aucun mot de passe à donner. Synqit n'écrit jamais rien en retour sur la source, et les playlists privées ne peuvent pas être lues."
+      },
+      "guests": {
+        "question": "Mes invités doivent-ils avoir un compte pour ajouter des morceaux ?",
+        "answer": "Non. Ils ouvrent votre lien, cherchent et ajoutent. Aucune application à installer, aucune inscription, quel que soit le service qu'ils utilisent. La playlist, elle, vit dans votre propre bibliothèque, sur le service depuis lequel vous l'hébergez."
+      },
+      "syncDirection": {
+        "question": "Une playlist partagée se synchronise-t-elle dans les deux sens ?",
+        "answer": "Non. Vos abonnés reçoivent chaque morceau que vous ajoutez, sur le service connecté qu'ils utilisent. Ce qu'ils ajoutent de leur côté reste chez eux : votre playlist n'est jamais modifiée par quelqu'un d'autre."
+      },
+      "skipped": {
+        "question": "Pourquoi certains morceaux sont-ils ignorés ?",
+        "answer": "Les catalogues diffèrent d'un service à l'autre, et un morceau présent sur l'un n'est pas toujours sur l'autre. Quand une source porte un identifiant d'enregistrement, comme Deezer, les correspondances sont exactes. Quand elle ne donne qu'un titre en texte libre, comme YouTube, quelques morceaux peuvent tomber sur une autre version ou être ignorés."
+      },
+      "linkPrivacy": {
+        "question": "Qui peut ouvrir le lien de ma playlist ?",
+        "answer": "Toute personne à qui vous l'envoyez, et c'est ce qui le rend si simple pour vos invités. Vous gardez la main : retirez n'importe quel morceau, fermez la playlist à la fin de la soirée, révoquez ou régénérez le lien quand vous voulez."
+      },
+      "leaving": {
+        "question": "Que deviennent mes playlists si j'arrête d'utiliser Synqit ?",
+        "answer": "Rien. Chaque playlist créée par Synqit est une vraie playlist dans votre propre bibliothèque, sur votre propre compte. Elle y reste, avec tous ses morceaux, que vous continuiez ou non à utiliser Synqit."
+      },
+      "cta": "Créez votre première playlist",
+      "backHome": "Retour à l'accueil"
     }
   },
   "modal": {
@@ -1192,9 +1272,56 @@
     "privacy": "Confidentialité",
     "terms": "Conditions",
     "legalNotice": "Mentions légales",
-    "cookies": "Cookies"
+    "cookies": "Cookies",
+    "faq": "FAQ"
   },
   "legal": {
     "otherPages": "Autres pages légales"
+  },
+  "transferLinkPage": {
+    "title": "Importer depuis un lien",
+    "description": "Collez le lien d'une playlist publique Deezer ou YouTube et Synqit la recrée dans votre Spotify ou Apple Music.",
+    "eyebrow": "Rapatrier une playlist",
+    "stepLink": "Lien",
+    "stepPreview": "Aperçu",
+    "stepImport": "Import",
+    "linkTitle": "Collez le lien de la playlist",
+    "linkBody": "Playlists publiques uniquement. Les liens Deezer sont associés par ISRC, donc exacts ; les titres YouTube sont retrouvés par recherche.",
+    "linkLabel": "Lien de la playlist",
+    "linkPlaceholder": "https://www.deezer.com/playlist/… ou https://music.youtube.com/playlist?list=…",
+    "destinationTitle": "Vers",
+    "destinationBody": "Choisissez où la playlist doit arriver. Connectez d'abord le service si besoin.",
+    "previewCta": "Aperçu de la playlist",
+    "previewTitle": "Vérifiez la playlist",
+    "previewBody": "Voici ce que Synqit a trouvé à ce lien. Vérifiez, puis lancez l'import.",
+    "previewTruncated": "Seuls les {{count}} premiers titres seront importés sur {{total}}.",
+    "previewSample": "{{count}} titres affichés sur {{total}}.",
+    "youtubeMatchNote": "Les titres YouTube sont du texte libre. Certains morceaux peuvent correspondre à une autre version ou être ignorés.",
+    "startImport": "Importer dans {{provider}}",
+    "importing": "Import en cours…",
+    "importTitle": "Import de votre playlist",
+    "importBody": "Les titres sont associés et ajoutés un par un. Vous pouvez quitter cette page, l'import continue.",
+    "progress": "{{done}} titres traités sur {{total}}",
+    "completionTitle": "Import terminé",
+    "completionBody": "Votre playlist est dans votre bibliothèque. Les titres ignorés n'avaient pas d'équivalent sur le service de destination.",
+    "failedTitle": "Import échoué",
+    "failedBody": "{{message}}",
+    "matchedCount": "{{count}} titres trouvés",
+    "skippedCount": "{{count}} titres ignorés",
+    "openDashboard": "Voir mes transferts",
+    "importAnother": "Importer un autre lien",
+    "backToLink": "Retour au lien",
+    "invalidLink": "Collez le lien d'une playlist publique Deezer ou YouTube.",
+    "previewError": "Impossible de lire cette playlist : {{message}}",
+    "startError": "L'import n'a pas pu démarrer : {{message}}",
+    "switchToProviders": "Vous passez plutôt de Spotify à Apple Music ?",
+    "switchToProvidersCta": "Transférer entre services connectés",
+    "supportedSourcesLabel": "Importer depuis",
+    "sourceUnavailable": "Pas encore activé",
+    "note": {
+      "deezer": "Correspondance titre pour titre",
+      "youtube": "Correspondance par titre de morceau"
+    },
+    "matchingFaq": "Pourquoi ?"
   }
 }

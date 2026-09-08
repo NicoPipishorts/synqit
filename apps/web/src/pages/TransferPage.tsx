@@ -1,5 +1,5 @@
-import type { ProviderPlaylistItem, ProviderPlaylistTrack } from '@synqit/shared';
-import { Sticker, useToast } from '@synqit/ui';
+import type { ProviderPlaylistItem } from '@synqit/shared';
+import { LINK_SERVICES, ServiceLogo, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -7,13 +7,10 @@ import {
   ArrowLeft,
   ArrowLeftRight,
   ArrowRight,
-  Check,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  LoaderCircle,
-  Music2,
-  X,
+  Link2,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -21,15 +18,22 @@ import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { CreateFlowStepBreadcrumbs } from '../components/create-flow/CreateFlowStepBreadcrumbs';
 import { CREATE_FLOW_STEP_SLIDE_VARIANTS } from '../components/create-flow/flowMotion';
-import { EventProviderIcon } from '../components/events/EventProviderIcon';
+import { ProviderIcon } from '../components/providers/ProviderIcon';
 import { SyncPlaylistPicker } from '../components/syncs/SyncPlaylistPicker';
+import {
+  PlaylistTrackRow,
+  ProviderCard,
+  TransferViewport,
+} from '../components/syncs/TransferPrimitives';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
+import { CONNECTABLE_PROVIDERS, PROVIDER_LABELS } from '../lib/providers';
 import {
+  EMPTY_INTEGRATION_MAP,
   createTransfer,
   fetchIntegrations,
   fetchProviderPlaylistTrackCount,
@@ -42,205 +46,9 @@ import {
 import type { Provider } from '../lib/types';
 
 const PLAYLISTS_PAGE_SIZE = 25;
-const TRANSFER_ROW_HEIGHT = 76;
-const TRANSFER_VISIBLE_ROWS = 5;
 const STEP_TWO_VISIBLE_TRACKS = 15;
 
 type TransferStep = 1 | 2 | 3;
-
-type ProviderCardProps = {
-  title: string;
-  selectedProvider: Provider;
-  providerStatusByType: Record<Provider, 'connected' | 'not_connected'>;
-  isBusy: boolean;
-  connectLabel: string;
-  connectedLabel: string;
-  notConnectedLabel: string;
-  onConnect: (provider: Provider) => void;
-};
-
-const formatDuration = (durationMs: number): string => {
-  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${String(seconds).padStart(2, '0')}`;
-};
-
-const ProviderCard = ({
-  title,
-  selectedProvider,
-  providerStatusByType,
-  isBusy,
-  connectLabel,
-  connectedLabel,
-  notConnectedLabel,
-  onConnect,
-}: ProviderCardProps) => {
-  const isConnected = providerStatusByType[selectedProvider] === 'connected';
-  return (
-    <motion.article
-      layoutId={`transfer-provider-card-${selectedProvider}`}
-      transition={{ type: 'spring', stiffness: 320, damping: 30 }}
-      className="relative rounded-2xl border-2 border-app-text bg-app-surface p-5 shadow-sticker-sm dark:bg-app-elevated"
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div className="grid gap-1">
-          <Sticker tone="paper" tilt="-rotate-2" className="mb-1">
-            {title}
-          </Sticker>
-          <p className="text-2xl font-black text-brand-dark dark:text-brand-white">
-            {selectedProvider === 'spotify' ? 'Spotify' : 'Apple Music'}
-          </p>
-          <p className="text-sm text-app-text-secondary">
-            {isConnected ? connectedLabel : notConnectedLabel}
-          </p>
-        </div>
-        <EventProviderIcon provider={selectedProvider} sizeClassName="h-14 w-14 sm:h-16 sm:w-16" />
-      </div>
-
-      {!isConnected ? (
-        <div className="mt-5">
-          <CTAButton
-            variant="primary"
-            className="w-full justify-center"
-            onClick={() => onConnect(selectedProvider)}
-            disabled={isBusy}
-          >
-            {isBusy ? <LoaderCircle size={14} className="animate-spin" aria-hidden="true" /> : null}
-            {connectLabel}
-          </CTAButton>
-        </div>
-      ) : null}
-    </motion.article>
-  );
-};
-
-const PlaylistTrackRow = ({
-  track,
-  state = 'pending',
-  compact = false,
-}: {
-  track: ProviderPlaylistTrack;
-  state?: 'completed' | 'active' | 'pending' | 'skipped';
-  compact?: boolean;
-}) => (
-  <div
-    className={`flex items-center gap-3 rounded-2xl border-2 px-3 py-3 transition ${
-      state === 'completed'
-        ? 'border-app-text bg-brand-lime/20'
-        : state === 'active'
-          ? 'border-app-text bg-brand-pink/10 shadow-sticker-sm'
-          : state === 'skipped'
-            ? 'border-dashed border-app-text/40 bg-app-surface dark:bg-app-elevated'
-            : 'border-app-border-strong bg-app-surface dark:bg-app-elevated'
-    } ${compact ? '' : 'min-h-[4.5rem]'}`}
-  >
-    {track.artworkUrl ? (
-      <img
-        src={track.artworkUrl}
-        alt=""
-        className="h-11 w-11 shrink-0 rounded-xl border-2 border-app-text object-cover"
-      />
-    ) : (
-      <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border-2 border-app-text bg-app-surface text-app-text dark:bg-app-elevated">
-        <Music2 size={16} aria-hidden="true" />
-      </span>
-    )}
-    <div className="min-w-0 flex-1">
-      <p className="truncate text-sm font-bold text-brand-dark dark:text-brand-white">
-        {track.name}
-      </p>
-      <p className="truncate text-xs text-app-text-secondary">
-        {track.artist} · {track.album}
-      </p>
-    </div>
-    <div className="flex items-center gap-2">
-      <span className="hidden text-xs text-app-text-secondary sm:inline">
-        {formatDuration(track.durationMs)}
-      </span>
-      <span
-        className={`inline-flex h-8 w-8 items-center justify-center rounded-full border-2 transition ${
-          state === 'completed'
-            ? 'border-app-text bg-brand-lime text-brand-dark'
-            : state === 'active'
-              ? 'border-app-text bg-brand-pink text-brand-white'
-              : state === 'skipped'
-                ? 'border-dashed border-app-text/50 text-app-text-muted'
-                : 'border-app-border-strong text-app-text-secondary'
-        }`}
-      >
-        {state === 'completed' ? (
-          <Check size={14} strokeWidth={3} aria-hidden="true" />
-        ) : state === 'active' ? (
-          <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />
-        ) : state === 'skipped' ? (
-          <X size={14} strokeWidth={3} aria-hidden="true" />
-        ) : (
-          <ChevronRight size={14} aria-hidden="true" />
-        )}
-      </span>
-    </div>
-  </div>
-);
-
-const TransferViewport = ({
-  tracks,
-  progressCount,
-  matchedCount,
-  transferComplete,
-}: {
-  tracks: ProviderPlaylistTrack[];
-  progressCount: number;
-  matchedCount: number;
-  transferComplete: boolean;
-}) => {
-  const viewportHeight = TRANSFER_ROW_HEIGHT * TRANSFER_VISIBLE_ROWS;
-  const maxOffset = Math.max(0, tracks.length - TRANSFER_VISIBLE_ROWS) * TRANSFER_ROW_HEIGHT;
-  const y = Math.min(Math.max(progressCount - 2, 0) * TRANSFER_ROW_HEIGHT, maxOffset);
-
-  if (transferComplete) {
-    return (
-      <div className="max-h-[min(70svh,38rem)] overflow-y-auto rounded-2xl border-2 border-app-text/70 bg-app-surface p-3 dark:bg-app-elevated">
-        <div className="grid gap-2">
-          {tracks.map((track, index) => (
-            <PlaylistTrackRow
-              key={`${track.providerTrackId}-${index}`}
-              track={track}
-              state={index < matchedCount ? 'completed' : 'skipped'}
-            />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl border-2 border-app-text/70 bg-app-surface p-3 dark:bg-app-elevated">
-      <div className="overflow-hidden" style={{ height: viewportHeight }}>
-        <motion.div
-          animate={{ y: -y }}
-          transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-          className="grid gap-2"
-        >
-          {tracks.map((track, index) => (
-            <div key={`${track.providerTrackId}-${index}`} style={{ height: TRANSFER_ROW_HEIGHT }}>
-              <PlaylistTrackRow
-                track={track}
-                state={
-                  index < progressCount
-                    ? 'completed'
-                    : index === progressCount
-                      ? 'active'
-                      : 'pending'
-                }
-              />
-            </div>
-          ))}
-        </motion.div>
-      </div>
-    </div>
-  );
-};
 
 export const TransferPage = () => {
   const { t } = useI18n();
@@ -265,10 +73,7 @@ export const TransferPage = () => {
     staleTime: 60_000,
   });
 
-  const providerStatusByType = integrationsQuery.data ?? {
-    spotify: 'not_connected',
-    apple: 'not_connected',
-  };
+  const providerStatusByType = integrationsQuery.data ?? EMPTY_INTEGRATION_MAP;
 
   const sourceConnected = providerStatusByType[sourceProvider] === 'connected';
   const destinationConnected = providerStatusByType[destinationProvider] === 'connected';
@@ -378,7 +183,7 @@ export const TransferPage = () => {
           await connectAppleMusic();
         } else {
           await openProviderOauthPopup({
-            provider: 'spotify',
+            provider,
             nextPath: '/transfer',
           });
         }
@@ -386,7 +191,7 @@ export const TransferPage = () => {
         await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
         showToast(
           t('profile.connectionConnected', {
-            provider: provider === 'spotify' ? 'Spotify' : 'Apple Music',
+            provider: PROVIDER_LABELS[provider],
           }),
           { variant: 'success' },
         );
@@ -601,13 +406,30 @@ export const TransferPage = () => {
   };
 
   const [swapSpin, setSwapSpin] = useState(0);
+  /** Source and destination must differ; pick any other connectable service. */
+  const otherProvider = (provider: Provider): Provider =>
+    CONNECTABLE_PROVIDERS.find((candidate) => candidate !== provider) ?? provider;
+  const handleSelectSourceProvider = (provider: Provider) => {
+    setSourceProvider(provider);
+    if (provider === destinationProvider) {
+      setDestinationProvider(otherProvider(provider));
+    }
+  };
+
+  const handleSelectDestinationProvider = (provider: Provider) => {
+    setDestinationProvider(provider);
+    if (provider === sourceProvider) {
+      setSourceProvider(otherProvider(provider));
+    }
+  };
+
   const handleSwapProviders = () => {
     setSourceProvider(destinationProvider);
     setDestinationProvider(sourceProvider);
   };
 
-  const sourceLabel = sourceProvider === 'spotify' ? 'Spotify' : 'Apple Music';
-  const destinationLabel = destinationProvider === 'spotify' ? 'Spotify' : 'Apple Music';
+  const sourceLabel = PROVIDER_LABELS[sourceProvider];
+  const destinationLabel = PROVIDER_LABELS[destinationProvider];
   // Round-trip: the chosen source playlist was itself created by a previous
   // Synqit transfer from the provider we're now sending it back to.
   const isRoundTrip =
@@ -627,8 +449,7 @@ export const TransferPage = () => {
 
   // Re-transfer: this same source playlist was already transferred before.
   // Stronger warning when it was sent to the destination we picked now.
-  const providerLabel = (provider: Provider) =>
-    provider === 'spotify' ? 'Spotify' : 'Apple Music';
+  const providerLabel = (provider: Provider) => PROVIDER_LABELS[provider];
   const priorTransfer = selectedPlaylist?.priorTransfer ?? null;
   const hasPriorTransfer = priorTransfer != null && priorTransfer.destinationProviders.length > 0;
   const alreadyTransferredToDestination =
@@ -725,6 +546,7 @@ export const TransferPage = () => {
                   selectedProvider={sourceProvider}
                   providerStatusByType={providerStatusByType}
                   isBusy={isBusy}
+                  onSelect={handleSelectSourceProvider}
                   connectLabel={t('transferPage.connectSource')}
                   connectedLabel={t('transferPage.alreadyConnected')}
                   notConnectedLabel={t('transferPage.notConnected')}
@@ -794,11 +616,25 @@ export const TransferPage = () => {
                   selectedProvider={destinationProvider}
                   providerStatusByType={providerStatusByType}
                   isBusy={isBusy}
+                  onSelect={handleSelectDestinationProvider}
                   connectLabel={t('transferPage.connectDestination')}
                   connectedLabel={t('transferPage.alreadyConnected')}
                   notConnectedLabel={t('transferPage.notConnected')}
                   onConnect={connectSelectedProvider}
                 />
+
+                <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-app-border px-4 py-3 text-sm text-app-text-secondary lg:col-span-3">
+                  <Link2 size={16} aria-hidden="true" />
+                  <span>{t('transferPage.importFromLinkHint')}</span>
+                  <span className="flex items-center gap-2">
+                    {LINK_SERVICES.map((service) => (
+                      <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                    ))}
+                  </span>
+                  <CTALink to="/transfer/link" variant="ghost" className="ml-auto">
+                    {t('transferPage.importFromLinkCta')}
+                  </CTALink>
+                </div>
               </div>
             ) : null}
 
@@ -851,7 +687,7 @@ export const TransferPage = () => {
                         ) : null}
                       </div>
                       <div className="flex items-center gap-2">
-                        <EventProviderIcon provider={sourceProvider} sizeClassName="h-10 w-10" />
+                        <ProviderIcon provider={sourceProvider} sizeClassName="h-10 w-10" />
                       </div>
                     </div>
 
@@ -996,13 +832,13 @@ export const TransferPage = () => {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        <EventProviderIcon provider={sourceProvider} sizeClassName="h-8 w-8" />
+                        <ProviderIcon provider={sourceProvider} sizeClassName="h-8 w-8" />
                         <ArrowLeftRight
                           size={16}
                           className="text-brand-white/55"
                           aria-hidden="true"
                         />
-                        <EventProviderIcon provider={destinationProvider} sizeClassName="h-8 w-8" />
+                        <ProviderIcon provider={destinationProvider} sizeClassName="h-8 w-8" />
                       </div>
                     </div>
                   </div>

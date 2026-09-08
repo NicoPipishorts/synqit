@@ -1,11 +1,19 @@
-import { Highlight, Sticker, type StickerTone } from '@synqit/ui';
+import {
+  CONNECT_SERVICES,
+  Highlight,
+  LINK_SERVICES,
+  ServiceLogo,
+  Sticker,
+  type StickerTone,
+} from '@synqit/ui';
 import { motion, type Variants } from 'framer-motion';
-import { ArrowDown, ArrowLeftRight, PartyPopper, Share2 } from 'lucide-react';
+import { ArrowDown, ArrowLeftRight, ArrowRight, PartyPopper, Share2 } from 'lucide-react';
 import { type ReactNode } from 'react';
 
 import { HeroScreens } from './components/marketing/HeroScreens';
 import { MarketingPageShell } from './components/marketing/MarketingPageShell';
 import { RevealSection } from './components/marketing/RevealSection';
+import { ServiceCompatibility } from './components/marketing/ServiceCompatibility';
 import { type Service, ServiceShowcase } from './components/marketing/ServiceShowcase';
 import { HeroLink } from './components/ui/HeroLink';
 import { buildAppUrl } from './lib/app-url';
@@ -50,11 +58,19 @@ const SectionIntro = ({
   title,
   tone = 'paper',
   align = 'left',
+  titleClassName = '',
 }: {
   eyebrow: string;
   title: string;
   tone?: StickerTone;
   align?: 'left' | 'center';
+  /**
+   * Widen a title that would otherwise break awkwardly. Titles are capped at
+   * `max-w-2xl` so a long one wraps into a readable block; pass an `sm:max-w-*`
+   * to let a specific one run the full column on a wide screen. Phones are too
+   * narrow for any of them to fit on one line, so they still wrap there.
+   */
+  titleClassName?: string;
 }) => (
   <div
     className={`flex flex-col gap-4 ${align === 'center' ? 'items-center text-center' : 'items-start'}`}
@@ -62,27 +78,11 @@ const SectionIntro = ({
     <Sticker tone={tone} tilt="-rotate-2">
       {eyebrow}
     </Sticker>
-    <h2 className="max-w-2xl text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+    <h2
+      className={`max-w-2xl text-pretty text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl ${titleClassName}`}
+    >
       {title}
     </h2>
-  </div>
-);
-
-const ProviderLogos = ({ label }: { label: string }) => (
-  <div className="flex items-center gap-3">
-    <span className="text-xs font-bold uppercase tracking-[0.16em] text-app-text-muted">
-      {label}
-    </span>
-    <img
-      src="/assets/logos/Providers/Spotify.png"
-      alt="Spotify"
-      className="h-8 w-8 rounded-xl object-contain"
-    />
-    <img
-      src="/assets/logos/Providers/AppleMusic.png"
-      alt="Apple Music"
-      className="h-8 w-8 rounded-xl object-contain"
-    />
   </div>
 );
 
@@ -194,9 +194,6 @@ export const HomePage = () => {
                   <ArrowDown size={16} aria-hidden className="motion-safe:animate-bounce" />
                 </a>
               </motion.div>
-              <motion.div variants={FADE_UP}>
-                <ProviderLogos label={t('home.hero.worksWith')} />
-              </motion.div>
             </div>
 
             <motion.div
@@ -222,7 +219,10 @@ export const HomePage = () => {
       </RevealSection>
 
       {/* ── Services + how it works (one interactive section) ─────────── */}
-      <RevealSection id="how" trackId="services" className="relative scroll-mt-24 py-16 sm:py-24">
+      {/* The showcase is tall, so the anchor lands tight under the fixed navbar rather
+          than a full section-padding below it: that reclaimed space is what brings the
+          phone's lower half into the first screen. */}
+      <RevealSection id="how" trackId="services" className="relative scroll-mt-12 py-16 sm:py-24">
         <Container className="flex flex-col gap-4">
           <SectionIntro eyebrow={t('home.services.eyebrow')} title={t('home.services.title')} />
           <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
@@ -232,6 +232,67 @@ export const HomePage = () => {
         <div className="mx-auto mt-8 w-full max-w-6xl px-5 sm:px-6 lg:mt-12 lg:px-8">
           <ServiceShowcase services={services} swipeHint={t('home.services.swipeHint')} />
         </div>
+
+        {/* The marquee's band from lower down, held still and tilted the other way:
+            this one is a fact list, and two bands leaning the same way would read
+            as one repeated element rather than two beats of the page. */}
+        <div className="-mx-6 mt-12 rotate-1 border-y-2 border-app-text bg-brand-dark py-3 text-brand-white dark:bg-brand-white dark:text-brand-dark sm:mt-16">
+          <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-center gap-x-5 gap-y-2 px-8 sm:gap-x-7">
+            <span className="text-xs font-black uppercase tracking-[0.22em] sm:text-sm">
+              {t('home.compatStrip.label')}
+            </span>
+            <span className="flex items-center gap-3">
+              {[...CONNECT_SERVICES, ...LINK_SERVICES].map((service) => (
+                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+              ))}
+            </span>
+            <a
+              href="/faq#matrix"
+              className="focus-ring-brand group inline-flex items-center gap-1.5 rounded-full text-xs font-black uppercase tracking-[0.16em] underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-sm"
+            >
+              {t('home.compatStrip.cta')}
+              <ArrowRight
+                size={14}
+                aria-hidden
+                className="transition group-hover:translate-x-0.5"
+              />
+            </a>
+          </div>
+        </div>
+      </RevealSection>
+
+      {/* ── Which services, and what each one can do ──────────────────── */}
+      <RevealSection
+        id="services"
+        trackId="compatibility"
+        className="relative scroll-mt-24 py-16 sm:py-24"
+      >
+        <Container className="flex flex-col gap-4">
+          <SectionIntro
+            eyebrow={t('home.compat.eyebrow')}
+            title={t('home.compat.title')}
+            tone="lime"
+            // The French title needs ~860px at this size, so 2xl broke it mid-phrase.
+            titleClassName="sm:max-w-4xl"
+          />
+          <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
+            {t('home.compat.lead')}
+          </p>
+        </Container>
+        <Container className="mt-10 lg:mt-14">
+          <ServiceCompatibility />
+          {/* Centred under the two cards: it answers both of them, so hanging it
+              off the left edge made it read as a footnote to the first one. */}
+          <div className="mt-8 flex justify-center">
+            <a
+              href="/faq#matrix"
+              className="focus-ring-brand inline-flex items-center gap-1 rounded-full text-sm font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink"
+            >
+              {t('home.compat.seeAll')}
+              <ArrowRight size={14} aria-hidden />
+            </a>
+          </div>
+        </Container>
       </RevealSection>
 
       {/* ── Statement + marquee ───────────────────────────────────────── */}

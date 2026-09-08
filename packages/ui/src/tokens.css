@@ -151,11 +151,21 @@
 }
 
 @utility bg-halftone {
+  /* A 14px grid of dots reads clearly on a phone, where it fills the screen, but
+     thins out to nothing across a wide desktop viewport. Same grid there, with
+     more contrast and a slightly fatter dot so the texture still registers. */
   background-image: radial-gradient(
     color-mix(in srgb, var(--syn-text) 9%, transparent) 1px,
     transparent 1px
   );
   background-size: 14px 14px;
+
+  @media (width >= 48rem) {
+    background-image: radial-gradient(
+      color-mix(in srgb, var(--syn-text) 14%, transparent) 1px,
+      transparent 1px
+    );
+  }
 }
 
 @utility text-outline {

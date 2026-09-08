@@ -12,9 +12,16 @@ import { prisma } from './db/prisma';
 import { eventsStore } from './events/store';
 import { buildServer } from './index';
 import { decryptToken, encryptToken } from './integrations/crypto';
+import { EVENT_CAPABLE_PROVIDERS, getProviderAdapter } from './integrations/provider-registry';
 import { notificationRunsStore } from './jobs/notification-runs-store';
 import { closeTransfersQueue } from './jobs/transfers-queue';
 import { buildWeeklyRecapDigests } from './jobs/weekly-recap-digests';
+import { setExternalImportProviderOpsForTests } from './syncs/external-import-runner';
+import {
+  externalSourceHttp,
+  parseExternalSourceUrl,
+  parseYoutubeTitle,
+} from './syncs/external-sources';
 import { syncsStore } from './syncs/store';
 import { transfersStore } from './syncs/transfer-store';
 import { processTransferPlaylistJob } from './syncs/transfer-worker';
@@ -3045,6 +3052,243 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
     assert.equal(body.subscriberSyncActivity[0]?.latestActivityAt, lastSyncedAt.toISOString());
   });
 
+  it('external imports: parses Deezer and YouTube links and YouTube titles', () => {
+    assert.deepEqual(parseExternalSourceUrl('https://www.deezer.com/fr/playlist/908622995'), {
+      source: 'deezer',
+      playlistId: '908622995',
+    });
+    assert.deepEqual(parseExternalSourceUrl('https://deezer.com/playlist/12?utm=x'), {
+      source: 'deezer',
+      playlistId: '12',
+    });
+    assert.deepEqual(
+      parseExternalSourceUrl('https://music.youtube.com/playlist?list=PLabcDEF1234567890'),
+      { source: 'youtube', playlistId: 'PLabcDEF1234567890' },
+    );
+    assert.deepEqual(
+      parseExternalSourceUrl(
+        'https://www.youtube.com/watch?v=abc&list=RDCLAK5uy_kmPRjHDECIcuVwnKsx2Ng7fyNgFKWNJFs',
+      ),
+      { source: 'youtube', playlistId: 'RDCLAK5uy_kmPRjHDECIcuVwnKsx2Ng7fyNgFKWNJFs' },
+    );
+    assert.equal(parseExternalSourceUrl('https://open.spotify.com/playlist/abc'), null);
+    assert.equal(parseExternalSourceUrl('not a url'), null);
+
+    assert.deepEqual(
+      parseYoutubeTitle('Daft Punk - Harder, Better, Faster, Stronger (Official Video)', null),
+      {
+        artist: 'Daft Punk',
+        name: 'Harder, Better, Faster, Stronger',
+      },
+    );
+    assert.deepEqual(parseYoutubeTitle('Hey Jude [Remastered 2015]', 'The Beatles - Topic'), {
+      artist: 'The Beatles',
+      name: 'Hey Jude',
+    });
+  });
+
+  it('external imports: previews a Deezer playlist and imports it in the background', async () => {
+    const email = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const registerBody = await registerUser(app, email);
+    const accessToken = registerBody.tokens.accessToken;
+    await connectProvider(app, { provider: 'spotify', accessToken });
+
+    const deezerTracks = [
+      {
+        id: 1,
+        title: 'Hey Jude',
+        duration: 429,
+        isrc: 'GBUM71505902',
+        artist: { name: 'The Beatles' },
+        album: { title: '1', cover_medium: 'https://img.test/a.jpg' },
+      },
+      {
+        id: 2,
+        title: 'Let It Be',
+        duration: 243,
+        isrc: 'GBUM71505903',
+        artist: { name: 'The Beatles' },
+        album: { title: 'Let It Be' },
+      },
+      {
+        id: 3,
+        title: 'Obscure B-side',
+        duration: 120,
+        isrc: null,
+        artist: { name: 'Nobody' },
+        album: { title: 'Rarities' },
+      },
+    ];
+    const originalFetch = externalSourceHttp.fetch;
+    externalSourceHttp.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === 'https://api.deezer.com/playlist/908622995') {
+        return new Response(
+          JSON.stringify({
+            id: 908622995,
+            title: 'En mode 60',
+            nb_tracks: 3,
+            public: true,
+            picture_medium: 'https://img.test/p.jpg',
+          }),
+          { status: 200 },
+        );
+      }
+      if (url.startsWith('https://api.deezer.com/playlist/908622995/tracks')) {
+        const params = new URL(url).searchParams;
+        const index = Number(params.get('index') ?? 0);
+        const limit = Number(params.get('limit') ?? 100);
+        return new Response(
+          JSON.stringify({ data: deezerTracks.slice(index, index + limit), total: 3 }),
+          { status: 200 },
+        );
+      }
+      if (url.startsWith('https://api.deezer.com/playlist/404')) {
+        return new Response(
+          JSON.stringify({ error: { type: 'DataException', message: 'no data', code: 800 } }),
+          { status: 200 },
+        );
+      }
+      return new Response('{}', { status: 500 });
+    }) as typeof fetch;
+
+    const matched: string[] = [];
+    setExternalImportProviderOpsForTests({
+      createRecipientPlaylist: async () => 'spotify-playlist-1',
+      findProviderMatch: async ({ track }) => (track.isrc ? `spotify-${track.isrc}` : null),
+      addTrackToRecipientPlaylist: async ({ recipientTrackId }) => {
+        matched.push(recipientTrackId);
+      },
+    });
+
+    try {
+      const sourcesResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/syncs/external-sources',
+        headers: authHeader(accessToken),
+      });
+      assert.equal(sourcesResponse.statusCode, 200);
+      assert.equal(
+        (parseBody(sourcesResponse.body) as { sources: { deezer: boolean } }).sources.deezer,
+        true,
+      );
+
+      const previewResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/syncs/external-imports/preview',
+        headers: authHeader(accessToken),
+        payload: { url: 'https://www.deezer.com/fr/playlist/908622995' },
+      });
+      assert.equal(previewResponse.statusCode, 200);
+      const preview = parseBody(previewResponse.body) as {
+        source: string;
+        name: string;
+        trackCount: number;
+        tracks: { name: string; isrc: string | null }[];
+      };
+      assert.equal(preview.source, 'deezer');
+      assert.equal(preview.name, 'En mode 60');
+      assert.equal(preview.trackCount, 3);
+      assert.equal(preview.tracks[0]?.isrc, 'GBUM71505902');
+
+      const badLinkResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/syncs/external-imports/preview',
+        headers: authHeader(accessToken),
+        payload: { url: 'https://open.spotify.com/playlist/abc' },
+      });
+      assert.equal(badLinkResponse.statusCode, 400);
+      assert.equal((parseBody(badLinkResponse.body) as { code: string }).code, 'unsupported_url');
+
+      const missingResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/syncs/external-imports/preview',
+        headers: authHeader(accessToken),
+        payload: { url: 'https://www.deezer.com/playlist/404' },
+      });
+      assert.equal(missingResponse.statusCode, 404);
+
+      const notConnectedResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/syncs/external-imports',
+        headers: authHeader(accessToken),
+        payload: {
+          url: 'https://www.deezer.com/fr/playlist/908622995',
+          recipientProvider: 'apple',
+        },
+      });
+      assert.equal(notConnectedResponse.statusCode, 400);
+      assert.equal(
+        (parseBody(notConnectedResponse.body) as { code: string }).code,
+        'provider_not_connected',
+      );
+
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/syncs/external-imports',
+        headers: authHeader(accessToken),
+        payload: {
+          url: 'https://www.deezer.com/fr/playlist/908622995',
+          recipientProvider: 'spotify',
+        },
+      });
+      assert.equal(createResponse.statusCode, 202);
+      const created = (
+        parseBody(createResponse.body) as {
+          import: { id: string; status: string; totalCount: number };
+        }
+      ).import;
+      assert.equal(created.totalCount, 3);
+
+      let latest = created;
+      for (
+        let attempt = 0;
+        attempt < 40 && latest.status !== 'completed' && latest.status !== 'failed';
+        attempt += 1
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const pollResponse = await app.inject({
+          method: 'GET',
+          url: `/v1/syncs/external-imports/${created.id}`,
+          headers: authHeader(accessToken),
+        });
+        assert.equal(pollResponse.statusCode, 200);
+        latest = (parseBody(pollResponse.body) as { import: typeof created }).import;
+      }
+      const final = latest as typeof created & {
+        matchedCount: number;
+        skippedCount: number;
+        recipientProviderPlaylistId: string | null;
+      };
+      assert.equal(final.status, 'completed');
+      assert.equal(final.matchedCount, 2);
+      assert.equal(final.skippedCount, 1);
+      assert.equal(final.recipientProviderPlaylistId, 'spotify-playlist-1');
+      assert.deepEqual(matched, ['spotify-GBUM71505902', 'spotify-GBUM71505903']);
+
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/syncs/external-imports',
+        headers: authHeader(accessToken),
+      });
+      assert.equal(listResponse.statusCode, 200);
+      assert.equal((parseBody(listResponse.body) as { imports: unknown[] }).imports.length, 1);
+
+      // Other users cannot read it.
+      const otherEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+      const other = await registerUser(app, otherEmail);
+      const forbiddenResponse = await app.inject({
+        method: 'GET',
+        url: `/v1/syncs/external-imports/${created.id}`,
+        headers: authHeader(other.tokens.accessToken),
+      });
+      assert.equal(forbiddenResponse.statusCode, 404);
+    } finally {
+      externalSourceHttp.fetch = originalFetch;
+      setExternalImportProviderOpsForTests(null);
+    }
+  });
+
   it('syncs: create resolves missing track count before persisting', async () => {
     const email = `${TEST_EMAIL_PREFIX}sync-owner-${randomUUID()}@synqit.test`;
     const user = await registerUser(app, email);
@@ -3918,6 +4162,42 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
     } finally {
       scenario.restore();
     }
+  });
+
+  it('events: refuses a provider that cannot host an event', async () => {
+    const hostEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const hostUser = await registerUser(app, hostEmail);
+
+    await connectProvider(app, {
+      provider: 'tidal',
+      accessToken: hostUser.tokens.accessToken,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/playlists',
+      headers: authHeader(hostUser.tokens.accessToken),
+      payload: {
+        provider: 'tidal',
+        name: 'Should not be created',
+        description: 'TIDAL cannot host events yet.',
+      },
+    });
+
+    // A clear domain error, not a silently broken event and not a generic 400.
+    assert.equal(response.statusCode, 400);
+    const body = parseBody(response.body) as { code: string };
+    assert.equal(body.code, 'provider_not_supported_for_events');
+  });
+
+  it('providers: every provider in the schema has an adapter', () => {
+    for (const provider of providerSchema.options) {
+      const adapter = getProviderAdapter(provider);
+      assert.equal(adapter.id, provider);
+      assert.ok(adapter.label.length > 0);
+    }
+    // Only the adapters that claim event support may host events.
+    assert.deepEqual([...EVENT_CAPABLE_PROVIDERS].sort(), ['apple', 'spotify']);
   });
 
   it('recap: claims a notification period only once', async () => {

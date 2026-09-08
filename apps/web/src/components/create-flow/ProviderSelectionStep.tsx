@@ -1,30 +1,32 @@
-import { providerSchema } from '@synqit/shared';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, X } from 'lucide-react';
 
 import { CREATE_FLOW_STEP_SLIDE_EASE, CREATE_FLOW_STEP_SLIDE_VARIANTS } from './flowMotion';
 import type { Provider } from '../../lib/types';
-import { EventProviderIcon } from '../events/EventProviderIcon';
+import { ProviderIcon } from '../providers/ProviderIcon';
 
 export type ProviderIntegrationStatus = 'connected' | 'not_connected';
 
-type ProviderSelectionStepProps = {
+type ProviderSelectionStepProps<P extends Provider> = {
   body: string;
   isConnectingProvider: boolean;
   motionKey: string;
-  provider: Provider | null;
+  /** The services to offer, in display order. Event flows pass a narrower list than sync flows. */
+  providers: readonly P[];
+  provider: P | null;
   providerStatusByType: Record<Provider, ProviderIntegrationStatus>;
   providerLabels: Record<Provider, string>;
   stepDirection: 1 | -1;
   unselectAriaLabel: string;
   onProviderClear: () => void;
-  onProviderSelect: (provider: Provider) => void;
+  onProviderSelect: (provider: P) => void;
 };
 
-export const ProviderSelectionStep = ({
+export const ProviderSelectionStep = <P extends Provider>({
   body,
   isConnectingProvider,
   motionKey,
+  providers,
   provider,
   providerLabels,
   providerStatusByType,
@@ -32,7 +34,7 @@ export const ProviderSelectionStep = ({
   unselectAriaLabel,
   onProviderClear,
   onProviderSelect,
-}: ProviderSelectionStepProps) => {
+}: ProviderSelectionStepProps<P>) => {
   return (
     <motion.article
       key={motionKey}
@@ -48,7 +50,7 @@ export const ProviderSelectionStep = ({
       </p>
       <div className="mt-5 flex items-center justify-center gap-6 sm:gap-8">
         <AnimatePresence initial={false}>
-          {providerSchema.options.map((value) => {
+          {providers.map((value) => {
             const isSelected = provider === value;
             const isConnected = providerStatusByType[value] === 'connected';
             const isHidden = provider !== null && !isSelected;
@@ -76,7 +78,7 @@ export const ProviderSelectionStep = ({
                         isConnectingProvider ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
                       }`}
                     >
-                      <EventProviderIcon
+                      <ProviderIcon
                         provider={value}
                         sizeClassName="h-24 w-24 sm:h-24 sm:w-24"
                         imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}
@@ -84,7 +86,7 @@ export const ProviderSelectionStep = ({
                     </button>
                   ) : (
                     <span className="relative inline-flex">
-                      <EventProviderIcon
+                      <ProviderIcon
                         provider={value}
                         sizeClassName="h-24 w-24 sm:h-24 sm:w-24"
                         imgClassName={isConnected ? '' : 'grayscale saturate-0 opacity-70'}

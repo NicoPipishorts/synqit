@@ -1,5 +1,12 @@
-import { providerSchema } from '@synqit/shared';
-import { useToast } from '@synqit/ui';
+import { isEventProvider, providerSchema } from '@synqit/shared';
+import {
+  CONNECT_SERVICES,
+  LINK_SERVICES,
+  MUSIC_SERVICES,
+  ServiceChip,
+  ServiceLogo,
+  useToast,
+} from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouterState } from '@tanstack/react-router';
 import { RefreshCcw, Trash2 } from 'lucide-react';
@@ -17,14 +24,22 @@ import {
   queryKeys,
 } from '../../lib/queries';
 import { Provider } from '../../lib/types';
-import { CTAButton, CTAMobileIconLabel } from '../ui/cta';
+import { CTAButton, CTALink, CTAMobileIconLabel } from '../ui/cta';
 
 type ProviderAction = 'connect' | 'refresh' | 'disconnect';
 
-const PROVIDER_META: Record<Provider, { label: string; iconPath: string }> = {
-  spotify: { label: 'Spotify', iconPath: '/assets/logos/Providers/Spotify.png' },
-  apple: { label: 'Apple Music', iconPath: '/assets/logos/Providers/AppleMusic.png' },
-};
+/** Names come from the shared catalogue so every surface agrees; marks come from ServiceLogo. */
+const PROVIDER_META: Record<Provider, { label: string }> = Object.fromEntries(
+  providerSchema.options.map((provider) => [provider, { label: MUSIC_SERVICES[provider].name }]),
+) as Record<Provider, { label: string }>;
+
+/**
+ * Providers we actually offer a connect card for. The catalogue holds back any service whose
+ * brand mark we do not have yet, so this can be shorter than `providerSchema.options`.
+ */
+const CONNECTABLE_PROVIDERS: Provider[] = providerSchema.options.filter((provider) =>
+  CONNECT_SERVICES.some((service) => service.id === provider),
+);
 
 const snapshotFetchOptions = {
   queryKey: queryKeys.integrations.snapshot(),
@@ -103,7 +118,7 @@ export const ProviderConnections = () => {
         connectedCount: Object.values(snapshotQuery.data.byProvider).filter(
           (i) => i.status === 'connected',
         ).length,
-        totalProviders: providerSchema.options.length,
+        totalProviders: CONNECTABLE_PROVIDERS.length,
       },
     });
   }, [snapshotQuery.data]);
@@ -162,7 +177,7 @@ export const ProviderConnections = () => {
           await connectAppleMusic();
         } else {
           popupResult = await openProviderOauthPopup({
-            provider: 'spotify',
+            provider,
             nextPath: '/auth/provider-connected',
           });
         }
@@ -255,7 +270,7 @@ export const ProviderConnections = () => {
 
   const providerCards = useMemo(
     () =>
-      providerSchema.options.map((provider) => {
+      CONNECTABLE_PROVIDERS.map((provider) => {
         const integration = snapshot?.byProvider[provider] ?? {
           status: 'not_connected' as const,
           connectedAt: null,
@@ -268,13 +283,15 @@ export const ProviderConnections = () => {
           isBusy: Boolean(busyProviders[provider]),
           connectedAt: formatDateTime(integration.connectedAt),
           expiresAt: formatDateTime(integration.expiresAt),
-          eventsLinked: snapshot?.eventCountByProvider[provider] ?? 0,
+          // Only event-capable services can have events pointed at them.
+          eventsLinked: isEventProvider(provider)
+            ? (snapshot?.eventCountByProvider[provider] ?? 0)
+            : 0,
         };
       }),
     [busyProviders, formatDateTime, snapshot],
   );
 
-  const hasConnectedProvider = providerCards.some((c) => c.isConnected);
   const connectedCards = providerCards.filter((c) => c.isConnected);
   const isRefreshing = snapshotQuery.isFetching;
 
@@ -309,40 +326,32 @@ export const ProviderConnections = () => {
           </CTAButton>
         </div>
         <p className="mt-2 text-sm text-app-text-secondary">
-          {hasConnectedProvider
-            ? t('profile.connectionsServicesHintConnected')
-            : t('profile.connectionsServicesHint')}
+          {t('profile.connectionsServicesHint')}
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
-          {providerCards
-            .filter(({ isConnected }) => !hasConnectedProvider || isConnected)
-            .map(({ provider, meta, isConnected, isBusy }) => (
-              <button
-                key={provider}
-                type="button"
-                disabled={isConnected || isBusy}
-                onClick={() => {
-                  if (!isConnected) void runConnectAction(provider, 'connect');
-                }}
-                className={`grid min-w-38 gap-1 rounded-2xl border-2 border-app-text bg-app-elevated px-4 py-3 text-left shadow-sticker-sm transition motion-safe:hover:-translate-y-0.5 sm:min-w-40 dark:bg-app-card ${
-                  isConnected
-                    ? 'cursor-default grayscale'
-                    : 'cursor-pointer hover:border-brand-lime hover:shadow-glow-lime'
-                } ${isBusy ? 'opacity-60' : ''}`}
-              >
-                <img
-                  src={meta.iconPath}
-                  alt={meta.label}
-                  className="h-10 w-10 rounded-full border-2 border-app-text object-cover"
-                />
-                <p className="text-sm font-semibold text-app-text">{meta.label}</p>
-                <p className="text-xs text-app-text-secondary">
-                  {isConnected
-                    ? t('profile.connectionConnectedTag')
-                    : t('profile.connectionTapToConnect')}
-                </p>
-              </button>
-            ))}
+          {providerCards.map(({ provider, meta, isConnected, isBusy }) => (
+            <button
+              key={provider}
+              type="button"
+              disabled={isConnected || isBusy}
+              onClick={() => {
+                if (!isConnected) void runConnectAction(provider, 'connect');
+              }}
+              className={`grid min-w-38 gap-1 rounded-2xl border-2 border-app-text bg-app-elevated px-4 py-3 text-left shadow-sticker-sm transition motion-safe:hover:-translate-y-0.5 sm:min-w-40 dark:bg-app-card ${
+                isConnected
+                  ? 'cursor-default grayscale'
+                  : 'cursor-pointer hover:border-brand-lime hover:shadow-glow-lime'
+              } ${isBusy ? 'opacity-60' : ''}`}
+            >
+              <ServiceLogo service={provider} alt="" className="h-10 w-10 text-app-text" />
+              <p className="text-sm font-semibold text-app-text">{meta.label}</p>
+              <p className="text-xs text-app-text-secondary">
+                {isConnected
+                  ? t('profile.connectionConnectedTag')
+                  : t('profile.connectionTapToConnect')}
+              </p>
+            </button>
+          ))}
         </div>
       </article>
 
@@ -356,11 +365,7 @@ export const ProviderConnections = () => {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <img
-                      src={meta.iconPath}
-                      alt={meta.label}
-                      className="h-12 w-12 rounded-full border-2 border-app-text object-cover"
-                    />
+                    <ServiceLogo service={provider} alt="" className="h-12 w-12 text-app-text" />
                     <h3 className="text-lg font-bold text-brand-dark dark:text-brand-white">
                       {meta.label}
                     </h3>
@@ -415,6 +420,27 @@ export const ProviderConnections = () => {
           )}
         </div>
       ) : null}
+
+      {/* The two link-only services have no account to connect; say so here,
+          where people come looking for a "connect Deezer" button. */}
+      <article className="grid gap-4 rounded-3xl border-2 border-dashed border-app-border p-5 sm:p-6">
+        <div className="flex flex-wrap gap-2">
+          {LINK_SERVICES.map((service) => (
+            <ServiceChip key={service.id} service={service.id} />
+          ))}
+        </div>
+        <div className="grid gap-1">
+          <h3 className="text-lg font-bold text-brand-dark dark:text-brand-white">
+            {t('profile.linkSourcesTitle')}
+          </h3>
+          <p className="text-sm text-app-text-secondary">{t('profile.linkSourcesBody')}</p>
+        </div>
+        <div className="flex justify-end">
+          <CTALink to="/transfer/link" variant="secondary">
+            {t('profile.linkSourcesCta')}
+          </CTALink>
+        </div>
+      </article>
     </div>
   );
 };

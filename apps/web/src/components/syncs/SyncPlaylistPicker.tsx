@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Check, ListMusic, Music, Repeat2 } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
+import { PROVIDER_LABELS } from '../../lib/providers';
 import { CTAButton } from '../ui/cta';
 
 type SyncPlaylistPickerProps = {
@@ -108,8 +109,7 @@ export const SyncPlaylistPicker = ({
                       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-app-border/60 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-[0.08em] text-app-text-secondary">
                         <Repeat2 size={11} aria-hidden="true" />
                         {t('transferPage.originBadge', {
-                          provider:
-                            playlist.origin.provider === 'spotify' ? 'Spotify' : 'Apple Music',
+                          provider: PROVIDER_LABELS[playlist.origin.provider],
                         })}
                       </span>
                     ) : null}

@@ -1,5 +1,4 @@
 import type { ProviderPlaylistItem, SyncItem } from '@synqit/shared';
-import { providerSchema } from '@synqit/shared';
 import { useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
@@ -17,7 +16,7 @@ import {
   ProviderIntegrationStatus,
   ProviderSelectionStep,
 } from '../components/create-flow/ProviderSelectionStep';
-import { EventProviderIcon } from '../components/events/EventProviderIcon';
+import { ProviderIcon } from '../components/providers/ProviderIcon';
 import { SyncCard } from '../components/syncs/SyncCard';
 import { SyncPlaylistPicker } from '../components/syncs/SyncPlaylistPicker';
 import { CTAButton, CTALink } from '../components/ui/cta';
@@ -26,7 +25,9 @@ import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
+import { CONNECTABLE_PROVIDERS, PROVIDER_LABELS } from '../lib/providers';
 import {
+  EMPTY_INTEGRATION_MAP,
   createSync,
   fetchIntegrations,
   fetchProviderPlaylists,
@@ -67,7 +68,7 @@ export const SyncCreatePage = () => {
   });
 
   const providerStatusByType: Record<Provider, ProviderIntegrationStatus> =
-    integrationsQuery.data ?? { spotify: 'not_connected', apple: 'not_connected' };
+    integrationsQuery.data ?? EMPTY_INTEGRATION_MAP;
 
   const selectedProviderConnected = provider
     ? providerStatusByType[provider] === 'connected'
@@ -200,7 +201,7 @@ export const SyncCreatePage = () => {
 
   useEffect(() => {
     if (!integrationsQuery.data || provider !== null || step !== 1) return;
-    const connectedProviders = providerSchema.options.filter(
+    const connectedProviders = CONNECTABLE_PROVIDERS.filter(
       (p) => integrationsQuery.data[p] === 'connected',
     );
     if (connectedProviders.length === 1) {
@@ -227,7 +228,7 @@ export const SyncCreatePage = () => {
           if (snapshot?.apple === 'connected') {
             showToast(
               t('profile.connectionConnected', {
-                provider: t('eventsPage.createFlow.providerApple'),
+                provider: PROVIDER_LABELS.apple,
               }),
               { variant: 'success' },
             );
@@ -236,17 +237,17 @@ export const SyncCreatePage = () => {
         }
 
         const popupResult = await openProviderOauthPopup({
-          provider: 'spotify',
+          provider: selectedProvider,
           nextPath: '/auth/provider-connected',
         });
         await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
         const snapshot = queryClient.getQueryData<Record<Provider, ProviderIntegrationStatus>>(
           queryKeys.integrations.list(),
         );
-        if (snapshot?.spotify === 'connected' || popupResult === 'connected') {
+        if (snapshot?.[selectedProvider] === 'connected' || popupResult === 'connected') {
           showToast(
             t('profile.connectionConnected', {
-              provider: t('eventsPage.createFlow.providerSpotify'),
+              provider: PROVIDER_LABELS[selectedProvider],
             }),
             { variant: 'success' },
           );
@@ -256,7 +257,7 @@ export const SyncCreatePage = () => {
         if (popupResult === 'blocked' || popupResult === 'error' || popupResult === 'timeout') {
           showToast(
             t('profile.connectionFailed', {
-              provider: t('eventsPage.createFlow.providerSpotify'),
+              provider: PROVIDER_LABELS[selectedProvider],
             }),
             { variant: 'error' },
           );
@@ -349,10 +350,7 @@ export const SyncCreatePage = () => {
         s.providerPlaylistId === selectedPlaylist.providerPlaylistId &&
         s.magicLinkRevokedAt === null,
     );
-  const providerLabels: Record<Provider, string> = {
-    apple: t('eventsPage.createFlow.providerApple'),
-    spotify: t('eventsPage.createFlow.providerSpotify'),
-  };
+  const providerLabels = PROVIDER_LABELS;
 
   return (
     <AppPageLayout bodyClassName="gap-5">
@@ -376,6 +374,7 @@ export const SyncCreatePage = () => {
         <AnimatePresence mode="wait" initial={false} custom={stepDirection}>
           {step === 1 ? (
             <ProviderSelectionStep
+              providers={CONNECTABLE_PROVIDERS}
               body={t('syncCreatePage.stepProviderTitle')}
               isConnectingProvider={isConnectingProvider}
               motionKey="step-1"
@@ -439,9 +438,7 @@ export const SyncCreatePage = () => {
                   <span className="text-app-text-secondary">
                     {t('syncCreatePage.summaryProvider')}
                   </span>
-                  {provider ? (
-                    <EventProviderIcon provider={provider} sizeClassName="h-10 w-10" />
-                  ) : null}
+                  {provider ? <ProviderIcon provider={provider} sizeClassName="h-10 w-10" /> : null}
                 </div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-app-text-secondary">
