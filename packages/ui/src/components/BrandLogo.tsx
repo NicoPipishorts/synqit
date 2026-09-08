@@ -1,14 +1,13 @@
 /**
- * Which kind of surface the logo sits on, so the mark keeps a body that reads.
- *
- * The mark is a ring filled `#0A0A08`, which disappears on a dark surface and
- * leaves only its lime keyline — about one device pixel wide at `h-10`, so it
- * aliases into a jagged outline. `logo-full-dark.svg` fills that ring with lime
- * instead; the wordmark is identical in both, since its letterforms are white.
+ * Which kind of surface the logo sits on. The brand ships two lockups drawn for
+ * the two grounds: `logo-full.svg` has a black mark for light surfaces, and
+ * `logo-full-dark.svg` draws that same mark in lime for dark ones. Each is
+ * near-invisible on the other's ground, so the choice is per-surface, not
+ * per-theme — the marketing footer runs `bg-brand-dark` in light and
+ * `dark:bg-brand-white` in dark, the inverse of everything else.
  *
  * - `auto` — the surface follows the theme (headers, cards). The default.
- * - `inverted` — the surface flips against the theme, like the marketing
- *   footer, which is `bg-brand-dark` in light and `dark:bg-brand-white` in dark.
+ * - `inverted` — the surface flips against the theme, like that footer.
  * - `dark` — always a dark surface whatever the theme, like the admin login
  *   panel's `bg-brand-dark` half.
  */
@@ -21,7 +20,7 @@ type BrandLogoProps = {
    * Escape hatch for a one-off mark. Rendered on its own, without the light/dark
    * pair, so `surface` no longer applies.
    *
-   * The PNG beside these two is not a fallback — it exists for the worker's
+   * The PNGs beside these two are not fallbacks — they exist for the worker's
    * email templates, which cannot use SVG (Gmail and Outlook strip it).
    */
   src?: string;
