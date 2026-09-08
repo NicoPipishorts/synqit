@@ -182,16 +182,20 @@ export const HomePage = () => {
               >
                 {t('home.hero.description')}
               </motion.p>
-              <motion.div variants={FADE_UP} className="flex flex-wrap items-center gap-4">
-                <HeroLink href={registerHref} variant="lime" size="md">
+              <motion.div variants={FADE_UP} className="flex flex-wrap items-center gap-3 sm:gap-4">
+                <HeroLink href={registerHref} variant="lime" size="hero">
                   {t('home.hero.ctaPrimary')}
                 </HeroLink>
                 <a
                   href="#how"
-                  className="focus-ring-brand inline-flex items-center gap-1.5 rounded-full py-2 text-sm font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-base"
+                  className="focus-ring-brand inline-flex items-center gap-1.5 rounded-full py-2 text-xs font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-base"
                 >
                   {t('home.hero.ctaSecondary')}
-                  <ArrowDown size={16} aria-hidden className="motion-safe:animate-bounce" />
+                  <ArrowDown
+                    size={16}
+                    aria-hidden
+                    className="hidden motion-safe:animate-bounce sm:block"
+                  />
                 </a>
               </motion.div>
             </div>
