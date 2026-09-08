@@ -45,7 +45,6 @@ export type Service = {
 
 type ServiceShowcaseProps = {
   services: [Service, Service, Service];
-  swipeHint: string;
 };
 
 const AUTOPLAY_MS = 3200;
@@ -596,14 +595,12 @@ const ServiceDeck = ({
   services,
   active,
   onChange,
-  hint,
   prevLabel,
   nextLabel,
 }: {
   services: Service[];
   active: number;
   onChange: (index: number) => void;
-  hint: string;
   prevLabel: string;
   nextLabel: string;
 }) => {
@@ -652,21 +649,14 @@ const ServiceDeck = ({
           );
         })}
       </div>
-      <div className="flex flex-col items-center gap-3">
-        <div className="flex items-center gap-3">
-          <ArrowButton label={prevLabel} onClick={() => advance(-1)}>
-            <ChevronLeft size={18} aria-hidden />
-          </ArrowButton>
-          <Dots
-            labels={services.map((service) => service.tag)}
-            active={active}
-            onSelect={onChange}
-          />
-          <ArrowButton label={nextLabel} onClick={() => advance(1)}>
-            <ChevronRight size={18} aria-hidden />
-          </ArrowButton>
-        </div>
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-app-text-muted">{hint}</p>
+      <div className="flex items-center justify-center gap-3">
+        <ArrowButton label={prevLabel} onClick={() => advance(-1)}>
+          <ChevronLeft size={18} aria-hidden />
+        </ArrowButton>
+        <Dots labels={services.map((service) => service.tag)} active={active} onSelect={onChange} />
+        <ArrowButton label={nextLabel} onClick={() => advance(1)}>
+          <ChevronRight size={18} aria-hidden />
+        </ArrowButton>
       </div>
     </div>
   );
@@ -674,7 +664,7 @@ const ServiceDeck = ({
 
 // ─── Public component ─────────────────────────────────────────────────────────
 
-export const ServiceShowcase = ({ services, swipeHint }: ServiceShowcaseProps) => {
+export const ServiceShowcase = ({ services }: ServiceShowcaseProps) => {
   const { t } = useI18n();
   const [active, setActive] = useState(0);
   const sectionRef = useRef<HTMLDivElement | null>(null);
@@ -689,7 +679,6 @@ export const ServiceShowcase = ({ services, swipeHint }: ServiceShowcaseProps) =
       services={services}
       active={active}
       onChange={setActive}
-      hint={swipeHint}
       prevLabel={t('home.services.prev')}
       nextLabel={t('home.services.next')}
     />
