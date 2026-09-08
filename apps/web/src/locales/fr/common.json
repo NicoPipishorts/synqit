@@ -1185,17 +1185,17 @@
       "lead": "Spotify et Apple Music se connectent à votre compte, ce qui permet à Synqit de travailler dans votre propre bibliothèque. Deezer et YouTube arrivent par un lien public, sans rien à connecter.",
       "connect": {
         "sticker": "Une seule connexion",
-        "title": "Connectez-vous, tout fonctionne dans les deux sens",
+        "title": "Connectez-vous une fois, toutes les fonctions sont disponibles",
         "body": "Reliez le service sur lequel vous écoutez vraiment. Synqit lit et écrit les playlists de votre bibliothèque, donc toutes les fonctions sont disponibles.",
         "point1": "Créez une playlist d'événement que vos invités alimentent",
         "point2": "Partagez une playlist qui reste synchronisée pour vos abonnés",
-        "point3": "Transférez vos playlists dans les deux sens"
+        "point3": "Transférez une playlist de Spotify vers Apple Music, ou l'inverse"
       },
       "link": {
         "sticker": "Sans compte",
         "title": "Collez un lien, gardez la playlist",
         "body": "Une playlist repérée ailleurs ? Collez son lien public et Synqit la reconstruit dans le service que vous avez connecté.",
-        "point1": "Import à sens unique vers votre bibliothèque connectée",
+        "point1": "Import à sens unique : vers votre bibliothèque, jamais dans l'autre sens",
         "point2": "Les liens Deezer correspondent titre pour titre",
         "point3": "YouTube s'appuie sur le titre du morceau, certains choix peuvent différer"
       },
