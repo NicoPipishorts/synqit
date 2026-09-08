@@ -292,7 +292,6 @@ export const ProviderConnections = () => {
     [busyProviders, formatDateTime, snapshot],
   );
 
-  const hasConnectedProvider = providerCards.some((c) => c.isConnected);
   const connectedCards = providerCards.filter((c) => c.isConnected);
   const isRefreshing = snapshotQuery.isFetching;
 
@@ -327,38 +326,32 @@ export const ProviderConnections = () => {
           </CTAButton>
         </div>
         <p className="mt-2 text-sm text-app-text-secondary">
-          {hasConnectedProvider
-            ? t('profile.connectionsServicesHintConnected')
-            : t('profile.connectionsServicesHint')}
+          {t('profile.connectionsServicesHint')}
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
-          {providerCards
-            .filter(({ isConnected }) => !hasConnectedProvider || isConnected)
-            .map(({ provider, meta, isConnected, isBusy }) => (
-              <button
-                key={provider}
-                type="button"
-                disabled={isConnected || isBusy}
-                onClick={() => {
-                  if (!isConnected) void runConnectAction(provider, 'connect');
-                }}
-                className={`grid min-w-38 gap-1 rounded-2xl border-2 border-app-text bg-app-elevated px-4 py-3 text-left shadow-sticker-sm transition motion-safe:hover:-translate-y-0.5 sm:min-w-40 dark:bg-app-card ${
-                  isConnected
-                    ? 'cursor-default grayscale'
-                    : 'cursor-pointer hover:border-brand-lime hover:shadow-glow-lime'
-                } ${isBusy ? 'opacity-60' : ''}`}
-              >
-                <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-app-text bg-app-bg text-app-text">
-                  <ServiceLogo service={provider} alt="" className="h-6 w-6" />
-                </span>
-                <p className="text-sm font-semibold text-app-text">{meta.label}</p>
-                <p className="text-xs text-app-text-secondary">
-                  {isConnected
-                    ? t('profile.connectionConnectedTag')
-                    : t('profile.connectionTapToConnect')}
-                </p>
-              </button>
-            ))}
+          {providerCards.map(({ provider, meta, isConnected, isBusy }) => (
+            <button
+              key={provider}
+              type="button"
+              disabled={isConnected || isBusy}
+              onClick={() => {
+                if (!isConnected) void runConnectAction(provider, 'connect');
+              }}
+              className={`grid min-w-38 gap-1 rounded-2xl border-2 border-app-text bg-app-elevated px-4 py-3 text-left shadow-sticker-sm transition motion-safe:hover:-translate-y-0.5 sm:min-w-40 dark:bg-app-card ${
+                isConnected
+                  ? 'cursor-default grayscale'
+                  : 'cursor-pointer hover:border-brand-lime hover:shadow-glow-lime'
+              } ${isBusy ? 'opacity-60' : ''}`}
+            >
+              <ServiceLogo service={provider} alt="" className="h-10 w-10 text-app-text" />
+              <p className="text-sm font-semibold text-app-text">{meta.label}</p>
+              <p className="text-xs text-app-text-secondary">
+                {isConnected
+                  ? t('profile.connectionConnectedTag')
+                  : t('profile.connectionTapToConnect')}
+              </p>
+            </button>
+          ))}
         </div>
       </article>
 
@@ -372,9 +365,7 @@ export const ProviderConnections = () => {
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-full border-2 border-app-text bg-app-bg text-app-text">
-                      <ServiceLogo service={provider} alt="" className="h-7 w-7" />
-                    </span>
+                    <ServiceLogo service={provider} alt="" className="h-12 w-12 text-app-text" />
                     <h3 className="text-lg font-bold text-brand-dark dark:text-brand-white">
                       {meta.label}
                     </h3>

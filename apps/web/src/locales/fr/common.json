@@ -257,7 +257,6 @@
     "platformsDescription": "Consultez les apps disponibles et gérez vos réglages de connexion.",
     "connectionsServicesTitle": "Services",
     "connectionsServicesHint": "Cliquez sur l'icône d'un service pour le connecter. Les services connectés sont en niveaux de gris.",
-    "connectionsServicesHintConnected": "C'est votre service musical préféré. Vous pouvez le déconnecter ici.",
     "connectionsReload": "Actualiser le statut",
     "connectionsLoadError": "Impossible de charger les connexions : {{message}}",
     "connectionTapToConnect": "Connect toi",

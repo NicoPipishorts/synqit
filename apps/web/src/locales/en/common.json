@@ -257,7 +257,6 @@
     "platformsDescription": "See available platform apps and manage connection settings.",
     "connectionsServicesTitle": "Services",
     "connectionsServicesHint": "Click a service icon to connect it. Connected services are grayscaled.",
-    "connectionsServicesHintConnected": "This is your preferred music service. You can disconnect it here.",
     "connectionsReload": "Refresh status",
     "connectionsLoadError": "Unable to load connections: {{message}}",
     "connectionTapToConnect": "Tap to connect",
