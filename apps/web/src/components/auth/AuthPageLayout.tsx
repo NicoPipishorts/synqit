@@ -84,7 +84,7 @@ export const AuthPageLayout = ({
         <div className="relative flex min-h-dvh flex-col items-center justify-center px-5 pb-[max(7rem,calc(env(safe-area-inset-bottom)+5.5rem))] pt-[max(7rem,calc(env(safe-area-inset-top)+6rem))] sm:px-6 lg:px-12">
           <div
             aria-hidden="true"
-            className="bg-halftone pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_at_center,black_35%,transparent_85%)]"
+            className="bg-halftone pointer-events-none absolute inset-0 opacity-80 [mask-image:radial-gradient(ellipse_at_center,black_35%,transparent_85%)]"
           />
           <div className="relative grid w-full max-w-md gap-6">
             <div className="flex flex-col items-center gap-3 text-center">
