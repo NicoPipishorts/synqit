@@ -1,9 +1,4 @@
-import {
-  HERO_CUE_BRANCH_D,
-  HERO_CUE_TIP,
-  HERO_CUE_VIEWBOX,
-  VERTICAL_ARROWHEAD_D,
-} from './branch-art';
+import { HERO_CUE_BRANCH_D, HERO_CUE_VIEWBOX, VERTICAL_ARROWHEAD_D } from './branch-art';
 
 /**
  * The line running from the hero's CTAs down toward the first section, on phones,
@@ -21,9 +16,9 @@ export const HeroScrollCue = ({ label }: { label: string }) => {
     <a
       href="#how"
       aria-label={label}
-      className="focus-ring-brand -mb-16 mt-1 block w-12 text-app-text transition hover:text-brand-pink sm:hidden"
+      className="focus-ring-brand -mb-45 mt-1 block w-12 text-app-text transition hover:text-brand-pink sm:hidden"
     >
-      <svg viewBox={`0 0 ${width} ${height}`} aria-hidden="true" className="h-41 w-12">
+      <svg viewBox={`0 0 ${width} ${height}`} aria-hidden="true" className="h-60 w-12">
         <path
           className="hero-cue-line"
           d={HERO_CUE_BRANCH_D}
@@ -33,10 +28,9 @@ export const HeroScrollCue = ({ label }: { label: string }) => {
           strokeWidth={4}
           strokeLinecap="round"
         />
-        <g
-          className="hero-cue-head"
-          transform={`translate(${HERO_CUE_TIP.x} ${HERO_CUE_TIP.y}) rotate(90)`}
-        >
+        {/* No transform: `offset-path` places and turns it, so the head is wherever
+            the line currently reaches and pointed the way the line is heading. */}
+        <g className="hero-cue-head" style={{ offsetPath: `path("${HERO_CUE_BRANCH_D}")` }}>
           <path
             d={VERTICAL_ARROWHEAD_D}
             fill="currentColor"

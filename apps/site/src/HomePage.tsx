@@ -158,7 +158,7 @@ export const HomePage = () => {
       <RevealSection
         revealOnScroll={false}
         trackId="hero"
-        className="relative flex min-h-svh items-center overflow-hidden py-20 sm:block sm:min-h-0 sm:pb-24 sm:pt-40"
+        className="relative flex min-h-svh items-center overflow-visible pb-24 pt-16 sm:block sm:min-h-0 sm:overflow-hidden sm:pb-24 sm:pt-40"
       >
         <Container>
           <motion.div
