@@ -1200,6 +1200,52 @@
         "point3": "YouTube s'appuie sur le titre du morceau, certains choix peuvent différer"
       },
       "footnote": "D'autres services seront ajoutés dès que leurs API le permettront."
+    },
+    "faq": {
+      "eyebrow": "Questions",
+      "title": "Ce qui marche avec quoi",
+      "lead": "En résumé : Spotify et Apple Music font tout, Deezer et YouTube sont des sources depuis lesquelles vous importez.",
+      "sticker": "Bon à savoir",
+      "matrix": {
+        "question": "Que permet exactement chaque service ?",
+        "caption": "Ce que chaque service de musique permet dans Synqit",
+        "service": "Service",
+        "connect": "Connexion",
+        "events": "Événements",
+        "sync": "Partage et synchro",
+        "transferIn": "Transfert vers",
+        "importFrom": "Import depuis",
+        "yes": "Disponible",
+        "no": "Non disponible"
+      },
+      "connect": {
+        "question": "Quels services puis-je connecter à Synqit ?",
+        "answer": "Spotify et Apple Music. Vous vous connectez une fois, et Synqit lit et écrit ensuite les playlists de votre propre bibliothèque : toutes les fonctions sont disponibles, playlists d'événement, playlists partagées et transferts."
+      },
+      "link": {
+        "question": "Puis-je utiliser Deezer ou YouTube Music ?",
+        "answer": "Oui, comme source. Collez le lien d'une playlist publique et Synqit la reconstruit dans le service que vous avez connecté. Aucun compte à relier, aucun mot de passe à donner. Synqit n'écrit jamais rien en retour sur Deezer ou YouTube, et les playlists privées ne peuvent pas être lues."
+      },
+      "guests": {
+        "question": "Mes invités doivent-ils avoir un compte pour ajouter des morceaux ?",
+        "answer": "Non. Ils ouvrent votre lien, cherchent et ajoutent. Aucune application à installer, aucune inscription, quel que soit le service qu'ils utilisent. La playlist, elle, vit dans votre Spotify ou Apple Music."
+      },
+      "syncDirection": {
+        "question": "Une playlist partagée se synchronise-t-elle dans les deux sens ?",
+        "answer": "Non. Vos abonnés reçoivent chaque morceau que vous ajoutez, sur celui des deux services qu'ils utilisent. Ce qu'ils ajoutent de leur côté reste chez eux : votre playlist n'est jamais modifiée par quelqu'un d'autre."
+      },
+      "skipped": {
+        "question": "Pourquoi certains morceaux sont-ils ignorés ?",
+        "answer": "Les catalogues diffèrent d'un service à l'autre, et un morceau présent sur l'un n'est pas toujours sur l'autre. Les liens Deezer portent un identifiant d'enregistrement, donc ces correspondances sont exactes. Les titres YouTube sont du texte libre : quelques morceaux peuvent tomber sur une autre version ou être ignorés."
+      },
+      "linkPrivacy": {
+        "question": "Qui peut ouvrir le lien de ma playlist ?",
+        "answer": "Toute personne à qui vous l'envoyez, et c'est ce qui le rend si simple pour vos invités. Vous gardez la main : retirez n'importe quel morceau, fermez la playlist à la fin de la soirée, révoquez ou régénérez le lien quand vous voulez."
+      },
+      "leaving": {
+        "question": "Que deviennent mes playlists si j'arrête d'utiliser Synqit ?",
+        "answer": "Rien. Chaque playlist créée par Synqit est une vraie playlist dans votre bibliothèque Spotify ou Apple Music. Elle y reste, avec tous ses morceaux, que vous continuiez ou non à utiliser Synqit."
+      }
     }
   },
   "modal": {

@@ -10,6 +10,7 @@ import { motion, type Variants } from 'framer-motion';
 import { ArrowDown, ArrowLeftRight, PartyPopper, Share2 } from 'lucide-react';
 import { type ReactNode } from 'react';
 
+import { FaqSection } from './components/marketing/FaqSection';
 import { HeroScreens } from './components/marketing/HeroScreens';
 import { MarketingPageShell } from './components/marketing/MarketingPageShell';
 import { RevealSection } from './components/marketing/RevealSection';
@@ -264,6 +265,19 @@ export const HomePage = () => {
         <Container className="mt-10 lg:mt-14">
           <ServiceCompatibility />
           <p className="mt-6 text-xs text-app-text-muted">{t('home.compat.footnote')}</p>
+        </Container>
+      </RevealSection>
+
+      {/* ── FAQ: the detail the two cards cannot hold ─────────────────── */}
+      <RevealSection id="faq" trackId="faq" className="relative scroll-mt-24 py-16 sm:py-24">
+        <Container className="flex flex-col gap-4">
+          <SectionIntro eyebrow={t('home.faq.eyebrow')} title={t('home.faq.title')} tone="pink" />
+          <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
+            {t('home.faq.lead')}
+          </p>
+        </Container>
+        <Container className="mt-10 max-w-4xl lg:mt-14">
+          <FaqSection />
         </Container>
       </RevealSection>
 
