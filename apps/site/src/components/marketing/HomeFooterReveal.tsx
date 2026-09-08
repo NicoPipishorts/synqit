@@ -1,4 +1,4 @@
-import { BrandLogo } from '@synqit/ui';
+import { BrandLogo, CONNECT_SERVICES, LINK_SERVICES, ServiceLogo } from '@synqit/ui';
 
 import { LEGAL_ROUTES } from '../../content/legal';
 import { buildAppUrl } from '../../lib/app-url';
@@ -48,20 +48,13 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
               {t('footer.description')}
             </p>
             <div className="hidden sm:flex flex-wrap items-center gap-3">
-              <img
-                src="/assets/logos/Providers/Spotify.png"
-                alt="Spotify"
-                className="h-7 w-auto"
-                loading="lazy"
-                decoding="async"
-              />
-              <img
-                src="/assets/logos/Providers/AppleMusic.png"
-                alt="Apple Music"
-                className="h-7 w-auto"
-                loading="lazy"
-                decoding="async"
-              />
+              {CONNECT_SERVICES.map((service) => (
+                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+              ))}
+              <span aria-hidden className="h-5 w-px bg-current opacity-20" />
+              {LINK_SERVICES.map((service) => (
+                <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+              ))}
             </div>
           </div>
 
@@ -115,20 +108,13 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
                 {t('footer.description')}
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
-                <img
-                  src="/assets/logos/Providers/Spotify.png"
-                  alt="Spotify"
-                  className="h-7 w-auto"
-                  loading="lazy"
-                  decoding="async"
-                />
-                <img
-                  src="/assets/logos/Providers/AppleMusic.png"
-                  alt="Apple Music"
-                  className="h-7 w-auto"
-                  loading="lazy"
-                  decoding="async"
-                />
+                {CONNECT_SERVICES.map((service) => (
+                  <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                ))}
+                <span aria-hidden className="h-5 w-px bg-current opacity-20" />
+                {LINK_SERVICES.map((service) => (
+                  <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
+                ))}
               </div>
             </div>
           </div>

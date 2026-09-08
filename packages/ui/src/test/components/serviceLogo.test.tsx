@@ -27,21 +27,28 @@ describe('service catalog', () => {
 });
 
 describe('ServiceLogo', () => {
-  it('renders the official image mark for connected services', () => {
-    render(<ServiceLogo service="spotify" />);
-    const image = screen.getByRole('img', { name: 'Spotify' });
-    expect(image).toHaveAttribute('src', '/assets/logos/Providers/Spotify.png');
+  it('points every service at its own brand asset', () => {
+    const sources = (['spotify', 'apple', 'deezer', 'youtube'] as const).map((service) => {
+      const { unmount } = render(<ServiceLogo service={service} />);
+      const src = screen
+        .getByRole('img', { name: MUSIC_SERVICES[service].name })
+        .getAttribute('src');
+      unmount();
+      return src;
+    });
+
+    expect(sources).toEqual([
+      '/assets/logos/Providers/Spotify.png',
+      '/assets/logos/Providers/AppleMusic.png',
+      '/assets/logos/Providers/Deezer.png',
+      '/assets/logos/Providers/YouTubeMusic.png',
+    ]);
+    expect(new Set(sources).size).toBe(4);
   });
 
-  it('renders a drawn mark with an accessible name for link services', () => {
-    render(<ServiceLogo service="deezer" />);
-    expect(screen.getByRole('img', { name: 'Deezer' })).toBeInTheDocument();
-  });
-
-  it('hides the mark from assistive tech when a neighbouring label names it', () => {
-    const { container } = render(<ServiceLogo service="youtube" alt="" />);
+  it('drops out of the accessibility tree when a neighbouring label names it', () => {
+    render(<ServiceLogo service="youtube" alt="" />);
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
-    expect(container.querySelector('[aria-hidden="true"]')).toBeInTheDocument();
   });
 });
 

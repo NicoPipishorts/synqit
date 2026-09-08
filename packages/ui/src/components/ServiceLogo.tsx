@@ -37,47 +37,15 @@ export const LINK_SERVICES: readonly MusicService[] = [
   MUSIC_SERVICES.youtube,
 ];
 
-// Spotify and Apple Music ship their official marks in the app's public assets.
-const OFFICIAL_MARK_SRC: Partial<Record<MusicServiceId, string>> = {
+// Official brand marks, served from the app's public assets. Spotify and Apple
+// Music ship their icon; Deezer is the purple heart from its brand guidelines
+// and YouTube Music is its official mark, both trimmed to the same square.
+const MARK_SRC: Record<MusicServiceId, string> = {
   spotify: '/assets/logos/Providers/Spotify.png',
   apple: '/assets/logos/Providers/AppleMusic.png',
+  deezer: '/assets/logos/Providers/Deezer.png',
+  youtube: '/assets/logos/Providers/YouTubeMusic.png',
 };
-
-// Deezer and YouTube Music are drawn in-house: simplified marks that carry the
-// brand colour and silhouette. Replace them with the official brand files once
-// their guidelines have been reviewed.
-const DeezerMark = () => (
-  <svg viewBox="0 0 24 24" className="h-full w-full" aria-hidden="true" focusable="false">
-    <rect width="24" height="24" rx="6" fill="#A238FF" />
-    {(
-      [
-        { x: 3, bars: 1 },
-        { x: 8, bars: 3 },
-        { x: 13, bars: 2 },
-        { x: 18, bars: 4 },
-      ] as const
-    ).flatMap(({ x, bars }) =>
-      Array.from({ length: bars }, (_, index) => (
-        <rect
-          key={`${x}-${index}`}
-          x={x}
-          y={15.8 - index * 3.2}
-          width="3"
-          height="2"
-          rx="0.5"
-          fill="#ffffff"
-        />
-      )),
-    )}
-  </svg>
-);
-
-const YouTubeMusicMark = () => (
-  <svg viewBox="0 0 24 24" className="h-full w-full" aria-hidden="true" focusable="false">
-    <circle cx="12" cy="12" r="11" fill="#FF0033" />
-    <path d="M9.6 7.9 16.4 12l-6.8 4.1z" fill="#ffffff" />
-  </svg>
-);
 
 export type ServiceLogoProps = {
   service: MusicServiceId;
@@ -87,33 +55,15 @@ export type ServiceLogoProps = {
 };
 
 /** Square service mark at a consistent size and corner radius across all four services. */
-export const ServiceLogo = ({ service, className, alt }: ServiceLogoProps) => {
-  const meta = MUSIC_SERVICES[service];
-  const label = alt ?? meta.name;
-  const officialSrc = OFFICIAL_MARK_SRC[service];
-  const shape = cn('inline-block h-8 w-8 shrink-0 overflow-hidden rounded-xl', className);
-
-  if (officialSrc) {
-    return (
-      <img
-        src={officialSrc}
-        alt={label}
-        className={cn(shape, 'object-contain')}
-        loading="lazy"
-        decoding="async"
-      />
-    );
-  }
-
-  return (
-    <span
-      className={shape}
-      {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}
-    >
-      {service === 'deezer' ? <DeezerMark /> : <YouTubeMusicMark />}
-    </span>
-  );
-};
+export const ServiceLogo = ({ service, className, alt }: ServiceLogoProps) => (
+  <img
+    src={MARK_SRC[service]}
+    alt={alt ?? MUSIC_SERVICES[service].name}
+    className={cn('inline-block h-8 w-8 shrink-0 object-contain', className)}
+    loading="lazy"
+    decoding="async"
+  />
+);
 
 export type ServiceChipProps = {
   service: MusicServiceId;
