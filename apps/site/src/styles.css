@@ -4,6 +4,15 @@
 /* Generate utilities for classes used inside the shared components. */
 @source "../../../packages/ui/src";
 
+/* Satoshi's Black is 900, the heaviest face there is, so the display titles take
+   their last bit of weight from a hairline stroke rather than a font-weight.
+   Sized in em so it tracks the heading it sits on, and painted behind the fill
+   so the counters stay open instead of filling in. */
+@utility text-display-heavy {
+  -webkit-text-stroke: 0.02em currentColor;
+  paint-order: stroke fill;
+}
+
 @utility text-shadow-section-title {
   text-shadow:
     0 1px 0 rgba(255, 255, 255, 0.55),

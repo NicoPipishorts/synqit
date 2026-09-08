@@ -79,7 +79,7 @@ const SectionIntro = ({
       {eyebrow}
     </Sticker>
     <h2
-      className={`max-w-2xl text-pretty text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl ${titleClassName}`}
+      className={`max-w-2xl text-pretty text-3xl font-black text-display-heavy leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl ${titleClassName}`}
     >
       {title}
     </h2>
@@ -172,7 +172,7 @@ export const HomePage = () => {
               </motion.div>
               <motion.h1
                 variants={FADE_UP}
-                className="text-[2.75rem] font-black leading-[0.98] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-6xl lg:text-[4.25rem]"
+                className="text-[2.75rem] font-black text-display-heavy leading-[0.98] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-6xl lg:text-[4.25rem]"
               >
                 {t('home.hero.titleLead')} <Highlight>{t('home.hero.titleHighlight')}</Highlight>
               </motion.h1>
@@ -298,7 +298,7 @@ export const HomePage = () => {
       {/* ── Statement + marquee ───────────────────────────────────────── */}
       <section className="relative py-12 sm:py-20">
         <Container>
-          <p className="text-center text-2xl font-black leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl lg:text-5xl">
+          <p className="text-center text-2xl font-black text-display-heavy leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl lg:text-5xl">
             {t('home.vibe.statement')}
           </p>
         </Container>
@@ -328,7 +328,7 @@ export const HomePage = () => {
       <RevealSection trackId="pricing" className="relative py-16 sm:py-24">
         <Container className="max-w-4xl">
           <div className="rounded-3xl border-2 border-app-text bg-app-elevated p-6 shadow-sticker dark:bg-app-card sm:p-10">
-            <h2 className="text-center text-2xl font-black leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
+            <h2 className="text-center text-2xl font-black text-display-heavy leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
               {t('home.pricing.teaserTitle')}
             </h2>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -382,7 +382,7 @@ export const HomePage = () => {
               aria-hidden="true"
               className="pointer-events-none absolute -bottom-12 -right-8 h-52 w-52 rounded-full bg-brand-pink/40 blur-3xl"
             />
-            <h2 className="relative text-3xl font-black leading-[1.02] tracking-tight sm:text-5xl">
+            <h2 className="relative text-3xl font-black text-display-heavy leading-[1.02] tracking-tight sm:text-5xl">
               {t('home.finalCta.title')}
             </h2>
             <div className="relative mt-8 flex flex-col items-center gap-4">
