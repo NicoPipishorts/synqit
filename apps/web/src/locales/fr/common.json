@@ -946,16 +946,15 @@
     },
     "hero": {
       "eyebrow": "La musique sans frontières",
-      "titleLead": "Des playlists qui vont",
-      "titleHighlight": "partout.",
       "description": "Laisse tes invités choisir les titres de la soirée, partage une playlist entre Spotify et Apple Music, ou déménage ta bibliothèque vers une nouvelle appli. Un seul lien suffit.",
       "ctaPrimary": "Commencer gratuitement",
       "ctaSecondary": "Voir comment ça marche",
-      "ctaLogin": "Se connecter"
+      "ctaLogin": "Se connecter",
+      "title": "Des playlists qui vont [[partout.]]"
     },
     "services": {
       "eyebrow": "Ce que fait Synqit",
-      "title": "Une appli, trois services !",
+      "title": "Une appli, [[trois services]] !",
       "event": {
         "tag": "Événements",
         "title": "Laisse la foule choisir la musique",
@@ -1012,11 +1011,11 @@
       }
     },
     "vibe": {
-      "statement": "Sans appli. Sans compte. Sans friction.",
+      "statement": "Sans appli. Sans compte. [[Sans friction.]]",
       "words": "Anniversaires|Soirées|Mariages|Road trips|Playlists de bureau|Soirées bar|Festivals|Spotify|Apple Music"
     },
     "finalCta": {
-      "title": "Ta prochaine playlist commence ici.",
+      "title": "Ta prochaine playlist [[commence ici]].",
       "cta": "Créer un compte gratuit",
       "login": "J’ai déjà un compte"
     },
@@ -1154,7 +1153,7 @@
           "feat4": "Playlists et sièges illimités"
         }
       },
-      "teaserTitle": "Gratuit pour commencer. Paie seulement quand ça compte.",
+      "teaserTitle": "Gratuit pour commencer. Paie seulement [[quand ça compte]].",
       "teaserEvents": "Événements",
       "teaserEventsBody": "Gratuit jusqu’à 25 invités, puis un prix unique par événement.",
       "teaserSharing": "Partage",
@@ -1178,7 +1177,7 @@
     },
     "compat": {
       "eyebrow": "Compatible avec",
-      "title": "Deux façons d'importer votre musique",
+      "title": "[[Deux façons]] d'importer votre musique",
       "lead": "Certains services se connectent à votre compte, ce qui permet à Synqit de travailler dans votre propre bibliothèque. D'autres arrivent par un lien public, sans rien à connecter.",
       "connect": {
         "sticker": "Une seule connexion",

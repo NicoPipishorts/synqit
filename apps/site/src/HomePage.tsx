@@ -1,6 +1,5 @@
 import {
   CONNECT_SERVICES,
-  Highlight,
   LINK_SERVICES,
   ServiceLogo,
   Sticker,
@@ -11,6 +10,7 @@ import { ArrowDown, ArrowLeftRight, ArrowRight, PartyPopper, Share2 } from 'luci
 import { type ReactNode } from 'react';
 
 import { HeroScreens } from './components/marketing/HeroScreens';
+import { HighlightedText } from './components/marketing/HighlightedText';
 import { MarketingPageShell } from './components/marketing/MarketingPageShell';
 import { RevealSection } from './components/marketing/RevealSection';
 import { ServiceCompatibility } from './components/marketing/ServiceCompatibility';
@@ -61,7 +61,7 @@ const SectionIntro = ({
   titleClassName = '',
 }: {
   eyebrow: string;
-  title: string;
+  title: ReactNode;
   tone?: StickerTone;
   align?: 'left' | 'center';
   /**
@@ -174,7 +174,7 @@ export const HomePage = () => {
                 variants={FADE_UP}
                 className="text-[2.75rem] font-black text-display-heavy leading-[0.98] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-6xl lg:text-[4.25rem]"
               >
-                {t('home.hero.titleLead')} <Highlight>{t('home.hero.titleHighlight')}</Highlight>
+                <HighlightedText value={t('home.hero.title')} />
               </motion.h1>
               <motion.p
                 variants={FADE_UP}
@@ -224,7 +224,10 @@ export const HomePage = () => {
           phone's lower half into the first screen. */}
       <RevealSection id="how" trackId="services" className="relative scroll-mt-12 py-16 sm:py-24">
         <Container className="flex flex-col gap-4">
-          <SectionIntro eyebrow={t('home.services.eyebrow')} title={t('home.services.title')} />
+          <SectionIntro
+            eyebrow={t('home.services.eyebrow')}
+            title=<HighlightedText value={t('home.services.title')} />
+          />
           <p className="max-w-xl text-sm leading-relaxed text-app-text-secondary sm:text-base">
             {t('home.how.lead')}
           </p>
@@ -270,7 +273,7 @@ export const HomePage = () => {
         <Container className="flex flex-col gap-4">
           <SectionIntro
             eyebrow={t('home.compat.eyebrow')}
-            title={t('home.compat.title')}
+            title=<HighlightedText value={t('home.compat.title')} />
             tone="lime"
             // The French title needs ~860px at this size, so 2xl broke it mid-phrase.
             titleClassName="sm:max-w-4xl"
@@ -299,7 +302,7 @@ export const HomePage = () => {
       <section className="relative py-12 sm:py-20">
         <Container>
           <p className="text-center text-2xl font-black text-display-heavy leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl lg:text-5xl">
-            {t('home.vibe.statement')}
+            <HighlightedText value={t('home.vibe.statement')} />
           </p>
         </Container>
         <div className="mt-10 -mx-6 -rotate-1 border-y-2 border-app-text bg-brand-dark py-3 text-brand-white dark:bg-brand-white dark:text-brand-dark sm:mt-14">
@@ -329,7 +332,7 @@ export const HomePage = () => {
         <Container className="max-w-4xl">
           <div className="rounded-3xl border-2 border-app-text bg-app-elevated p-6 shadow-sticker dark:bg-app-card sm:p-10">
             <h2 className="text-center text-2xl font-black text-display-heavy leading-tight tracking-tight text-brand-dark dark:text-brand-white sm:text-4xl">
-              {t('home.pricing.teaserTitle')}
+              <HighlightedText value={t('home.pricing.teaserTitle')} />
             </h2>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="flex flex-col gap-3 rounded-2xl border border-app-border bg-app-surface p-5">
@@ -383,7 +386,7 @@ export const HomePage = () => {
               className="pointer-events-none absolute -bottom-12 -right-8 h-52 w-52 rounded-full bg-brand-pink/40 blur-3xl"
             />
             <h2 className="relative text-3xl font-black text-display-heavy leading-[1.02] tracking-tight sm:text-5xl">
-              {t('home.finalCta.title')}
+              <HighlightedText value={t('home.finalCta.title')} />
             </h2>
             <div className="relative mt-8 flex flex-col items-center gap-4">
               <HeroLink href={registerHref} variant="lime" size="md">
