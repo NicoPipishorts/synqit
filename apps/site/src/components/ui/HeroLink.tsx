@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 
 type HeroLinkVariant = 'lime' | 'outline' | 'pink';
-type HeroLinkSize = 'md' | 'sm';
+type HeroLinkSize = 'md' | 'sm' | 'hero';
 
 const VARIANT_CLASS_NAME: Record<HeroLinkVariant, string> = {
   lime: 'border-brand-lime bg-brand-lime text-brand-dark hover:brightness-[0.98] dark:hover:brightness-[1.04]',
@@ -13,6 +13,13 @@ const VARIANT_CLASS_NAME: Record<HeroLinkVariant, string> = {
 const SIZE_CLASS_NAME: Record<HeroLinkSize, string> = {
   md: 'min-h-11 px-5 py-3 text-sm sm:text-base',
   sm: 'min-h-10 px-4 py-2.5 text-sm',
+  /**
+   * `md`, but tight enough on a phone to share its row with the secondary link.
+   * French runs about a quarter longer than English — "Commencer gratuitement"
+   * against "Get started free" — and at `md` the pair needs 421px of a 335px row,
+   * so it wrapped. Back to `md` from `sm:` up, where there is room.
+   */
+  hero: 'min-h-10 px-3 py-2.5 text-xs sm:min-h-11 sm:px-5 sm:py-3 sm:text-base',
 };
 
 type HeroLinkProps = {

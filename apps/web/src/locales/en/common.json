@@ -946,16 +946,15 @@
     },
     "hero": {
       "eyebrow": "Music without borders",
-      "titleLead": "Playlists that go",
-      "titleHighlight": "anywhere.",
       "description": "Let guests pick the tracks at your party, share one playlist across Spotify and Apple Music, or move your library to a new app. One link does it.",
       "ctaPrimary": "Get started free",
       "ctaSecondary": "See how it works",
-      "ctaLogin": "Sign in"
+      "ctaLogin": "Sign in",
+      "title": "Playlists that go [[anywhere.]]"
     },
     "services": {
       "eyebrow": "What Synqit does",
-      "title": "One app, three services!",
+      "title": "One app, [[three services]]!",
       "event": {
         "tag": "Events",
         "title": "Let the crowd pick the music",
@@ -1012,11 +1011,11 @@
       }
     },
     "vibe": {
-      "statement": "No app. No account. No friction.",
+      "statement": "No app. No account. [[No friction.]]",
       "words": "Birthdays|House parties|Weddings|Road trips|Office playlists|Bar nights|Festivals|Spotify|Apple Music"
     },
     "finalCta": {
-      "title": "Your next playlist starts here.",
+      "title": "Your next playlist [[starts here]].",
       "cta": "Create a free account",
       "login": "I already have an account"
     },
@@ -1154,7 +1153,7 @@
           "feat4": "Unlimited playlists & seats"
         }
       },
-      "teaserTitle": "Free to start. Pay only when it matters.",
+      "teaserTitle": "Free to start. Pay only when [[it matters]].",
       "teaserEvents": "Events",
       "teaserEventsBody": "Free up to 25 guests, then a one-time price per event.",
       "teaserSharing": "Sharing",
@@ -1178,7 +1177,7 @@
     },
     "compat": {
       "eyebrow": "Works with",
-      "title": "Two ways to bring your music in",
+      "title": "[[Two ways]] to bring your music in",
       "lead": "Some services connect to your account, so Synqit can work inside your own library. Others come in through a public link, with nothing to sign in to.",
       "connect": {
         "sticker": "Connect once",
