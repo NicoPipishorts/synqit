@@ -1,8 +1,9 @@
 import { authUserSchema } from '@synqit/shared';
 import {
-  CircularImage,
+  CONNECT_SERVICES,
   NotificationDot,
   OnboardingPanel,
+  ServiceLogo,
   Sticker,
   SurfaceCard,
   useToast,
@@ -408,9 +409,11 @@ export const ProfilePage = () => {
             {t('profile.platformsCardTitle')}
           </h2>
           <p className="mt-2 text-sm text-app-text-secondary">{t('profile.platformsCardBody')}</p>
-          <div className="mt-4 flex items-center gap-2">
-            <CircularImage src="/assets/logos/Providers/Spotify.png" alt="Spotify" />
-            <CircularImage src="/assets/logos/Providers/AppleMusic.png" alt="Apple Music" />
+          {/* Straight from the shared catalogue, so a new service shows up here too. */}
+          <div className="mt-4 flex items-center gap-2 text-app-text">
+            {CONNECT_SERVICES.map((service) => (
+              <ServiceLogo key={service.id} service={service.id} className="h-9 w-9" />
+            ))}
           </div>
           <CTALink to="/profile/platforms" variant="secondary" className="mt-auto self-end">
             {t('profile.platformsCardCta')}

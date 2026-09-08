@@ -1,5 +1,6 @@
 import { providerSchema } from '@synqit/shared';
-import { useToast } from '@synqit/ui';
+import { eventProviderSchema, type EventProvider } from '@synqit/shared';
+import { MUSIC_SERVICES, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, Eye } from 'lucide-react';
@@ -17,14 +18,16 @@ import {
   ProviderSelectionStep,
 } from '../components/create-flow/ProviderSelectionStep';
 import { EventMagicLinkRow } from '../components/events/EventMagicLinkRow';
-import { EventProviderIcon } from '../components/events/EventProviderIcon';
+import { ProviderIcon } from '../components/providers/ProviderIcon';
 import { CTAButton, CTALink, CTAMobileIconLabel } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { connectAppleMusic } from '../lib/appleMusic';
 import { openProviderOauthPopup } from '../lib/providerOauthPopup';
+import { PROVIDER_LABELS } from '../lib/providers';
 import {
+  EMPTY_INTEGRATION_MAP,
   createDraft,
   createEvent as createEventFn,
   fetchDraft,
@@ -49,7 +52,7 @@ export const EventCreatePage = () => {
   const [step, setStep] = useState<CreateStep>(1);
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
   const [draftId, setDraftId] = useState<string | null>(null);
-  const [provider, setProvider] = useState<Provider | null>(null);
+  const [provider, setProvider] = useState<EventProvider | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [createdEvent, setCreatedEvent] = useState<CreatedEventState | null>(null);
@@ -69,7 +72,7 @@ export const EventCreatePage = () => {
   });
 
   const providerStatusByType: Record<Provider, ProviderIntegrationStatus> =
-    integrationsQuery.data ?? { spotify: 'not_connected', apple: 'not_connected' };
+    integrationsQuery.data ?? EMPTY_INTEGRATION_MAP;
 
   const selectedProviderConnected = provider
     ? providerStatusByType[provider] === 'connected'
@@ -167,7 +170,7 @@ export const EventCreatePage = () => {
   const hasDraftContent = useCallback(
     (
       nextStep: CreateStep,
-      nextProvider: Provider | null,
+      nextProvider: EventProvider | null,
       nextName: string,
       nextDescription: string,
     ) => {
@@ -186,7 +189,7 @@ export const EventCreatePage = () => {
   // ---------------------------------------------------------------------------
 
   const connectSelectedProvider = useCallback(
-    async (selectedProvider: Provider) => {
+    async (selectedProvider: EventProvider) => {
       setIsConnectingProvider(true);
       trackAnalyticsEvent({
         eventName: 'provider_connect_started',
@@ -203,7 +206,7 @@ export const EventCreatePage = () => {
           if (snapshot?.apple === 'connected') {
             showToast(
               t('profile.connectionConnected', {
-                provider: t('eventsPage.createFlow.providerApple'),
+                provider: PROVIDER_LABELS.apple,
               }),
               { variant: 'success' },
             );
@@ -227,7 +230,7 @@ export const EventCreatePage = () => {
         if (snapshot?.spotify === 'connected' || popupResult === 'connected') {
           showToast(
             t('profile.connectionConnected', {
-              provider: t('eventsPage.createFlow.providerSpotify'),
+              provider: PROVIDER_LABELS.spotify,
             }),
             { variant: 'success' },
           );
@@ -242,7 +245,7 @@ export const EventCreatePage = () => {
         if (popupResult === 'blocked' || popupResult === 'error' || popupResult === 'timeout') {
           showToast(
             t('profile.connectionFailed', {
-              provider: t('eventsPage.createFlow.providerSpotify'),
+              provider: PROVIDER_LABELS.spotify,
             }),
             { variant: 'error' },
           );
@@ -364,7 +367,8 @@ export const EventCreatePage = () => {
   useEffect(() => {
     if (!isDraftHydrationDone || !integrationsQuery.data) return;
     if (provider !== null || step !== 1) return;
-    const connectedProviders = providerSchema.options.filter(
+    // Only offer to skip ahead when the single connected service can actually host an event.
+    const connectedProviders = eventProviderSchema.options.filter(
       (p) => integrationsQuery.data[p] === 'connected',
     );
     if (connectedProviders.length === 1) {
@@ -433,16 +437,13 @@ export const EventCreatePage = () => {
     const status = params.get('status');
     const redirectStep = params.get('step');
 
-    if (providerParam && providerSchema.options.includes(providerParam as Provider)) {
-      setProvider(providerParam as Provider);
+    if (providerParam && eventProviderSchema.options.includes(providerParam as EventProvider)) {
+      setProvider(providerParam as EventProvider);
     }
     if (redirectStep === '1') setStep(1);
 
     if (providerParam && providerSchema.options.includes(providerParam as Provider) && status) {
-      const providerLabel =
-        providerParam === 'apple'
-          ? t('eventsPage.createFlow.providerApple')
-          : t('eventsPage.createFlow.providerSpotify');
+      const providerLabel = PROVIDER_LABELS[providerParam as Provider];
       if (status === 'connected') {
         showToast(t('profile.connectionConnected', { provider: providerLabel }), {
           variant: 'success',
@@ -522,15 +523,11 @@ export const EventCreatePage = () => {
     });
   };
 
+  // Service names are proper nouns, so they come from the shared catalogue, not the locales.
   const providerLabel = provider
-    ? provider === 'apple'
-      ? t('eventsPage.createFlow.providerApple')
-      : t('eventsPage.createFlow.providerSpotify')
+    ? MUSIC_SERVICES[provider].name
     : t('eventsPage.createFlow.providerNotSelected');
-  const providerLabels: Record<Provider, string> = {
-    apple: t('eventsPage.createFlow.providerApple'),
-    spotify: t('eventsPage.createFlow.providerSpotify'),
-  };
+  const providerLabels = PROVIDER_LABELS;
 
   const isLoadingIntegrations = integrationsQuery.isLoading;
   const isCreatingEvent = createEventMutation.isPending;
@@ -556,6 +553,7 @@ export const EventCreatePage = () => {
         <AnimatePresence mode="wait" initial={false} custom={stepDirection}>
           {step === 1 ? (
             <ProviderSelectionStep
+              providers={eventProviderSchema.options}
               body={t('eventsPage.createFlow.stepProviderBody')}
               isConnectingProvider={isConnectingProvider}
               motionKey="step-1"
@@ -652,7 +650,7 @@ export const EventCreatePage = () => {
                     {t('eventsPage.createFlow.summaryProvider')}
                   </span>
                   {provider ? (
-                    <EventProviderIcon provider={provider} sizeClassName="h-10 w-10" />
+                    <ProviderIcon provider={provider} sizeClassName="h-10 w-10" />
                   ) : (
                     <span className="font-bold text-app-text">{providerLabel}</span>
                   )}

@@ -7,8 +7,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Check, ListMusic, LoaderCircle, ShieldCheck, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { TrackSkeletonList } from '../components/events/PublicTrackRow';
+import { ProviderIcon } from '../components/providers/ProviderIcon';
 import { PublicPageShell } from '../components/public/PublicPageShell';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
@@ -17,7 +17,9 @@ import { useI18n } from '../hooks/useI18n';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { isAuthenticated } from '../lib/auth';
+import { PROVIDER_LABELS } from '../lib/providers';
 import {
+  EMPTY_INTEGRATION_MAP,
   fetchIntegrations,
   fetchSyncPublic,
   importSync,
@@ -98,9 +100,9 @@ const ProviderSheet = ({
                   : 'border-app-border-strong bg-app-surface hover:border-app-text dark:bg-app-elevated'
               }`}
             >
-              <EventProviderIcon provider={p} sizeClassName="h-8 w-8" />
+              <ProviderIcon provider={p} sizeClassName="h-8 w-8" />
               <span className="text-sm font-bold capitalize text-brand-dark dark:text-brand-white">
-                {p === 'spotify' ? 'Spotify' : 'Apple Music'}
+                {PROVIDER_LABELS[p]}
               </span>
             </button>
           ))}
@@ -228,10 +230,7 @@ export const SyncPublicPage = () => {
   // Derived
   // ---------------------------------------------------------------------------
 
-  const providerStatusByType = integrationsQuery.data ?? {
-    spotify: 'not_connected' as 'connected' | 'not_connected',
-    apple: 'not_connected' as 'connected' | 'not_connected',
-  };
+  const providerStatusByType = integrationsQuery.data ?? EMPTY_INTEGRATION_MAP;
 
   const connectedProviders = loggedIn
     ? providerSchema.options.filter((p) => providerStatusByType[p] === 'connected')

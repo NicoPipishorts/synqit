@@ -13,6 +13,7 @@ type AppleTrackSearchResult = {
   durationMs: number;
   artworkUrl: string | null;
   previewUrl: string | null;
+  isrc: string | null;
 };
 
 type AppleLibraryPlaylist = {
@@ -32,6 +33,7 @@ const appleSearchResponseSchema = z.object({
                 artistName: z.string().min(1),
                 albumName: z.string().min(1),
                 durationInMillis: z.number().int().nonnegative().optional().default(0),
+                isrc: z.string().optional(),
                 previews: z
                   .array(
                     z.object({
@@ -80,6 +82,7 @@ const applePlaylistTracksResponseSchema = z.object({
           artistName: z.string().optional(),
           albumName: z.string().optional(),
           durationInMillis: z.number().int().nonnegative().optional(),
+          isrc: z.string().optional(),
           artwork: z
             .object({
               url: z.string().min(1),
@@ -340,7 +343,68 @@ export const searchAppleCatalogTracks = async (params: {
     durationMs: song.attributes.durationInMillis,
     artworkUrl: formatAppleArtworkUrl(song.attributes.artwork?.url),
     previewUrl: song.attributes.previews[0]?.url ?? null,
+    isrc: song.attributes.isrc ?? null,
   }));
+};
+
+const appleIsrcLookupResponseSchema = z.object({
+  data: z
+    .array(
+      z.object({
+        id: z.string().min(1),
+        attributes: z.object({
+          name: z.string().min(1),
+          artistName: z.string().min(1),
+          albumName: z.string().min(1),
+          durationInMillis: z.number().int().nonnegative().optional().default(0),
+          isrc: z.string().optional(),
+          artwork: z.object({ url: z.string().min(1) }).optional(),
+        }),
+      }),
+    )
+    .optional()
+    .default([]),
+});
+
+/** Exact catalog lookup by ISRC; null when the storefront has no matching song. */
+export const findAppleCatalogSongByIsrc = async (params: {
+  developerToken: string;
+  storefront: string;
+  isrc: string;
+}): Promise<AppleTrackSearchResult | null> => {
+  const url = new URL(
+    `https://api.music.apple.com/v1/catalog/${encodeURIComponent(params.storefront)}/songs`,
+  );
+  url.searchParams.set('filter[isrc]', params.isrc);
+
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: appleHeaders({ developerToken: params.developerToken }),
+  });
+  const payload = (await response.json().catch(() => ({}))) as unknown;
+  if (!response.ok) {
+    throw toAppleApiError({
+      action: 'search',
+      statusCode: response.status,
+      payload,
+      wwwAuthenticate: response.headers.get('www-authenticate'),
+    });
+  }
+
+  const song = appleIsrcLookupResponseSchema.parse(payload).data[0];
+  if (!song) {
+    return null;
+  }
+  return {
+    providerTrackId: song.id,
+    name: song.attributes.name,
+    artist: song.attributes.artistName,
+    album: song.attributes.albumName,
+    durationMs: song.attributes.durationInMillis,
+    artworkUrl: formatAppleArtworkUrl(song.attributes.artwork?.url),
+    previewUrl: null,
+    isrc: song.attributes.isrc ?? null,
+  };
 };
 
 export const createAppleLibraryPlaylist = async (params: {
@@ -579,6 +643,7 @@ export const listApplePlaylistTracks = async (params: {
         durationMs: track.attributes?.durationInMillis ?? 0,
         artworkUrl: formatAppleArtworkUrl(track.attributes?.artwork?.url),
         previewUrl: null,
+        isrc: track.attributes?.isrc ?? null,
       });
     }
 

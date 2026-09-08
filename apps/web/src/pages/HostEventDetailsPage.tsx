@@ -7,16 +7,17 @@ import { FormEvent, useEffect, useRef, useState } from 'react';
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { EventEditFormCard } from '../components/events/EventEditFormCard';
 import { EventMagicLinkCard } from '../components/events/EventMagicLinkCard';
-import { EventProviderIcon } from '../components/events/EventProviderIcon';
 import { EventStatusIndicator } from '../components/events/EventStatusIndicator';
 import { EventTracksCard } from '../components/events/EventTracksCard';
 import { HostEventDetailsHeader } from '../components/events/HostEventDetailsHeader';
+import { ProviderIcon } from '../components/providers/ProviderIcon';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { Modal } from '../components/ui/Modal';
 import { useI18n } from '../hooks/useI18n';
 import { trackAnalyticsEvent } from '../lib/analytics';
 import { toApiError } from '../lib/api';
 import { HostEvent } from '../lib/events';
+import { PROVIDER_LABELS } from '../lib/providers';
 import {
   closeEvent,
   deleteEventImage,
@@ -428,13 +429,13 @@ export const HostEventDetailsPage = () => {
                     {t('eventsPage.streamingServiceLabel')}
                   </p>
                   <div className="flex items-center gap-2.5 px-0.5 py-1">
-                    <EventProviderIcon
+                    <ProviderIcon
                       provider={event.provider}
                       sizeClassName="h-7 w-7 shrink-0"
                       className="dark:shadow-glow-pink"
                     />
                     <span className="text-base font-black text-brand-dark dark:text-brand-white">
-                      {event.provider === 'apple' ? 'Apple Music' : 'Spotify'}
+                      {PROVIDER_LABELS[event.provider]}
                     </span>
                   </div>
                   {event.closeReason === 'provider_playlist_missing' ? (

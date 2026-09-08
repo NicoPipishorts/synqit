@@ -1,7 +1,19 @@
 import { z } from 'zod';
 
-export const providerSchema = z.enum(['spotify', 'apple']);
+export const providerSchema = z.enum(['spotify', 'apple', 'tidal']);
 export type Provider = z.infer<typeof providerSchema>;
+
+/**
+ * Providers that can host an event playlist. Hosting needs guest-facing search and
+ * host-side moderation on top of plain playlist writes, so it is a strict subset of
+ * `providerSchema`. The API enforces it through `ProviderAdapter.supportsEvents`; the
+ * frontends read it from here so the two cannot drift.
+ */
+export const eventProviderSchema = z.enum(['spotify', 'apple']);
+export type EventProvider = z.infer<typeof eventProviderSchema>;
+
+export const isEventProvider = (provider: Provider): provider is EventProvider =>
+  (eventProviderSchema.options as readonly Provider[]).includes(provider);
 
 export const eventCloseReasonSchema = z.enum(['provider_playlist_missing']);
 export type EventCloseReason = z.infer<typeof eventCloseReasonSchema>;
@@ -643,6 +655,8 @@ export const eventDraftStepSchema = z.number().int().min(1).max(4);
 export type EventDraftStep = z.infer<typeof eventDraftStepSchema>;
 
 export const createEventRequestSchema = z.object({
+  // Stays wide so the route can answer a non-event provider with a clear
+  // `provider_not_supported_for_events` error instead of a generic validation failure.
   provider: providerSchema.optional().default('spotify'),
   name: z.string().min(1).max(100),
   description: z.string().max(500).optional().default(''),
@@ -657,7 +671,7 @@ export const updateEventRequestSchema = z.object({
 export type UpdateEventRequest = z.infer<typeof updateEventRequestSchema>;
 
 export const createEventDraftRequestSchema = z.object({
-  provider: providerSchema.nullable().optional(),
+  provider: eventProviderSchema.nullable().optional(),
   name: z.string().max(100).optional(),
   description: z.string().max(500).optional(),
   step: eventDraftStepSchema.optional(),
@@ -666,7 +680,7 @@ export type CreateEventDraftRequest = z.infer<typeof createEventDraftRequestSche
 
 export const updateEventDraftRequestSchema = z
   .object({
-    provider: providerSchema.nullable().optional(),
+    provider: eventProviderSchema.nullable().optional(),
     name: z.string().max(100).optional(),
     description: z.string().max(500).optional(),
     step: eventDraftStepSchema.optional(),
@@ -686,7 +700,7 @@ export type UpdateEventDraftRequest = z.infer<typeof updateEventDraftRequestSche
 export const eventSchema = z.object({
   id: z.string(),
   hostUserId: z.string(),
-  provider: providerSchema,
+  provider: eventProviderSchema,
   providerConnectionStatus: providerConnectionStatusSchema,
   providerPlaylistId: z.string(),
   status: eventStatusSchema,
@@ -705,7 +719,7 @@ export type Event = z.infer<typeof eventSchema>;
 export const eventDraftSchema = z.object({
   id: z.string().uuid(),
   hostUserId: z.string(),
-  provider: providerSchema.nullable(),
+  provider: eventProviderSchema.nullable(),
   name: z.string(),
   description: z.string(),
   step: eventDraftStepSchema,
@@ -743,7 +757,7 @@ export type EventListResponse = z.infer<typeof eventListResponseSchema>;
 
 export const eventPublicSchema = z.object({
   id: z.string(),
-  provider: providerSchema,
+  provider: eventProviderSchema,
   providerConnectionStatus: providerConnectionStatusSchema,
   status: eventStatusSchema,
   closeReason: eventCloseReasonSchema.nullable().optional(),
@@ -1107,6 +1121,87 @@ export const transferPlaylistJobSchema = z.object({
   itemId: z.string().uuid(),
 });
 export type TransferPlaylistJob = z.infer<typeof transferPlaylistJobSchema>;
+// External playlist imports (Deezer / YouTube public links -> Spotify / Apple)
+// ---------------------------------------------------------------------------
+
+export const externalSourceKindSchema = z.enum(['deezer', 'youtube']);
+export type ExternalSourceKind = z.infer<typeof externalSourceKindSchema>;
+
+export const externalImportStatusSchema = z.enum(['pending', 'running', 'completed', 'failed']);
+export type ExternalImportStatus = z.infer<typeof externalImportStatusSchema>;
+
+export const externalSourceTrackSchema = z.object({
+  name: z.string(),
+  artist: z.string(),
+  album: z.string(),
+  durationMs: z.number().int().nonnegative(),
+  artworkUrl: z.string().nullable(),
+  /** Present for Deezer; enables exact matching on the destination provider. */
+  isrc: z.string().nullable(),
+});
+export type ExternalSourceTrack = z.infer<typeof externalSourceTrackSchema>;
+
+export const externalPlaylistPreviewRequestSchema = z.object({
+  url: z.string().trim().min(1).max(2048),
+});
+export type ExternalPlaylistPreviewRequest = z.infer<typeof externalPlaylistPreviewRequestSchema>;
+
+export const externalPlaylistPreviewResponseSchema = z.object({
+  source: externalSourceKindSchema,
+  sourcePlaylistId: z.string(),
+  name: z.string(),
+  trackCount: z.number().int().nonnegative(),
+  coverImageUrl: z.string().nullable(),
+  /** First tracks only; `truncated` says whether more exist. */
+  tracks: z.array(externalSourceTrackSchema),
+  truncated: z.boolean(),
+});
+export type ExternalPlaylistPreviewResponse = z.infer<typeof externalPlaylistPreviewResponseSchema>;
+
+export const createExternalImportRequestSchema = z.object({
+  url: z.string().trim().min(1).max(2048),
+  recipientProvider: providerSchema,
+});
+export type CreateExternalImportRequest = z.infer<typeof createExternalImportRequestSchema>;
+
+export const externalImportItemSchema = z.object({
+  id: z.string(),
+  source: externalSourceKindSchema,
+  sourceUrl: z.string(),
+  sourcePlaylistId: z.string(),
+  name: z.string(),
+  coverImageUrl: z.string().nullable(),
+  recipientProvider: providerSchema,
+  recipientProviderPlaylistId: z.string().nullable(),
+  status: externalImportStatusSchema,
+  totalCount: z.number().int().nonnegative(),
+  matchedCount: z.number().int().nonnegative(),
+  skippedCount: z.number().int().nonnegative(),
+  lastError: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  completedAt: z.string().nullable(),
+});
+export type ExternalImportItem = z.infer<typeof externalImportItemSchema>;
+
+export const externalImportResponseSchema = z.object({
+  import: externalImportItemSchema,
+});
+export type ExternalImportResponse = z.infer<typeof externalImportResponseSchema>;
+
+export const externalImportListResponseSchema = z.object({
+  imports: z.array(externalImportItemSchema),
+});
+export type ExternalImportListResponse = z.infer<typeof externalImportListResponseSchema>;
+
+export const externalSourcesStatusResponseSchema = z.object({
+  sources: z.object({
+    deezer: z.boolean(),
+    youtube: z.boolean(),
+  }),
+  maxTracks: z.number().int().positive(),
+});
+export type ExternalSourcesStatusResponse = z.infer<typeof externalSourcesStatusResponseSchema>;
 
 export const dashboardOwnerEventActivitySchema = z.object({
   eventId: z.string(),

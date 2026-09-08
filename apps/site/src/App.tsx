@@ -5,11 +5,12 @@ import {
   PublicNav,
   type PublicNavItem as PublicNavComponentItem,
 } from '@synqit/ui';
-import { Home, LogIn, Share2, Tag } from 'lucide-react';
+import { HelpCircle, Home, LogIn, Share2, Tag } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BlurSpotLayer } from './components/ui/BlurSpotLayer';
 import { LEGAL_ROUTES, legalSlugForPath, type LegalSlug } from './content/legal';
+import { FaqPage } from './FaqPage';
 import { HomePage } from './HomePage';
 import { LegalPage } from './LegalPage';
 import { trackSiteEvent } from './lib/analytics';
@@ -34,9 +35,11 @@ const normalizePath = (pathname: string): string => {
 
 // Routes the site renders itself. Anything else (the app subdomain, auth,
 // external links) is left to the browser as a normal navigation.
-const INTERNAL_ROUTES = new Set(['/', '/pricing', ...Object.values(LEGAL_ROUTES)]);
+const INTERNAL_ROUTES = new Set(['/', '/pricing', '/faq', ...Object.values(LEGAL_ROUTES)]);
 
 const isPricingRoutePath = (pathname: string): boolean => normalizePath(pathname) === '/pricing';
+
+const isFaqRoutePath = (pathname: string): boolean => normalizePath(pathname) === '/faq';
 
 // Identical to the web app's RouteLoadingScreen, so navigating across to the app
 // (login / create) shows one continuous animated loader instead of a frozen page.
@@ -52,7 +55,7 @@ const AppHandoffScreen = () => (
 );
 
 type PublicNavItem = {
-  id: 'product' | 'pricing' | 'share';
+  id: 'product' | 'pricing' | 'faq' | 'share';
   href: string;
   label: ReactNode;
 };
@@ -66,6 +69,7 @@ const AppShell = () => {
   const [isLeavingToApp, setIsLeavingToApp] = useState(false);
   const appOrigin = useMemo(() => getAppOrigin(), []);
   const isPricing = isPricingRoutePath(pathname);
+  const isFaq = isFaqRoutePath(pathname);
   const legalSlug: LegalSlug | null = legalSlugForPath(pathname);
   useSiteAnalytics(pathname);
   // Legal pages sit outside the primary nav, so nothing is highlighted there.
@@ -73,13 +77,16 @@ const AppShell = () => {
     ? null
     : isPricing
       ? 'pricing'
-      : 'product';
+      : isFaq
+        ? 'faq'
+        : 'product';
   const [activeNavItem, setActiveNavItem] = useState<PublicNavItem['id'] | null>(
     routeActiveNavItem,
   );
   const navItems: PublicNavComponentItem[] = [
     { id: 'product', href: '/', label: t('home.nav.product') },
     { id: 'pricing', href: '/pricing', label: t('home.pricing.navLink') },
+    { id: 'faq', href: '/faq', label: t('home.nav.faq') },
     { id: 'share', href: buildAppUrl('/auth/register'), label: t('home.nav.share') },
   ];
 
@@ -97,6 +104,12 @@ const AppShell = () => {
       icon: <Tag size={18} aria-hidden="true" />,
     },
     {
+      id: 'faq',
+      href: '/faq',
+      label: t('home.nav.faq'),
+      icon: <HelpCircle size={18} aria-hidden="true" />,
+    },
+    {
       id: 'share',
       href: buildAppUrl('/auth/register'),
       label: t('home.nav.share'),
@@ -111,7 +124,7 @@ const AppShell = () => {
   ];
 
   const handleNavActivate = (id: string) => {
-    if (id === 'product' || id === 'pricing' || id === 'share') {
+    if (id === 'product' || id === 'pricing' || id === 'faq' || id === 'share') {
       setActiveNavItem(id);
     }
   };
@@ -147,14 +160,19 @@ const AppShell = () => {
   }, [routeActiveNavItem]);
 
   const navigate = useCallback(
-    (nextPath: string) => {
+    (nextPath: string, hash = '') => {
       const normalized = normalizePath(nextPath);
-      if (normalized === pathname) {
+      if (normalized === pathname && !hash) {
         return;
       }
-      window.history.pushState({}, '', normalized);
+      window.history.pushState({}, '', `${normalized}${hash}`);
       setPathname(normalized);
-      window.scrollTo({ top: 0 });
+      if (!hash) {
+        window.scrollTo({ top: 0 });
+        return;
+      }
+      // pushState fires no hashchange, so tell the freshly mounted page itself.
+      requestAnimationFrame(() => window.dispatchEvent(new Event('hashchange')));
     },
     [pathname],
   );
@@ -238,7 +256,7 @@ const AppShell = () => {
           return;
         }
         event.preventDefault();
-        navigate(target);
+        navigate(target, url.hash);
         return;
       }
 
@@ -311,7 +329,15 @@ const AppShell = () => {
         ariaLabel="Mobile navigation"
       />
       <main className="relative z-10 min-h-screen">
-        {legalSlug ? <LegalPage slug={legalSlug} /> : isPricing ? <PricingPage /> : <HomePage />}
+        {legalSlug ? (
+          <LegalPage slug={legalSlug} />
+        ) : isFaq ? (
+          <FaqPage />
+        ) : isPricing ? (
+          <PricingPage />
+        ) : (
+          <HomePage />
+        )}
       </main>
     </div>
   );

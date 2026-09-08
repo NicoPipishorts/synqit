@@ -6,18 +6,21 @@ import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
   addAppleTracksToPlaylist,
   createAppleLibraryPlaylist,
-  listApplePlaylistTracks,
   searchAppleCatalogTracks,
 } from '../integrations/apple-music';
+import { getProviderAdapter } from '../integrations/provider-registry';
 import { mapWithConcurrency, withProviderRetry } from '../integrations/provider-throttle';
 import { isSpotifyOauthLiveMode } from '../integrations/spotify';
 import { withSpotifyAccessTokenRetry } from '../integrations/spotify-client';
 import { createSpotifyPlaylist } from '../integrations/spotify-playlists';
+import { addSpotifyTracksToPlaylist, searchSpotifyTracks } from '../integrations/spotify-tracks';
+import { isTidalOauthLiveMode } from '../integrations/tidal';
 import {
-  addSpotifyTracksToPlaylist,
-  listSpotifyPlaylistTracks,
-  searchSpotifyTracks,
-} from '../integrations/spotify-tracks';
+  addTidalTracksToPlaylist,
+  createTidalPlaylist,
+  searchTidalTracks,
+} from '../integrations/tidal-api';
+import { withTidalAccessTokenRetry } from '../integrations/tidal-client';
 
 // Providers rate-limit per app, not per playlist, so keep the search pool
 // small enough that one big transfer does not starve everyone else.
@@ -41,38 +44,16 @@ type MatchOutcome =
   | { status: 'skipped' };
 
 const listSourceTracks = async (sync: SyncRecord): Promise<SourceTrack[]> => {
-  if (sync.provider === 'spotify') {
-    if (!isSpotifyOauthLiveMode()) {
-      return [];
-    }
-    const { result } = await withSpotifyAccessTokenRetry({
-      userId: sync.senderUserId,
-      run: (accessToken) =>
-        listSpotifyPlaylistTracks({ accessToken, providerPlaylistId: sync.providerPlaylistId }),
-    });
-    return result;
+  const adapter = getProviderAdapter(sync.provider);
+  if (!adapter.isLiveMode()) {
+    return [];
   }
-
-  return withAppleMusicUserToken({
+  return adapter.listPlaylistTracks({
     userId: sync.senderUserId,
-    run: (ctx) => listApplePlaylistTracks({ ...ctx, providerPlaylistId: sync.providerPlaylistId }),
+    providerPlaylistId: sync.providerPlaylistId,
   });
 };
 
-/**
- * Copies a sync's source playlist into the recipient's provider.
- *
- * Shared by the magic-link import route and the queued transfer job, so the
- * matching and batching behaviour stays identical for both.
- *
- * Re-running is safe. An existing import row is resumed rather than
- * duplicated: the recipient playlist is reused if one was already created, and
- * tracks already recorded as synced are not added again. That is what makes a
- * failed transfer job retryable without leaving the user with two half-filled
- * playlists.
- *
- * Provider failures are thrown (as `ProviderApiError`) for the caller to map.
- */
 export const importSyncForRecipient = async (params: {
   sync: SyncRecord;
   recipientUserId: string;
@@ -96,27 +77,39 @@ export const importSyncForRecipient = async (params: {
   // Resolve recipient credentials once for the whole run. Doing it per track
   // meant a database read and a token decrypt for every song in the playlist.
   const recipientCredentials =
-    recipientProvider === 'spotify'
+    recipientProvider === 'tidal'
       ? ({
-          provider: 'spotify',
-          // Null outside live mode: the run still walks the tracks so the
-          // same-provider shortcut below behaves as it always has.
-          accessToken: isSpotifyOauthLiveMode()
+          provider: 'tidal',
+          accessToken: isTidalOauthLiveMode()
             ? (
-                await withSpotifyAccessTokenRetry({
+                await withTidalAccessTokenRetry({
                   userId: recipientUserId,
                   run: async (at) => at,
                 })
               ).accessToken
             : null,
         } as const)
-      : ({
-          provider: 'apple',
-          tokens: await withAppleMusicUserToken({
-            userId: recipientUserId,
-            run: async (ctx) => ctx,
-          }),
-        } as const);
+      : recipientProvider === 'spotify'
+        ? ({
+            provider: 'spotify',
+            // Null outside live mode: the run still walks the tracks so the
+            // same-provider shortcut below behaves as it always has.
+            accessToken: isSpotifyOauthLiveMode()
+              ? (
+                  await withSpotifyAccessTokenRetry({
+                    userId: recipientUserId,
+                    run: async (at) => at,
+                  })
+                ).accessToken
+              : null,
+          } as const)
+        : ({
+            provider: 'apple',
+            tokens: await withAppleMusicUserToken({
+              userId: recipientUserId,
+              run: async (ctx) => ctx,
+            }),
+          } as const);
 
   const searchForMatch = async (track: SourceTrack): Promise<MatchOutcome> => {
     if (recipientProvider === sync.provider && track.providerTrackId) {
@@ -130,6 +123,15 @@ export const importSyncForRecipient = async (params: {
     const query = `${track.name} ${track.artist}`;
     try {
       const results = await withProviderRetry(() => {
+        if (recipientCredentials.provider === 'tidal') {
+          return recipientCredentials.accessToken
+            ? searchTidalTracks({
+                accessToken: recipientCredentials.accessToken,
+                query,
+                limit: 1,
+              })
+            : Promise.resolve([]);
+        }
         if (recipientCredentials.provider === 'spotify') {
           return recipientCredentials.accessToken
             ? searchSpotifyTracks({
@@ -210,7 +212,33 @@ export const importSyncForRecipient = async (params: {
   const providerTrackIds = matchedTracks.map((track) => track.recipientTrackId);
   let recipientProviderPlaylistId = existingImport?.recipientProviderPlaylistId ?? null;
 
-  if (recipientCredentials.provider === 'spotify') {
+  if (recipientCredentials.provider === 'tidal') {
+    const { accessToken } = recipientCredentials;
+    if (accessToken) {
+      if (!recipientProviderPlaylistId) {
+        const created = await createTidalPlaylist({ accessToken, name: playlistName });
+        recipientProviderPlaylistId = created.providerPlaylistId;
+        await syncsStore.upsertImport({
+          syncId: sync.id,
+          recipientUserId,
+          recipientProvider,
+          recipientProviderPlaylistId,
+          status: 'pending',
+          matchedCount: existingImport?.matchedCount ?? 0,
+          skippedCount: existingImport?.skippedCount ?? 0,
+        });
+      }
+
+      // TIDAL's add endpoint has no partial-success payload, so on success
+      // every requested id counts as added.
+      await addTidalTracksToPlaylist({
+        accessToken,
+        providerPlaylistId: recipientProviderPlaylistId,
+        providerTrackIds,
+      });
+      recordAdded(providerTrackIds);
+    }
+  } else if (recipientCredentials.provider === 'spotify') {
     const { accessToken } = recipientCredentials;
     if (accessToken) {
       if (!recipientProviderPlaylistId) {

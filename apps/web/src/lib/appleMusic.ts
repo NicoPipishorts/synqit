@@ -1,6 +1,6 @@
 /**
  * Shared Apple Music connect flow.
- * Used by both ProviderConnectionsPage and EventCreatePage.
+ * Used by both the profile connections panel and EventCreatePage.
  */
 import { callApi } from './api';
 import {
