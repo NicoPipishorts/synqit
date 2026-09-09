@@ -18,6 +18,11 @@ resampled to a 256×256 square, as was `Tidal.png`, so they all sit at the same
 visual weight in a row.
 The originals are unmodified in shape and colour.
 
+`Qobuz.png` arrived with its rounded corners flattened onto white, which showed as
+four white nicks around the badge everywhere it sits on a dark background — the
+compatibility strip most visibly. The white outside the badge is now transparent,
+feathered along the antialiased rim; the badge and wordmark are untouched.
+
 `Tidal.png` is the only monochrome mark here. TIDAL ships the same shape in black
 and in white, and picking either one would hide it on half our surfaces: the
 compatibility strip inverts against the page theme, so a black mark disappears on
