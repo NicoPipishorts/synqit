@@ -1155,6 +1155,9 @@ export const transferTrackSchema = z.object({
   artworkUrl: z.string().nullable(),
   durationMs: z.number().int().nonnegative().nullable(),
   status: transferTrackStatusSchema,
+  /** What the destination calls the track it matched, when it differs. */
+  destinationName: z.string().nullable().default(null),
+  destinationArtist: z.string().nullable().default(null),
 });
 export type TransferTrack = z.infer<typeof transferTrackSchema>;
 

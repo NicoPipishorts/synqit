@@ -185,6 +185,16 @@ export const TransferDetailsPage = () => {
                         <p className="truncate text-xs text-app-text-secondary">
                           {[track.artist, track.album].filter(Boolean).join(' · ')}
                         </p>
+                        {/* Services name the same recording differently. Saying
+                            so where they disagree is the difference between
+                            "it worked" and "it worked, and here is what landed". */}
+                        {isMatched &&
+                        track.destinationName !== null &&
+                        track.destinationName !== track.name ? (
+                          <p className="truncate text-xs text-app-text-muted">
+                            {t('transferDetailsPage.landedAs', { name: track.destinationName })}
+                          </p>
+                        ) : null}
                       </div>
 
                       {duration ? (

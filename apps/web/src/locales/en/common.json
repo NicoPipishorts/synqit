@@ -727,7 +727,8 @@
     "tracksTitle": "Songs in this transfer",
     "tracksUnavailable": "This transfer ran before Synqit kept a per-song record, so only its counts are available.",
     "trackMatched": "Transferred",
-    "trackSkipped": "Not found"
+    "trackSkipped": "Not found",
+    "landedAs": "Landed as \"{{name}}\""
   },
   "syncPublicPage": {
     "loading": "Loading...",

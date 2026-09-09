@@ -18,6 +18,20 @@ export type MatchCandidate = {
 const FEATURE_BLOCK = /\s*[([]\s*(feat|ft|featuring|with)\.?\s[^)\]]*[)\]]/g;
 const TRAILING_FEATURE = /\s+-\s+(feat|ft|featuring)\.?\s.*$/;
 
+/**
+ * Qualifiers that name an edition of the same performance, which the services
+ * disagree about constantly: Apple's "(Single Version)" is Spotify's plain
+ * title, and either may carry "- Remastered 2015".
+ *
+ * Deliberately absent: live, acoustic, demo, instrumental, remix, radio edit.
+ * Those name a different recording, and folding them away would hand someone
+ * the wrong take of their song.
+ */
+const EDITION_WORDS =
+  '(?:digitally\\s+)?remaster(?:ed)?(?:\\s+\\d{4})?|\\d{4}\\s+remaster(?:ed)?|single version|album version|original version|mono(?:\\s+version)?|stereo(?:\\s+version)?|bonus track|deluxe(?:\\s+edition)?|explicit|clean';
+const EDITION_BLOCK = new RegExp(`\\s*[([]\\s*(?:${EDITION_WORDS})\\s*[)\\]]`, 'gi');
+const TRAILING_EDITION = new RegExp(`\\s+-\\s+(?:${EDITION_WORDS})\\s*$`, 'i');
+
 /** Folds away the differences that are spelling rather than identity. */
 export const normalizeTitleForMatch = (value: string): string =>
   value
@@ -28,6 +42,12 @@ export const normalizeTitleForMatch = (value: string): string =>
     .replace(/[“”]/g, '"')
     .replace(FEATURE_BLOCK, ' ')
     .replace(TRAILING_FEATURE, ' ')
+    .replace(EDITION_BLOCK, ' ')
+    .replace(TRAILING_EDITION, ' ')
+    // Apostrophes come out rather than becoming spaces: one service writes
+    // "It's Cover" and the other "Its Cover", and folding to a space makes
+    // "it s" and "its", which no longer look alike.
+    .replace(/'/g, '')
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
 
@@ -81,5 +101,13 @@ export const pickBestTrackMatch = <T extends MatchCandidate>(
  * that already has the artist, and a long one pushes the recording itself off
  * the top of the results.
  */
-export const buildSearchQuery = (track: { name: string; artist: string }): string =>
-  `${track.name.replace(FEATURE_BLOCK, ' ').replace(TRAILING_FEATURE, ' ').trim()} ${track.artist}`.trim();
+export const buildSearchQuery = (track: { name: string; artist: string }): string => {
+  const title = track.name
+    .replace(FEATURE_BLOCK, ' ')
+    .replace(TRAILING_FEATURE, ' ')
+    .replace(EDITION_BLOCK, ' ')
+    .replace(TRAILING_EDITION, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return `${title} ${track.artist}`.trim();
+};

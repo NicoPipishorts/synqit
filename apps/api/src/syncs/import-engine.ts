@@ -61,6 +61,9 @@ export type ImportTrackResult = {
   durationMs: number | null;
   status: 'matched' | 'skipped';
   destinationProviderTrackId: string | null;
+  /** The destination's own title and artist, so a match can be audited later. */
+  destinationName: string | null;
+  destinationArtist: string | null;
 };
 
 export type ImportSyncResult = {
@@ -72,7 +75,13 @@ export type ImportSyncResult = {
 };
 
 type MatchOutcome =
-  | { status: 'matched'; recipientTrackId: string; sourceTrackFingerprint: string }
+  | {
+      status: 'matched';
+      recipientTrackId: string;
+      sourceTrackFingerprint: string;
+      /** What the destination calls it, when the match came from a lookup. */
+      recipientTrack?: { name: string; artist: string };
+    }
   | { status: 'skipped' };
 
 const listSourceTracks = async (sync: SyncRecord): Promise<SourceTrack[]> => {
@@ -156,18 +165,16 @@ export const importSyncForRecipient = async (params: {
             } as const);
 
   /** Exact by recording id, when both sides carry one. */
-  const findByIsrc = async (isrc: string): Promise<string | null> => {
+  const findByIsrc = async (
+    isrc: string,
+  ): Promise<{ providerTrackId: string; name: string; artist: string } | null> => {
     if (recipientCredentials.provider === 'youtube') {
       // YouTube exposes no recording ids at all.
       return null;
     }
     if (recipientCredentials.provider === 'tidal') {
       if (!recipientCredentials.accessToken) return null;
-      const track = await findTidalTrackByIsrc({
-        accessToken: recipientCredentials.accessToken,
-        isrc,
-      });
-      return track?.providerTrackId ?? null;
+      return await findTidalTrackByIsrc({ accessToken: recipientCredentials.accessToken, isrc });
     }
     if (recipientCredentials.provider === 'spotify') {
       if (!recipientCredentials.accessToken) return null;
@@ -177,14 +184,13 @@ export const importSyncForRecipient = async (params: {
         query: `isrc:${isrc}`,
         limit: 1,
       });
-      return results[0]?.providerTrackId ?? null;
+      return results[0] ?? null;
     }
-    const song = await findAppleCatalogSongByIsrc({
+    return await findAppleCatalogSongByIsrc({
       developerToken: recipientCredentials.tokens.developerToken,
       storefront: 'us',
       isrc,
     });
-    return song?.providerTrackId ?? null;
   };
 
   const searchCandidates = async (query: string) => {
@@ -240,8 +246,9 @@ export const importSyncForRecipient = async (params: {
         if (exact) {
           return {
             status: 'matched',
-            recipientTrackId: exact,
+            recipientTrackId: exact.providerTrackId,
             sourceTrackFingerprint: buildTrackFingerprint(track),
+            recipientTrack: { name: exact.name, artist: exact.artist },
           };
         }
       } catch {
@@ -258,6 +265,7 @@ export const importSyncForRecipient = async (params: {
           status: 'matched',
           recipientTrackId: match.providerTrackId,
           sourceTrackFingerprint: buildTrackFingerprint(track),
+          recipientTrack: { name: match.name, artist: match.artist },
         };
       }
     } catch {
@@ -472,6 +480,10 @@ export const importSyncForRecipient = async (params: {
       status: landed ? 'matched' : 'skipped',
       destinationProviderTrackId:
         landed && outcome?.status === 'matched' ? outcome.recipientTrackId : null,
+      destinationName:
+        landed && outcome?.status === 'matched' ? (outcome.recipientTrack?.name ?? null) : null,
+      destinationArtist:
+        landed && outcome?.status === 'matched' ? (outcome.recipientTrack?.artist ?? null) : null,
     };
   });
 

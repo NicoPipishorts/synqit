@@ -38,6 +38,8 @@ export type TransferTrackInput = {
   durationMs: number | null;
   status: TransferTrackStatus;
   destinationProviderTrackId: string | null;
+  destinationName: string | null;
+  destinationArtist: string | null;
 };
 
 export type TransferBatchRecord = {
@@ -265,6 +267,8 @@ export const transfersStore = {
           duration_ms: track.durationMs,
           status: track.status,
           destination_provider_track_id: track.destinationProviderTrackId,
+          destination_name: track.destinationName,
+          destination_artist: track.destinationArtist,
           created_at: now,
         })),
       }),
@@ -310,6 +314,8 @@ export const transfersStore = {
         artworkUrl: track.artwork_url,
         durationMs: track.duration_ms,
         status: transferTrackStatusSchema.parse(track.status),
+        destinationName: track.destination_name,
+        destinationArtist: track.destination_artist,
       })),
     };
   },

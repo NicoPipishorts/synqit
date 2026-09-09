@@ -727,7 +727,8 @@
     "tracksTitle": "Titres de ce transfert",
     "tracksUnavailable": "Ce transfert date d'avant l'enregistrement titre par titre : seuls ses totaux sont disponibles.",
     "trackMatched": "Transféré",
-    "trackSkipped": "Introuvable"
+    "trackSkipped": "Introuvable",
+    "landedAs": "Arrivé sous « {{name}} »"
   },
   "syncPublicPage": {
     "loading": "Chargement...",

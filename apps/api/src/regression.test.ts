@@ -3153,6 +3153,35 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
       'studio',
     );
 
+    // Edition qualifiers are the same performance under another name, and one
+    // service writes "It's Cover" where the other writes "Its Cover". This
+    // pair is the song the fixed matcher still dropped.
+    assert.equal(
+      normalizeTitleForMatch("You Can't Judge a Book By It's Cover (Single Version)"),
+      normalizeTitleForMatch("You Can't Judge a Book by Its Cover"),
+    );
+    assert.equal(
+      normalizeTitleForMatch('Jailhouse Rock'),
+      normalizeTitleForMatch('Jailhouse Rock - Remastered'),
+    );
+    assert.equal(
+      normalizeTitleForMatch('Be - Bop - A - Lula (Remastered)'),
+      normalizeTitleForMatch('Be-Bop-A-Lula'),
+    );
+    // A live take is a different recording: folding it away would hand someone
+    // the wrong version of their song.
+    assert.notEqual(
+      normalizeTitleForMatch('Tutti Frutti'),
+      normalizeTitleForMatch('Tutti Frutti (Live)'),
+    );
+    assert.equal(
+      pickBestTrackMatch({ name: 'Tutti Frutti', artist: 'Little Richard' }, [
+        { providerTrackId: 'live', name: 'Tutti Frutti (Live)', artist: 'Little Richard' },
+        { providerTrackId: 'studio', name: 'Tutti Frutti', artist: 'Little Richard' },
+      ])?.providerTrackId,
+      'studio',
+    );
+
     // A title agreement alone is not identity: one-word titles collide.
     assert.equal(
       pickBestTrackMatch({ name: 'Sniper', artist: 'Folly Rae' }, [
