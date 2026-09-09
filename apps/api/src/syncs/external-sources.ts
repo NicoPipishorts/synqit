@@ -1,5 +1,7 @@
 import type { ExternalSourceKind, ExternalSourceTrack } from '@synqit/shared';
 
+import { isYoutubePlaceholderTitle, parseYoutubeTitle } from '../integrations/youtube-titles';
+
 /**
  * Read-only access to public playlists on services Synqit does not connect to.
  * Used by the transfer funnel: paste a link, get the tracks, match them on the
@@ -210,8 +212,8 @@ const fetchDeezerPlaylist = async (
 
 // ---------------------------------------------------------------------------
 // YouTube / YouTube Music (Data API v3 with an API key; reads cost 1 unit/page).
-// Titles are free text, so artist/name are parsed heuristically and matched by
-// text search on the destination.
+// Titles are free text, so artist/name are parsed heuristically (see
+// integrations/youtube-titles.ts) and matched by text search on the destination.
 // ---------------------------------------------------------------------------
 
 type YoutubePlaylistList = {
@@ -234,47 +236,6 @@ type YoutubePlaylistItems = {
     };
     status?: { privacyStatus?: string };
   }>;
-};
-
-const YOUTUBE_JUNK = [
-  /\((official|lyric|lyrics|audio|video|visualizer|hd|hq|4k|remaster(ed)?( \d{4})?|clip officiel|official video|official audio|official music video)[^)]*\)/gi,
-  /\[(official|lyric|lyrics|audio|video|visualizer|hd|hq|4k|remaster(ed)?( \d{4})?)[^\]]*\]/gi,
-  /\b(official\s+(music\s+)?video|official\s+audio|lyric\s+video|lyrics|visuali[sz]er|clip officiel)\b/gi,
-  /\bft\.?\s+[^-|(]+$/i,
-  /\bfeat\.?\s+[^-|(]+$/i,
-];
-
-const cleanYoutubeText = (value: string): string =>
-  YOUTUBE_JUNK.reduce((text, pattern) => text.replace(pattern, ' '), value)
-    .replace(/\s+/g, ' ')
-    .replace(/^[\s\-–|:]+|[\s\-–|:]+$/g, '')
-    .trim();
-
-const cleanChannelTitle = (value: string): string =>
-  value
-    .replace(/\s*-\s*topic$/i, '')
-    .replace(/vevo$/i, '')
-    .trim();
-
-/** "Artist - Title (Official Video)" -> { artist, name }; falls back to the channel as artist. */
-export const parseYoutubeTitle = (
-  title: string,
-  channelTitle: string | null,
-): { name: string; artist: string } => {
-  const cleaned = cleanYoutubeText(title);
-  const separators = [' - ', ' – ', ' — ', ' | ', ': '];
-  for (const separator of separators) {
-    const index = cleaned.indexOf(separator);
-    if (index > 0) {
-      const artist = cleaned.slice(0, index).trim();
-      const name = cleaned.slice(index + separator.length).trim();
-      if (artist && name) {
-        return { artist, name };
-      }
-    }
-  }
-  const fallbackArtist = channelTitle ? cleanChannelTitle(channelTitle) : '';
-  return { name: cleaned || title, artist: fallbackArtist };
 };
 
 const fetchYoutubePlaylist = async (
@@ -312,7 +273,7 @@ const fetchYoutubePlaylist = async (
     const page = (await fetchJson(itemsUrl)) as YoutubePlaylistItems;
     for (const item of page.items ?? []) {
       const title = item.snippet?.title?.trim();
-      if (!title || title === 'Private video' || title === 'Deleted video') {
+      if (!title || isYoutubePlaceholderTitle(title)) {
         continue;
       }
       const parsed = parseYoutubeTitle(title, item.snippet?.videoOwnerChannelTitle ?? null);

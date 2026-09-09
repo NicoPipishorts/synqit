@@ -21,6 +21,13 @@ import {
   searchTidalTracks,
 } from '../integrations/tidal-api';
 import { withTidalAccessTokenRetry } from '../integrations/tidal-client';
+import { isYoutubeOauthLiveMode } from '../integrations/youtube';
+import {
+  addYoutubeTracksToPlaylist,
+  createYoutubePlaylist,
+  searchYoutubeTracks,
+} from '../integrations/youtube-api';
+import { withYoutubeAccessTokenRetry } from '../integrations/youtube-client';
 
 // Providers rate-limit per app, not per playlist, so keep the search pool
 // small enough that one big transfer does not starve everyone else.
@@ -77,39 +84,51 @@ export const importSyncForRecipient = async (params: {
   // Resolve recipient credentials once for the whole run. Doing it per track
   // meant a database read and a token decrypt for every song in the playlist.
   const recipientCredentials =
-    recipientProvider === 'tidal'
+    recipientProvider === 'youtube'
       ? ({
-          provider: 'tidal',
-          accessToken: isTidalOauthLiveMode()
+          provider: 'youtube',
+          accessToken: isYoutubeOauthLiveMode()
             ? (
-                await withTidalAccessTokenRetry({
+                await withYoutubeAccessTokenRetry({
                   userId: recipientUserId,
                   run: async (at) => at,
                 })
               ).accessToken
             : null,
         } as const)
-      : recipientProvider === 'spotify'
+      : recipientProvider === 'tidal'
         ? ({
-            provider: 'spotify',
-            // Null outside live mode: the run still walks the tracks so the
-            // same-provider shortcut below behaves as it always has.
-            accessToken: isSpotifyOauthLiveMode()
+            provider: 'tidal',
+            accessToken: isTidalOauthLiveMode()
               ? (
-                  await withSpotifyAccessTokenRetry({
+                  await withTidalAccessTokenRetry({
                     userId: recipientUserId,
                     run: async (at) => at,
                   })
                 ).accessToken
               : null,
           } as const)
-        : ({
-            provider: 'apple',
-            tokens: await withAppleMusicUserToken({
-              userId: recipientUserId,
-              run: async (ctx) => ctx,
-            }),
-          } as const);
+        : recipientProvider === 'spotify'
+          ? ({
+              provider: 'spotify',
+              // Null outside live mode: the run still walks the tracks so the
+              // same-provider shortcut below behaves as it always has.
+              accessToken: isSpotifyOauthLiveMode()
+                ? (
+                    await withSpotifyAccessTokenRetry({
+                      userId: recipientUserId,
+                      run: async (at) => at,
+                    })
+                  ).accessToken
+                : null,
+            } as const)
+          : ({
+              provider: 'apple',
+              tokens: await withAppleMusicUserToken({
+                userId: recipientUserId,
+                run: async (ctx) => ctx,
+              }),
+            } as const);
 
   const searchForMatch = async (track: SourceTrack): Promise<MatchOutcome> => {
     if (recipientProvider === sync.provider && track.providerTrackId) {
@@ -123,6 +142,15 @@ export const importSyncForRecipient = async (params: {
     const query = `${track.name} ${track.artist}`;
     try {
       const results = await withProviderRetry(() => {
+        if (recipientCredentials.provider === 'youtube') {
+          return recipientCredentials.accessToken
+            ? searchYoutubeTracks({
+                accessToken: recipientCredentials.accessToken,
+                query,
+                limit: 1,
+              })
+            : Promise.resolve([]);
+        }
         if (recipientCredentials.provider === 'tidal') {
           return recipientCredentials.accessToken
             ? searchTidalTracks({
@@ -212,7 +240,51 @@ export const importSyncForRecipient = async (params: {
   const providerTrackIds = matchedTracks.map((track) => track.recipientTrackId);
   let recipientProviderPlaylistId = existingImport?.recipientProviderPlaylistId ?? null;
 
-  if (recipientCredentials.provider === 'tidal') {
+  if (recipientCredentials.provider === 'youtube') {
+    const { accessToken } = recipientCredentials;
+    if (accessToken) {
+      if (!recipientProviderPlaylistId) {
+        const created = await createYoutubePlaylist({ accessToken, name: playlistName });
+        recipientProviderPlaylistId = created.providerPlaylistId;
+        await syncsStore.upsertImport({
+          syncId: sync.id,
+          recipientUserId,
+          recipientProvider,
+          recipientProviderPlaylistId,
+          status: 'pending',
+          matchedCount: existingImport?.matchedCount ?? 0,
+          skippedCount: existingImport?.skippedCount ?? 0,
+        });
+      }
+
+      // Inserts are one call each and stop at the first hard failure, which
+      // for YouTube is usually the daily quota. Record every track as it lands
+      // and checkpoint on failure, so the retry after the quota resets tops
+      // the playlist up instead of starting over.
+      try {
+        await addYoutubeTracksToPlaylist({
+          accessToken,
+          providerPlaylistId: recipientProviderPlaylistId,
+          providerTrackIds,
+          onAdded: (providerTrackId) => recordAdded([providerTrackId]),
+        });
+      } catch (error) {
+        await syncsStore.upsertImport({
+          syncId: sync.id,
+          recipientUserId,
+          recipientProvider,
+          recipientProviderPlaylistId,
+          syncedSourceTrackFingerprints,
+          syncedRecipientTrackFingerprints: syncedSourceTrackFingerprints,
+          status: 'pending',
+          matchedCount: syncedSourceTrackFingerprints.length,
+          skippedCount: Math.max(0, sourceTracks.length - syncedSourceTrackFingerprints.length),
+          lastError: error instanceof Error ? error.message : 'YouTube add failed.',
+        });
+        throw error;
+      }
+    }
+  } else if (recipientCredentials.provider === 'tidal') {
     const { accessToken } = recipientCredentials;
     if (accessToken) {
       if (!recipientProviderPlaylistId) {

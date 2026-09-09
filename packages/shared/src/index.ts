@@ -1,19 +1,22 @@
 import { z } from 'zod';
 
-export const providerSchema = z.enum(['spotify', 'apple', 'tidal']);
+export const providerSchema = z.enum(['spotify', 'apple', 'tidal', 'youtube']);
 export type Provider = z.infer<typeof providerSchema>;
 
 /**
- * Providers that can host an event playlist. Hosting needs guest-facing search and
- * host-side moderation on top of plain playlist writes, so it is a strict subset of
- * `providerSchema`. The API enforces it through `ProviderAdapter.supportsEvents`; the
- * frontends read it from here so the two cannot drift.
+ * Any connected service can host an event playlist: guest search and host moderation go
+ * through the provider registry. Which services hosts are offered is an operator setting
+ * served by `GET /v1/playlists/providers`, so a service can be switched on once its API
+ * quota and OAuth review can take guest traffic. `EventProvider` stays as a name for the
+ * provider stored on an event.
  */
-export const eventProviderSchema = z.enum(['spotify', 'apple']);
-export type EventProvider = z.infer<typeof eventProviderSchema>;
+export const eventProviderSchema = providerSchema;
+export type EventProvider = Provider;
 
-export const isEventProvider = (provider: Provider): provider is EventProvider =>
-  (eventProviderSchema.options as readonly Provider[]).includes(provider);
+export const eventProvidersResponseSchema = z.object({
+  providers: z.array(providerSchema),
+});
+export type EventProvidersResponse = z.infer<typeof eventProvidersResponseSchema>;
 
 export const eventCloseReasonSchema = z.enum(['provider_playlist_missing']);
 export type EventCloseReason = z.infer<typeof eventCloseReasonSchema>;
@@ -203,6 +206,26 @@ export const adminUserTestAccountUpdateSchema = z.object({
   isTestAccount: z.boolean(),
 });
 export type AdminUserTestAccountUpdate = z.infer<typeof adminUserTestAccountUpdateSchema>;
+
+export const adminProviderSettingSchema = z.object({
+  provider: providerSchema,
+  label: z.string(),
+  /** Credentials are configured on the server; false means the local mock flow. */
+  liveMode: z.boolean(),
+  /** Hosts may create event playlists on this service. */
+  eventsEnabled: z.boolean(),
+});
+export type AdminProviderSetting = z.infer<typeof adminProviderSettingSchema>;
+
+export const adminProviderSettingsResponseSchema = z.object({
+  providers: z.array(adminProviderSettingSchema),
+});
+export type AdminProviderSettingsResponse = z.infer<typeof adminProviderSettingsResponseSchema>;
+
+export const adminProviderSettingUpdateSchema = z.object({
+  eventsEnabled: z.boolean(),
+});
+export type AdminProviderSettingUpdate = z.infer<typeof adminProviderSettingUpdateSchema>;
 
 export const adminUserDeletionRequestSchema = z.object({
   reason: z.string().trim().max(500).nullable().optional().default(null),

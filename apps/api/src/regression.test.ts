@@ -12,16 +12,14 @@ import { prisma } from './db/prisma';
 import { eventsStore } from './events/store';
 import { buildServer } from './index';
 import { decryptToken, encryptToken } from './integrations/crypto';
-import { EVENT_CAPABLE_PROVIDERS, getProviderAdapter } from './integrations/provider-registry';
+import { getProviderAdapter } from './integrations/provider-registry';
+import { parseYoutubeTitle } from './integrations/youtube-titles';
 import { notificationRunsStore } from './jobs/notification-runs-store';
 import { closeTransfersQueue } from './jobs/transfers-queue';
 import { buildWeeklyRecapDigests } from './jobs/weekly-recap-digests';
+import { getEventProviders, setEventProviders } from './settings/event-providers';
 import { setExternalImportProviderOpsForTests } from './syncs/external-import-runner';
-import {
-  externalSourceHttp,
-  parseExternalSourceUrl,
-  parseYoutubeTitle,
-} from './syncs/external-sources';
+import { externalSourceHttp, parseExternalSourceUrl } from './syncs/external-sources';
 import { syncsStore } from './syncs/store';
 import { transfersStore } from './syncs/transfer-store';
 import { processTransferPlaylistJob } from './syncs/transfer-worker';
@@ -406,6 +404,12 @@ describe('API regression', () => {
     process.env.APPLE_KEY_ID = 'replace-me';
     process.env.APPLE_MUSICKIT_IDENTIFIER = 'replace-me';
     process.env.APPLE_PRIVATE_KEY_P8 = 'replace-me';
+    // A developer's .env may hold real TIDAL or Google credentials; the suite
+    // drives the mocked OAuth flow, so force every provider out of live mode.
+    process.env.TIDAL_CLIENT_ID = 'replace-me';
+    process.env.TIDAL_CLIENT_SECRET = 'replace-me';
+    process.env.YOUTUBE_CLIENT_ID = 'replace-me';
+    process.env.YOUTUBE_CLIENT_SECRET = 'replace-me';
     process.env.RATE_LIMIT_MAX = '1000';
 
     app = await buildServer();
@@ -4190,14 +4194,566 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
     assert.equal(body.code, 'provider_not_supported_for_events');
   });
 
-  it('providers: every provider in the schema has an adapter', () => {
+  it('events: refuses YouTube Music as a host', async () => {
+    const hostEmail = `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`;
+    const hostUser = await registerUser(app, hostEmail);
+
+    await connectProvider(app, {
+      provider: 'youtube',
+      accessToken: hostUser.tokens.accessToken,
+    });
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/v1/playlists',
+      headers: authHeader(hostUser.tokens.accessToken),
+      payload: { provider: 'youtube', name: 'Should not be created' },
+    });
+
+    assert.equal(response.statusCode, 400);
+    const body = parseBody(response.body) as { code: string };
+    assert.equal(body.code, 'provider_not_supported_for_events');
+  });
+
+  it('providers: YouTube Music starts a Google OAuth flow that yields a refresh token', async () => {
+    const previous = {
+      clientId: process.env.YOUTUBE_CLIENT_ID,
+      clientSecret: process.env.YOUTUBE_CLIENT_SECRET,
+    };
+    process.env.YOUTUBE_CLIENT_ID = 'regression-youtube-client-id';
+    process.env.YOUTUBE_CLIENT_SECRET = 'regression-youtube-client-secret';
+    try {
+      const user = await registerUser(app, `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`);
+      const response = await app.inject({
+        method: 'GET',
+        url: '/v1/auth/youtube/start',
+        headers: authHeader(user.tokens.accessToken),
+      });
+      assert.equal(response.statusCode, 200);
+      const body = parseBody(response.body) as { authorizationUrl: string; state: string };
+      const url = new URL(body.authorizationUrl);
+      assert.equal(url.origin, 'https://accounts.google.com');
+      assert.equal(url.searchParams.get('client_id'), 'regression-youtube-client-id');
+      assert.equal(url.searchParams.get('state'), body.state);
+      assert.equal(url.searchParams.get('scope'), 'https://www.googleapis.com/auth/youtube');
+      // Google only issues a refresh token for offline access with consent shown;
+      // without both, the connection would die an hour after it was made.
+      assert.equal(url.searchParams.get('access_type'), 'offline');
+      assert.equal(url.searchParams.get('prompt'), 'consent');
+    } finally {
+      for (const [key, value] of [
+        ['YOUTUBE_CLIENT_ID', previous.clientId],
+        ['YOUTUBE_CLIENT_SECRET', previous.clientSecret],
+      ] as const) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    }
+  });
+
+  it('transfers: builds a YouTube Music playlist one insert at a time and resumes after a quota refusal', async () => {
+    const previousEnv = {
+      appleTeamId: process.env.APPLE_TEAM_ID,
+      appleKeyId: process.env.APPLE_KEY_ID,
+      appleMusicKit: process.env.APPLE_MUSICKIT_IDENTIFIER,
+      applePrivateKey: process.env.APPLE_PRIVATE_KEY_P8,
+      youtubeClientId: process.env.YOUTUBE_CLIENT_ID,
+      youtubeClientSecret: process.env.YOUTUBE_CLIENT_SECRET,
+    };
+    const originalFetch = globalThis.fetch;
+    const restore = () => {
+      globalThis.fetch = originalFetch;
+      const restoreEnv = (key: string, value: string | undefined) => {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      };
+      restoreEnv('APPLE_TEAM_ID', previousEnv.appleTeamId);
+      restoreEnv('APPLE_KEY_ID', previousEnv.appleKeyId);
+      restoreEnv('APPLE_MUSICKIT_IDENTIFIER', previousEnv.appleMusicKit);
+      restoreEnv('APPLE_PRIVATE_KEY_P8', previousEnv.applePrivateKey);
+      restoreEnv('YOUTUBE_CLIENT_ID', previousEnv.youtubeClientId);
+      restoreEnv('YOUTUBE_CLIENT_SECRET', previousEnv.youtubeClientSecret);
+    };
+
+    try {
+      // Apple's connect endpoint only exists in live mode, so switch Apple on
+      // first. YouTube connects through the mocked OAuth pair and only then
+      // goes live, or the callback would attempt a real Google token exchange.
+      process.env.APPLE_TEAM_ID = 'regression-apple-team';
+      process.env.APPLE_KEY_ID = 'regression-apple-key';
+      process.env.APPLE_MUSICKIT_IDENTIFIER = 'regression.apple.musickit';
+      process.env.APPLE_PRIVATE_KEY_P8 = `-----BEGIN PRIVATE KEY-----
+MIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgcmlwtQ8qUxntutB5
+lgguoZvlw7ncEM42tKbuZJWm7r6hRANCAATakZ0Vb/rR6MNtqGzEuoAOJUtOJrTn
+oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
+-----END PRIVATE KEY-----`;
+      const user = await registerUser(app, `${TEST_EMAIL_PREFIX}yt-${randomUUID()}@synqit.test`);
+      const appleConnect = await app.inject({
+        method: 'POST',
+        url: '/v1/auth/apple/connect',
+        headers: authHeader(user.tokens.accessToken),
+        payload: { musicUserToken: 'mock-apple-user-token' },
+      });
+      assert.equal(appleConnect.statusCode, 200);
+      await connectProvider(app, { provider: 'youtube', accessToken: user.tokens.accessToken });
+      process.env.YOUTUBE_CLIENT_ID = 'regression-youtube-client-id';
+      process.env.YOUTUBE_CLIENT_SECRET = 'regression-youtube-client-secret';
+
+      const sourcePlaylistId = `apple-source-${randomUUID()}`;
+      const destinationPlaylistId = `PL${randomUUID().replace(/-/g, '')}`;
+      const calls = { createdPlaylists: 0, inserted: [] as string[], inFlightInserts: 0 };
+      let quotaExhausted = true;
+
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const requestUrl = typeof input === 'string' ? input : input.toString();
+        const method = (init?.method ?? 'GET').toUpperCase();
+        const url = new URL(requestUrl);
+        const json = (body: unknown, status = 200) =>
+          new Response(JSON.stringify(body), {
+            status,
+            headers: { 'content-type': 'application/json' },
+          });
+
+        if (
+          requestUrl ===
+            `https://api.music.apple.com/v1/me/library/playlists/${encodeURIComponent(sourcePlaylistId)}/tracks?limit=100` &&
+          method === 'GET'
+        ) {
+          return json({
+            data: Array.from({ length: 3 }, (_, index) => ({
+              id: `library-song-${index + 1}`,
+              attributes: {
+                name: `Track ${index + 1}`,
+                artistName: `Artist ${index + 1}`,
+                albumName: 'Source Album',
+                durationInMillis: 180000 + index,
+                playParams: { catalogId: `catalog-song-${index + 1}` },
+              },
+            })),
+          });
+        }
+
+        if (url.origin === 'https://www.googleapis.com' && url.pathname === '/youtube/v3/search') {
+          assert.equal(url.searchParams.get('videoCategoryId'), '10');
+          const match = /Track (\d+)/.exec(url.searchParams.get('q') ?? '');
+          const index = match ? Number.parseInt(match[1]!, 10) : 0;
+          return json({
+            items: [
+              {
+                id: { videoId: `video-${index}` },
+                // Typical upload title: the parser has to strip the suffix and split artist/name.
+                snippet: {
+                  title: `Artist ${index} - Track ${index} (Official Video)`,
+                  channelTitle: `Artist ${index} - Topic`,
+                  thumbnails: { medium: { url: `https://i.ytimg.com/vi/video-${index}/mq.jpg` } },
+                },
+              },
+            ],
+          });
+        }
+
+        if (url.origin === 'https://www.googleapis.com' && url.pathname === '/youtube/v3/videos') {
+          const ids = (url.searchParams.get('id') ?? '').split(',');
+          return json({
+            items: ids.map((id) => ({ id, contentDetails: { duration: 'PT3M0S' } })),
+          });
+        }
+
+        if (
+          url.origin === 'https://www.googleapis.com' &&
+          url.pathname === '/youtube/v3/playlists' &&
+          method === 'POST'
+        ) {
+          calls.createdPlaylists += 1;
+          const body = JSON.parse(String(init?.body)) as { status?: { privacyStatus?: string } };
+          assert.equal(body.status?.privacyStatus, 'private');
+          return json({ id: destinationPlaylistId });
+        }
+
+        if (
+          url.origin === 'https://www.googleapis.com' &&
+          url.pathname === '/youtube/v3/playlistItems' &&
+          method === 'POST'
+        ) {
+          calls.inFlightInserts += 1;
+          assert.equal(calls.inFlightInserts, 1, 'inserts must run one at a time to keep order');
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          calls.inFlightInserts -= 1;
+          const body = JSON.parse(String(init?.body)) as {
+            snippet: { playlistId: string; resourceId: { videoId: string } };
+          };
+          assert.equal(body.snippet.playlistId, destinationPlaylistId);
+          if (quotaExhausted && body.snippet.resourceId.videoId === 'video-3') {
+            return json(
+              {
+                error: {
+                  code: 403,
+                  message: 'The request cannot be completed because you have exceeded your quota.',
+                  errors: [{ reason: 'quotaExceeded', domain: 'youtube.quota' }],
+                },
+              },
+              403,
+            );
+          }
+          calls.inserted.push(body.snippet.resourceId.videoId);
+          return json({ id: `item-${body.snippet.resourceId.videoId}` });
+        }
+
+        throw new Error(
+          `Unexpected provider request in YouTube transfer test: ${method} ${requestUrl}`,
+        );
+      }) as typeof fetch;
+
+      const batch = await transfersStore.createBatch({
+        userId: user.user.id,
+        sourceProvider: 'apple',
+        destinationProvider: 'youtube',
+        playlists: [{ providerPlaylistId: sourcePlaylistId, name: 'To YouTube', trackCount: 3 }],
+      });
+      const itemId = batch.items[0]!.id;
+      const job = () => ({
+        data: { batchId: batch.id, itemId },
+        attemptsMade: 0,
+        opts: { attempts: 1 },
+      });
+
+      // First run: the third insert trips the daily quota.
+      await assert.rejects(() => processTransferPlaylistJob(job()));
+      const failedItem = await transfersStore.findItem(itemId);
+      assert.equal(failedItem?.status, 'failed');
+      assert.match(failedItem?.errorMessage ?? '', /quota/i);
+      assert.deepEqual(calls.inserted, ['video-1', 'video-2']);
+      assert.equal(calls.createdPlaylists, 1);
+
+      // The two tracks that landed are checkpointed on the sync's import record.
+      const importRecord = await syncsStore.findImport({
+        syncId: failedItem!.syncId!,
+        recipientUserId: user.user.id,
+      });
+      assert.equal(importRecord?.recipientProviderPlaylistId, destinationPlaylistId);
+      assert.equal(importRecord?.syncedSourceTrackFingerprints.length, 2);
+      assert.match(importRecord?.lastError ?? '', /quota/i);
+
+      // Next day: the quota is back. The retry adds only the missing track to
+      // the same playlist.
+      quotaExhausted = false;
+      await transfersStore.updateItem({ itemId, status: 'queued' });
+      await processTransferPlaylistJob(job());
+
+      const completedItem = await transfersStore.findItem(itemId);
+      assert.equal(completedItem?.status, 'completed');
+      assert.equal(completedItem?.matchedCount, 3);
+      assert.equal(completedItem?.skippedCount, 0);
+      assert.equal(calls.createdPlaylists, 1);
+      assert.deepEqual(calls.inserted, ['video-1', 'video-2', 'video-3']);
+    } finally {
+      restore();
+    }
+  });
+
+  it('syncs: reads a YouTube Music playlist as a sync source with parsed titles and durations', async () => {
+    const previousEnv = {
+      youtubeClientId: process.env.YOUTUBE_CLIENT_ID,
+      youtubeClientSecret: process.env.YOUTUBE_CLIENT_SECRET,
+    };
+    const originalFetch = globalThis.fetch;
+    const restore = () => {
+      globalThis.fetch = originalFetch;
+      for (const [key, value] of [
+        ['YOUTUBE_CLIENT_ID', previousEnv.youtubeClientId],
+        ['YOUTUBE_CLIENT_SECRET', previousEnv.youtubeClientSecret],
+      ] as const) {
+        if (value === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = value;
+        }
+      }
+    };
+
+    try {
+      const user = await registerUser(
+        app,
+        `${TEST_EMAIL_PREFIX}yt-src-${randomUUID()}@synqit.test`,
+      );
+      await connectProvider(app, { provider: 'youtube', accessToken: user.tokens.accessToken });
+      process.env.YOUTUBE_CLIENT_ID = 'regression-youtube-client-id';
+      process.env.YOUTUBE_CLIENT_SECRET = 'regression-youtube-client-secret';
+
+      const playlistId = `PL${randomUUID().replace(/-/g, '')}`;
+      globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+        const requestUrl = typeof input === 'string' ? input : input.toString();
+        const method = (init?.method ?? 'GET').toUpperCase();
+        const url = new URL(requestUrl);
+        const json = (body: unknown, status = 200) =>
+          new Response(JSON.stringify(body), {
+            status,
+            headers: { 'content-type': 'application/json' },
+          });
+
+        if (url.pathname === '/youtube/v3/playlistItems' && method === 'GET') {
+          assert.equal(url.searchParams.get('playlistId'), playlistId);
+          // Two pages: the first carries a placeholder YouTube leaves for a removed video.
+          if (!url.searchParams.get('pageToken')) {
+            return json({
+              nextPageToken: 'page-2',
+              items: [
+                {
+                  id: 'item-1',
+                  snippet: {
+                    title: 'Daft Punk - Harder, Better, Faster, Stronger (Official Video)',
+                    videoOwnerChannelTitle: 'Daft Punk',
+                    resourceId: { videoId: 'vid-1' },
+                  },
+                  contentDetails: { videoId: 'vid-1' },
+                },
+                {
+                  id: 'item-2',
+                  snippet: { title: 'Deleted video', resourceId: { videoId: 'vid-gone' } },
+                  contentDetails: { videoId: 'vid-gone' },
+                },
+              ],
+            });
+          }
+          return json({
+            items: [
+              {
+                id: 'item-3',
+                snippet: {
+                  title: 'Hey Jude [Remastered 2015]',
+                  videoOwnerChannelTitle: 'The Beatles - Topic',
+                  resourceId: { videoId: 'vid-3' },
+                },
+                contentDetails: { videoId: 'vid-3' },
+              },
+            ],
+          });
+        }
+
+        if (url.pathname === '/youtube/v3/videos' && method === 'GET') {
+          assert.equal(url.searchParams.get('id'), 'vid-1,vid-3');
+          return json({
+            items: [
+              { id: 'vid-1', contentDetails: { duration: 'PT3M44S' } },
+              { id: 'vid-3', contentDetails: { duration: 'PT7M5S' } },
+            ],
+          });
+        }
+
+        throw new Error(
+          `Unexpected provider request in YouTube source test: ${method} ${requestUrl}`,
+        );
+      }) as typeof fetch;
+
+      const tracks = await getProviderAdapter('youtube').listPlaylistTracks({
+        userId: user.user.id,
+        providerPlaylistId: playlistId,
+      });
+      assert.deepEqual(
+        tracks.map((track) => ({
+          id: track.providerTrackId,
+          name: track.name,
+          artist: track.artist,
+          durationMs: track.durationMs,
+        })),
+        [
+          {
+            id: 'vid-1',
+            name: 'Harder, Better, Faster, Stronger',
+            artist: 'Daft Punk',
+            durationMs: 224000,
+          },
+          { id: 'vid-3', name: 'Hey Jude', artist: 'The Beatles', durationMs: 425000 },
+        ],
+      );
+      // No recording ids on YouTube, so exact matching is never attempted.
+      assert.equal(
+        await getProviderAdapter('youtube').findTrackByIsrc({ userId: user.user.id, isrc: 'X' }),
+        null,
+      );
+    } finally {
+      restore();
+    }
+  });
+
+  it('events: an operator can switch hosting on for a service, and the create flow follows', async () => {
+    const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
+    const previousSuperUsers = process.env.ADMIN_SUPER_USERS;
+    const superAdminEmail = `${TEST_EMAIL_PREFIX}providers-admin-${randomUUID()}@synqit.test`;
+    process.env.ADMIN_BOOTSTRAP_KEY = REGRESSION_BOOTSTRAP_KEY;
+    process.env.ADMIN_SUPER_USERS = superAdminEmail;
+    try {
+      await createUserAndLogin(app, superAdminEmail);
+      const bootstrapResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/bootstrap/promote',
+        headers: { 'x-admin-bootstrap-key': process.env.ADMIN_BOOTSTRAP_KEY },
+        payload: { email: superAdminEmail },
+      });
+      assert.equal(bootstrapResponse.statusCode, 200);
+      const adminLogin = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/auth/login',
+        payload: { email: superAdminEmail, password: TEST_PASSWORD },
+      });
+      assert.equal(adminLogin.statusCode, 200);
+      const adminToken = (parseBody(adminLogin.body) as { tokens: { accessToken: string } }).tokens
+        .accessToken;
+
+      // The back office lists every service with its credential state and switch.
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/admin/settings/providers',
+        headers: authHeader(adminToken),
+      });
+      assert.equal(listResponse.statusCode, 200);
+      const listed = parseBody(listResponse.body) as {
+        providers: Array<{ provider: string; liveMode: boolean; eventsEnabled: boolean }>;
+      };
+      assert.deepEqual(
+        listed.providers.map((entry) => entry.provider),
+        [...providerSchema.options],
+      );
+      assert.deepEqual(
+        listed.providers.filter((entry) => entry.eventsEnabled).map((entry) => entry.provider),
+        ['spotify', 'apple'],
+      );
+      assert.ok(listed.providers.every((entry) => entry.liveMode === false));
+
+      // A host with only TIDAL connected is told it cannot host, and the app's
+      // provider list agrees.
+      const host = await registerUser(app, `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`);
+      await connectProvider(app, { provider: 'tidal', accessToken: host.tokens.accessToken });
+      const providersBefore = await app.inject({
+        method: 'GET',
+        url: '/v1/playlists/providers',
+        headers: authHeader(host.tokens.accessToken),
+      });
+      assert.deepEqual(parseBody(providersBefore.body), { providers: ['spotify', 'apple'] });
+
+      const refused = await app.inject({
+        method: 'POST',
+        url: '/v1/playlists',
+        headers: authHeader(host.tokens.accessToken),
+        payload: { provider: 'tidal', name: 'Not yet' },
+      });
+      assert.equal(refused.statusCode, 400);
+      assert.equal(
+        (parseBody(refused.body) as { code: string }).code,
+        'provider_not_supported_for_events',
+      );
+
+      // Flip the switch.
+      const enable = await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/settings/providers/tidal',
+        headers: authHeader(adminToken),
+        payload: { eventsEnabled: true },
+      });
+      assert.equal(enable.statusCode, 200);
+      const providersAfter = await app.inject({
+        method: 'GET',
+        url: '/v1/playlists/providers',
+        headers: authHeader(host.tokens.accessToken),
+      });
+      assert.deepEqual(parseBody(providersAfter.body), {
+        providers: ['spotify', 'apple', 'tidal'],
+      });
+
+      // The whole event flow now runs on TIDAL through the registry: create,
+      // guest search, guest add, host remove. Mock mode, so no TIDAL calls.
+      const created = await app.inject({
+        method: 'POST',
+        url: '/v1/playlists',
+        headers: authHeader(host.tokens.accessToken),
+        payload: { provider: 'tidal', name: 'TIDAL party' },
+      });
+      assert.equal(created.statusCode, 200);
+      const createdBody = parseBody(created.body) as {
+        event: { id: string; provider: string; providerPlaylistId: string; magicLinkToken: string };
+      };
+      assert.equal(createdBody.event.provider, 'tidal');
+      assert.match(createdBody.event.providerPlaylistId, /^tidal-mock-playlist-/);
+
+      const search = await app.inject({
+        method: 'GET',
+        url: `/v1/playlists/link/${createdBody.event.magicLinkToken}/search?q=midnight`,
+      });
+      assert.equal(search.statusCode, 200);
+      const searchBody = parseBody(search.body) as { results: Array<{ providerTrackId: string }> };
+      assert.equal(searchBody.results[0]?.providerTrackId, 'mock-track-1');
+
+      const added = await app.inject({
+        method: 'POST',
+        url: `/v1/playlists/link/${createdBody.event.magicLinkToken}/tracks`,
+        payload: {
+          providerTrackId: 'mock-track-1',
+          name: 'Midnight Drive',
+          artist: 'Neon Avenue',
+          album: 'City Lights',
+          durationMs: 203000,
+          artworkUrl: null,
+        },
+      });
+      assert.equal(added.statusCode, 200);
+
+      const removed = await app.inject({
+        method: 'DELETE',
+        url: `/v1/playlists/${createdBody.event.id}/tracks/mock-track-1`,
+        headers: authHeader(host.tokens.accessToken),
+      });
+      assert.equal(removed.statusCode, 200);
+
+      // And back off: new events are refused again, the existing one stays.
+      const disable = await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/settings/providers/tidal',
+        headers: authHeader(adminToken),
+        payload: { eventsEnabled: false },
+      });
+      assert.equal(disable.statusCode, 200);
+      const refusedAgain = await app.inject({
+        method: 'POST',
+        url: '/v1/playlists',
+        headers: authHeader(host.tokens.accessToken),
+        payload: { provider: 'tidal', name: 'Not any more' },
+      });
+      assert.equal(refusedAgain.statusCode, 400);
+      const stillThere = await app.inject({
+        method: 'GET',
+        url: `/v1/playlists/${createdBody.event.id}`,
+        headers: authHeader(host.tokens.accessToken),
+      });
+      assert.equal(stillThere.statusCode, 200);
+    } finally {
+      await setEventProviders({ providers: ['spotify', 'apple'], updatedByUserId: null });
+      if (previousBootstrapKey === undefined) {
+        delete process.env.ADMIN_BOOTSTRAP_KEY;
+      } else {
+        process.env.ADMIN_BOOTSTRAP_KEY = previousBootstrapKey;
+      }
+      if (previousSuperUsers === undefined) {
+        delete process.env.ADMIN_SUPER_USERS;
+      } else {
+        process.env.ADMIN_SUPER_USERS = previousSuperUsers;
+      }
+    }
+  });
+
+  it('providers: every provider in the schema has an adapter', async () => {
     for (const provider of providerSchema.options) {
       const adapter = getProviderAdapter(provider);
       assert.equal(adapter.id, provider);
       assert.ok(adapter.label.length > 0);
     }
-    // Only the adapters that claim event support may host events.
-    assert.deepEqual([...EVENT_CAPABLE_PROVIDERS].sort(), ['apple', 'spotify']);
+    // Hosting is an operator setting; out of the box only the two proven services.
+    assert.deepEqual(await getEventProviders(), ['spotify', 'apple']);
   });
 
   it('recap: claims a notification period only once', async () => {

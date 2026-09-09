@@ -1,9 +1,11 @@
 import { render, screen } from '@testing-library/react';
 
 import {
+  ALL_SERVICES,
   CONNECT_SERVICES,
   getServiceMarkSrc,
   isMonochromeServiceMark,
+  LINK_ONLY_SERVICES,
   LINK_SERVICES,
   MUSIC_SERVICES,
   ServiceChip,
@@ -12,10 +14,26 @@ import {
 
 describe('service catalog', () => {
   it('splits services by how they reach Synqit', () => {
-    expect(CONNECT_SERVICES.map((service) => service.id)).toEqual(['spotify', 'apple', 'tidal']);
+    expect(CONNECT_SERVICES.map((service) => service.id)).toEqual([
+      'spotify',
+      'apple',
+      'tidal',
+      'youtube',
+    ]);
     expect(LINK_SERVICES.map((service) => service.id)).toEqual(['deezer', 'youtube']);
-    expect(CONNECT_SERVICES.every((service) => service.access === 'connect')).toBe(true);
-    expect(LINK_SERVICES.every((service) => service.access === 'link')).toBe(true);
+    expect(CONNECT_SERVICES.every((service) => service.access.includes('connect'))).toBe(true);
+    expect(LINK_SERVICES.every((service) => service.access.includes('link'))).toBe(true);
+    // YouTube Music is reachable both ways: sign in, or paste a public playlist link.
+    expect(MUSIC_SERVICES.youtube.access).toEqual(['connect', 'link']);
+    // Rows of marks must not repeat it, so the combined lists carry each service once.
+    expect(LINK_ONLY_SERVICES.map((service) => service.id)).toEqual(['deezer']);
+    expect(ALL_SERVICES.map((service) => service.id)).toEqual([
+      'spotify',
+      'apple',
+      'tidal',
+      'youtube',
+      'deezer',
+    ]);
   });
 
   it('names every service', () => {
@@ -29,7 +47,7 @@ describe('service catalog', () => {
   });
 
   it('gives every offered service its own brand mark', () => {
-    const offered = [...CONNECT_SERVICES, ...LINK_SERVICES];
+    const offered = ALL_SERVICES;
     const marks = offered.map((service) => getServiceMarkSrc(service.id));
     expect(marks.every((mark) => mark.length > 0)).toBe(true);
     expect(new Set(marks).size).toBe(offered.length);

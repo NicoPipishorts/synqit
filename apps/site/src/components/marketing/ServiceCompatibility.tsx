@@ -22,6 +22,8 @@ type AccessCardProps = {
   title: string;
   body: string;
   services: readonly MusicService[];
+  /** Caption under the marks, for a service that also appears on the other card. */
+  note?: string;
   points: readonly string[];
   /** Deep link to the FAQ answer that expands on this card. */
   moreHref: string;
@@ -37,6 +39,7 @@ const AccessCard = ({
   title,
   body,
   services,
+  note,
   points,
   moreHref,
   moreLabel,
@@ -58,15 +61,18 @@ const AccessCard = ({
     {/* Logos alone, no names: the row has to stay legible as more services land
         on it, and the marks carry the recognition on their own. The name moves
         to the image's alt, which is where it was doing the accessible work. */}
-    <div className="flex flex-wrap items-center gap-2.5">
-      {services.map((service) => (
-        <ServiceLogo
-          key={service.id}
-          service={service.id}
-          alt={service.name}
-          className="h-7 w-7 sm:h-8 sm:w-8"
-        />
-      ))}
+    <div className="grid gap-2">
+      <div className="flex flex-wrap items-center gap-2.5">
+        {services.map((service) => (
+          <ServiceLogo
+            key={service.id}
+            service={service.id}
+            alt={service.name}
+            className="h-7 w-7 sm:h-8 sm:w-8"
+          />
+        ))}
+      </div>
+      {note ? <p className="text-xs leading-relaxed text-app-text-secondary">{note}</p> : null}
     </div>
 
     <div className="grid gap-2">
@@ -131,6 +137,7 @@ export const ServiceCompatibility = () => {
         title={t('home.compat.link.title')}
         body={t('home.compat.link.body')}
         services={LINK_SERVICES}
+        note={t('home.compat.link.note')}
         points={[
           t('home.compat.link.point1'),
           t('home.compat.link.point2'),

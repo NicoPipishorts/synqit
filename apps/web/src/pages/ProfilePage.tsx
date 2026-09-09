@@ -410,9 +410,9 @@ export const ProfilePage = () => {
           </h2>
           <p className="mt-2 text-sm text-app-text-secondary">{t('profile.platformsCardBody')}</p>
           {/* Straight from the shared catalogue, so a new service shows up here too. */}
-          <div className="mt-4 flex items-center gap-2 text-app-text">
+          <div className="mt-4 mb-5 flex items-center gap-2 text-app-text">
             {CONNECT_SERVICES.map((service) => (
-              <ServiceLogo key={service.id} service={service.id} className="h-9 w-9" />
+              <ServiceLogo key={service.id} service={service.id} className="h-8 w-8" />
             ))}
           </div>
           <CTALink to="/profile/platforms" variant="secondary" className="mt-auto self-end">

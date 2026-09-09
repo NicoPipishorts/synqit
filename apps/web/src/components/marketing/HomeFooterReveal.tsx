@@ -1,4 +1,4 @@
-import { BrandLogo, CONNECT_SERVICES, LINK_SERVICES, ServiceLogo } from '@synqit/ui';
+import { BrandLogo, CONNECT_SERVICES, LINK_ONLY_SERVICES, ServiceLogo } from '@synqit/ui';
 import { Link } from '@tanstack/react-router';
 
 import { useI18n } from '../../hooks/useI18n';
@@ -38,7 +38,7 @@ export const HomeFooterReveal = ({ visible = true }: HomeFooterRevealProps) => {
                 />
               ))}
               <span aria-hidden className="h-5 w-px bg-current opacity-20" />
-              {LINK_SERVICES.map((service) => (
+              {LINK_ONLY_SERVICES.map((service) => (
                 <ServiceLogo
                   key={service.id}
                   service={service.id}
