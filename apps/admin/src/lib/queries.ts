@@ -1,5 +1,8 @@
 import {
   adminAnalyticsOverviewResponseSchema,
+  adminProviderSettingsResponseSchema,
+  type AdminProviderSettingsResponse,
+  type Provider,
   adminAnalyticsUserDetailResponseSchema,
   adminAnalyticsUsersListResponseSchema,
 } from '@synqit/shared';
@@ -18,6 +21,7 @@ export const adminQueryKeys = {
   userDetail: (userId: string) => ['admin', 'users', userId] as const,
   analyticsOverview: (filters: AnalyticsFilters) =>
     ['admin', 'analytics', 'overview', filters] as const,
+  providerSettings: () => ['admin', 'settings', 'providers'] as const,
 };
 
 export const adminUsersQueryOptions = () =>
@@ -58,3 +62,23 @@ export const adminAnalyticsOverviewQueryOptions = (filters: AnalyticsFilters) =>
         (payload) => adminAnalyticsOverviewResponseSchema.parse(payload),
       ),
   });
+
+export const adminProviderSettingsQueryOptions = () =>
+  queryOptions({
+    queryKey: adminQueryKeys.providerSettings(),
+    queryFn: () =>
+      callApi('/v1/admin/settings/providers', { method: 'GET' }, (payload) =>
+        adminProviderSettingsResponseSchema.parse(payload),
+      ),
+  });
+
+/** Flips whether hosts may create event playlists on a service; returns the full list. */
+export const updateAdminProviderEvents = (params: {
+  provider: Provider;
+  eventsEnabled: boolean;
+}): Promise<AdminProviderSettingsResponse> =>
+  callApi(
+    `/v1/admin/settings/providers/${params.provider}`,
+    { method: 'PUT', body: JSON.stringify({ eventsEnabled: params.eventsEnabled }) },
+    (payload) => adminProviderSettingsResponseSchema.parse(payload),
+  );

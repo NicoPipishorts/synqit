@@ -9,6 +9,7 @@ import {
 } from './auto-sync';
 import { externalImportsStore, type ExternalImportRecord } from './external-imports-store';
 import { fetchExternalPlaylist, ExternalSourceError } from './external-sources';
+import { getProviderLabel } from '../integrations/provider-registry';
 import { IntegrationError } from '../integrations/spotify-client';
 import { ProviderApiError } from '../integrations/spotify-tracks';
 
@@ -95,7 +96,7 @@ export const runExternalImport = async (
     if (!recipientProviderPlaylistId) {
       return externalImportsStore.update(importId, {
         status: 'failed',
-        lastError: `${record.recipientProvider === 'spotify' ? 'Spotify' : 'Apple Music'} is not available for playlist creation.`,
+        lastError: `${getProviderLabel(record.recipientProvider)} is not available for playlist creation.`,
         completedAt: new Date(),
       });
     }

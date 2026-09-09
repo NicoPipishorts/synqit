@@ -30,6 +30,12 @@ import {
   exchangeTidalAuthorizationCode,
   isTidalOauthLiveMode,
 } from './tidal';
+import {
+  buildYoutubeAuthorizationUrl,
+  DEFAULT_YOUTUBE_SCOPES,
+  exchangeYoutubeAuthorizationCode,
+  isYoutubeOauthLiveMode,
+} from './youtube';
 import { requireAuthenticatedUserId } from '../auth/guards';
 
 const DEFAULT_OAUTH_STATE_TTL_SECONDS = 10 * 60;
@@ -118,6 +124,7 @@ const PROVIDER_SCOPE_DEFAULTS: Record<Provider, () => string> = {
   spotify: () => process.env.SPOTIFY_SCOPES ?? DEFAULT_SPOTIFY_SCOPES,
   apple: () => process.env.APPLE_SCOPES ?? DEFAULT_APPLE_SCOPES,
   tidal: () => process.env.TIDAL_SCOPES ?? DEFAULT_TIDAL_SCOPES,
+  youtube: () => process.env.YOUTUBE_SCOPES ?? DEFAULT_YOUTUBE_SCOPES,
 };
 
 const getProviderScopes = (provider: Provider): string[] =>
@@ -144,6 +151,13 @@ const getProviderAuthorizationUrl = (params: {
     });
   }
 
+  if (params.provider === 'youtube' && isYoutubeOauthLiveMode()) {
+    return buildYoutubeAuthorizationUrl({
+      state: params.state,
+      scopes: process.env.YOUTUBE_SCOPES ?? DEFAULT_YOUTUBE_SCOPES,
+    });
+  }
+
   // Apple live connect uses /auth/apple/developer-token + /auth/apple/connect.
   // Keep start/callback as a local fallback path.
   return buildMockAuthorizationUrl(params);
@@ -161,6 +175,10 @@ const exchangeProviderAuthorizationCode = async (params: {
 }> => {
   if (params.provider === 'spotify' && isSpotifyOauthLiveMode()) {
     return exchangeSpotifyAuthorizationCode(params.code);
+  }
+
+  if (params.provider === 'youtube' && isYoutubeOauthLiveMode()) {
+    return exchangeYoutubeAuthorizationCode(params.code);
   }
 
   if (params.provider === 'tidal' && isTidalOauthLiveMode()) {

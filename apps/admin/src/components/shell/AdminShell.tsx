@@ -10,6 +10,7 @@ import {
   LogOut,
   Mail,
   Menu,
+  Plug,
   ShieldAlert,
   Shield,
   Users,
@@ -41,6 +42,12 @@ const NAV_ITEMS = [
     icon: Mail,
     labelKey: 'admin.navEmails',
     matches: (pathname: string) => pathname === '/emails',
+  },
+  {
+    to: '/providers',
+    icon: Plug,
+    labelKey: 'admin.navProviders',
+    matches: (pathname: string) => pathname === '/providers',
   },
 ] as const;
 

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { parseIsoDurationMs } from './iso-duration';
 import { parseRetryAfterSeconds, ProviderApiError } from './provider-api-error';
 import { getTidalCountryCode } from './tidal';
 
@@ -28,24 +29,6 @@ export type TidalPlaylist = {
   name: string;
   trackCount: number | null;
   coverImageUrl: string | null;
-};
-
-/** TIDAL returns ISO 8601 durations ("PT3M20S"); the app works in milliseconds. */
-export const parseIsoDurationMs = (value: string | undefined | null): number => {
-  if (!value) {
-    return 0;
-  }
-  const match = /^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+(?:\.\d+)?)S)?$/.exec(value.trim());
-  if (!match) {
-    return 0;
-  }
-  const [, days, hours, minutes, seconds] = match;
-  const total =
-    Number(days ?? 0) * 86_400 +
-    Number(hours ?? 0) * 3_600 +
-    Number(minutes ?? 0) * 60 +
-    Number(seconds ?? 0);
-  return Math.round(total * 1000);
 };
 
 const resourceSchema = z.object({
@@ -217,6 +200,8 @@ export const searchTidalTracks = async (params: {
   accessToken: string;
   query: string;
   limit?: number;
+  /** TIDAL's search does not page; the window is cut locally so "load more" moves on. */
+  offset?: number;
 }): Promise<TidalTrack[]> => {
   const document = await request({
     accessToken: params.accessToken,
@@ -230,9 +215,10 @@ export const searchTidalTracks = async (params: {
   });
 
   const included = indexIncluded(document);
+  const offset = params.offset ?? 0;
   return document.included
     .filter((entry) => entry.type === 'tracks')
-    .slice(0, params.limit ?? 5)
+    .slice(offset, offset + (params.limit ?? 5))
     .map((entry) => toTrack(entry, included));
 };
 

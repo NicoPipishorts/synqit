@@ -1,10 +1,4 @@
-import {
-  CONNECT_SERVICES,
-  LINK_SERVICES,
-  ServiceLogo,
-  Sticker,
-  type StickerTone,
-} from '@synqit/ui';
+import { ALL_SERVICES, ServiceLogo, Sticker, type StickerTone } from '@synqit/ui';
 import { motion, type Variants } from 'framer-motion';
 import { ArrowDown, ArrowLeftRight, ArrowRight, PartyPopper, Share2 } from 'lucide-react';
 import { type ReactNode } from 'react';
@@ -271,7 +265,7 @@ export const HomePage = () => {
             {/* Smaller and closer together on a phone: the row grows with every
                 service added, and at h-7 five of them already dominate the band. */}
             <span className="flex items-center gap-2 sm:gap-3">
-              {[...CONNECT_SERVICES, ...LINK_SERVICES].map((service) => (
+              {ALL_SERVICES.map((service) => (
                 <ServiceLogo
                   key={service.id}
                   service={service.id}

@@ -1,4 +1,4 @@
-import { CONNECT_SERVICES, LINK_SERVICES, ServiceLogo } from '@synqit/ui';
+import { CONNECT_SERVICES, LINK_ONLY_SERVICES, ServiceLogo } from '@synqit/ui';
 import { type Ref } from 'react';
 
 import { LEGAL_ROUTES } from '../../content/legal';
@@ -51,7 +51,7 @@ export const HomeFooterReveal = ({ visible = true, ref }: HomeFooterRevealProps)
                 />
               ))}
               <span aria-hidden className="h-5 w-px bg-current opacity-20" />
-              {LINK_SERVICES.map((service) => (
+              {LINK_ONLY_SERVICES.map((service) => (
                 <ServiceLogo
                   key={service.id}
                   service={service.id}
@@ -122,7 +122,7 @@ export const HomeFooterReveal = ({ visible = true, ref }: HomeFooterRevealProps)
                   />
                 ))}
                 <span aria-hidden className="h-5 w-px bg-current opacity-20" />
-                {LINK_SERVICES.map((service) => (
+                {LINK_ONLY_SERVICES.map((service) => (
                   <ServiceLogo
                     key={service.id}
                     service={service.id}

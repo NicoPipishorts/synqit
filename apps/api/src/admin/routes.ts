@@ -9,6 +9,8 @@ import {
   adminLoginRequestSchema,
   adminMeResponseSchema,
   adminPermissionScopeSchema,
+  adminProviderSettingsResponseSchema,
+  adminProviderSettingUpdateSchema,
   adminUserBlockUpdateSchema,
   adminUserAccessUpdateSchema,
   adminUserDeletionRequestSchema,
@@ -22,6 +24,7 @@ import {
   describeSecretWeakness,
   parseBooleanEnv,
   personalInfoSchema,
+  providerSchema,
   QUEUES,
   type AccountRole,
   type AdminPermission,
@@ -43,10 +46,12 @@ import {
 } from '../auth/session-cookies';
 import { authStore, isSuperAdminIdentity, type UserRecord } from '../auth/store';
 import { prisma } from '../db/prisma';
+import { getProviderAdapter, getProviderLabel } from '../integrations/provider-registry';
 import { enqueuePasswordResetEmailPreview } from '../jobs/password-reset-email';
 import { enqueueRegistrationConfirmationEmailPreview } from '../jobs/registration-email';
 import { enqueueWeeklyRecapEmailPreview } from '../jobs/weekly-recap-email';
 import { buildRouteRateLimiters } from '../security/rate-limits';
+import { getEventProviders, setEventProviders } from '../settings/event-providers';
 
 const DEFAULT_REDIS_URL = 'redis://localhost:6380';
 const DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 60 * 15;
@@ -2186,6 +2191,77 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
       });
     },
   );
+
+  // Per-service switches. `liveMode` is read-only (it reflects server credentials);
+  // `eventsEnabled` is the operator's call, see settings/event-providers.ts.
+  const buildProviderSettings = async () => {
+    const eventProviders = await getEventProviders();
+    return adminProviderSettingsResponseSchema.parse({
+      providers: providerSchema.options.map((provider) => ({
+        provider,
+        label: getProviderLabel(provider),
+        liveMode: getProviderAdapter(provider).isLiveMode(),
+        eventsEnabled: eventProviders.includes(provider),
+      })),
+    });
+  };
+
+  app.get('/admin/settings/providers', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'integrations',
+      level: 'read',
+    });
+    if (!access) {
+      return;
+    }
+
+    return buildProviderSettings();
+  });
+
+  app.put('/admin/settings/providers/:provider', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'integrations',
+      level: 'write',
+    });
+    if (!access) {
+      return;
+    }
+
+    const provider = providerSchema.safeParse((request.params as { provider?: string }).provider);
+    if (!provider.success) {
+      return reply.status(400).send({
+        code: 'invalid_provider',
+        message: 'Provider is not supported.',
+      });
+    }
+
+    const body = adminProviderSettingUpdateSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({
+        code: 'validation_error',
+        message: 'Request payload is invalid.',
+        details: body.error.flatten(),
+      });
+    }
+
+    const current = await getEventProviders();
+    const next = body.data.eventsEnabled
+      ? [...current, provider.data]
+      : current.filter((entry) => entry !== provider.data);
+    const saved = await setEventProviders({
+      providers: next,
+      updatedByUserId: access.user?.id ?? null,
+    });
+
+    await auditAdminAction({
+      actor: access.user,
+      target: null,
+      action: body.data.eventsEnabled ? 'provider_events_enabled' : 'provider_events_disabled',
+      metadata: { provider: provider.data, eventProviders: saved },
+    });
+
+    return buildProviderSettings();
+  });
 
   app.post('/admin/email/preview', async (request, reply) => {
     const access = await resolveAdminAccess(request, reply, {
