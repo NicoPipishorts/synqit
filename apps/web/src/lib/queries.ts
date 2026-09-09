@@ -11,6 +11,7 @@
 import {
   createSyncRequestSchema,
   eventProviderSchema,
+  eventProvidersResponseSchema,
   providerSchema,
   dashboardSummaryResponseSchema,
   deleteEventDraftResponseSchema,
@@ -79,6 +80,7 @@ export const queryKeys = {
     list: () => ['events', 'list'] as const,
     detail: (eventId: string) => ['events', 'detail', eventId] as const,
     tracks: (eventId: string) => ['events', 'tracks', eventId] as const,
+    providers: () => ['events', 'providers'] as const,
   },
   drafts: {
     all: () => ['drafts'] as const,
@@ -246,6 +248,17 @@ export type IntegrationsSnapshot = {
 export const EMPTY_INTEGRATION_MAP: IntegrationMap = seedByProvider<IntegrationStatus>(
   () => 'not_connected',
 );
+
+/** Services a host may create an event on right now; an operator setting, so fetched. */
+export const fetchEventProviders = async (): Promise<EventProvider[]> => {
+  const token = requireToken();
+  const result = await callApi(
+    '/v1/playlists/providers',
+    { method: 'GET', headers: { authorization: `Bearer ${token}` } },
+    (payload) => eventProvidersResponseSchema.parse(payload),
+  );
+  return result.providers;
+};
 
 export const fetchIntegrations = async (): Promise<IntegrationMap> => {
   const token = requireToken();

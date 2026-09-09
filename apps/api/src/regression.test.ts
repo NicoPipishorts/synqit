@@ -12,11 +12,12 @@ import { prisma } from './db/prisma';
 import { eventsStore } from './events/store';
 import { buildServer } from './index';
 import { decryptToken, encryptToken } from './integrations/crypto';
-import { EVENT_CAPABLE_PROVIDERS, getProviderAdapter } from './integrations/provider-registry';
+import { getProviderAdapter } from './integrations/provider-registry';
 import { parseYoutubeTitle } from './integrations/youtube-titles';
 import { notificationRunsStore } from './jobs/notification-runs-store';
 import { closeTransfersQueue } from './jobs/transfers-queue';
 import { buildWeeklyRecapDigests } from './jobs/weekly-recap-digests';
+import { getEventProviders, setEventProviders } from './settings/event-providers';
 import { setExternalImportProviderOpsForTests } from './syncs/external-import-runner';
 import { externalSourceHttp, parseExternalSourceUrl } from './syncs/external-sources';
 import { syncsStore } from './syncs/store';
@@ -4581,14 +4582,178 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
     }
   });
 
-  it('providers: every provider in the schema has an adapter', () => {
+  it('events: an operator can switch hosting on for a service, and the create flow follows', async () => {
+    const previousBootstrapKey = process.env.ADMIN_BOOTSTRAP_KEY;
+    const previousSuperUsers = process.env.ADMIN_SUPER_USERS;
+    const superAdminEmail = `${TEST_EMAIL_PREFIX}providers-admin-${randomUUID()}@synqit.test`;
+    process.env.ADMIN_BOOTSTRAP_KEY = REGRESSION_BOOTSTRAP_KEY;
+    process.env.ADMIN_SUPER_USERS = superAdminEmail;
+    try {
+      await createUserAndLogin(app, superAdminEmail);
+      const bootstrapResponse = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/bootstrap/promote',
+        headers: { 'x-admin-bootstrap-key': process.env.ADMIN_BOOTSTRAP_KEY },
+        payload: { email: superAdminEmail },
+      });
+      assert.equal(bootstrapResponse.statusCode, 200);
+      const adminLogin = await app.inject({
+        method: 'POST',
+        url: '/v1/admin/auth/login',
+        payload: { email: superAdminEmail, password: TEST_PASSWORD },
+      });
+      assert.equal(adminLogin.statusCode, 200);
+      const adminToken = (parseBody(adminLogin.body) as { tokens: { accessToken: string } }).tokens
+        .accessToken;
+
+      // The back office lists every service with its credential state and switch.
+      const listResponse = await app.inject({
+        method: 'GET',
+        url: '/v1/admin/settings/providers',
+        headers: authHeader(adminToken),
+      });
+      assert.equal(listResponse.statusCode, 200);
+      const listed = parseBody(listResponse.body) as {
+        providers: Array<{ provider: string; liveMode: boolean; eventsEnabled: boolean }>;
+      };
+      assert.deepEqual(
+        listed.providers.map((entry) => entry.provider),
+        [...providerSchema.options],
+      );
+      assert.deepEqual(
+        listed.providers.filter((entry) => entry.eventsEnabled).map((entry) => entry.provider),
+        ['spotify', 'apple'],
+      );
+      assert.ok(listed.providers.every((entry) => entry.liveMode === false));
+
+      // A host with only TIDAL connected is told it cannot host, and the app's
+      // provider list agrees.
+      const host = await registerUser(app, `${TEST_EMAIL_PREFIX}${randomUUID()}@synqit.test`);
+      await connectProvider(app, { provider: 'tidal', accessToken: host.tokens.accessToken });
+      const providersBefore = await app.inject({
+        method: 'GET',
+        url: '/v1/playlists/providers',
+        headers: authHeader(host.tokens.accessToken),
+      });
+      assert.deepEqual(parseBody(providersBefore.body), { providers: ['spotify', 'apple'] });
+
+      const refused = await app.inject({
+        method: 'POST',
+        url: '/v1/playlists',
+        headers: authHeader(host.tokens.accessToken),
+        payload: { provider: 'tidal', name: 'Not yet' },
+      });
+      assert.equal(refused.statusCode, 400);
+      assert.equal(
+        (parseBody(refused.body) as { code: string }).code,
+        'provider_not_supported_for_events',
+      );
+
+      // Flip the switch.
+      const enable = await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/settings/providers/tidal',
+        headers: authHeader(adminToken),
+        payload: { eventsEnabled: true },
+      });
+      assert.equal(enable.statusCode, 200);
+      const providersAfter = await app.inject({
+        method: 'GET',
+        url: '/v1/playlists/providers',
+        headers: authHeader(host.tokens.accessToken),
+      });
+      assert.deepEqual(parseBody(providersAfter.body), {
+        providers: ['spotify', 'apple', 'tidal'],
+      });
+
+      // The whole event flow now runs on TIDAL through the registry: create,
+      // guest search, guest add, host remove. Mock mode, so no TIDAL calls.
+      const created = await app.inject({
+        method: 'POST',
+        url: '/v1/playlists',
+        headers: authHeader(host.tokens.accessToken),
+        payload: { provider: 'tidal', name: 'TIDAL party' },
+      });
+      assert.equal(created.statusCode, 200);
+      const createdBody = parseBody(created.body) as {
+        event: { id: string; provider: string; providerPlaylistId: string; magicLinkToken: string };
+      };
+      assert.equal(createdBody.event.provider, 'tidal');
+      assert.match(createdBody.event.providerPlaylistId, /^tidal-mock-playlist-/);
+
+      const search = await app.inject({
+        method: 'GET',
+        url: `/v1/playlists/link/${createdBody.event.magicLinkToken}/search?q=midnight`,
+      });
+      assert.equal(search.statusCode, 200);
+      const searchBody = parseBody(search.body) as { results: Array<{ providerTrackId: string }> };
+      assert.equal(searchBody.results[0]?.providerTrackId, 'mock-track-1');
+
+      const added = await app.inject({
+        method: 'POST',
+        url: `/v1/playlists/link/${createdBody.event.magicLinkToken}/tracks`,
+        payload: {
+          providerTrackId: 'mock-track-1',
+          name: 'Midnight Drive',
+          artist: 'Neon Avenue',
+          album: 'City Lights',
+          durationMs: 203000,
+          artworkUrl: null,
+        },
+      });
+      assert.equal(added.statusCode, 200);
+
+      const removed = await app.inject({
+        method: 'DELETE',
+        url: `/v1/playlists/${createdBody.event.id}/tracks/mock-track-1`,
+        headers: authHeader(host.tokens.accessToken),
+      });
+      assert.equal(removed.statusCode, 200);
+
+      // And back off: new events are refused again, the existing one stays.
+      const disable = await app.inject({
+        method: 'PUT',
+        url: '/v1/admin/settings/providers/tidal',
+        headers: authHeader(adminToken),
+        payload: { eventsEnabled: false },
+      });
+      assert.equal(disable.statusCode, 200);
+      const refusedAgain = await app.inject({
+        method: 'POST',
+        url: '/v1/playlists',
+        headers: authHeader(host.tokens.accessToken),
+        payload: { provider: 'tidal', name: 'Not any more' },
+      });
+      assert.equal(refusedAgain.statusCode, 400);
+      const stillThere = await app.inject({
+        method: 'GET',
+        url: `/v1/playlists/${createdBody.event.id}`,
+        headers: authHeader(host.tokens.accessToken),
+      });
+      assert.equal(stillThere.statusCode, 200);
+    } finally {
+      await setEventProviders({ providers: ['spotify', 'apple'], updatedByUserId: null });
+      if (previousBootstrapKey === undefined) {
+        delete process.env.ADMIN_BOOTSTRAP_KEY;
+      } else {
+        process.env.ADMIN_BOOTSTRAP_KEY = previousBootstrapKey;
+      }
+      if (previousSuperUsers === undefined) {
+        delete process.env.ADMIN_SUPER_USERS;
+      } else {
+        process.env.ADMIN_SUPER_USERS = previousSuperUsers;
+      }
+    }
+  });
+
+  it('providers: every provider in the schema has an adapter', async () => {
     for (const provider of providerSchema.options) {
       const adapter = getProviderAdapter(provider);
       assert.equal(adapter.id, provider);
       assert.ok(adapter.label.length > 0);
     }
-    // Only the adapters that claim event support may host events.
-    assert.deepEqual([...EVENT_CAPABLE_PROVIDERS].sort(), ['apple', 'spotify']);
+    // Hosting is an operator setting; out of the box only the two proven services.
+    assert.deepEqual(await getEventProviders(), ['spotify', 'apple']);
   });
 
   it('recap: claims a notification period only once', async () => {

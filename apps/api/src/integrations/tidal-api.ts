@@ -200,6 +200,8 @@ export const searchTidalTracks = async (params: {
   accessToken: string;
   query: string;
   limit?: number;
+  /** TIDAL's search does not page; the window is cut locally so "load more" moves on. */
+  offset?: number;
 }): Promise<TidalTrack[]> => {
   const document = await request({
     accessToken: params.accessToken,
@@ -213,9 +215,10 @@ export const searchTidalTracks = async (params: {
   });
 
   const included = indexIncluded(document);
+  const offset = params.offset ?? 0;
   return document.included
     .filter((entry) => entry.type === 'tracks')
-    .slice(0, params.limit ?? 5)
+    .slice(offset, offset + (params.limit ?? 5))
     .map((entry) => toTrack(entry, included));
 };
 

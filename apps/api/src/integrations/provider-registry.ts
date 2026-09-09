@@ -1,12 +1,13 @@
-import { eventProviderSchema } from '@synqit/shared';
 import type { Provider, ProviderPlaylistItem } from '@synqit/shared';
 
-import { isAppleLiveMode } from './apple';
+import { getAppleStorefront, isAppleLiveMode } from './apple';
 import { withAppleMusicUserToken } from './apple-client';
 import {
+  addAppleTrackToPlaylist,
   addAppleTracksToPlaylist,
   createAppleLibraryPlaylist,
   findAppleCatalogSongByIsrc,
+  getAppleLibraryPlaylist,
   getAppleUserStorefront,
   listAppleLibraryPlaylists,
   listApplePlaylistTracks,
@@ -17,6 +18,7 @@ import { isSpotifyOauthLiveMode } from './spotify';
 import { withSpotifyAccessTokenRetry } from './spotify-client';
 import { createSpotifyPlaylist, listSpotifyUserPlaylists } from './spotify-playlists';
 import {
+  addSpotifyTrackToPlaylist,
   addSpotifyTracksToPlaylist,
   listSpotifyPlaylistTracks,
   removeSpotifyTrackFromPlaylist,
@@ -36,6 +38,7 @@ import {
 import { withTidalAccessTokenRetry } from './tidal-client';
 import { isYoutubeOauthLiveMode } from './youtube';
 import {
+  addYoutubeTrackToPlaylist,
   addYoutubeTracksToPlaylist,
   createYoutubePlaylist,
   listYoutubePlaylistTracks,
@@ -80,12 +83,6 @@ export type ProviderAdapter = {
   label: string;
   /** False when the service's credentials are unset, so callers can degrade. */
   isLiveMode: () => boolean;
-  /**
-   * Whether guests can build an event playlist on this service. Event hosting
-   * needs the provider-specific guest search and moderation paths in
-   * events/routes.ts, which still cover Spotify and Apple Music only.
-   */
-  supportsEvents: boolean;
   listUserPlaylists: (params: {
     userId: string;
     limit: number;
@@ -100,10 +97,23 @@ export type ProviderAdapter = {
     name: string;
     description?: string;
   }) => Promise<string>;
+  /**
+   * Bulk add for transfers and sync: tolerant by design, a track the service
+   * refuses is dropped and the rest still land.
+   */
   addTracks: (params: {
     userId: string;
     providerPlaylistId: string;
     providerTrackIds: readonly string[];
+  }) => Promise<void>;
+  /**
+   * Single add for a guest at an event: strict, so the refusal reaches the
+   * guest and a vanished playlist closes the event instead of hiding.
+   */
+  addTrack: (params: {
+    userId: string;
+    providerPlaylistId: string;
+    providerTrackId: string;
   }) => Promise<void>;
   removeTrack: (params: {
     userId: string;
@@ -114,16 +124,26 @@ export type ProviderAdapter = {
     userId: string;
     query: string;
     limit?: number;
+    /** Paging for guest search; ignored by services whose search does not page. */
+    offset?: number;
   }) => Promise<ProviderTrack[]>;
   /** Exact lookup; null when the service cannot do it or has no match. */
   findTrackByIsrc: (params: { userId: string; isrc: string }) => Promise<ProviderTrack | null>;
+  /**
+   * Current name and description as the service shows them, for services where
+   * the host may rename the playlist in the service's own app. Optional: most
+   * services only ever see the name Synqit gave.
+   */
+  getPlaylistDetails?: (params: {
+    userId: string;
+    providerPlaylistId: string;
+  }) => Promise<{ name: string | null; description: string | null }>;
 };
 
 const spotifyAdapter: ProviderAdapter = {
   id: 'spotify',
   label: 'Spotify',
   isLiveMode: isSpotifyOauthLiveMode,
-  supportsEvents: true,
   listUserPlaylists: async ({ userId, limit, offset }) => {
     const { result } = await withSpotifyAccessTokenRetry({
       userId,
@@ -157,6 +177,13 @@ const spotifyAdapter: ProviderAdapter = {
         }),
     });
   },
+  addTrack: async ({ userId, providerPlaylistId, providerTrackId }) => {
+    await withSpotifyAccessTokenRetry({
+      userId,
+      run: (accessToken) =>
+        addSpotifyTrackToPlaylist({ accessToken, providerPlaylistId, providerTrackId }),
+    });
+  },
   removeTrack: async ({ userId, providerPlaylistId, providerTrackId }) => {
     await withSpotifyAccessTokenRetry({
       userId,
@@ -164,10 +191,11 @@ const spotifyAdapter: ProviderAdapter = {
         removeSpotifyTrackFromPlaylist({ accessToken, providerPlaylistId, providerTrackId }),
     });
   },
-  searchTracks: async ({ userId, query, limit }) => {
+  searchTracks: async ({ userId, query, limit, offset }) => {
     const { result } = await withSpotifyAccessTokenRetry({
       userId,
-      run: (accessToken) => searchSpotifyTracks({ accessToken, query, limit: limit ?? 5 }),
+      run: (accessToken) =>
+        searchSpotifyTracks({ accessToken, query, limit: limit ?? 5, offset: offset ?? 0 }),
     });
     return result;
   },
@@ -185,7 +213,6 @@ const appleAdapter: ProviderAdapter = {
   id: 'apple',
   label: 'Apple Music',
   isLiveMode: isAppleLiveMode,
-  supportsEvents: true,
   listUserPlaylists: ({ userId, limit, offset }) =>
     withAppleMusicUserToken({
       userId,
@@ -219,24 +246,38 @@ const appleAdapter: ProviderAdapter = {
         }),
     });
   },
+  addTrack: async ({ userId, providerPlaylistId, providerTrackId }) => {
+    await withAppleMusicUserToken({
+      userId,
+      run: (ctx) => addAppleTrackToPlaylist({ ...ctx, providerPlaylistId, providerTrackId }),
+    });
+  },
   removeTrack: async ({ userId, providerPlaylistId, providerTrackId }) => {
     await withAppleMusicUserToken({
       userId,
       run: (ctx) => removeAppleTrackFromPlaylist({ ...ctx, providerPlaylistId, providerTrackId }),
     });
   },
-  searchTracks: ({ userId, query, limit }) =>
+  searchTracks: ({ userId, query, limit, offset }) =>
     withAppleMusicUserToken({
       userId,
       run: async (ctx) => {
-        const storefront = await getAppleUserStorefront(ctx);
+        // The storefront lookup is a separate call that can fail on its own;
+        // the configured default keeps search working when it does.
+        const storefront = await getAppleUserStorefront(ctx).catch(() => getAppleStorefront());
         return searchAppleCatalogTracks({
           developerToken: ctx.developerToken,
           storefront,
           query,
           limit: limit ?? 5,
+          offset: offset ?? 0,
         });
       },
+    }),
+  getPlaylistDetails: ({ userId, providerPlaylistId }) =>
+    withAppleMusicUserToken({
+      userId,
+      run: (ctx) => getAppleLibraryPlaylist({ ...ctx, providerPlaylistId }),
     }),
   findTrackByIsrc: ({ userId, isrc }) =>
     withAppleMusicUserToken({
@@ -256,7 +297,6 @@ const tidalAdapter: ProviderAdapter = {
   id: 'tidal',
   label: 'TIDAL',
   isLiveMode: isTidalOauthLiveMode,
-  supportsEvents: false,
   listUserPlaylists: async ({ userId, limit, offset }) => {
     const { result } = await withTidalAccessTokenRetry({
       userId,
@@ -297,6 +337,18 @@ const tidalAdapter: ProviderAdapter = {
         addTidalTracksToPlaylist({ accessToken, providerPlaylistId, providerTrackIds }),
     });
   },
+  addTrack: async ({ userId, providerPlaylistId, providerTrackId }) => {
+    // TIDAL's add throws on refusal already, so one id through it is strict.
+    await withTidalAccessTokenRetry({
+      userId,
+      run: (accessToken) =>
+        addTidalTracksToPlaylist({
+          accessToken,
+          providerPlaylistId,
+          providerTrackIds: [providerTrackId],
+        }),
+    });
+  },
   removeTrack: async ({ userId, providerPlaylistId, providerTrackId }) => {
     await withTidalAccessTokenRetry({
       userId,
@@ -304,10 +356,10 @@ const tidalAdapter: ProviderAdapter = {
         removeTidalTrackFromPlaylist({ accessToken, providerPlaylistId, providerTrackId }),
     });
   },
-  searchTracks: async ({ userId, query, limit }) => {
+  searchTracks: async ({ userId, query, limit, offset }) => {
     const { result } = await withTidalAccessTokenRetry({
       userId,
-      run: (accessToken) => searchTidalTracks({ accessToken, query, limit }),
+      run: (accessToken) => searchTidalTracks({ accessToken, query, limit, offset }),
     });
     return result;
   },
@@ -324,7 +376,6 @@ const youtubeAdapter: ProviderAdapter = {
   id: 'youtube',
   label: 'YouTube Music',
   isLiveMode: isYoutubeOauthLiveMode,
-  supportsEvents: false,
   listUserPlaylists: async ({ userId, limit, offset }) => {
     const { result } = await withYoutubeAccessTokenRetry({
       userId,
@@ -353,6 +404,13 @@ const youtubeAdapter: ProviderAdapter = {
         addYoutubeTracksToPlaylist({ accessToken, providerPlaylistId, providerTrackIds }),
     });
   },
+  addTrack: async ({ userId, providerPlaylistId, providerTrackId }) => {
+    await withYoutubeAccessTokenRetry({
+      userId,
+      run: (accessToken) =>
+        addYoutubeTrackToPlaylist({ accessToken, providerPlaylistId, providerTrackId }),
+    });
+  },
   removeTrack: async ({ userId, providerPlaylistId, providerTrackId }) => {
     await withYoutubeAccessTokenRetry({
       userId,
@@ -360,10 +418,10 @@ const youtubeAdapter: ProviderAdapter = {
         removeYoutubeTrackFromPlaylist({ accessToken, providerPlaylistId, providerTrackId }),
     });
   },
-  searchTracks: async ({ userId, query, limit }) => {
+  searchTracks: async ({ userId, query, limit, offset }) => {
     const { result } = await withYoutubeAccessTokenRetry({
       userId,
-      run: (accessToken) => searchYoutubeTracks({ accessToken, query, limit }),
+      run: (accessToken) => searchYoutubeTracks({ accessToken, query, limit, offset }),
     });
     return result;
   },
@@ -384,25 +442,3 @@ export const getProviderAdapter = (provider: Provider): ProviderAdapter =>
   PROVIDER_ADAPTERS[provider];
 
 export const getProviderLabel = (provider: Provider): string => PROVIDER_ADAPTERS[provider].label;
-
-/** Services a guest can add to via a magic link today. */
-export const EVENT_CAPABLE_PROVIDERS: Provider[] = Object.values(PROVIDER_ADAPTERS)
-  .filter((adapter) => adapter.supportsEvents)
-  .map((adapter) => adapter.id);
-
-/**
- * The adapters and the shared `eventProviderSchema` the frontends read must agree, or the
- * event creation flow would offer a provider the API then rejects. Assert it at boot rather
- * than discovering it when a host picks the wrong logo.
- */
-const declaredEventProviders = new Set<string>(eventProviderSchema.options);
-const adapterEventProviders = new Set<string>(EVENT_CAPABLE_PROVIDERS);
-if (
-  declaredEventProviders.size !== adapterEventProviders.size ||
-  EVENT_CAPABLE_PROVIDERS.some((provider) => !declaredEventProviders.has(provider))
-) {
-  throw new Error(
-    `Event-capable providers disagree: adapters say [${[...adapterEventProviders].sort().join(', ')}], ` +
-      `eventProviderSchema says [${[...declaredEventProviders].sort().join(', ')}]`,
-  );
-}

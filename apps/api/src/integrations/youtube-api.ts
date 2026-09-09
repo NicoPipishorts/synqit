@@ -359,7 +359,11 @@ export const searchYoutubeTracks = async (params: {
   accessToken: string;
   query: string;
   limit?: number;
+  /** Cut locally from one larger page: paging by token would cost another 100 units. */
+  offset?: number;
 }): Promise<YoutubeTrack[]> => {
+  const offset = params.offset ?? 0;
+  const limit = Math.max(params.limit ?? 5, 1);
   const payload = searchListSchema.parse(
     await request({
       accessToken: params.accessToken,
@@ -369,13 +373,13 @@ export const searchYoutubeTracks = async (params: {
         type: 'video',
         videoCategoryId: MUSIC_CATEGORY_ID,
         q: params.query,
-        maxResults: String(Math.min(Math.max(params.limit ?? 5, 1), PAGE_SIZE)),
+        maxResults: String(Math.min(offset + limit, PAGE_SIZE)),
       },
       action: 'search',
     }),
   );
 
-  const hits = payload.items.flatMap((item) => {
+  const hits = payload.items.slice(offset, offset + limit).flatMap((item) => {
     const videoId = item.id?.videoId;
     const title = item.snippet?.title?.trim();
     return videoId && title
@@ -429,6 +433,29 @@ export const createYoutubePlaylist = async (params: {
     });
   }
   return { providerPlaylistId: payload.data.id };
+};
+
+/** One video, strict: any refusal is thrown so a guest add can report it. */
+export const addYoutubeTrackToPlaylist = async (params: {
+  accessToken: string;
+  providerPlaylistId: string;
+  providerTrackId: string;
+}): Promise<void> => {
+  await withProviderRetry(() =>
+    request({
+      accessToken: params.accessToken,
+      path: '/playlistItems',
+      method: 'POST',
+      query: { part: 'snippet' },
+      body: {
+        snippet: {
+          playlistId: params.providerPlaylistId,
+          resourceId: { kind: 'youtube#video', videoId: params.providerTrackId },
+        },
+      },
+      action: 'add_track',
+    }),
+  );
 };
 
 /**

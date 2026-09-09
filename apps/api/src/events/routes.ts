@@ -9,6 +9,7 @@ import {
   eventDraftResponseSchema,
   eventDraftStepSchema,
   eventListResponseSchema,
+  eventProvidersResponseSchema,
   eventPublicResponseSchema,
   eventTrackingResponseSchema,
   eventResponseSchema,
@@ -17,6 +18,7 @@ import {
   removeEventTrackResponseSchema,
   updateEventDraftRequestSchema,
   updateEventRequestSchema,
+  type Provider,
 } from '@synqit/shared';
 import { FastifyInstance, FastifyReply } from 'fastify';
 import { randomUUID } from 'node:crypto';
@@ -31,35 +33,17 @@ import {
 import { requireOwnedDraft, requireOwnedEvent } from './guards';
 import { eventsStore, EventDraftRecord, EventRecord } from './store';
 import { requireAuthenticatedUserId, resolveAuthenticatedUserId } from '../auth/guards';
-import { getAppleStorefront, isAppleLiveMode } from '../integrations/apple';
-import { withAppleMusicUserToken } from '../integrations/apple-client';
-import {
-  addAppleTrackToPlaylist,
-  createAppleLibraryPlaylist,
-  getAppleLibraryPlaylist,
-  getAppleUserStorefront,
-  listApplePlaylistTracks,
-  removeAppleTrackFromPlaylist,
-  searchAppleCatalogTracks,
-} from '../integrations/apple-music';
 import { mapProviderApiError } from '../integrations/provider-errors';
 import { getProviderAdapter, getProviderLabel } from '../integrations/provider-registry';
-import { isSpotifyOauthLiveMode } from '../integrations/spotify';
 import { withSpotifyAccessTokenRetry, IntegrationError } from '../integrations/spotify-client';
 import {
-  createSpotifyPlaylist,
   getSpotifyCurrentUser,
   getSpotifyPlaylistSummary,
 } from '../integrations/spotify-playlists';
-import {
-  addSpotifyTrackToPlaylist,
-  listSpotifyPlaylistTracks,
-  ProviderApiError,
-  removeSpotifyTrackFromPlaylist,
-  searchSpotifyTracks,
-} from '../integrations/spotify-tracks';
+import { ProviderApiError } from '../integrations/spotify-tracks';
 import { integrationStore } from '../integrations/store';
 import { buildRouteRateLimiters } from '../security/rate-limits';
+import { getEventProviders } from '../settings/event-providers';
 
 const DEFAULT_EVENT_LINK_BASE_URL = 'http://127.0.0.1:5173';
 const MOCK_TRACKS = [
@@ -201,6 +185,204 @@ const reconcileMissingProviderPlaylist = async (params: {
   );
 };
 
+type ProviderOperation = 'create_playlist' | 'search' | 'add_track' | 'remove_track';
+
+const PROVIDER_FAILURE_CODES: Record<ProviderOperation, string> = {
+  create_playlist: 'provider_playlist_create_failed',
+  search: 'provider_search_failed',
+  add_track: 'provider_add_track_failed',
+  remove_track: 'provider_remove_track_failed',
+};
+
+const PROVIDER_FAILURE_LOG_MESSAGES: Record<ProviderOperation, string> = {
+  create_playlist: 'provider create playlist failed',
+  search: 'provider track search failed',
+  add_track: 'provider add track failed',
+  remove_track: 'provider remove track failed',
+};
+
+/**
+ * One error path for every provider call an event makes, whichever service is
+ * behind it. Integration errors (not connected, undecryptable token) keep their
+ * own statuses; a 404 on a playlist write closes the event, because the playlist
+ * is gone; everything else goes through the shared provider error table with
+ * the service's name in the copy.
+ */
+const replyProviderFailure = async (params: {
+  app: FastifyInstance;
+  reply: FastifyReply;
+  error: unknown;
+  operation: ProviderOperation;
+  provider: Provider;
+  event?: EventRecord;
+  providerTrackId?: string;
+  magicLinkToken?: string;
+  logContext?: Record<string, unknown>;
+}) => {
+  const { app, reply, error, operation, event } = params;
+  if (error instanceof IntegrationError) {
+    return sendIntegrationError(reply, error);
+  }
+
+  const label = getProviderLabel(params.provider);
+  if (error instanceof ProviderApiError) {
+    app.log.warn(
+      {
+        provider: error.provider,
+        providerStatusCode: error.statusCode,
+        providerError: error.details,
+        eventId: event?.id,
+        magicLinkToken: params.magicLinkToken,
+        providerPlaylistId: event?.providerPlaylistId,
+        providerTrackId: params.providerTrackId,
+        ...params.logContext,
+      },
+      PROVIDER_FAILURE_LOG_MESSAGES[operation],
+    );
+
+    if (
+      error.statusCode === 404 &&
+      event &&
+      (operation === 'add_track' || operation === 'remove_track')
+    ) {
+      await reconcileMissingProviderPlaylist({
+        app,
+        event,
+        operation,
+        providerTrackId: params.providerTrackId ?? '*',
+        providerStatusCode: error.statusCode,
+        providerError: error.details,
+        magicLinkToken: params.magicLinkToken,
+      });
+
+      return reply.status(409).send({
+        code: 'provider_playlist_missing',
+        message: `The linked ${label} playlist no longer exists. This event was closed. Ask the host to create a new event.`,
+      });
+    }
+
+    const mapped = mapProviderApiError(error, {
+      500: {
+        code: 'provider_playlist_update_failed',
+        message: `${label} could not update this playlist right now. Please try again in a moment.`,
+      },
+      ...(operation === 'add_track'
+        ? {
+            403: {
+              code: 'provider_forbidden',
+              message: `${label} denied this track add. Try a different track; if it still fails, reconnect ${label} and create a new event.`,
+            },
+          }
+        : {}),
+      ...(operation === 'remove_track'
+        ? {
+            403: {
+              code: 'provider_forbidden',
+              message: `${label} denied track removal for this playlist.`,
+            },
+          }
+        : {}),
+      // Apple Music sometimes answers a removal with a 401 that a reconnect does
+      // not clear straight away; say so rather than sending the host in circles.
+      ...(operation === 'remove_track' && params.provider === 'apple'
+        ? {
+            401: {
+              code: 'provider_remove_track_temporarily_unavailable',
+              message:
+                'Apple Music rejected track removal for this connected account. Reconnect may not resolve it immediately; try again later.',
+            },
+          }
+        : {}),
+    });
+    return reply.status(502).send(mapped);
+  }
+
+  const message = error instanceof Error ? error.message : 'Provider API error.';
+  return reply.status(502).send({
+    code: PROVIDER_FAILURE_CODES[operation],
+    message,
+  });
+};
+
+/**
+ * Spotify refuses playlist writes with a bare 403 for two very different
+ * reasons: the playlist belongs to another account, or the token lacks the
+ * modify scope. Both end in "reconnect", but the message has to say which.
+ * Spotify-only, since no other service reports permission problems this
+ * indirectly; every other provider goes straight to the shared mapping.
+ */
+const diagnoseSpotifyForbiddenAdd = async (params: {
+  app: FastifyInstance;
+  event: EventRecord;
+  integrationScopes: string[];
+}): Promise<{ code: string; message: string } | null> => {
+  const { app, event } = params;
+  try {
+    const { result } = await withSpotifyAccessTokenRetry({
+      userId: event.hostUserId,
+      run: (accessToken) =>
+        Promise.all([
+          getSpotifyCurrentUser({ accessToken }),
+          getSpotifyPlaylistSummary({ accessToken, providerPlaylistId: event.providerPlaylistId }),
+        ]),
+    });
+    const [currentUser, playlist] = result;
+
+    app.log.warn(
+      {
+        eventId: event.id,
+        hostUserId: event.hostUserId,
+        providerPlaylistId: event.providerPlaylistId,
+        spotifyCurrentUserId: currentUser.id,
+        spotifyPlaylistOwnerId: playlist.ownerId,
+        spotifyPlaylistPublic: playlist.isPublic,
+        spotifyPlaylistCollaborative: playlist.collaborative,
+        integrationScopes: params.integrationScopes,
+      },
+      'provider add track forbidden diagnostics',
+    );
+
+    if (playlist.ownerId !== currentUser.id && !playlist.collaborative) {
+      return {
+        code: 'provider_playlist_owner_mismatch',
+        message:
+          'Spotify playlist is owned by a different account than the connected host. Reconnect host Spotify and create a new event.',
+      };
+    }
+
+    const requiredScope = playlist.isPublic ? 'playlist-modify-public' : 'playlist-modify-private';
+    if (!params.integrationScopes.includes(requiredScope)) {
+      return {
+        code: 'provider_scope_missing',
+        message: `Spotify token is missing required scope: ${requiredScope}. Reconnect Spotify and approve all requested scopes.`,
+      };
+    }
+  } catch (diagnosticsError) {
+    app.log.warn(
+      {
+        eventId: event.id,
+        providerPlaylistId: event.providerPlaylistId,
+        diagnosticsError:
+          diagnosticsError instanceof Error
+            ? diagnosticsError.message
+            : 'Unknown diagnostics failure.',
+      },
+      'provider add track diagnostics lookup failed',
+    );
+  }
+  return null;
+};
+
+/**
+ * Without credentials an event still runs end to end against fixtures. Spotify
+ * keeps its historical id shape; the others carry their name so a stray mock id
+ * in the database says where it came from.
+ */
+const buildMockPlaylistId = (provider: Provider): string =>
+  provider === 'spotify'
+    ? `mock-playlist-${randomUUID()}`
+    : `${provider}-mock-playlist-${randomUUID()}`;
+
 const requireActiveMagicLinkEvent = async (
   reply: FastifyReply,
   magicLinkToken: string,
@@ -241,127 +423,54 @@ const listProviderPlaylistTracks = async (params: {
   event: EventRecord;
   magicLinkToken?: string;
 }): Promise<ProviderPlaylistTrack[] | null> => {
-  if (params.event.provider === 'spotify' && isSpotifyOauthLiveMode()) {
-    try {
-      const response = await withSpotifyAccessTokenRetry({
-        userId: params.event.hostUserId,
-        run: (accessToken) =>
-          listSpotifyPlaylistTracks({
-            accessToken,
-            providerPlaylistId: params.event.providerPlaylistId,
-          }),
-      });
-
-      return response.result;
-    } catch (error) {
-      if (error instanceof IntegrationError) {
-        params.app.log.warn(
-          {
-            eventId: params.event.id,
-            hostUserId: params.event.hostUserId,
-            provider: params.event.provider,
-            providerPlaylistId: params.event.providerPlaylistId,
-            magicLinkToken: params.magicLinkToken ?? null,
-            integrationErrorCode: error.code,
-            integrationErrorMessage: error.message,
-          },
-          'provider track sync skipped due integration error',
-        );
-        return null;
-      }
-
-      if (error instanceof ProviderApiError) {
-        params.app.log.warn(
-          {
-            eventId: params.event.id,
-            hostUserId: params.event.hostUserId,
-            provider: params.event.provider,
-            providerPlaylistId: params.event.providerPlaylistId,
-            magicLinkToken: params.magicLinkToken ?? null,
-            providerStatusCode: error.statusCode,
-            providerError: error.details,
-          },
-          'provider track sync failed',
-        );
-
-        if (error.statusCode === 404) {
-          await reconcileMissingProviderPlaylist({
-            app: params.app,
-            event: params.event,
-            operation: 'sync_tracks',
-            providerTrackId: '*',
-            providerStatusCode: error.statusCode,
-            providerError: error.details,
-            magicLinkToken: params.magicLinkToken,
-          });
-        }
-      }
-
-      return null;
-    }
+  const adapter = getProviderAdapter(params.event.provider);
+  if (!adapter.isLiveMode()) {
+    return null;
   }
 
-  if (params.event.provider === 'apple' && isAppleLiveMode()) {
-    try {
-      const results = await withAppleMusicUserToken({
-        userId: params.event.hostUserId,
-        run: async ({ developerToken, musicUserToken }) =>
-          listApplePlaylistTracks({
-            developerToken,
-            musicUserToken,
-            providerPlaylistId: params.event.providerPlaylistId,
-          }),
-      });
-      return results;
-    } catch (error) {
-      if (error instanceof IntegrationError) {
-        params.app.log.warn(
-          {
-            eventId: params.event.id,
-            hostUserId: params.event.hostUserId,
-            provider: params.event.provider,
-            providerPlaylistId: params.event.providerPlaylistId,
-            magicLinkToken: params.magicLinkToken ?? null,
-            integrationErrorCode: error.code,
-            integrationErrorMessage: error.message,
-          },
-          'provider track sync skipped due integration error',
-        );
-        return null;
-      }
+  try {
+    return await adapter.listPlaylistTracks({
+      userId: params.event.hostUserId,
+      providerPlaylistId: params.event.providerPlaylistId,
+    });
+  } catch (error) {
+    const context = {
+      eventId: params.event.id,
+      hostUserId: params.event.hostUserId,
+      provider: params.event.provider,
+      providerPlaylistId: params.event.providerPlaylistId,
+      magicLinkToken: params.magicLinkToken ?? null,
+    };
 
-      if (error instanceof ProviderApiError) {
-        params.app.log.warn(
-          {
-            eventId: params.event.id,
-            hostUserId: params.event.hostUserId,
-            provider: params.event.provider,
-            providerPlaylistId: params.event.providerPlaylistId,
-            magicLinkToken: params.magicLinkToken ?? null,
-            providerStatusCode: error.statusCode,
-            providerError: error.details,
-          },
-          'provider track sync failed',
-        );
-
-        if (error.statusCode === 404) {
-          await reconcileMissingProviderPlaylist({
-            app: params.app,
-            event: params.event,
-            operation: 'sync_tracks',
-            providerTrackId: '*',
-            providerStatusCode: error.statusCode,
-            providerError: error.details,
-            magicLinkToken: params.magicLinkToken,
-          });
-        }
-      }
-
+    if (error instanceof IntegrationError) {
+      params.app.log.warn(
+        { ...context, integrationErrorCode: error.code, integrationErrorMessage: error.message },
+        'provider track sync skipped due integration error',
+      );
       return null;
     }
-  }
 
-  return null;
+    if (error instanceof ProviderApiError) {
+      params.app.log.warn(
+        { ...context, providerStatusCode: error.statusCode, providerError: error.details },
+        'provider track sync failed',
+      );
+
+      if (error.statusCode === 404) {
+        await reconcileMissingProviderPlaylist({
+          app: params.app,
+          event: params.event,
+          operation: 'sync_tracks',
+          providerTrackId: '*',
+          providerStatusCode: error.statusCode,
+          providerError: error.details,
+          magicLinkToken: params.magicLinkToken,
+        });
+      }
+    }
+
+    return null;
+  }
 };
 
 const syncEventTracksFromProvider = async (params: {
@@ -570,10 +679,10 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     }
 
     const selectedProvider = parsedBody.data.provider;
-    // Guest search and moderation are still provider-specific in this file, so
-    // a service can be connectable and syncable without being able to host an
-    // event. Refuse clearly instead of creating a playlist nobody can add to.
-    if (!getProviderAdapter(selectedProvider).supportsEvents) {
+    // Hosting is switched on per service by an operator, because guest search is
+    // where API quota goes: a service can be connectable and syncable while its
+    // quota or OAuth review cannot yet take a party's worth of searches.
+    if (!(await getEventProviders()).includes(selectedProvider)) {
       return reply.status(400).send({
         code: 'provider_not_supported_for_events',
         message: `${getProviderLabel(selectedProvider)} cannot host an event playlist yet.`,
@@ -591,100 +700,27 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
+    const adapter = getProviderAdapter(selectedProvider);
     let providerPlaylistId: string;
-    if (selectedProvider === 'spotify' && isSpotifyOauthLiveMode()) {
+    if (adapter.isLiveMode()) {
       try {
-        const createdPlaylist = await withSpotifyAccessTokenRetry({
+        providerPlaylistId = await adapter.createPlaylist({
           userId,
-          run: async (accessToken) =>
-            createSpotifyPlaylist({
-              accessToken,
-              name: parsedBody.data.name,
-              description: parsedBody.data.description,
-            }),
-        });
-        providerPlaylistId = createdPlaylist.result.providerPlaylistId;
-      } catch (error) {
-        if (error instanceof IntegrationError) {
-          return sendIntegrationError(reply, error);
-        }
-
-        if (error instanceof ProviderApiError) {
-          app.log.warn(
-            {
-              provider: error.provider,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-              userId,
-            },
-            'provider create playlist failed',
-          );
-          const mapped = mapProviderApiError(error, {
-            500: {
-              code: 'provider_playlist_update_failed',
-              message:
-                'Apple Music could not update this playlist right now. Please try again in a moment.',
-            },
-          });
-          return reply.status(502).send(mapped);
-        }
-
-        const message = error instanceof Error ? error.message : 'Provider API error.';
-        return reply.status(502).send({
-          code: 'provider_playlist_create_failed',
-          message,
-        });
-      }
-    } else if (selectedProvider === 'apple' && isAppleLiveMode()) {
-      try {
-        providerPlaylistId = await withAppleMusicUserToken({
-          userId,
-          run: async ({ developerToken, musicUserToken }) => {
-            const createdPlaylist = await createAppleLibraryPlaylist({
-              developerToken,
-              musicUserToken,
-              name: parsedBody.data.name,
-              description: parsedBody.data.description,
-            });
-            return createdPlaylist.providerPlaylistId;
-          },
+          name: parsedBody.data.name,
+          description: parsedBody.data.description,
         });
       } catch (error) {
-        if (error instanceof IntegrationError) {
-          return sendIntegrationError(reply, error);
-        }
-
-        if (error instanceof ProviderApiError) {
-          app.log.warn(
-            {
-              provider: error.provider,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-              userId,
-            },
-            'provider create playlist failed',
-          );
-          const mapped = mapProviderApiError(error, {
-            500: {
-              code: 'provider_playlist_update_failed',
-              message:
-                'Apple Music could not update this playlist right now. Please try again in a moment.',
-            },
-          });
-          return reply.status(502).send(mapped);
-        }
-
-        const message = error instanceof Error ? error.message : 'Provider API error.';
-        return reply.status(502).send({
-          code: 'provider_playlist_create_failed',
-          message,
+        return replyProviderFailure({
+          app,
+          reply,
+          error,
+          operation: 'create_playlist',
+          provider: selectedProvider,
+          logContext: { userId },
         });
       }
     } else {
-      providerPlaylistId =
-        selectedProvider === 'apple'
-          ? `apple-mock-playlist-${randomUUID()}`
-          : `mock-playlist-${randomUUID()}`;
+      providerPlaylistId = buildMockPlaylistId(selectedProvider);
     }
 
     const event = await eventsStore.createEvent({
@@ -738,6 +774,15 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         closedAt: event.closedAt ? event.closedAt.toISOString() : null,
       })),
     });
+  });
+
+  // Services a host may pick when creating an event: an operator setting rather
+  // than a constant, see settings/event-providers.ts.
+  app.get('/playlists/providers', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    return eventProvidersResponseSchema.parse({ providers: await getEventProviders() });
   });
 
   app.get('/playlists/link/:magicLinkToken', async (request, reply) => {
@@ -906,138 +951,26 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    if (event.provider === 'spotify' && isSpotifyOauthLiveMode()) {
+    const adapter = getProviderAdapter(event.provider);
+    if (adapter.isLiveMode()) {
       try {
-        const response = await withSpotifyAccessTokenRetry({
+        const results = await adapter.searchTracks({
           userId: event.hostUserId,
-          run: (accessToken) =>
-            searchSpotifyTracks({
-              accessToken,
-              query,
-              limit,
-              offset,
-            }),
+          query,
+          limit,
+          offset,
         });
-
-        return eventTrackSearchResponseSchema.parse({
-          results: response.result,
-        });
+        return eventTrackSearchResponseSchema.parse({ results });
       } catch (error) {
-        if (error instanceof IntegrationError) {
-          return sendIntegrationError(reply, error);
-        }
-
-        if (error instanceof ProviderApiError) {
-          app.log.warn(
-            {
-              provider: error.provider,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-              eventId: event.id,
-              magicLinkToken,
-              query,
-            },
-            'provider track search failed',
-          );
-          const mapped = mapProviderApiError(error, {
-            500: {
-              code: 'provider_playlist_update_failed',
-              message:
-                'Apple Music could not update this playlist right now. Please try again in a moment.',
-            },
-          });
-          return reply.status(502).send(mapped);
-        }
-
-        const message = error instanceof Error ? error.message : 'Provider API error.';
-        return reply.status(502).send({
-          code: 'provider_search_failed',
-          message,
-        });
-      }
-    }
-
-    if (event.provider === 'apple' && isAppleLiveMode()) {
-      try {
-        const results = await withAppleMusicUserToken({
-          userId: event.hostUserId,
-          run: async ({ developerToken, musicUserToken }) => {
-            let storefront = getAppleStorefront();
-
-            try {
-              storefront = await getAppleUserStorefront({
-                developerToken,
-                musicUserToken,
-              });
-            } catch (error) {
-              const fallbackContext = {
-                eventId: event.id,
-                magicLinkToken,
-                hostUserId: event.hostUserId,
-                fallbackStorefront: storefront,
-              };
-
-              if (error instanceof ProviderApiError) {
-                app.log.warn(
-                  {
-                    ...fallbackContext,
-                    provider: error.provider,
-                    providerStatusCode: error.statusCode,
-                    providerError: error.details,
-                  },
-                  'apple storefront lookup failed; falling back to configured storefront',
-                );
-              } else {
-                app.log.warn(
-                  {
-                    ...fallbackContext,
-                    errorMessage: error instanceof Error ? error.message : 'Unknown error',
-                  },
-                  'apple storefront lookup failed; falling back to configured storefront',
-                );
-              }
-            }
-
-            return searchAppleCatalogTracks({
-              developerToken,
-              storefront,
-              query,
-              limit,
-              offset,
-            });
-          },
-        });
-
-        return eventTrackSearchResponseSchema.parse({
-          results,
-        });
-      } catch (error) {
-        if (error instanceof ProviderApiError) {
-          app.log.warn(
-            {
-              provider: error.provider,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-              eventId: event.id,
-              magicLinkToken,
-              query,
-            },
-            'provider track search failed',
-          );
-          const mapped = mapProviderApiError(error, {
-            500: {
-              code: 'provider_playlist_update_failed',
-              message:
-                'Apple Music could not update this playlist right now. Please try again in a moment.',
-            },
-          });
-          return reply.status(502).send(mapped);
-        }
-
-        const message = error instanceof Error ? error.message : 'Provider API error.';
-        return reply.status(502).send({
-          code: 'provider_search_failed',
-          message,
+        return replyProviderFailure({
+          app,
+          reply,
+          error,
+          operation: 'search',
+          provider: event.provider,
+          event,
+          magicLinkToken,
+          logContext: { query },
         });
       }
     }
@@ -1102,198 +1035,39 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
         });
       }
 
-      if (event.provider === 'spotify' && isSpotifyOauthLiveMode()) {
-        let providerAccessTokenForDiagnostics: string | null = null;
+      const adapter = getProviderAdapter(event.provider);
+      if (adapter.isLiveMode()) {
         try {
-          await withSpotifyAccessTokenRetry({
+          await adapter.addTrack({
             userId: event.hostUserId,
-            run: async (accessToken) => {
-              providerAccessTokenForDiagnostics = accessToken;
-              await addSpotifyTrackToPlaylist({
-                accessToken,
-                providerPlaylistId: event.providerPlaylistId,
-                providerTrackId: parsedBody.data.providerTrackId,
-              });
-            },
+            providerPlaylistId: event.providerPlaylistId,
+            providerTrackId: parsedBody.data.providerTrackId,
           });
         } catch (error) {
-          if (error instanceof IntegrationError) {
-            return sendIntegrationError(reply, error);
-          }
-
-          if (error instanceof ProviderApiError) {
-            app.log.warn(
-              {
-                provider: error.provider,
-                providerStatusCode: error.statusCode,
-                providerError: error.details,
-                eventId: event.id,
-                magicLinkToken,
-                providerPlaylistId: event.providerPlaylistId,
-                providerTrackId: parsedBody.data.providerTrackId,
-              },
-              'provider add track failed',
-            );
-
-            if (error.statusCode === 404) {
-              await reconcileMissingProviderPlaylist({
-                app,
-                event,
-                operation: 'add_track',
-                providerTrackId: parsedBody.data.providerTrackId,
-                providerStatusCode: error.statusCode,
-                providerError: error.details,
-                magicLinkToken,
-              });
-
-              return reply.status(409).send({
-                code: 'provider_playlist_missing',
-                message:
-                  'The linked Spotify playlist no longer exists. This event was closed. Ask the host to create a new event.',
-              });
-            }
-
-            if (error.statusCode === 403 && providerAccessTokenForDiagnostics) {
-              try {
-                const [currentUser, playlist] = await Promise.all([
-                  getSpotifyCurrentUser({
-                    accessToken: providerAccessTokenForDiagnostics,
-                  }),
-                  getSpotifyPlaylistSummary({
-                    accessToken: providerAccessTokenForDiagnostics,
-                    providerPlaylistId: event.providerPlaylistId,
-                  }),
-                ]);
-
-                app.log.warn(
-                  {
-                    eventId: event.id,
-                    hostUserId: event.hostUserId,
-                    providerPlaylistId: event.providerPlaylistId,
-                    spotifyCurrentUserId: currentUser.id,
-                    spotifyPlaylistOwnerId: playlist.ownerId,
-                    spotifyPlaylistPublic: playlist.isPublic,
-                    spotifyPlaylistCollaborative: playlist.collaborative,
-                    integrationScopes: integration.scopes,
-                  },
-                  'provider add track forbidden diagnostics',
-                );
-
-                if (playlist.ownerId !== currentUser.id && !playlist.collaborative) {
-                  return reply.status(502).send({
-                    code: 'provider_playlist_owner_mismatch',
-                    message:
-                      'Spotify playlist is owned by a different account than the connected host. Reconnect host Spotify and create a new event.',
-                  });
-                }
-
-                const requiredScope = playlist.isPublic
-                  ? 'playlist-modify-public'
-                  : 'playlist-modify-private';
-                if (!integration.scopes.includes(requiredScope)) {
-                  return reply.status(502).send({
-                    code: 'provider_scope_missing',
-                    message: `Spotify token is missing required scope: ${requiredScope}. Reconnect Spotify and approve all requested scopes.`,
-                  });
-                }
-              } catch (diagnosticsError) {
-                const diagnosticsMessage =
-                  diagnosticsError instanceof Error
-                    ? diagnosticsError.message
-                    : 'Unknown diagnostics failure.';
-                app.log.warn(
-                  {
-                    eventId: event.id,
-                    providerPlaylistId: event.providerPlaylistId,
-                    diagnosticsError: diagnosticsMessage,
-                  },
-                  'provider add track diagnostics lookup failed',
-                );
-              }
-            }
-
-            const mapped = mapProviderApiError(error, {
-              403: {
-                code: 'provider_forbidden',
-                message:
-                  'Spotify denied this track add. Try a different track; if it still fails, reconnect Spotify and create a new event.',
-              },
+          if (
+            event.provider === 'spotify' &&
+            error instanceof ProviderApiError &&
+            error.statusCode === 403
+          ) {
+            const diagnosis = await diagnoseSpotifyForbiddenAdd({
+              app,
+              event,
+              integrationScopes: integration.scopes,
             });
-            return reply.status(502).send(mapped);
-          }
-
-          const message = error instanceof Error ? error.message : 'Provider API error.';
-          return reply.status(502).send({
-            code: 'provider_add_track_failed',
-            message,
-          });
-        }
-      }
-
-      if (event.provider === 'apple' && isAppleLiveMode()) {
-        try {
-          await withAppleMusicUserToken({
-            userId: event.hostUserId,
-            run: async ({ developerToken, musicUserToken }) => {
-              await addAppleTrackToPlaylist({
-                developerToken,
-                musicUserToken,
-                providerPlaylistId: event.providerPlaylistId,
-                providerTrackId: parsedBody.data.providerTrackId,
-              });
-            },
-          });
-        } catch (error) {
-          if (error instanceof IntegrationError) {
-            return sendIntegrationError(reply, error);
-          }
-
-          if (error instanceof ProviderApiError) {
-            app.log.warn(
-              {
-                provider: error.provider,
-                providerStatusCode: error.statusCode,
-                providerError: error.details,
-                eventId: event.id,
-                magicLinkToken,
-                providerPlaylistId: event.providerPlaylistId,
-                providerTrackId: parsedBody.data.providerTrackId,
-              },
-              'provider add track failed',
-            );
-
-            if (error.statusCode === 404) {
-              await reconcileMissingProviderPlaylist({
-                app,
-                event,
-                operation: 'add_track',
-                providerTrackId: parsedBody.data.providerTrackId,
-                providerStatusCode: error.statusCode,
-                providerError: error.details,
-                magicLinkToken,
-              });
-
-              return reply.status(409).send({
-                code: 'provider_playlist_missing',
-                message:
-                  'The linked provider playlist no longer exists. This event was closed. Ask the host to create a new event.',
-              });
+            if (diagnosis) {
+              return reply.status(502).send(diagnosis);
             }
-
-            const mapped = mapProviderApiError(error, {
-              500: {
-                code: 'provider_playlist_update_failed',
-                message:
-                  'Apple Music could not update this playlist right now. Please try again in a moment.',
-              },
-            });
-            return reply.status(502).send(mapped);
           }
 
-          const message = error instanceof Error ? error.message : 'Provider API error.';
-          return reply.status(502).send({
-            code: 'provider_add_track_failed',
-            message,
+          return replyProviderFailure({
+            app,
+            reply,
+            error,
+            operation: 'add_track',
+            provider: event.provider,
+            event,
+            providerTrackId: parsedBody.data.providerTrackId,
+            magicLinkToken,
           });
         }
       }
@@ -1332,27 +1106,26 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
     if (!ownedEvent) return;
     let event = ownedEvent.event;
 
-    if (event.provider === 'apple' && isAppleLiveMode()) {
+    // Some services let the host rename the playlist in their own app; mirror
+    // that back so the event page does not show a stale name. Only adapters that
+    // expose playlist details take part, and a failure leaves the stored copy.
+    const adapter = getProviderAdapter(event.provider);
+    if (adapter.isLiveMode() && adapter.getPlaylistDetails) {
       try {
         const currentEvent = event;
-        const appleAttrs = await withAppleMusicUserToken({
+        const details = await adapter.getPlaylistDetails({
           userId: currentEvent.hostUserId,
-          run: ({ developerToken, musicUserToken }) =>
-            getAppleLibraryPlaylist({
-              developerToken,
-              musicUserToken,
-              providerPlaylistId: currentEvent.providerPlaylistId,
-            }),
+          providerPlaylistId: currentEvent.providerPlaylistId,
         });
-        const nameChanged = appleAttrs.name !== null && appleAttrs.name !== event.name;
+        const nameChanged = details.name !== null && details.name !== event.name;
         const descChanged =
-          appleAttrs.description !== null && appleAttrs.description !== event.description;
+          details.description !== null && details.description !== event.description;
         if (nameChanged || descChanged) {
           const synced = await eventsStore.updateEvent({
             eventId: event.id,
             hostUserId: event.hostUserId,
-            name: appleAttrs.name ?? event.name,
-            description: appleAttrs.description ?? event.description,
+            name: details.name ?? event.name,
+            description: details.description ?? event.description,
           });
           if (synced) event = synced;
         }
@@ -1411,132 +1184,23 @@ export const registerEventRoutes = async (app: FastifyInstance): Promise<void> =
       });
     }
 
-    if (event.provider === 'spotify' && isSpotifyOauthLiveMode()) {
+    const adapter = getProviderAdapter(event.provider);
+    if (adapter.isLiveMode()) {
       try {
-        await withSpotifyAccessTokenRetry({
+        await adapter.removeTrack({
           userId: event.hostUserId,
-          run: async (accessToken) => {
-            await removeSpotifyTrackFromPlaylist({
-              accessToken,
-              providerPlaylistId: event.providerPlaylistId,
-              providerTrackId,
-            });
-          },
+          providerPlaylistId: event.providerPlaylistId,
+          providerTrackId,
         });
       } catch (error) {
-        if (error instanceof IntegrationError) {
-          return sendIntegrationError(reply, error);
-        }
-
-        if (error instanceof ProviderApiError) {
-          app.log.warn(
-            {
-              provider: error.provider,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-              eventId: event.id,
-              providerPlaylistId: event.providerPlaylistId,
-              providerTrackId,
-            },
-            'provider remove track failed',
-          );
-
-          if (error.statusCode === 404) {
-            await reconcileMissingProviderPlaylist({
-              app,
-              event,
-              operation: 'remove_track',
-              providerTrackId,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-            });
-
-            return reply.status(409).send({
-              code: 'provider_playlist_missing',
-              message:
-                'The linked Spotify playlist no longer exists. This event was closed. Ask the host to create a new event.',
-            });
-          }
-
-          const mapped = mapProviderApiError(error, {
-            403: {
-              code: 'provider_forbidden',
-              message: 'Spotify denied track removal for this playlist.',
-            },
-          });
-          return reply.status(502).send(mapped);
-        }
-
-        const message = error instanceof Error ? error.message : 'Provider API error.';
-        return reply.status(502).send({
-          code: 'provider_remove_track_failed',
-          message,
-        });
-      }
-    }
-
-    if (event.provider === 'apple' && isAppleLiveMode()) {
-      try {
-        await withAppleMusicUserToken({
-          userId: event.hostUserId,
-          run: async ({ developerToken, musicUserToken }) => {
-            await removeAppleTrackFromPlaylist({
-              developerToken,
-              musicUserToken,
-              providerPlaylistId: event.providerPlaylistId,
-              providerTrackId,
-            });
-          },
-        });
-      } catch (error) {
-        if (error instanceof IntegrationError) {
-          return sendIntegrationError(reply, error);
-        }
-
-        if (error instanceof ProviderApiError) {
-          app.log.warn(
-            {
-              provider: error.provider,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-              eventId: event.id,
-              providerPlaylistId: event.providerPlaylistId,
-              providerTrackId,
-            },
-            'provider remove track failed',
-          );
-
-          if (error.statusCode === 404) {
-            await reconcileMissingProviderPlaylist({
-              app,
-              event,
-              operation: 'remove_track',
-              providerTrackId,
-              providerStatusCode: error.statusCode,
-              providerError: error.details,
-            });
-
-            return reply.status(409).send({
-              code: 'provider_playlist_missing',
-              message:
-                'The linked provider playlist no longer exists. This event was closed. Ask the host to create a new event.',
-            });
-          }
-
-          const mapped = mapProviderApiError(error, {
-            401: {
-              code: 'provider_remove_track_temporarily_unavailable',
-              message:
-                'Apple Music rejected track removal for this connected account. Reconnect may not resolve it immediately; try again later.',
-            },
-          });
-          return reply.status(502).send(mapped);
-        }
-
-        const message = error instanceof Error ? error.message : 'Provider API error.';
-        return reply.status(502).send({
-          code: 'provider_remove_track_failed',
-          message,
+        return replyProviderFailure({
+          app,
+          reply,
+          error,
+          operation: 'remove_track',
+          provider: event.provider,
+          event,
+          providerTrackId,
         });
       }
     }

@@ -1,5 +1,4 @@
-import { providerSchema } from '@synqit/shared';
-import { eventProviderSchema, type EventProvider } from '@synqit/shared';
+import { providerSchema, type EventProvider } from '@synqit/shared';
 import { MUSIC_SERVICES, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
@@ -31,6 +30,7 @@ import {
   createDraft,
   createEvent as createEventFn,
   fetchDraft,
+  fetchEventProviders,
   fetchIntegrations,
   queryKeys,
   updateDraft,
@@ -44,6 +44,8 @@ type CreatedEventState = {
   magicLinkToken: string;
   magicLinkUrl: string;
 };
+
+const NO_PROVIDERS: readonly EventProvider[] = [];
 
 export const EventCreatePage = () => {
   const { t } = useI18n();
@@ -73,6 +75,15 @@ export const EventCreatePage = () => {
 
   const providerStatusByType: Record<Provider, ProviderIntegrationStatus> =
     integrationsQuery.data ?? EMPTY_INTEGRATION_MAP;
+
+  // Which services may host is switched per service in the back office, so the
+  // list is fetched rather than read from the schema.
+  const eventProvidersQuery = useQuery({
+    queryKey: queryKeys.events.providers(),
+    queryFn: fetchEventProviders,
+    staleTime: 60_000,
+  });
+  const eventProviders: readonly EventProvider[] = eventProvidersQuery.data ?? NO_PROVIDERS;
 
   const selectedProviderConnected = provider
     ? providerStatusByType[provider] === 'connected'
@@ -365,10 +376,10 @@ export const EventCreatePage = () => {
   // ---------------------------------------------------------------------------
 
   useEffect(() => {
-    if (!isDraftHydrationDone || !integrationsQuery.data) return;
+    if (!isDraftHydrationDone || !integrationsQuery.data || !eventProvidersQuery.data) return;
     if (provider !== null || step !== 1) return;
     // Only offer to skip ahead when the single connected service can actually host an event.
-    const connectedProviders = eventProviderSchema.options.filter(
+    const connectedProviders = eventProvidersQuery.data.filter(
       (p) => integrationsQuery.data[p] === 'connected',
     );
     if (connectedProviders.length === 1) {
@@ -376,7 +387,7 @@ export const EventCreatePage = () => {
       setStepDirection(1);
       setStep(2);
     }
-  }, [isDraftHydrationDone, integrationsQuery.data, provider, step]);
+  }, [isDraftHydrationDone, integrationsQuery.data, eventProvidersQuery.data, provider, step]);
 
   // ---------------------------------------------------------------------------
   // Auto-save draft
@@ -437,7 +448,7 @@ export const EventCreatePage = () => {
     const status = params.get('status');
     const redirectStep = params.get('step');
 
-    if (providerParam && eventProviderSchema.options.includes(providerParam as EventProvider)) {
+    if (providerParam && providerSchema.options.includes(providerParam as EventProvider)) {
       setProvider(providerParam as EventProvider);
     }
     if (redirectStep === '1') setStep(1);
@@ -529,7 +540,7 @@ export const EventCreatePage = () => {
     : t('eventsPage.createFlow.providerNotSelected');
   const providerLabels = PROVIDER_LABELS;
 
-  const isLoadingIntegrations = integrationsQuery.isLoading;
+  const isLoadingIntegrations = integrationsQuery.isLoading || eventProvidersQuery.isLoading;
   const isCreatingEvent = createEventMutation.isPending;
 
   return (
@@ -553,7 +564,7 @@ export const EventCreatePage = () => {
         <AnimatePresence mode="wait" initial={false} custom={stepDirection}>
           {step === 1 ? (
             <ProviderSelectionStep
-              providers={eventProviderSchema.options}
+              providers={eventProviders}
               body={t('eventsPage.createFlow.stepProviderBody')}
               isConnectingProvider={isConnectingProvider}
               motionKey="step-1"

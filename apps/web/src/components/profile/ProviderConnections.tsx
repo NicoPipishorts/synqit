@@ -1,4 +1,4 @@
-import { isEventProvider, providerSchema } from '@synqit/shared';
+import { providerSchema } from '@synqit/shared';
 import {
   CONNECT_SERVICES,
   LINK_SERVICES,
@@ -283,10 +283,7 @@ export const ProviderConnections = () => {
           isBusy: Boolean(busyProviders[provider]),
           connectedAt: formatDateTime(integration.connectedAt),
           expiresAt: formatDateTime(integration.expiresAt),
-          // Only event-capable services can have events pointed at them.
-          eventsLinked: isEventProvider(provider)
-            ? (snapshot?.eventCountByProvider[provider] ?? 0)
-            : 0,
+          eventsLinked: snapshot?.eventCountByProvider[provider] ?? 0,
         };
       }),
     [busyProviders, formatDateTime, snapshot],
