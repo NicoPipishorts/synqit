@@ -10,7 +10,8 @@ Follow these steps in order. Stop and report if a check fails; do not push red c
 ## 1. Confirm the branch
 
 - `git status --short` and `git branch --show-current`.
-- On `main`: stop. Switch to `dev` (or create `feat/<topic>` off `dev`) and carry the changes over.
+- On `main`: stop. Switch to `dev` (or create `feat/syn-<number>-<topic>` off `dev`) and carry the
+  changes over. Naming the branch after its Linear issue lets Linear link the PR automatically.
 - On `dev` or `feat/*`: continue.
 
 ## 2. Remove stray artefacts
@@ -30,9 +31,13 @@ Follow these steps in order. Stop and report if a check fails; do not push red c
 
 `yarn lint` on the touched workspace is cheap and worth running.
 
-## 4. Update the tracker
+## 4. Update the trackers
 
-If a feature landed, tick or add a line in `docs/progress-checklist.md` in the same commit.
+- If a feature landed, tick or add a line in `docs/progress-checklist.md` in the same commit.
+- Find the matching Linear issue in team `SYN` (search by title if you do not have the id). If the
+  work is complete, the PR body closes it in step 6; if it only advances the issue, move it to
+  In Progress instead. If no issue exists for work that is more than a small fix, create one in the
+  right project rather than landing untracked work.
 
 ## 5. Commit
 
@@ -44,6 +49,7 @@ If a feature landed, tick or add a line in `docs/progress-checklist.md` in the s
 
 - `git push -u origin <branch>`.
 - From `dev`: `gh pr create --base main`. From `feat/*`: `gh pr create --base dev`.
-- Body: a Summary section, a Test plan section listing the checks that ran, and the
+- Body: a Summary section, a Test plan section listing the checks that ran, a `Fixes SYN-<number>`
+  line for each issue the PR completes (`Refs SYN-<number>` for ones it only advances), and the
   `🤖 Generated with [Claude Code](https://claude.com/claude-code)` footer.
 - Do not merge. Report the PR URL and what CI still needs to confirm.

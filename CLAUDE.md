@@ -59,6 +59,28 @@ yarn test:web:e2e            # Playwright smoke test
   locally before opening a PR.
 - Use the `/ship` skill to land the working tree.
 
+## Issue tracking (Linear)
+
+- Team `Synqit` (`SYN`) at <https://linear.app/synqit>. Open work lives in eight projects that
+  mirror the roadmap phases: Sync Hardening, Provider Reliability, Admin & Invite Ops,
+  Observability & Error Monitoring, Launch Readiness, Provider Expansion, Billing & Entitlements,
+  Scale & Operational Maturity.
+- Linear tracks **open** work only. `docs/roadmap.md` stays the narrative, `docs/progress-checklist.md`
+  stays the record of what shipped. Completed work is not imported as issues: the free tier counts
+  non-archived issues against a 250 cap, and auto-archive (set to 1 month) does not release a Done
+  issue while its project is still open — only once the project itself completes. Treat the cap as
+  a budget for issues in flight, and do not bulk-import history into it.
+- Branch names: `feat/syn-<number>-<topic>` (for example `feat/syn-31-legal-entity`). This keeps the
+  repo's `feat/*` convention and lets Linear detect the issue id in the branch.
+- PR body magic words: `Fixes SYN-31` moves the issue to Done on merge; `Refs SYN-31` links it
+  without closing. Also accepted: close/closes/resolve/resolves/implement/implements, and
+  part of/toward/relates to for the non-closing form.
+- Labels are flat rather than Linear label groups, so an issue can carry more than one:
+  `area/{api,web,site,admin,worker,infra,db}`, `type/{security,ops,product,docs}`,
+  `provider/{spotify,apple,tidal,youtube,deezer}`.
+- `.mcp.json` at the repo root registers Linear's MCP server. Approve it on first session start,
+  then authenticate before creating or updating issues.
+
 ## Conventions
 
 - API routes live under `/v1`. Error body shape is `{ code, message, details? }`.

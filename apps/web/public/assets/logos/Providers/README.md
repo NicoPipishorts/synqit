@@ -11,6 +11,7 @@ background their owner's guidelines forbid.
 | `Deezer.png`       | Deezer        | Purple heart from the Deezer brand guidelines (deezerbrand.com) |
 | `YouTubeMusic.png` | YouTube Music | Official YouTube Music logo (Wikimedia Commons)                 |
 | `Tidal.png`        | TIDAL         | Official TIDAL icon (brand kit `icon-black-cmyk`)               |
+| `Qobuz.png`        | Qobuz         | Qobuz app icon (`open.qobuz.com` favicon), rendered to 256×256  |
 
 `Deezer.png` and `YouTubeMusic.png` were trimmed of their transparent margin and
 resampled to a 256×256 square, as was `Tidal.png`, so they all sit at the same

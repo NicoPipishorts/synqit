@@ -1,5 +1,6 @@
 import type { SyncItem } from '@synqit/shared';
 import { TapeStrip } from '@synqit/ui';
+import { Link } from '@tanstack/react-router';
 import { ArrowLeftRight } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
@@ -30,7 +31,12 @@ export const TransferCard = ({ sync }: TransferCardProps) => {
   const formattedDate = formatTransferTimestamp(sync.lastSyncedAt ?? sync.createdAt);
 
   return (
-    <div className="relative grid min-w-0 gap-4 rounded-3xl border-2 border-app-text bg-app-elevated p-4 shadow-sticker transition duration-200 motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[6px_6px_0_0_var(--syn-text)] dark:bg-app-card">
+    <Link
+      to="/transfer/$syncId"
+      params={{ syncId: sync.id }}
+      aria-label={t('transferDashboardPage.openTransfer', { name: sync.name })}
+      className="relative grid min-w-0 gap-4 rounded-3xl border-2 border-app-text bg-app-elevated p-4 text-left shadow-sticker transition duration-200 focus-ring-brand motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-[6px_6px_0_0_var(--syn-text)] dark:bg-app-card"
+    >
       <TapeStrip tone="gradient" />
       <div className="flex items-start gap-3">
         <span
@@ -63,6 +69,6 @@ export const TransferCard = ({ sync }: TransferCardProps) => {
           {t('transferDashboardPage.transferredAt', { date: formattedDate })}
         </p>
       ) : null}
-    </div>
+    </Link>
   );
 };

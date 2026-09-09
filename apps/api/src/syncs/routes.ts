@@ -2,6 +2,8 @@ import {
   createSyncRequestSchema,
   createTransferRequestSchema,
   createExternalImportRequestSchema,
+  createExternalFileImportRequestSchema,
+  externalFilePreviewRequestSchema,
   externalImportListResponseSchema,
   externalImportResponseSchema,
   externalPlaylistPreviewRequestSchema,
@@ -20,6 +22,7 @@ import {
   syncPublicResponseSchema,
   syncResponseSchema,
   transferBatchResponseSchema,
+  transferDetailsResponseSchema,
   updateSyncRequestSchema,
 } from '@synqit/shared';
 import { FastifyInstance, FastifyReply } from 'fastify';
@@ -36,6 +39,7 @@ import {
 import { requireOwnedSync } from './guards';
 import { importSyncForRecipient } from './import-engine';
 import { syncsStore } from './store';
+import { parseTracklist } from './tracklist-parser';
 import { transfersStore, type TransferBatchRecord } from './transfer-store';
 import { requireAuthenticatedUserId, resolveAuthenticatedUserId } from '../auth/guards';
 import { mapProviderApiError } from '../integrations/provider-errors';
@@ -705,6 +709,22 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     return reply.send(transferBatchResponseSchema.parse({ batch: toTransferBatch(batch) }));
   });
 
+  // GET /transfers/playlist/:syncId  (auth required) — one transferred
+  // playlist with the fate of every song, for the details page. Keyed by the
+  // sync the transfer produced, which is what the dashboard lists.
+  app.get('/transfers/playlist/:syncId', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const { syncId } = request.params as { syncId: string };
+    const transfer = await transfersStore.findDetailsBySyncId({ syncId, userId });
+    if (!transfer) {
+      return reply.status(404).send({ code: 'not_found', message: 'Transfer not found.' });
+    }
+
+    return reply.send(transferDetailsResponseSchema.parse({ transfer }));
+  });
+
   app.delete('/syncs/link/:token/import', async (request, reply) => {
     const userId = await requireAuthenticatedUserId(request, reply);
     if (!userId) return;
@@ -846,6 +866,96 @@ export const registerSyncRoutes = async (app: FastifyInstance): Promise<void> =>
     } catch (error) {
       return sendExternalSourceError(reply, error);
     }
+  });
+
+  // POST /syncs/external-imports/preview-file  (auth required)
+  // A CSV export, an M3U playlist or a pasted tracklist, parsed server-side so
+  // the preview shows exactly what the import will try to match.
+  app.post('/syncs/external-imports/preview-file', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const body = externalFilePreviewRequestSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ code: 'invalid_request', message: body.error.message });
+    }
+
+    const parsed = parseTracklist({
+      fileName: body.data.fileName,
+      content: body.data.content,
+      maxTracks: getExternalImportMaxTracks(),
+    });
+    if (parsed.trackCount === 0) {
+      return reply.status(400).send({
+        code: 'no_tracks_found',
+        message:
+          'No tracks were recognised. Use one "Artist - Title" per line, an M3U, or a CSV with a title column.',
+      });
+    }
+
+    return reply.send(
+      externalPlaylistPreviewResponseSchema.parse({
+        source: 'file',
+        sourcePlaylistId: parsed.contentId,
+        name: parsed.name,
+        trackCount: parsed.trackCount,
+        coverImageUrl: null,
+        tracks: parsed.tracks.slice(0, PREVIEW_TRACK_LIMIT),
+        truncated: parsed.truncated,
+      }),
+    );
+  });
+
+  // POST /syncs/external-imports/file  (auth required) — starts a background import
+  app.post('/syncs/external-imports/file', async (request, reply) => {
+    const userId = await requireAuthenticatedUserId(request, reply);
+    if (!userId) return;
+
+    const body = createExternalFileImportRequestSchema.safeParse(request.body);
+    if (!body.success) {
+      return reply.status(400).send({ code: 'invalid_request', message: body.error.message });
+    }
+
+    const integration = await integrationStore.findIntegration({
+      userId,
+      provider: body.data.recipientProvider,
+    });
+    if (!integration) {
+      return reply
+        .status(400)
+        .send({ code: 'provider_not_connected', message: 'Provider not connected.' });
+    }
+
+    const parsed = parseTracklist({
+      fileName: body.data.fileName,
+      content: body.data.content,
+      maxTracks: getExternalImportMaxTracks(),
+    });
+    if (parsed.trackCount === 0) {
+      return reply.status(400).send({
+        code: 'no_tracks_found',
+        message:
+          'No tracks were recognised. Use one "Artist - Title" per line, an M3U, or a CSV with a title column.',
+      });
+    }
+
+    const record = await externalImportsStore.create({
+      userId,
+      source: 'file',
+      sourceUrl: body.data.fileName?.trim() || `${parsed.format}.txt`,
+      sourcePlaylistId: parsed.contentId,
+      name: parsed.name,
+      coverImageUrl: null,
+      recipientProvider: body.data.recipientProvider,
+      totalCount: parsed.tracks.length,
+      sourceTracks: parsed.tracks,
+    });
+
+    startExternalImport(record.id, request.log);
+
+    return reply
+      .status(202)
+      .send(externalImportResponseSchema.parse({ import: toExternalImportItem(record) }));
   });
 
   // GET /syncs/external-imports  (auth required)

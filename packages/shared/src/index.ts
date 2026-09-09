@@ -1139,6 +1139,44 @@ export const transferBatchResponseSchema = z.object({
 });
 export type TransferBatchResponse = z.infer<typeof transferBatchResponseSchema>;
 
+/**
+ * Per-track outcome of a transfer, recorded as the playlist lands so the
+ * details page can show which songs made it across without asking the
+ * providers again.
+ */
+export const transferTrackStatusSchema = z.enum(['matched', 'skipped']);
+export type TransferTrackStatus = z.infer<typeof transferTrackStatusSchema>;
+
+export const transferTrackSchema = z.object({
+  position: z.number().int().nonnegative(),
+  name: z.string(),
+  artist: z.string(),
+  album: z.string(),
+  artworkUrl: z.string().nullable(),
+  durationMs: z.number().int().nonnegative().nullable(),
+  status: transferTrackStatusSchema,
+});
+export type TransferTrack = z.infer<typeof transferTrackSchema>;
+
+export const transferDetailsSchema = z.object({
+  syncId: z.string(),
+  name: z.string(),
+  sourceProvider: providerSchema,
+  destinationProvider: providerSchema,
+  status: transferItemStatusSchema,
+  trackCount: z.number().int().nonnegative().nullable(),
+  matchedCount: z.number().int().nonnegative().nullable(),
+  skippedCount: z.number().int().nonnegative().nullable(),
+  errorMessage: z.string().nullable(),
+  transferredAt: z.string().nullable(),
+  /** Empty for transfers made before per-track results were recorded. */
+  tracks: z.array(transferTrackSchema),
+});
+export type TransferDetails = z.infer<typeof transferDetailsSchema>;
+
+export const transferDetailsResponseSchema = z.object({ transfer: transferDetailsSchema });
+export type TransferDetailsResponse = z.infer<typeof transferDetailsResponseSchema>;
+
 export const transferPlaylistJobSchema = z.object({
   batchId: z.string().uuid(),
   itemId: z.string().uuid(),
@@ -1147,7 +1185,7 @@ export type TransferPlaylistJob = z.infer<typeof transferPlaylistJobSchema>;
 // External playlist imports (Deezer / YouTube public links -> Spotify / Apple)
 // ---------------------------------------------------------------------------
 
-export const externalSourceKindSchema = z.enum(['deezer', 'youtube']);
+export const externalSourceKindSchema = z.enum(['deezer', 'youtube', 'qobuz', 'file']);
 export type ExternalSourceKind = z.infer<typeof externalSourceKindSchema>;
 
 export const externalImportStatusSchema = z.enum(['pending', 'running', 'completed', 'failed']);
@@ -1187,6 +1225,21 @@ export const createExternalImportRequestSchema = z.object({
 });
 export type CreateExternalImportRequest = z.infer<typeof createExternalImportRequestSchema>;
 
+/** Two megabytes of text is thousands of tracks; anything larger is not a playlist. */
+export const EXTERNAL_FILE_IMPORT_MAX_CHARS = 2_000_000;
+
+/** A CSV export, an M3U playlist, or a pasted tracklist, sent as text. */
+export const externalFilePreviewRequestSchema = z.object({
+  fileName: z.string().trim().max(200).optional(),
+  content: z.string().min(1).max(EXTERNAL_FILE_IMPORT_MAX_CHARS),
+});
+export type ExternalFilePreviewRequest = z.infer<typeof externalFilePreviewRequestSchema>;
+
+export const createExternalFileImportRequestSchema = externalFilePreviewRequestSchema.extend({
+  recipientProvider: providerSchema,
+});
+export type CreateExternalFileImportRequest = z.infer<typeof createExternalFileImportRequestSchema>;
+
 export const externalImportItemSchema = z.object({
   id: z.string(),
   source: externalSourceKindSchema,
@@ -1221,6 +1274,8 @@ export const externalSourcesStatusResponseSchema = z.object({
   sources: z.object({
     deezer: z.boolean(),
     youtube: z.boolean(),
+    qobuz: z.boolean(),
+    file: z.boolean(),
   }),
   maxTracks: z.number().int().positive(),
 });

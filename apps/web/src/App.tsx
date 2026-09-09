@@ -1,3 +1,4 @@
+import { providerSchema, type Provider } from '@synqit/shared';
 import { ToastProvider } from '@synqit/ui';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
@@ -204,11 +205,44 @@ const transferCreateRoute = createRoute({
   component: TransferPage,
 });
 
+/**
+ * The transfer tunnel collects the source link and the destination before it
+ * hands over, so the link flow can open on the details it already has.
+ */
+export type TransferLinkSearch = {
+  url?: string;
+  destination?: Provider;
+  source?: 'file';
+};
+
+const TransferDetailsPage = createLazyRouteComponent(() =>
+  import('./pages/TransferDetailsPage').then((module) => ({
+    default: module.TransferDetailsPage,
+  })),
+);
+
 const transferLinkRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/transfer/link',
   beforeLoad: requireAuth,
+  validateSearch: (search: Record<string, unknown>): TransferLinkSearch => {
+    const destination = providerSchema.safeParse(search.destination);
+    return {
+      url: typeof search.url === 'string' && search.url.length > 0 ? search.url : undefined,
+      destination: destination.success ? destination.data : undefined,
+      source: search.source === 'file' ? 'file' : undefined,
+    };
+  },
   component: TransferLinkPage,
+});
+
+// Dynamic, so it is declared after /transfer/new and /transfer/link; the
+// router ranks those static paths first either way.
+const transferDetailsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/transfer/$syncId',
+  beforeLoad: requireAuth,
+  component: TransferDetailsPage,
 });
 
 const syncDetailsRoute = createRoute({
@@ -405,6 +439,7 @@ const routeTree = rootRoute.addChildren([
   transferRoute,
   transferCreateRoute,
   transferLinkRoute,
+  transferDetailsRoute,
   syncDetailsRoute,
   syncPublicRoute,
   eventsRoute,

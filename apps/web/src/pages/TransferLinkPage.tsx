@@ -1,9 +1,18 @@
 import type { ExternalImportItem, ExternalPlaylistPreviewResponse } from '@synqit/shared';
 import { LINK_SERVICES, MUSIC_SERVICES, ServiceChip, ServiceLogo, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSearch } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertTriangle, ArrowLeftRight, CheckCircle2, ChevronLeft, Link2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  CheckCircle2,
+  ChevronLeft,
+  FileText,
+  Link2,
+  Upload,
+} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
@@ -20,10 +29,12 @@ import { openProviderOauthPopup } from '../lib/providerOauthPopup';
 import { PROVIDER_LABELS } from '../lib/providers';
 import {
   EMPTY_INTEGRATION_MAP,
+  createExternalFileImport,
   createExternalImport,
   fetchExternalImport,
   fetchExternalSources,
   fetchIntegrations,
+  previewExternalFile,
   previewExternalPlaylist,
   queryKeys,
   syncQueryKeys,
@@ -32,6 +43,10 @@ import { buildSiteUrl } from '../lib/site-url';
 import type { Provider } from '../lib/types';
 
 type LinkStep = 1 | 2 | 3;
+/** Where the playlist comes from: a public URL, or a file the listener already has. */
+type InputMode = 'link' | 'file';
+
+const FILE_ACCEPT = '.csv,.tsv,.txt,.m3u,.m3u8,text/csv,text/plain,audio/x-mpegurl';
 
 const POLL_INTERVAL_MS = 1_500;
 
@@ -41,18 +56,29 @@ const isTerminal = (status: ExternalImportItem['status']): boolean =>
   status === 'completed' || status === 'failed';
 
 /**
- * Import a public Deezer or YouTube playlist into the user's Spotify or Apple
- * Music. Three steps: link + destination, preview, import with live progress.
+ * Import a public Deezer or YouTube playlist, or a CSV / M3U / pasted tracklist,
+ * into a connected service. Three steps: source + destination, preview, import
+ * with live progress.
  */
 export const TransferLinkPage = () => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
 
+  // The transfer tunnel can hand over the source and destination it collected,
+  // so arriving from there lands on a form that is already filled in.
+  const search = useSearch({ from: '/transfer/link' });
+
   const [step, setStep] = useState<LinkStep>(1);
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
-  const [url, setUrl] = useState('');
-  const [destinationProvider, setDestinationProvider] = useState<Provider>('spotify');
+  const [inputMode, setInputMode] = useState<InputMode>(search.source === 'file' ? 'file' : 'link');
+  const [url, setUrl] = useState(search.url ?? '');
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [fileContent, setFileContent] = useState('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [destinationProvider, setDestinationProvider] = useState<Provider>(
+    search.destination ?? 'spotify',
+  );
   const [preview, setPreview] = useState<ExternalPlaylistPreviewResponse | null>(null);
   const [activeImportId, setActiveImportId] = useState<string | null>(null);
   const [isConnectingProvider, setIsConnectingProvider] = useState<Provider | null>(null);
@@ -77,7 +103,12 @@ export const TransferLinkPage = () => {
 
   const providerStatusByType = integrationsQuery.data ?? EMPTY_INTEGRATION_MAP;
   const destinationConnected = providerStatusByType[destinationProvider] === 'connected';
-  const sources = sourcesQuery.data?.sources ?? { deezer: true, youtube: false };
+  const sources = sourcesQuery.data?.sources ?? {
+    deezer: true,
+    youtube: false,
+    qobuz: true,
+    file: true,
+  };
   const maxTracks = sourcesQuery.data?.maxTracks ?? 500;
   const activeImport = importQuery.data ?? null;
 
@@ -107,8 +138,23 @@ export const TransferLinkPage = () => {
     }
   };
 
+  const readChosenFile = (file: File | null) => {
+    if (!file) {
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setFileName(file.name);
+      setFileContent(typeof reader.result === 'string' ? reader.result : '');
+    };
+    reader.readAsText(file);
+  };
+
   const previewMutation = useMutation({
-    mutationFn: () => previewExternalPlaylist(url),
+    mutationFn: () =>
+      inputMode === 'link'
+        ? previewExternalPlaylist(url)
+        : previewExternalFile({ fileName: fileName ?? undefined, content: fileContent }),
     onSuccess: (result) => {
       setPreview(result);
       goToStep(2);
@@ -118,14 +164,23 @@ export const TransferLinkPage = () => {
       showToast(
         apiError.code === 'unsupported_url'
           ? t('transferLinkPage.invalidLink')
-          : t('transferLinkPage.previewError', { message: apiError.message }),
+          : apiError.code === 'no_tracks_found'
+            ? t('transferLinkPage.invalidFile')
+            : t('transferLinkPage.previewError', { message: apiError.message }),
         { variant: 'error' },
       );
     },
   });
 
   const startMutation = useMutation({
-    mutationFn: () => createExternalImport({ url, recipientProvider: destinationProvider }),
+    mutationFn: () =>
+      inputMode === 'link'
+        ? createExternalImport({ url, recipientProvider: destinationProvider })
+        : createExternalFileImport({
+            fileName: fileName ?? undefined,
+            content: fileContent,
+            recipientProvider: destinationProvider,
+          }),
     onSuccess: (item) => {
       setActiveImportId(item.id);
       goToStep(3);
@@ -164,6 +219,8 @@ export const TransferLinkPage = () => {
 
   const resetFlow = () => {
     setUrl('');
+    setFileName(null);
+    setFileContent('');
     setPreview(null);
     setActiveImportId(null);
     goToStep(1);
@@ -171,7 +228,8 @@ export const TransferLinkPage = () => {
 
   const isBusy =
     previewMutation.isPending || startMutation.isPending || isConnectingProvider !== null;
-  const canPreview = url.trim().length > 0 && destinationConnected && !isBusy;
+  const hasSource = inputMode === 'link' ? url.trim().length > 0 : fileContent.trim().length > 0;
+  const canPreview = hasSource && destinationConnected && !isBusy;
   const processedCount = activeImport ? activeImport.matchedCount + activeImport.skippedCount : 0;
   const progressTotal = activeImport?.totalCount ?? preview?.trackCount ?? 0;
   const progressRatio = progressTotal > 0 ? Math.min(1, processedCount / progressTotal) : 0;
@@ -222,13 +280,90 @@ export const TransferLinkPage = () => {
                       {t('transferLinkPage.stepLink')}
                     </p>
                     <h2 className="text-2xl font-black text-brand-dark dark:text-brand-white">
-                      {t('transferLinkPage.linkTitle')}
+                      {inputMode === 'link'
+                        ? t('transferLinkPage.linkTitle')
+                        : t('transferLinkPage.fileTitle')}
                     </h2>
                     <p className="text-sm text-app-text-secondary">
-                      {t('transferLinkPage.linkBody')}
+                      {inputMode === 'link'
+                        ? t('transferLinkPage.linkBody')
+                        : t('transferLinkPage.fileBody')}
                     </p>
                   </div>
-                  <label className="grid gap-2 text-sm font-semibold text-app-text">
+                  <div
+                    role="tablist"
+                    aria-label={t('transferLinkPage.modeLabel')}
+                    className="inline-flex w-fit rounded-full border border-app-border bg-app-bg p-1"
+                  >
+                    {(['link', 'file'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        role="tab"
+                        aria-selected={inputMode === mode}
+                        onClick={() => setInputMode(mode)}
+                        disabled={isBusy}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition ${
+                          inputMode === mode
+                            ? 'bg-app-text text-app-bg'
+                            : 'text-app-text-secondary hover:text-app-text'
+                        }`}
+                      >
+                        {mode === 'link' ? (
+                          <Link2 size={13} aria-hidden="true" />
+                        ) : (
+                          <FileText size={13} aria-hidden="true" />
+                        )}
+                        {mode === 'link'
+                          ? t('transferLinkPage.modeLink')
+                          : t('transferLinkPage.modeFile')}
+                      </button>
+                    ))}
+                  </div>
+                  {inputMode === 'file' ? (
+                    <div className="grid gap-3">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept={FILE_ACCEPT}
+                        className="sr-only"
+                        onChange={(event) => readChosenFile(event.target.files?.[0] ?? null)}
+                      />
+                      <div className="flex flex-wrap items-center gap-3">
+                        <CTAButton
+                          variant="secondary"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isBusy}
+                        >
+                          <Upload size={14} aria-hidden="true" />
+                          {t('transferLinkPage.fileChoose')}
+                        </CTAButton>
+                        <span className="min-w-0 truncate text-sm text-app-text-secondary">
+                          {fileName ?? t('transferLinkPage.fileFormats')}
+                        </span>
+                      </div>
+                      <label className="grid gap-2 text-sm font-semibold text-app-text">
+                        {t('transferLinkPage.pasteLabel')}
+                        <textarea
+                          value={fileContent}
+                          onChange={(event) => {
+                            setFileContent(event.target.value);
+                            if (fileName && event.target.value !== fileContent) {
+                              setFileName(null);
+                            }
+                          }}
+                          rows={6}
+                          spellCheck={false}
+                          placeholder={t('transferLinkPage.pastePlaceholder')}
+                          className="w-full rounded-xl border border-app-border bg-app-bg px-3 py-2.5 font-mono text-xs font-normal text-app-text outline-none transition focus:border-brand-pink"
+                        />
+                      </label>
+                    </div>
+                  ) : null}
+                  <label
+                    className="grid gap-2 text-sm font-semibold text-app-text"
+                    hidden={inputMode !== 'link'}
+                  >
                     {t('transferLinkPage.linkLabel')}
                     <input
                       type="url"
@@ -253,7 +388,11 @@ export const TransferLinkPage = () => {
                     <div className="flex flex-wrap gap-2">
                       {LINK_SERVICES.map((service) => {
                         const available =
-                          service.id === 'deezer' ? sources.deezer : sources.youtube;
+                          service.id === 'deezer' ||
+                          service.id === 'youtube' ||
+                          service.id === 'qobuz'
+                            ? sources[service.id]
+                            : false;
                         return (
                           <ServiceChip
                             key={service.id}
@@ -267,6 +406,17 @@ export const TransferLinkPage = () => {
                           />
                         );
                       })}
+                      <span className="inline-flex items-center gap-2.5 rounded-2xl border border-app-border bg-app-elevated px-3 py-2 dark:bg-app-card">
+                        <FileText size={20} className="text-app-text" aria-hidden="true" />
+                        <span className="grid">
+                          <span className="text-sm font-black leading-tight text-app-text">
+                            {t('transferLinkPage.sourceFile')}
+                          </span>
+                          <span className="text-xs leading-tight text-app-text-secondary">
+                            {t('transferLinkPage.note.file')}
+                          </span>
+                        </span>
+                      </span>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -328,9 +478,22 @@ export const TransferLinkPage = () => {
                         {preview.name}
                       </p>
                       <p className="mt-1 flex items-center gap-1.5 text-sm text-app-text-secondary">
-                        <ServiceLogo service={preview.source} alt="" className="h-4 w-4 rounded" />
-                        {MUSIC_SERVICES[preview.source].name} ·{' '}
-                        {t('transferPage.trackCount', { count: preview.trackCount })}
+                        {preview.source === 'file' ? (
+                          <>
+                            <FileText size={16} aria-hidden="true" />
+                            {t('transferLinkPage.sourceFile')}
+                          </>
+                        ) : (
+                          <>
+                            <ServiceLogo
+                              service={preview.source}
+                              alt=""
+                              className="h-4 w-4 rounded"
+                            />
+                            {MUSIC_SERVICES[preview.source].name}
+                          </>
+                        )}{' '}
+                        · {t('transferPage.trackCount', { count: preview.trackCount })}
                       </p>
                     </div>
                   </div>
@@ -355,9 +518,13 @@ export const TransferLinkPage = () => {
                     </p>
                   </div>
                 ) : null}
-                {preview.source === 'youtube' ? (
+                {preview.source !== 'deezer' ? (
                   <p className="rounded-2xl border border-app-border bg-app-surface/70 px-4 py-3 text-sm text-app-text-secondary">
-                    {t('transferLinkPage.youtubeMatchNote')}{' '}
+                    {preview.source === 'youtube'
+                      ? t('transferLinkPage.youtubeMatchNote')
+                      : preview.source === 'qobuz'
+                        ? t('transferLinkPage.qobuzMatchNote')
+                        : t('transferLinkPage.fileMatchNote')}{' '}
                     <a
                       href={buildSiteUrl('/faq#skipped')}
                       target="_blank"

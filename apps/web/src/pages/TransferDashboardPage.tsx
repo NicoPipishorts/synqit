@@ -1,6 +1,6 @@
 import { OnboardingPanel } from '@synqit/ui';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeftRight, Link2, ListMusic, Plus, Search } from 'lucide-react';
+import { ArrowLeftRight, ListMusic, Plus, Search } from 'lucide-react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
@@ -40,24 +40,14 @@ export const TransferDashboardPage = () => {
           title={t('transferDashboardPage.myTitle')}
           description={t('transferDashboardPage.description')}
           actions={
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <CTALink
-                to="/transfer/link"
-                variant="secondary"
-                className="w-full justify-center gap-2 px-4 py-2.5 text-sm font-black sm:w-auto"
-              >
-                <Link2 size={14} aria-hidden="true" />
-                {t('transferDashboardPage.importFromLink')}
-              </CTALink>
-              <CTALink
-                to="/transfer/new"
-                variant="primary"
-                className="w-full justify-center gap-2 px-4 py-2.5 text-sm font-black sm:w-auto"
-              >
-                <Plus size={14} aria-hidden="true" />
-                {t('transferDashboardPage.create')}
-              </CTALink>
-            </div>
+            <CTALink
+              to="/transfer/new"
+              variant="primary"
+              className="w-full justify-center gap-2 px-4 py-2.5 text-sm font-black sm:w-auto"
+            >
+              <Plus size={14} aria-hidden="true" />
+              {t('transferDashboardPage.create')}
+            </CTALink>
           }
         />
       ) : null}
@@ -71,19 +61,9 @@ export const TransferDashboardPage = () => {
             icon={<ArrowLeftRight size={24} aria-hidden="true" />}
             note={t('transferDashboardPage.onboardingNote')}
             actions={
-              <>
-                <CTALink to="/transfer/new" variant="primary" size="lg" className="justify-center">
-                  {t('transferDashboardPage.transferFirst')}
-                </CTALink>
-                <CTALink
-                  to="/transfer/link"
-                  variant="secondary"
-                  size="lg"
-                  className="justify-center"
-                >
-                  {t('transferDashboardPage.importFromLink')}
-                </CTALink>
-              </>
+              <CTALink to="/transfer/new" variant="primary" size="lg" className="justify-center">
+                {t('transferDashboardPage.transferFirst')}
+              </CTALink>
             }
             steps={[
               {

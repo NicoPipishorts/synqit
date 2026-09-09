@@ -25,9 +25,13 @@ import {
   importSyncResponseSchema,
   createTransferRequestSchema,
   transferBatchResponseSchema,
+  transferDetailsResponseSchema,
   type TransferBatch,
+  type TransferDetails,
   type TransferPlaylistSelection,
+  createExternalFileImportRequestSchema,
   createExternalImportRequestSchema,
+  externalFilePreviewRequestSchema,
   externalImportListResponseSchema,
   externalImportResponseSchema,
   externalPlaylistPreviewRequestSchema,
@@ -572,6 +576,7 @@ export const syncQueryKeys = {
   providerPlaylistTracks: (provider: string, providerPlaylistId: string) =>
     ['syncs', 'providerPlaylistTracks', provider, providerPlaylistId] as const,
   transferBatch: (batchId: string) => ['syncs', 'transferBatch', batchId] as const,
+  transferDetails: (syncId: string) => ['syncs', 'transferDetails', syncId] as const,
   externalSources: () => ['syncs', 'externalSources'] as const,
   externalImports: () => ['syncs', 'externalImports'] as const,
   externalImport: (importId: string) => ['syncs', 'externalImports', importId] as const,
@@ -856,6 +861,17 @@ export const fetchTransferBatch = async (batchId: string): Promise<TransferBatch
   return result.batch;
 };
 
+/** One transferred playlist with the fate of every song. */
+export const fetchTransferDetails = async (syncId: string): Promise<TransferDetails> => {
+  const token = requireToken();
+  const result = await callApi(
+    `/v1/transfers/playlist/${encodeURIComponent(syncId)}`,
+    { headers: { authorization: `Bearer ${token}` } },
+    (payload) => transferDetailsResponseSchema.parse(payload),
+  );
+  return result.transfer;
+};
+
 export const unsubscribeSync = async (magicLinkToken: string): Promise<{ ok: true }> => {
   const token = requireToken();
   return callApi(
@@ -905,6 +921,43 @@ export const createExternalImport = async (params: {
   const body = createExternalImportRequestSchema.parse(params);
   const result = await callApi(
     '/v1/syncs/external-imports',
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+    (payload) => externalImportResponseSchema.parse(payload),
+  );
+  return result.import;
+};
+
+/** A CSV export, M3U playlist or pasted tracklist, sent as text and parsed server-side. */
+export const previewExternalFile = async (params: {
+  fileName?: string;
+  content: string;
+}): Promise<ExternalPlaylistPreviewResponse> => {
+  const token = requireToken();
+  const body = externalFilePreviewRequestSchema.parse(params);
+  return callApi(
+    '/v1/syncs/external-imports/preview-file',
+    {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    },
+    (payload) => externalPlaylistPreviewResponseSchema.parse(payload),
+  );
+};
+
+export const createExternalFileImport = async (params: {
+  fileName?: string;
+  content: string;
+  recipientProvider: Provider;
+}): Promise<ExternalImportItem> => {
+  const token = requireToken();
+  const body = createExternalFileImportRequestSchema.parse(params);
+  const result = await callApi(
+    '/v1/syncs/external-imports/file',
     {
       method: 'POST',
       headers: { authorization: `Bearer ${token}` },
