@@ -158,82 +158,87 @@ export const HomePage = () => {
       <RevealSection
         revealOnScroll={false}
         trackId="hero"
-        className="relative flex min-h-svh items-center overflow-visible pb-24 pt-16 sm:block sm:min-h-0 sm:overflow-hidden sm:pb-24 sm:pt-40"
+        className="relative flex min-h-svh flex-col overflow-visible pb-3 pt-[clamp(4rem,11svh,6.5rem)] sm:block sm:min-h-0 sm:overflow-hidden sm:pb-24 sm:pt-40"
       >
-        <Container>
-          <motion.div
-            initial={isTouchDevice ? false : 'hidden'}
-            animate="visible"
-            variants={STAGGER}
-            className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-6"
-          >
-            <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:gap-7 sm:text-left">
-              <motion.div variants={FADE_UP}>
-                <Sticker tone="paper" tilt="-rotate-2">
-                  {t('home.hero.eyebrow')}
-                </Sticker>
-              </motion.div>
-              <motion.h1
-                variants={FADE_UP}
-                className="text-[3.25rem] font-black text-display-heavy leading-[0.98] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-6xl lg:text-[4.25rem]"
-              >
-                <HighlightedText value={t('home.hero.title')} />
-              </motion.h1>
-              <motion.p
-                variants={FADE_UP}
-                className="max-w-md text-base leading-relaxed text-app-text-secondary sm:text-lg"
-              >
-                {t('home.hero.description')}
-              </motion.p>
-              <motion.div
-                variants={FADE_UP}
-                className="mt-4 flex flex-wrap items-center justify-center gap-3 sm:mt-0 sm:justify-start sm:gap-4"
-              >
-                <HeroLink href={registerHref} variant="lime" size="hero">
-                  {t('home.hero.ctaPrimary')}
-                </HeroLink>
-                <a
-                  href="#how"
-                  className="focus-ring-brand inline-flex items-center gap-1.5 rounded-full py-2 text-[13px] font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-base"
+        <div className="pb-5 sm:block sm:pb-0">
+          <Container>
+            <motion.div
+              initial={isTouchDevice ? false : 'hidden'}
+              animate="visible"
+              variants={STAGGER}
+              className="grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr] lg:gap-6"
+            >
+              <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:gap-7 sm:text-left">
+                <motion.div variants={FADE_UP}>
+                  <Sticker tone="paper" tilt="-rotate-2">
+                    {t('home.hero.eyebrow')}
+                  </Sticker>
+                </motion.div>
+                <motion.h1
+                  variants={FADE_UP}
+                  className="text-[3.25rem] font-black text-display-heavy leading-[0.98] tracking-tight text-balance text-brand-dark dark:text-brand-white sm:text-6xl lg:text-[4.25rem]"
                 >
-                  {t('home.hero.ctaSecondary')}
-                  <ArrowDown
-                    size={16}
-                    aria-hidden
-                    className="hidden motion-safe:animate-bounce sm:block"
-                  />
-                </a>
-              </motion.div>
-              <motion.div variants={FADE_UP}>
-                <HeroScrollCue label={t('home.hero.ctaSecondary')} />
-              </motion.div>
-            </div>
+                  <HighlightedText value={t('home.hero.title')} />
+                </motion.h1>
+                <motion.p
+                  variants={FADE_UP}
+                  className="max-w-md text-base leading-relaxed text-app-text-secondary sm:text-lg"
+                >
+                  {t('home.hero.description')}
+                </motion.p>
+                <motion.div
+                  variants={FADE_UP}
+                  className="mt-4 flex flex-wrap items-center justify-center gap-3 sm:mt-0 sm:justify-start sm:gap-4"
+                >
+                  <HeroLink href={registerHref} variant="lime" size="hero">
+                    {t('home.hero.ctaPrimary')}
+                  </HeroLink>
+                  <a
+                    href="#how"
+                    className="focus-ring-brand inline-flex items-center gap-1.5 rounded-full py-2 text-[13px] font-bold text-app-text underline decoration-brand-pink decoration-2 underline-offset-4 transition hover:text-brand-pink sm:text-base"
+                  >
+                    {t('home.hero.ctaSecondary')}
+                    <ArrowDown
+                      size={16}
+                      aria-hidden
+                      className="hidden motion-safe:animate-bounce sm:block"
+                    />
+                  </a>
+                </motion.div>
+              </div>
 
-            {/* Skipped on phones: above the fold there is no room for it beside the
+              {/* Skipped on phones: above the fold there is no room for it beside the
                 copy, and mounting it pre-warms ten screenshots and starts a swap
                 timer — all of it upfront work for something nobody sees there. */}
-            {isPhone ? null : (
-              <motion.div
-                variants={FADE_UP}
-                className="relative mx-auto flex w-full max-w-[19rem] justify-center py-6 sm:max-w-sm lg:max-w-md lg:py-10"
-              >
-                <div
-                  aria-hidden="true"
-                  className="absolute left-[4%] top-[12%] h-[55%] w-[70%] rounded-full bg-brand-lime/35 blur-3xl dark:bg-brand-lime/20"
-                />
-                <div
-                  aria-hidden="true"
-                  className="absolute bottom-[8%] right-[0%] h-[45%] w-[62%] rounded-full bg-brand-pink/30 blur-3xl dark:bg-brand-pink/20"
-                />
-                <HeroScreens
-                  images={HERO_SCREENS.map((screen) => screen.src)}
-                  captions={HERO_SCREENS.map((screen) => t(screen.captionKey))}
-                  className="relative z-10 w-[13.5rem] sm:w-[15.5rem] lg:w-[17.5rem]"
-                />
-              </motion.div>
-            )}
-          </motion.div>
-        </Container>
+              {isPhone ? null : (
+                <motion.div
+                  variants={FADE_UP}
+                  className="relative mx-auto flex w-full max-w-[19rem] justify-center py-6 sm:max-w-sm lg:max-w-md lg:py-10"
+                >
+                  <div
+                    aria-hidden="true"
+                    className="absolute left-[4%] top-[12%] h-[55%] w-[70%] rounded-full bg-brand-lime/35 blur-3xl dark:bg-brand-lime/20"
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="absolute bottom-[8%] right-[0%] h-[45%] w-[62%] rounded-full bg-brand-pink/30 blur-3xl dark:bg-brand-pink/20"
+                  />
+                  <HeroScreens
+                    images={HERO_SCREENS.map((screen) => screen.src)}
+                    captions={HERO_SCREENS.map((screen) => t(screen.captionKey))}
+                    className="relative z-10 w-[13.5rem] sm:w-[15.5rem] lg:w-[17.5rem]"
+                  />
+                </motion.div>
+              )}
+            </motion.div>
+          </Container>
+        </div>
+
+        {/* Phones only: the hero fills the viewport there, so nothing else shows
+            the page carries on. A band rather than a fixed height — the cue scales
+            to whatever the viewport leaves, so short screens get a shorter line
+            instead of one that runs through the next section's heading. */}
+        {isPhone ? <HeroScrollCue label={t('home.hero.ctaSecondary')} /> : null}
       </RevealSection>
 
       {/* ── Services + how it works (one interactive section) ─────────── */}

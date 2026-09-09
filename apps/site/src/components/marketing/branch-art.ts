@@ -23,28 +23,49 @@ export const VERTICAL_ARROWHEAD_D = 'M3 0 L-8.5 -6.5 Q-5.5 0 -8.5 6.5 Z';
 export const VERTICAL_BRANCH_VIEWBOX = { width: 48, height: 112 } as const;
 
 /**
- * The hero's cue runs longer than the showcase's branch: it has a whole viewport
- * to cross rather than the gap between a card and a phone, and a short line reads
- * as a tick there instead of a journey.
+ * The hero's cue is drawn to fit, not scaled to fit.
  *
- * Three full wobbles of 48 each from y=8, then a straight run into the tip —
- * 162 units drawn. The wobbles are fixed at 48 each; length is trimmed off the
- * straight run into the tip, which keeps the endpoint below the last curve's end
- * — pulling it above puts a barb past the arrowhead. Every
- * segment has to keep heading *down*: pulling the final `L` above the last curve's
- * end makes the stroke double back, which shows up as a barb past the arrowhead.
- * To shorten it, drop a wobble rather than move the endpoint. The last wobble's
- * second control point sits directly above its end, so the curve arrives vertical
- * and the straight run continues it without a kink.
+ * A fixed path stretched to a band gets a fatter stroke on a tall phone and a
+ * thinner one on a short phone, and a fixed pixel length overshoots into the next
+ * section on anything short. So the wobbles stay 48 apart with a 4-wide stroke on
+ * every screen, and the line simply carries however many of them the space holds
+ * before running straight into the tip.
+ *
+ * Each wobble is a full S. The last one arrives vertical — its second control
+ * point sits above its end — so the straight run continues it without a kink. The
+ * run is what absorbs the remainder, which also keeps the endpoint below the last
+ * curve's end: pulling it above makes the stroke double back and poke a barb out
+ * past the arrowhead.
  */
-export const HERO_CUE_BRANCH_D =
-  'M24 8 C12 24, 36 40, 24 56 C12 72, 36 88, 24 104 C12 120, 24 140, 24 152 L24 170';
+const WOBBLE = 48;
+const START = 8;
+/** Room below the tip for the head, which rides the path and overhangs its end. */
+const HEAD_ROOM = 16;
+const MIN_RUN = 12;
 
-export const HERO_CUE_TIP = { x: 24, y: 170 } as const;
+export type HeroCuePath = { d: string; height: number };
 
-/**
- * 1 user unit = 1px when rendered, so the stroke keeps the branch's weight. The
- * 16 below the tip is room for the head, which rides the path and overhangs its
- * end.
- */
-export const HERO_CUE_VIEWBOX = { width: 48, height: 186 } as const;
+/** `null` when the band is too short to carry even one wobble — draw nothing. */
+export const buildHeroCuePath = (available: number): HeroCuePath | null => {
+  const usable = Math.round(available) - HEAD_ROOM;
+  const span = usable - START;
+  if (span < WOBBLE + MIN_RUN) {
+    return null;
+  }
+
+  const wobbles = Math.max(1, Math.floor((span - MIN_RUN) / WOBBLE));
+  let y = START;
+  let d = `M24 ${START}`;
+  for (let i = 0; i < wobbles; i += 1) {
+    const last = i === wobbles - 1;
+    d += last
+      ? ` C12 ${y + 16}, 24 ${y + 36}, 24 ${y + WOBBLE}`
+      : ` C12 ${y + 16}, 36 ${y + 32}, 24 ${y + WOBBLE}`;
+    y += WOBBLE;
+  }
+
+  return { d: `${d} L24 ${usable}`, height: usable + HEAD_ROOM };
+};
+
+/** The viewBox is a fixed 48 wide; the height comes from the path that was built. */
+export const HERO_CUE_WIDTH = 48;
