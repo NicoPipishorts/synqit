@@ -238,11 +238,16 @@ export const HomePage = () => {
       {/* ── Services + how it works (one interactive section) ─────────── */}
       {/* The showcase is tall, so the anchor lands tight under the fixed navbar rather
           than a full section-padding below it: that reclaimed space is what brings the
-          phone's lower half into the first screen. */}
+          phone's lower half into the first screen.
+
+          On a phone that tightness left the hero's cue arrow pointing at a heading
+          almost touching it, so the section opens a screen-relative gap instead —
+          about a fifth of the viewport, which keeps the phone peeking above the fold
+          on a tall screen and stays proportionate on a short one. */}
       <RevealSection
         id="how"
         trackId="services"
-        className="relative scroll-mt-12 pb-16 pt-2 sm:py-24"
+        className="relative scroll-mt-12 pb-16 pt-[clamp(4rem,20svh,11rem)] sm:py-24"
       >
         <Container>
           <SectionIntro
