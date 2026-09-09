@@ -160,7 +160,12 @@ export const transfersStore = {
     if (!row) {
       return null;
     }
-    const typed = row as unknown as TransferItemRow & { transfer_batches: TransferBatchRow };
+    const typed = row as unknown as TransferItemRow & { transfer_batches: TransferBatchRow | null };
+    if (!typed.transfer_batches) {
+      // The batch went while the job sat in the queue. Treat it as gone rather
+      // than reading an id off nothing.
+      return null;
+    }
     return { ...mapItemRow(typed), batch: mapBatchRow(typed.transfer_batches) };
   },
 
@@ -205,6 +210,10 @@ export const transfersStore = {
     });
 
     const statuses = items.map((item) => item.status);
+    if (statuses.length === 0) {
+      // Nothing left to summarise: the batch and its items are gone.
+      return 'completed';
+    }
     const settled = statuses.every((status) => status === 'completed' || status === 'failed');
 
     let status: TransferBatchStatus;
@@ -218,7 +227,9 @@ export const transfersStore = {
       status = 'completed';
     }
 
-    await prisma.transfer_batches.update({
+    // updateMany, not update: a deleted batch is a no-op, not a crash that
+    // fails the worker on every retry of a job nobody is waiting for.
+    await prisma.transfer_batches.updateMany({
       where: { id: batchId },
       data: {
         status,
