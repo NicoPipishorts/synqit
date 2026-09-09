@@ -166,11 +166,18 @@ export const TransferViewport = ({
   progressCount,
   matchedCount,
   transferComplete,
+  isRunning = true,
 }: {
   tracks: ProviderPlaylistTrack[];
   progressCount: number;
   matchedCount: number;
   transferComplete: boolean;
+  /**
+   * False while the list is only being previewed. Without it the first row
+   * spins on a progress count of zero, and the step meant to ask "shall I
+   * start?" looks like it already did.
+   */
+  isRunning?: boolean;
 }) => {
   const viewportHeight = TRANSFER_ROW_HEIGHT * TRANSFER_VISIBLE_ROWS;
   const maxOffset = Math.max(0, tracks.length - TRANSFER_VISIBLE_ROWS) * TRANSFER_ROW_HEIGHT;
@@ -205,11 +212,13 @@ export const TransferViewport = ({
               <PlaylistTrackRow
                 track={track}
                 state={
-                  index < progressCount
-                    ? 'completed'
-                    : index === progressCount
-                      ? 'active'
-                      : 'pending'
+                  !isRunning
+                    ? 'pending'
+                    : index < progressCount
+                      ? 'completed'
+                      : index === progressCount
+                        ? 'active'
+                        : 'pending'
                 }
               />
             </div>

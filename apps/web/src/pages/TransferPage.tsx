@@ -5,10 +5,11 @@ import { useNavigate } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
-  ArrowLeftRight,
+  ArrowRight,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  LoaderCircle,
   MousePointerClick,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -512,7 +513,6 @@ export const TransferPage = () => {
     setDestinationProvider(provider);
   };
 
-  const sourceLabel = sourceProvider ? PROVIDER_LABELS[sourceProvider] : '';
   const destinationLabel = destinationProvider ? PROVIDER_LABELS[destinationProvider] : '';
   // Round-trip: the chosen source playlist was itself created by a previous
   // Synqit transfer from the provider we're now sending it back to.
@@ -728,7 +728,10 @@ export const TransferPage = () => {
                   </div>
                 ) : (
                   <div className="grid gap-4 overflow-hidden">
-                    <div className="flex items-start justify-between gap-3 rounded-2xl border-2 border-app-text/70 bg-app-surface px-4 py-4 dark:bg-app-elevated">
+                    {/* No box around it: the card it sits in is already one,
+                        and a frame inside a frame made the header read as a
+                        separate thing from the list it belongs to. */}
+                    <div className="flex items-start justify-between gap-3 px-1">
                       <div className="min-w-0">
                         <p className="truncate text-lg font-black text-brand-dark dark:text-brand-white">
                           {selectedPlaylist.name}
@@ -754,7 +757,9 @@ export const TransferPage = () => {
 
                     {transferWarnings}
 
-                    <div className="flex items-center justify-between gap-3">
+                    {/* The sticker CTA carries its shadow outside its box, so
+                        it needs room on the right or the card clips it. */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 px-1 pr-2">
                       <CTAButton
                         variant="ghost"
                         className="rounded-xl px-3 py-2 text-xs"
@@ -801,42 +806,39 @@ export const TransferPage = () => {
             {step === 3 && sourceProvider !== null && destinationProvider !== null ? (
               <div className="grid gap-4">
                 {transferWarnings}
-                <div className="flex items-center justify-between gap-3 rounded-[1.5rem] border border-app-border bg-app-surface/70 px-4 py-4">
-                  <div className="min-w-0">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-brand-dark px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand-white">
-                      {t('transferPage.summaryTitle')}
-                    </div>
-                    <p className="mt-3 truncate text-lg font-black text-brand-dark dark:text-brand-white">
-                      {selectedPlaylist?.name ?? t('transferPage.previewTracksEmpty')}
-                    </p>
-                    <p className="mt-1 text-sm text-app-text-secondary">
-                      {sourceLabel} {t('transferPage.toLabel')} {destinationLabel}
-                    </p>
-                  </div>
 
-                  <div className="flex items-center gap-3">
+                {/* No summary panel: the dark header below already carries the
+                    playlist's name and the two services, and repeating them
+                    above it buried the one thing this step is for. */}
+                <div className="flex flex-wrap items-center justify-between gap-3 px-1 pr-2">
+                  <CTAButton
+                    variant="ghost"
+                    className="rounded-xl px-3 py-2 text-xs"
+                    onClick={() => goToStep(2)}
+                    disabled={isTransferInFlight}
+                  >
+                    <ChevronLeft size={14} aria-hidden="true" />
+                    {t('transferPage.backToPlaylistChoice')}
+                  </CTAButton>
+
+                  {!transferAnimationComplete ? (
                     <CTAButton
-                      variant="ghost"
-                      className="rounded-xl px-3 py-2 text-xs"
-                      onClick={() => goToStep(2)}
+                      variant="primary"
+                      size="lg"
+                      className="w-full justify-center gap-2 text-base sm:w-auto sm:min-w-[16rem]"
+                      onClick={handleNext}
                       disabled={isTransferInFlight}
                     >
-                      <ChevronLeft size={14} aria-hidden="true" />
-                      {t('transferPage.backToPlaylistChoice')}
+                      {isTransferInFlight ? (
+                        <LoaderCircle size={18} className="animate-spin" aria-hidden="true" />
+                      ) : (
+                        <ArrowRight size={18} aria-hidden="true" />
+                      )}
+                      {isTransferInFlight
+                        ? t('transferPage.transferring')
+                        : t('transferPage.startTransfer')}
                     </CTAButton>
-
-                    {!transferAnimationComplete ? (
-                      <CTAButton
-                        variant="primary"
-                        onClick={handleNext}
-                        disabled={isTransferInFlight}
-                      >
-                        {isTransferInFlight
-                          ? t('transferPage.transferring')
-                          : t('transferPage.startTransfer')}
-                      </CTAButton>
-                    ) : null}
-                  </div>
+                  ) : null}
                 </div>
 
                 {resultCounts ? (
@@ -894,11 +896,7 @@ export const TransferPage = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <ProviderIcon provider={sourceProvider} sizeClassName="h-8 w-8" />
-                        <ArrowLeftRight
-                          size={16}
-                          className="text-brand-white/55"
-                          aria-hidden="true"
-                        />
+                        <ArrowRight size={16} className="text-brand-white/55" aria-hidden="true" />
                         <ProviderIcon provider={destinationProvider} sizeClassName="h-8 w-8" />
                       </div>
                     </div>
@@ -915,6 +913,7 @@ export const TransferPage = () => {
                       progressCount={transferProgressCount}
                       matchedCount={matchedCount}
                       transferComplete={transferAnimationComplete}
+                      isRunning={isTransferInFlight || transferAnimationComplete}
                     />
                   ) : (
                     <div className="rounded-2xl border-2 border-dashed border-app-text/50 bg-app-surface px-4 py-10 text-center text-sm text-app-text-secondary dark:bg-app-elevated">

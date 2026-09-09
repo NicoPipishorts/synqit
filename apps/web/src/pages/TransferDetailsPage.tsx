@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { AlertTriangle, ArrowLeftRight, Check, Music2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, Music2, X } from 'lucide-react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
@@ -107,7 +107,7 @@ export const TransferDetailsPage = () => {
 
               <div className="flex items-center gap-3">
                 <ProviderIcon provider={transfer.sourceProvider} sizeClassName="h-10 w-10" />
-                <ArrowLeftRight size={16} className="text-app-text-secondary" aria-hidden="true" />
+                <ArrowRight size={16} className="text-app-text-secondary" aria-hidden="true" />
                 <ProviderIcon provider={transfer.destinationProvider} sizeClassName="h-10 w-10" />
               </div>
             </div>
