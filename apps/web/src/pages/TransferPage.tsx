@@ -9,8 +9,8 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  LoaderCircle,
   MousePointerClick,
+  RefreshCw,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -416,7 +416,8 @@ export const TransferPage = () => {
   const stepBody = useMemo(() => {
     if (step === 1) return t('transferPage.tunnelBody');
     if (step === 2) return t('transferPage.playlistBody');
-    return t('transferPage.confirmBody');
+    // The confirm step's title and its one button say everything it needs to.
+    return null;
   }, [step, t]);
 
   const goToStep = (nextStep: TransferStep) => {
@@ -622,7 +623,9 @@ export const TransferPage = () => {
               <h2 className="text-2xl font-black text-brand-dark dark:text-brand-white">
                 {stepTitle}
               </h2>
-              <p className="max-w-3xl text-sm text-app-text-secondary sm:text-base">{stepBody}</p>
+              {stepBody ? (
+                <p className="max-w-3xl text-sm text-app-text-secondary sm:text-base">{stepBody}</p>
+              ) : null}
             </div>
 
             {step === 1 ? (
@@ -821,24 +824,41 @@ export const TransferPage = () => {
                     {t('transferPage.backToPlaylistChoice')}
                   </CTAButton>
 
+                  {/* The action reads as the sync it is: a round button wearing
+                      the sync arrows, its label beside it rather than inside a
+                      pill. The arrows turn on hover and spin for real while the
+                      job runs — never at rest, which is what made this step
+                      look like it had already started. */}
                   {!transferAnimationComplete ? (
-                    <CTAButton
-                      variant="primary"
-                      size="lg"
-                      className="w-full justify-center gap-2 text-base sm:w-auto sm:min-w-[16rem]"
+                    <button
+                      type="button"
                       onClick={handleNext}
                       disabled={isTransferInFlight}
+                      className="group inline-flex cursor-pointer items-center gap-3 rounded-full text-left transition focus-ring-brand disabled:cursor-not-allowed"
                     >
-                      {isTransferInFlight ? (
-                        <LoaderCircle size={18} className="animate-spin" aria-hidden="true" />
-                      ) : (
-                        <ArrowRight size={18} aria-hidden="true" />
-                      )}
-                      {isTransferInFlight
-                        ? t('transferPage.transferring')
-                        : t('transferPage.startTransfer')}
-                    </CTAButton>
-                  ) : null}
+                      <span className="text-base font-black text-brand-dark dark:text-brand-white sm:text-lg">
+                        {isTransferInFlight
+                          ? t('transferPage.transferring')
+                          : t('transferPage.startTransfer')}
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-app-text bg-brand-lime text-brand-dark shadow-sticker transition group-hover:bg-brand-pink group-hover:text-brand-white motion-safe:group-hover:-translate-y-0.5 group-disabled:opacity-60"
+                      >
+                        <RefreshCw
+                          size={22}
+                          strokeWidth={2.75}
+                          className={
+                            isTransferInFlight
+                              ? 'animate-spin'
+                              : 'transition-transform duration-500 group-hover:rotate-180'
+                          }
+                        />
+                      </span>
+                    </button>
+                  ) : (
+                    <span />
+                  )}
                 </div>
 
                 {resultCounts ? (
@@ -902,7 +922,7 @@ export const TransferPage = () => {
                     </div>
                   </div>
 
-                  <p className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-app-text-secondary">
+                  <p className="mb-4 px-4 text-xs font-semibold uppercase tracking-[0.22em] text-app-text-secondary">
                     {t('transferPage.trackCount', {
                       count: selectedPlaylist?.trackCount ?? previewTracks.length,
                     })}

@@ -627,7 +627,6 @@
     "synchronizeNowCta": "Synchronise maintenant",
     "choosePlaylistCta": "Choisis ta playlist",
     "confirmTitle": "Confirmer le transfert",
-    "confirmBody": "Vérifie le couloir de transfert puis lance l'opération. Une fois démarrée, la liste défile dans son cadre pendant que les titres arrivent sur la plateforme destination.",
     "summaryBody": "La playlist source reste intacte. Synqit crée une copie synchronisée pour que le transfert reste visible et réutilisable.",
     "sourcePlaylist": "Playlist source",
     "destinationPlaylist": "Plateforme destination",
