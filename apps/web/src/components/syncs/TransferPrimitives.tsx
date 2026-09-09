@@ -107,7 +107,7 @@ export const PlaylistTrackRow = ({
   compact?: boolean;
 }) => (
   <div
-    className={`flex items-center gap-3 rounded-2xl border px-3 py-3 transition ${
+    className={`flex min-w-0 items-center gap-3 rounded-2xl border px-3 py-3 transition ${
       state === 'completed'
         ? 'border-brand-lime/50 bg-brand-lime/10'
         : state === 'active'
@@ -185,7 +185,7 @@ export const TransferViewport = ({
 
   if (transferComplete) {
     return (
-      <div className="max-h-[min(70svh,38rem)] overflow-y-auto rounded-[1.75rem] border border-app-border bg-app-surface/70 p-3">
+      <div className="max-h-[min(70svh,38rem)] overflow-y-auto sm:rounded-[1.75rem] sm:border sm:border-app-border sm:bg-app-surface/70 sm:p-3">
         <div className="grid gap-2">
           {tracks.map((track, index) => (
             <PlaylistTrackRow
@@ -200,7 +200,7 @@ export const TransferViewport = ({
   }
 
   return (
-    <div className="rounded-[1.75rem] border border-app-border bg-app-surface/70 p-3">
+    <div className="sm:rounded-[1.75rem] sm:border sm:border-app-border sm:bg-app-surface/70 sm:p-3">
       <div className="overflow-hidden" style={{ height: viewportHeight }}>
         <motion.div
           animate={{ y: -y }}

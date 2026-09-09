@@ -618,7 +618,6 @@
     "sourceTitle": "From",
     "destinationTitle": "To",
     "playlistTitle": "Choose a source playlist",
-    "playlistBody": "Synqit will read this playlist from the source provider, match tracks, and build a new copy on the destination side.",
     "previewTracksTitle": "Playlist tracks",
     "previewTracksEmpty": "Select a playlist to preview its tracks.",
     "previewTracksLimit": "Showing the first {{count}} tracks out of {{total}}.",

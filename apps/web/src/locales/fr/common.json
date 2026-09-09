@@ -618,7 +618,6 @@
     "sourceTitle": "Depuis",
     "destinationTitle": "Vers",
     "playlistTitle": "Choisir une playlist source",
-    "playlistBody": "Synqit lit cette playlist depuis la plateforme source, rapproche les titres et crée une nouvelle copie côté destination.",
     "previewTracksTitle": "Titres de la playlist",
     "previewTracksEmpty": "Choisis une playlist pour prévisualiser ses titres.",
     "previewTracksLimit": "Affichage des {{count}} premiers titres sur {{total}}.",

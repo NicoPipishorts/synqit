@@ -413,12 +413,9 @@ export const TransferPage = () => {
     return t('transferPage.confirmTitle');
   }, [step, t]);
 
-  const stepBody = useMemo(() => {
-    if (step === 1) return t('transferPage.tunnelBody');
-    if (step === 2) return t('transferPage.playlistBody');
-    // The confirm step's title and its one button say everything it needs to.
-    return null;
-  }, [step, t]);
+  // Only the opening step carries a line under its title: the later ones show
+  // the playlist and the list itself, which explain themselves.
+  const stepBody = useMemo(() => (step === 1 ? t('transferPage.tunnelBody') : null), [step, t]);
 
   const goToStep = (nextStep: TransferStep) => {
     setStepDirection(nextStep > step ? 1 : -1);
@@ -703,7 +700,7 @@ export const TransferPage = () => {
             ) : null}
 
             {step === 2 && sourceProvider !== null ? (
-              <article className="rounded-2xl border-2 border-app-text/70 bg-app-surface p-4 dark:bg-app-elevated">
+              <article className="sm:rounded-2xl sm:border-2 sm:border-app-text/70 sm:bg-app-surface sm:p-4 sm:dark:bg-app-elevated">
                 {!isShowingPlaylistTracks ? (
                   <div className="grid gap-4">
                     <div className="flex items-center justify-between gap-3">
@@ -713,7 +710,10 @@ export const TransferPage = () => {
                         onClick={() => goToStep(1)}
                       >
                         <ChevronLeft size={14} aria-hidden="true" />
-                        {t('transferPage.backToProviders')}
+                        <span className="sm:hidden">{t('syncCreatePage.back')}</span>
+                        <span className="hidden sm:inline">
+                          {t('transferPage.backToProviders')}
+                        </span>
                       </CTAButton>
                     </div>
 
@@ -769,7 +769,10 @@ export const TransferPage = () => {
                         onClick={() => setSelectedPlaylist(null)}
                       >
                         <ChevronLeft size={14} aria-hidden="true" />
-                        {t('transferPage.backToPlaylists')}
+                        <span className="sm:hidden">{t('syncCreatePage.back')}</span>
+                        <span className="hidden sm:inline">
+                          {t('transferPage.backToPlaylists')}
+                        </span>
                       </CTAButton>
 
                       <CTAButton
@@ -783,7 +786,7 @@ export const TransferPage = () => {
                       </CTAButton>
                     </div>
 
-                    <div className="grid max-h-[calc(5*4.5rem+1.5rem)] gap-2 overflow-y-auto pr-1">
+                    <div className="grid max-h-[calc(5*4.5rem+1.5rem)] gap-2 overflow-y-auto sm:pr-1">
                       {selectedPlaylistTracksQuery.isLoading ? (
                         Array.from({ length: 6 }).map((_, index) => (
                           <div
@@ -821,7 +824,10 @@ export const TransferPage = () => {
                     disabled={isTransferInFlight}
                   >
                     <ChevronLeft size={14} aria-hidden="true" />
-                    {t('transferPage.backToPlaylistChoice')}
+                    <span className="sm:hidden">{t('syncCreatePage.back')}</span>
+                    <span className="hidden sm:inline">
+                      {t('transferPage.backToPlaylistChoice')}
+                    </span>
                   </CTAButton>
 
                   {/* The action reads as the sync it is: a round button wearing
@@ -834,9 +840,14 @@ export const TransferPage = () => {
                       type="button"
                       onClick={handleNext}
                       disabled={isTransferInFlight}
+                      aria-label={
+                        isTransferInFlight
+                          ? t('transferPage.transferring')
+                          : t('transferPage.startTransfer')
+                      }
                       className="group inline-flex cursor-pointer items-center gap-3 rounded-full text-left transition focus-ring-brand disabled:cursor-not-allowed"
                     >
-                      <span className="text-base font-black text-brand-dark dark:text-brand-white sm:text-lg">
+                      <span className="hidden text-base font-black text-brand-dark dark:text-brand-white sm:inline sm:text-lg">
                         {isTransferInFlight
                           ? t('transferPage.transferring')
                           : t('transferPage.startTransfer')}
@@ -872,7 +883,7 @@ export const TransferPage = () => {
                   </div>
                 ) : null}
 
-                <article className="grid gap-3 rounded-2xl border-2 border-app-text bg-app-surface p-4 shadow-sticker-sm dark:bg-app-elevated">
+                <article className="grid gap-3 sm:rounded-2xl sm:border-2 sm:border-app-text sm:bg-app-surface sm:p-4 sm:shadow-sticker-sm sm:dark:bg-app-elevated">
                   <AnimatePresence>
                     {transferAnimationComplete ? (
                       <motion.div

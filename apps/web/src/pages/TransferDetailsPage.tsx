@@ -155,7 +155,10 @@ export const TransferDetailsPage = () => {
                   return (
                     <li
                       key={`${track.position}-${track.name}`}
-                      className={`flex items-center gap-3 rounded-2xl border-2 px-3 py-3 ${
+                      // A grid item's min-width is auto, so without this the
+                      // row takes its content's min-content width, grows past
+                      // the column and the truncate inside never engages.
+                      className={`flex min-w-0 items-center gap-3 rounded-2xl border-2 px-3 py-3 ${
                         isMatched
                           ? 'border-app-text/70 bg-app-elevated dark:bg-app-card'
                           : 'border-brand-pink/60 bg-brand-pink/10'
