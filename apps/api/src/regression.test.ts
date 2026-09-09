@@ -19,8 +19,14 @@ import { closeTransfersQueue } from './jobs/transfers-queue';
 import { buildWeeklyRecapDigests } from './jobs/weekly-recap-digests';
 import { getEventProviders, setEventProviders } from './settings/event-providers';
 import { setExternalImportProviderOpsForTests } from './syncs/external-import-runner';
-import { externalSourceHttp, parseExternalSourceUrl } from './syncs/external-sources';
+import {
+  externalSourceHttp,
+  extractQobuzPlaylistJsonLd,
+  fetchExternalPlaylist,
+  parseExternalSourceUrl,
+} from './syncs/external-sources';
 import { syncsStore } from './syncs/store';
+import { parseTracklist, parseTrackLine } from './syncs/tracklist-parser';
 import { transfersStore } from './syncs/transfer-store';
 import { processTransferPlaylistJob } from './syncs/transfer-worker';
 
@@ -361,6 +367,9 @@ describe('API regression', () => {
   let previousRegistrationEmailEnabled: string | undefined;
   let previousPasswordResetEmailEnabled: string | undefined;
   let previousRateLimitMax: string | undefined;
+  // Operator state lives in the database and outlives the suite: a developer who
+  // switched a service on from the local admin panel must find it still on.
+  let previousEventProviders: Awaited<ReturnType<typeof getEventProviders>> = [];
   const previousOpsEnv: Record<string, string | undefined> = {};
   const OPS_ENV_KEYS = [
     'ADMIN_BOOTSTRAP_ENABLED',
@@ -413,6 +422,8 @@ describe('API regression', () => {
     process.env.RATE_LIMIT_MAX = '1000';
 
     app = await buildServer();
+    previousEventProviders = await getEventProviders();
+    await setEventProviders({ providers: ['spotify', 'apple'], updatedByUserId: null });
   });
 
   beforeEach(async () => {
@@ -444,6 +455,7 @@ describe('API regression', () => {
       }
     }
 
+    await setEventProviders({ providers: previousEventProviders, updatedByUserId: null });
     await cleanupTestData();
     await app.close();
     await prisma.$disconnect();
@@ -4743,6 +4755,273 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
       } else {
         process.env.ADMIN_SUPER_USERS = previousSuperUsers;
       }
+    }
+  });
+
+  it('file imports: parses CSV exports, M3U playlists and pasted tracklists', () => {
+    // Spotify's Exportify layout, with a quoted comma and a duration in ms.
+    const csv = parseTracklist({
+      fileName: 'liked.csv',
+      maxTracks: 500,
+      content: [
+        '"Track URI","Track Name","Artist Name(s)","Album Name","ISRC","Duration (ms)"',
+        '"spotify:track:1","Hey Jude","The Beatles","1","GBUM71505902","429000"',
+        '"spotify:track:2","One More Time","Daft Punk","Discovery","GBDUW0000059","320000"',
+        '"spotify:track:3","Hello, Goodbye","The Beatles","Magical Mystery Tour","","208000"',
+      ].join('\n'),
+    });
+    assert.equal(csv.format, 'csv');
+    assert.equal(csv.name, 'liked');
+    assert.deepEqual(
+      csv.tracks.map((track) => [track.name, track.artist, track.isrc, track.durationMs]),
+      [
+        ['Hey Jude', 'The Beatles', 'GBUM71505902', 429000],
+        ['One More Time', 'Daft Punk', 'GBDUW0000059', 320000],
+        ['Hello, Goodbye', 'The Beatles', null, 208000],
+      ],
+    );
+
+    // Semicolon-separated spreadsheet with a clock duration and French headers.
+    const sheet = parseTracklist({
+      fileName: 'export.csv',
+      maxTracks: 500,
+      content: 'Titre;Artiste;Album;Durée\nLa Vie en rose;Édith Piaf;;3:07\n',
+    });
+    assert.equal(sheet.format, 'csv');
+    assert.deepEqual(
+      sheet.tracks.map((track) => [track.name, track.artist, track.durationMs]),
+      [['La Vie en rose', 'Édith Piaf', 187000]],
+    );
+
+    const m3u = parseTracklist({
+      fileName: 'party.m3u8',
+      maxTracks: 500,
+      content: [
+        '#EXTM3U',
+        '#PLAYLIST:Saturday',
+        '#EXTINF:225,Daft Punk - Harder, Better, Faster, Stronger',
+        '/music/daft punk/harder.mp3',
+        '#EXTINF:-1,',
+        'C:\\Music\\The Beatles_-_Hey Jude.mp3',
+      ].join('\n'),
+    });
+    assert.equal(m3u.format, 'm3u');
+    assert.equal(m3u.name, 'Saturday');
+    assert.deepEqual(
+      m3u.tracks.map((track) => [track.artist, track.name, track.durationMs]),
+      [
+        ['Daft Punk', 'Harder, Better, Faster, Stronger', 225000],
+        ['The Beatles', 'Hey Jude', 0],
+      ],
+    );
+
+    const text = parseTracklist({
+      maxTracks: 2,
+      content: '1. Daft Punk - One More Time\nHey Jude by The Beatles\n\nJust a title\n',
+    });
+    assert.equal(text.format, 'text');
+    assert.equal(text.name, 'Imported playlist');
+    assert.equal(text.trackCount, 3);
+    assert.equal(text.truncated, true);
+    assert.deepEqual(
+      text.tracks.map((track) => [track.artist, track.name]),
+      [
+        ['Daft Punk', 'One More Time'],
+        ['The Beatles', 'Hey Jude'],
+      ],
+    );
+    assert.deepEqual(parseTrackLine('Artist\tTitle'), { artist: 'Artist', name: 'Title' });
+    assert.equal(parseTrackLine('# a comment'), null);
+  });
+
+  it('file imports: previews a tracklist and imports it into a connected service', async () => {
+    const email = `${TEST_EMAIL_PREFIX}file-import-${randomUUID()}@synqit.test`;
+    const user = await registerUser(app, email);
+    await connectProvider(app, { provider: 'spotify', accessToken: user.tokens.accessToken });
+
+    const added: string[] = [];
+    setExternalImportProviderOpsForTests({
+      createRecipientPlaylist: async () => 'spotify-playlist-file',
+      // ISRC rows match exactly; title-only rows match when the artist is known.
+      findProviderMatch: async ({ track }) =>
+        track.isrc ? `spotify-${track.isrc}` : track.artist ? `spotify-title-${track.name}` : null,
+      addTrackToRecipientPlaylist: async ({ recipientTrackId }) => {
+        added.push(recipientTrackId);
+      },
+    });
+
+    try {
+      const content = [
+        'Track Name,Artist Name(s),ISRC',
+        'Hey Jude,The Beatles,GBUM71505902',
+        'One More Time,Daft Punk,',
+        'Untitled demo,,',
+      ].join('\n');
+
+      const preview = await app.inject({
+        method: 'POST',
+        url: '/v1/syncs/external-imports/preview-file',
+        headers: authHeader(user.tokens.accessToken),
+        payload: { fileName: 'mix.csv', content },
+      });
+      assert.equal(preview.statusCode, 200);
+      const previewBody = parseBody(preview.body) as {
+        source: string;
+        name: string;
+        trackCount: number;
+        tracks: Array<{ name: string; isrc: string | null }>;
+      };
+      assert.equal(previewBody.source, 'file');
+      assert.equal(previewBody.name, 'mix');
+      assert.equal(previewBody.trackCount, 3);
+      assert.equal(previewBody.tracks[0]?.isrc, 'GBUM71505902');
+
+      const empty = await app.inject({
+        method: 'POST',
+        url: '/v1/syncs/external-imports/preview-file',
+        headers: authHeader(user.tokens.accessToken),
+        payload: { content: '# nothing here\n\n' },
+      });
+      assert.equal(empty.statusCode, 400);
+      assert.equal((parseBody(empty.body) as { code: string }).code, 'no_tracks_found');
+
+      const created = await app.inject({
+        method: 'POST',
+        url: '/v1/syncs/external-imports/file',
+        headers: authHeader(user.tokens.accessToken),
+        payload: { fileName: 'mix.csv', content, recipientProvider: 'spotify' },
+      });
+      assert.equal(created.statusCode, 202);
+      let latest = (
+        parseBody(created.body) as {
+          import: {
+            id: string;
+            status: string;
+            source: string;
+            sourceUrl: string;
+            totalCount: number;
+          };
+        }
+      ).import;
+      assert.equal(latest.source, 'file');
+      assert.equal(latest.sourceUrl, 'mix.csv');
+      assert.equal(latest.totalCount, 3);
+
+      for (
+        let attempt = 0;
+        attempt < 40 && latest.status !== 'completed' && latest.status !== 'failed';
+        attempt += 1
+      ) {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        const poll = await app.inject({
+          method: 'GET',
+          url: `/v1/syncs/external-imports/${latest.id}`,
+          headers: authHeader(user.tokens.accessToken),
+        });
+        latest = (parseBody(poll.body) as { import: typeof latest }).import;
+      }
+      const done = latest as unknown as {
+        status: string;
+        matchedCount: number;
+        skippedCount: number;
+      };
+      assert.equal(done.status, 'completed');
+      assert.equal(done.matchedCount, 2);
+      assert.equal(done.skippedCount, 1);
+      assert.deepEqual(added, ['spotify-GBUM71505902', 'spotify-title-One More Time']);
+    } finally {
+      setExternalImportProviderOpsForTests(null);
+    }
+  });
+
+  it('qobuz imports: reads an editorial playlist page and refuses an unpublished one', async () => {
+    assert.deepEqual(parseExternalSourceUrl('https://open.qobuz.com/playlist/1595257'), {
+      source: 'qobuz',
+      playlistId: '1595257',
+      url: 'https://open.qobuz.com/playlist/1595257',
+    });
+    assert.deepEqual(
+      parseExternalSourceUrl('https://www.qobuz.com/fr-fr/playlists/big-star-1/5551640'),
+      {
+        source: 'qobuz',
+        playlistId: '5551640',
+        url: 'https://www.qobuz.com/fr-fr/playlists/big-star-1/5551640',
+      },
+    );
+    assert.equal(parseExternalSourceUrl('https://www.qobuz.com/us-en/playlists'), null);
+
+    const playlistPage = `<!doctype html><html><head>
+      <script type="application/ld+json">{"@context": "http://schema.org", "@type": "Organization", "name": "Qobuz"}</script>
+      <script type="application/ld+json">{"@context": "http://schema.org", "@type": "MusicPlaylist", "name": "Big Star &amp; friends", "numTracks": 2, "track": [
+        {"@type": "MusicRecording", "name": "September Gurls", "byArtist": "Big Star", "duration": "00:02:48", "inAlbum": "Radio City"},
+        {"@type": "MusicRecording", "name": "Thirteen", "byArtist": {"name": "Big Star"}, "duration": "2:34", "inAlbum": {"name": "#1 Record"}}
+      ]}</script></head><body>
+      <img data-src="https://static.qobuz.com/images/playlists/9999_aaaa_rectangle.jpg" />
+      <img data-src="https://static.qobuz.com/images/playlists/5551640_321a9279ce6919ff7a480b672d92a9cb_rectangle.jpg" />
+      </body></html>`;
+    const indexPage =
+      '<!doctype html><html><head><title>Playlists</title></head><body></body></html>';
+
+    assert.equal(extractQobuzPlaylistJsonLd(playlistPage)?.name, 'Big Star &amp; friends');
+    assert.equal(extractQobuzPlaylistJsonLd(indexPage), null);
+
+    const requested: string[] = [];
+    const originalFetch = externalSourceHttp.fetch;
+    externalSourceHttp.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      requested.push(url);
+      const html = url.endsWith('/5551640') ? playlistPage : indexPage;
+      return new Response(html, {
+        status: 200,
+        headers: { 'content-type': 'text/html' },
+      });
+    }) as typeof fetch;
+
+    try {
+      const playlist = await fetchExternalPlaylist({
+        source: 'qobuz',
+        playlistId: '5551640',
+        url: 'https://www.qobuz.com/fr-fr/playlists/big-star-1/5551640',
+      });
+      // The pasted www address is used as is, locale and slug included.
+      assert.equal(requested[0], 'https://www.qobuz.com/fr-fr/playlists/big-star-1/5551640');
+      assert.equal(playlist.name, 'Big Star & friends');
+      assert.equal(playlist.trackCount, 2);
+      assert.equal(
+        playlist.coverImageUrl,
+        'https://static.qobuz.com/images/playlists/5551640_321a9279ce6919ff7a480b672d92a9cb_rectangle.jpg',
+      );
+      assert.deepEqual(
+        playlist.tracks.map((track) => [
+          track.name,
+          track.artist,
+          track.album,
+          track.durationMs,
+          track.isrc,
+        ]),
+        [
+          ['September Gurls', 'Big Star', 'Radio City', 168000, null],
+          ['Thirteen', 'Big Star', '#1 Record', 154000, null],
+        ],
+      );
+
+      // An app link only carries the id; the canonical page address is tried.
+      requested.length = 0;
+      await fetchExternalPlaylist({
+        source: 'qobuz',
+        playlistId: '5551640',
+        url: 'https://open.qobuz.com/playlist/5551640',
+      });
+      assert.deepEqual(requested, ['https://www.qobuz.com/us-en/playlists/playlist/5551640']);
+
+      // A personal playlist id lands on the index page, which has no playlist block.
+      await assert.rejects(
+        fetchExternalPlaylist({ source: 'qobuz', playlistId: '1595257' }),
+        (error: unknown) =>
+          error instanceof Error && /not published on qobuz.com/.test(error.message),
+      );
+    } finally {
+      externalSourceHttp.fetch = originalFetch;
     }
   });
 

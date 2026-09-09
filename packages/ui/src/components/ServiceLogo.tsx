@@ -1,6 +1,6 @@
 import { cn } from '../utils/cn';
 
-export type MusicServiceId = 'spotify' | 'apple' | 'tidal' | 'deezer' | 'youtube';
+export type MusicServiceId = 'spotify' | 'apple' | 'tidal' | 'deezer' | 'youtube' | 'qobuz';
 
 /**
  * How a music service reaches Synqit:
@@ -18,14 +18,26 @@ export type MusicService = {
   id: MusicServiceId;
   name: string;
   access: readonly MusicServiceAccess[];
+  /**
+   * The service's own colour, for accents drawn next to its mark. Services
+   * whose mark carries no colour of its own (see MONOCHROME_MARKS) take the
+   * surrounding text colour instead, the same way their mark does.
+   */
+  color: string;
 };
 
 export const MUSIC_SERVICES: Record<MusicServiceId, MusicService> = {
-  spotify: { id: 'spotify', name: 'Spotify', access: ['connect'] },
-  apple: { id: 'apple', name: 'Apple Music', access: ['connect'] },
-  tidal: { id: 'tidal', name: 'TIDAL', access: ['connect'] },
-  deezer: { id: 'deezer', name: 'Deezer', access: ['link'] },
-  youtube: { id: 'youtube', name: 'YouTube Music', access: ['connect', 'link'] },
+  spotify: { id: 'spotify', name: 'Spotify', access: ['connect'], color: '#1DB954' },
+  apple: { id: 'apple', name: 'Apple Music', access: ['connect'], color: '#FA243C' },
+  tidal: { id: 'tidal', name: 'TIDAL', access: ['connect'], color: 'currentColor' },
+  deezer: { id: 'deezer', name: 'Deezer', access: ['link'], color: '#A238FF' },
+  youtube: {
+    id: 'youtube',
+    name: 'YouTube Music',
+    access: ['connect', 'link'],
+    color: '#FF0000',
+  },
+  qobuz: { id: 'qobuz', name: 'Qobuz', access: ['link'], color: 'currentColor' },
 };
 
 /** Services a listener signs in to, in the order the UI offers them. */
@@ -40,6 +52,7 @@ export const CONNECT_SERVICES: readonly MusicService[] = [
 export const LINK_SERVICES: readonly MusicService[] = [
   MUSIC_SERVICES.deezer,
   MUSIC_SERVICES.youtube,
+  MUSIC_SERVICES.qobuz,
 ];
 
 /** Link services that cannot also be connected; what a "link" column adds beyond "connect". */
@@ -59,6 +72,7 @@ const MARK_SRC: Record<MusicServiceId, string> = {
   tidal: '/assets/logos/Providers/Tidal.png',
   deezer: '/assets/logos/Providers/Deezer.png',
   youtube: '/assets/logos/Providers/YouTubeMusic.png',
+  qobuz: '/assets/logos/Providers/Qobuz.png',
 };
 
 /**

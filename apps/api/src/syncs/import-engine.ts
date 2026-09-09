@@ -36,14 +36,31 @@ const SEARCH_CONCURRENCY = 6;
 type SourceTrack = {
   name: string;
   artist: string;
+  album?: string;
+  artworkUrl?: string | null;
   providerTrackId: string;
   durationMs: number;
+};
+
+/** What became of one source track, in the order the source listed them. */
+export type ImportTrackResult = {
+  position: number;
+  sourceProviderTrackId: string;
+  name: string;
+  artist: string;
+  album: string;
+  artworkUrl: string | null;
+  durationMs: number | null;
+  status: 'matched' | 'skipped';
+  destinationProviderTrackId: string | null;
 };
 
 export type ImportSyncResult = {
   matchedCount: number;
   skippedCount: number;
   recipientProviderPlaylistId: string | null;
+  /** Per-track outcome, for callers that keep a record of the run. */
+  tracks: ImportTrackResult[];
 };
 
 type MatchOutcome =
@@ -371,6 +388,35 @@ export const importSyncForRecipient = async (params: {
   const matchedCount = syncedSourceTrackFingerprints.length;
   const skippedCount = Math.max(0, sourceTracks.length - matchedCount);
 
+  // Which source rows actually landed. Two identical tracks share a
+  // fingerprint, so consume the synced list as a multiset rather than a set:
+  // if only one of a pair was added, only one row reads as matched.
+  const remainingByFingerprint = new Map<string, number>();
+  for (const fingerprint of syncedSourceTrackFingerprints) {
+    remainingByFingerprint.set(fingerprint, (remainingByFingerprint.get(fingerprint) ?? 0) + 1);
+  }
+  const tracks: ImportTrackResult[] = sourceTracks.map((track, index) => {
+    const fingerprint = buildTrackFingerprint(track);
+    const remaining = remainingByFingerprint.get(fingerprint) ?? 0;
+    const landed = remaining > 0;
+    if (landed) {
+      remainingByFingerprint.set(fingerprint, remaining - 1);
+    }
+    const outcome = matchOutcomes[index];
+    return {
+      position: index,
+      sourceProviderTrackId: track.providerTrackId,
+      name: track.name,
+      artist: track.artist,
+      album: track.album ?? '',
+      artworkUrl: track.artworkUrl ?? null,
+      durationMs: track.durationMs,
+      status: landed ? 'matched' : 'skipped',
+      destinationProviderTrackId:
+        landed && outcome?.status === 'matched' ? outcome.recipientTrackId : null,
+    };
+  });
+
   await syncsStore.upsertImport({
     syncId: sync.id,
     recipientUserId,
@@ -385,5 +431,5 @@ export const importSyncForRecipient = async (params: {
     lastError: null,
   });
 
-  return { matchedCount, skippedCount, recipientProviderPlaylistId };
+  return { matchedCount, skippedCount, recipientProviderPlaylistId, tracks };
 };

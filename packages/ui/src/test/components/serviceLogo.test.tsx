@@ -20,19 +20,20 @@ describe('service catalog', () => {
       'tidal',
       'youtube',
     ]);
-    expect(LINK_SERVICES.map((service) => service.id)).toEqual(['deezer', 'youtube']);
+    expect(LINK_SERVICES.map((service) => service.id)).toEqual(['deezer', 'youtube', 'qobuz']);
     expect(CONNECT_SERVICES.every((service) => service.access.includes('connect'))).toBe(true);
     expect(LINK_SERVICES.every((service) => service.access.includes('link'))).toBe(true);
     // YouTube Music is reachable both ways: sign in, or paste a public playlist link.
     expect(MUSIC_SERVICES.youtube.access).toEqual(['connect', 'link']);
     // Rows of marks must not repeat it, so the combined lists carry each service once.
-    expect(LINK_ONLY_SERVICES.map((service) => service.id)).toEqual(['deezer']);
+    expect(LINK_ONLY_SERVICES.map((service) => service.id)).toEqual(['deezer', 'qobuz']);
     expect(ALL_SERVICES.map((service) => service.id)).toEqual([
       'spotify',
       'apple',
       'tidal',
       'youtube',
       'deezer',
+      'qobuz',
     ]);
   });
 
@@ -43,6 +44,7 @@ describe('service catalog', () => {
       'TIDAL',
       'Deezer',
       'YouTube Music',
+      'Qobuz',
     ]);
   });
 

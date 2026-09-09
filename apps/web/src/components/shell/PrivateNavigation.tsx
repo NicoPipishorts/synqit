@@ -1,8 +1,8 @@
-import { NAV_BAR_CLASS, NAV_ITEM_CLASS } from '@synqit/ui';
+import { NAV_BAR_CLASS, NAV_ITEM_CLASS, useFloatingBar } from '@synqit/ui';
 import { Link } from '@tanstack/react-router';
 import { motion } from 'framer-motion';
 import { ArrowLeftRight, CalendarDays, LayoutDashboard, ListMusic, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 type PrivateNavItem = {
   to: '/dashboard' | '/playlists' | '/synced-lists' | '/transfer' | '/profile';
@@ -77,9 +77,13 @@ export const PrivateMobileNavigation = ({
   isNavItemActive,
   ariaLabel,
 }: PrivateNavigationProps) => {
+  const navRef = useRef<HTMLElement | null>(null);
+  useFloatingBar(navRef);
+
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center sm:hidden">
       <nav
+        ref={navRef}
         className="pointer-events-auto relative flex items-center gap-1 rounded-full border-2 border-app-text bg-app-elevated px-2 py-1.5 shadow-sticker dark:bg-app-card"
         aria-label={ariaLabel}
       >

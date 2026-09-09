@@ -69,6 +69,13 @@ export { LanguageSwitcher, type LanguageOption } from './components/LanguageSwit
 export { PublicNav, type PublicNavItem } from './components/PublicNav';
 export { NAV_BAR_CLASS, NAV_ITEM_CLASS } from './components/nav-classes';
 export { PublicMobileNav, type PublicMobileNavItem } from './components/PublicMobileNav';
+export {
+  getViewportObstructions,
+  useFloatingBar,
+  type ViewportObstructions,
+} from './hooks/useFloatingBar';
+
+export { DrawnArrow, type DrawnArrowProps } from './components/DrawnArrow';
 
 // Decoration
 export { Highlight } from './components/Highlight';
