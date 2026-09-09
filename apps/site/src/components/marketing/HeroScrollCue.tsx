@@ -18,6 +18,16 @@ import { buildHeroCuePath, HERO_CUE_WIDTH, VERTICAL_ARROWHEAD_D } from './branch
  * of wobbles changes. The svg is absolutely positioned so its own height can never
  * feed back into the band it is measuring.
  */
+/**
+ * Safari does not carry an SVG element along a `path()` motion path, and a head
+ * that never travels is a head that is never seen. Checked once at module load
+ * rather than per render.
+ */
+const RIDES_THE_PATH =
+  typeof CSS !== 'undefined' &&
+  typeof CSS.supports === 'function' &&
+  CSS.supports('offset-path', 'path("M0 0 L1 1")');
+
 export const HeroScrollCue = ({ label }: { label: string }) => {
   const ref = useRef<HTMLAnchorElement | null>(null);
   const [available, setAvailable] = useState(0);
@@ -53,7 +63,10 @@ export const HeroScrollCue = ({ label }: { label: string }) => {
       ref={ref}
       href="#how"
       aria-label={label}
-      className="focus-ring-brand relative flex min-h-0 flex-1 justify-center text-app-text transition hover:text-brand-pink"
+      // The band is what the line is drawn into, and below ~84px the builder
+      // has nothing to draw: a floor here means a taller hero on a cramped
+      // phone rather than a vanished cue.
+      className="focus-ring-brand relative flex min-h-28 flex-1 justify-center text-app-text transition hover:text-brand-pink"
     >
       {path ? (
         <svg
@@ -72,9 +85,17 @@ export const HeroScrollCue = ({ label }: { label: string }) => {
             strokeWidth={4}
             strokeLinecap="round"
           />
-          {/* No transform: `offset-path` places and turns it, so the head is wherever
-              the line currently reaches and pointed the way the line is heading. */}
-          <g className="hero-cue-head" style={{ offsetPath: `path("${path.d}")` }}>
+          {/* Where the browser can ride it, `offset-path` places and turns the
+              head, so it sits wherever the line currently reaches, pointed the
+              way the line is heading. Where it cannot, the head is parked on
+              the tip the line ends at and fades in as the line arrives. */}
+          <g
+            className={RIDES_THE_PATH ? 'hero-cue-head' : 'hero-cue-head-parked'}
+            style={RIDES_THE_PATH ? { offsetPath: `path("${path.d}")` } : undefined}
+            transform={
+              RIDES_THE_PATH ? undefined : `translate(${path.tip.x} ${path.tip.y}) rotate(90)`
+            }
+          >
             <path
               d={VERTICAL_ARROWHEAD_D}
               fill="currentColor"

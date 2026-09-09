@@ -41,6 +41,13 @@
   animation: hero-cue-draw 1.1s linear 0.35s forwards;
 }
 
+.hero-cue-head-parked {
+  opacity: 0;
+  /* No travel to watch, so it appears as the line reaches it rather than
+     sitting at the end of a line that has not been drawn yet. */
+  animation: hero-cue-appear 0.2s linear 1.35s forwards;
+}
+
 .hero-cue-head {
   offset-distance: 0%;
   offset-rotate: auto;
@@ -54,7 +61,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .hero-cue-line,
-  .hero-cue-head {
+  .hero-cue-head,
+  .hero-cue-head-parked {
     animation: none;
     stroke-dashoffset: 0;
     offset-distance: 100%;

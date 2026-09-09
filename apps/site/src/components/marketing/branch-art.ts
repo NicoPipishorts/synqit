@@ -43,7 +43,12 @@ const START = 8;
 const HEAD_ROOM = 16;
 const MIN_RUN = 12;
 
-export type HeroCuePath = { d: string; height: number };
+export type HeroCuePath = {
+  d: string;
+  height: number;
+  /** Where the line ends, for browsers that cannot ride a head along it. */
+  tip: { x: number; y: number };
+};
 
 /** `null` when the band is too short to carry even one wobble — draw nothing. */
 export const buildHeroCuePath = (available: number): HeroCuePath | null => {
@@ -64,7 +69,7 @@ export const buildHeroCuePath = (available: number): HeroCuePath | null => {
     y += WOBBLE;
   }
 
-  return { d: `${d} L24 ${usable}`, height: usable + HEAD_ROOM };
+  return { d: `${d} L24 ${usable}`, height: usable + HEAD_ROOM, tip: { x: 24, y: usable } };
 };
 
 /** The viewBox is a fixed 48 wide; the height comes from the path that was built. */

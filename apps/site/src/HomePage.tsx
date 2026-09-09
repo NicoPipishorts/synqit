@@ -152,7 +152,7 @@ export const HomePage = () => {
       <RevealSection
         revealOnScroll={false}
         trackId="hero"
-        className="relative flex min-h-svh flex-col overflow-visible pb-3 pt-[clamp(7rem,28svh,15rem)] sm:block sm:min-h-0 sm:overflow-hidden sm:pb-24 sm:pt-40"
+        className="relative flex min-h-svh flex-col overflow-visible pb-3 pt-[clamp(6rem,22svh,12rem)] sm:block sm:min-h-0 sm:overflow-hidden sm:pb-24 sm:pt-40"
       >
         <div className="pb-5 sm:block sm:pb-0">
           <Container>
