@@ -1,16 +1,15 @@
 import type { ProviderPlaylistItem } from '@synqit/shared';
-import { LINK_SERVICES, ServiceLogo, useToast } from '@synqit/ui';
+import { DrawnArrow, LINK_SERVICES, MUSIC_SERVICES, useToast } from '@synqit/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
-  ArrowLeft,
   ArrowLeftRight,
-  ArrowRight,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Link2,
+  MousePointerClick,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -20,11 +19,12 @@ import { CreateFlowStepBreadcrumbs } from '../components/create-flow/CreateFlowS
 import { CREATE_FLOW_STEP_SLIDE_VARIANTS } from '../components/create-flow/flowMotion';
 import { ProviderIcon } from '../components/providers/ProviderIcon';
 import { SyncPlaylistPicker } from '../components/syncs/SyncPlaylistPicker';
+import { PlaylistTrackRow, TransferViewport } from '../components/syncs/TransferPrimitives';
 import {
-  PlaylistTrackRow,
-  ProviderCard,
-  TransferViewport,
-} from '../components/syncs/TransferPrimitives';
+  TransferDestinationCard,
+  TransferSourceCard,
+  type LinkSourceId,
+} from '../components/syncs/TransferTunnelCards';
 import { CTAButton, CTALink } from '../components/ui/cta';
 import { useI18n } from '../hooks/useI18n';
 import { trackAnalyticsEvent } from '../lib/analytics';
@@ -35,6 +35,7 @@ import { CONNECTABLE_PROVIDERS, PROVIDER_LABELS } from '../lib/providers';
 import {
   EMPTY_INTEGRATION_MAP,
   createTransfer,
+  fetchExternalSources,
   fetchIntegrations,
   fetchProviderPlaylistTrackCount,
   fetchProviderPlaylistTracks,
@@ -54,11 +55,18 @@ export const TransferPage = () => {
   const { t } = useI18n();
   const { showToast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [step, setStep] = useState<TransferStep>(1);
   const [stepDirection, setStepDirection] = useState<1 | -1>(1);
-  const [sourceProvider, setSourceProvider] = useState<Provider>('spotify');
-  const [destinationProvider, setDestinationProvider] = useState<Provider>('apple');
+  // Nothing is preselected. The left card offers every source — connected
+  // services on the direct line, public links on the second — and the right
+  // card stays blank until one is chosen, because what can receive the playlist
+  // depends on what it comes from.
+  const [sourceProvider, setSourceProvider] = useState<Provider | null>(null);
+  const [linkSource, setLinkSource] = useState<LinkSourceId | null>(null);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [destinationProvider, setDestinationProvider] = useState<Provider | null>(null);
   const [selectedPlaylist, setSelectedPlaylist] = useState<ProviderPlaylistItem | null>(null);
   const [playlistOffset, setPlaylistOffset] = useState(0);
   const [allPlaylists, setAllPlaylists] = useState<ProviderPlaylistItem[]>([]);
@@ -73,17 +81,27 @@ export const TransferPage = () => {
     staleTime: 60_000,
   });
 
+  // Which link sources the API currently accepts, so the link card never offers
+  // a service the backend has switched off.
+  const externalSourcesQuery = useQuery({
+    queryKey: syncQueryKeys.externalSources(),
+    queryFn: fetchExternalSources,
+    staleTime: Infinity,
+  });
+
   const providerStatusByType = integrationsQuery.data ?? EMPTY_INTEGRATION_MAP;
 
-  const sourceConnected = providerStatusByType[sourceProvider] === 'connected';
-  const destinationConnected = providerStatusByType[destinationProvider] === 'connected';
+  const sourceConnected =
+    sourceProvider !== null && providerStatusByType[sourceProvider] === 'connected';
+  const destinationConnected =
+    destinationProvider !== null && providerStatusByType[destinationProvider] === 'connected';
   const bothConnected = sourceConnected && destinationConnected;
 
   const playlistsQuery = useQuery({
-    queryKey: syncQueryKeys.providerPlaylists(sourceProvider, playlistOffset),
+    queryKey: syncQueryKeys.providerPlaylists(sourceProvider ?? '', playlistOffset),
     queryFn: () =>
       fetchProviderPlaylists({
-        provider: sourceProvider,
+        provider: sourceProvider!,
         limit: PLAYLISTS_PAGE_SIZE,
         offset: playlistOffset,
       }),
@@ -93,12 +111,12 @@ export const TransferPage = () => {
 
   const selectedPlaylistTrackCountQuery = useQuery({
     queryKey: syncQueryKeys.providerPlaylistTrackCount(
-      sourceProvider,
+      sourceProvider ?? '',
       selectedPlaylist?.providerPlaylistId ?? '',
     ),
     queryFn: () =>
       fetchProviderPlaylistTrackCount({
-        provider: sourceProvider,
+        provider: sourceProvider!,
         providerPlaylistId: selectedPlaylist!.providerPlaylistId,
       }),
     enabled: sourceConnected && selectedPlaylist !== null && selectedPlaylist.trackCount === null,
@@ -108,12 +126,12 @@ export const TransferPage = () => {
 
   const selectedPlaylistTracksQuery = useQuery({
     queryKey: syncQueryKeys.providerPlaylistTracks(
-      sourceProvider,
+      sourceProvider ?? '',
       selectedPlaylist?.providerPlaylistId ?? '',
     ),
     queryFn: () =>
       fetchProviderPlaylistTracks({
-        provider: sourceProvider,
+        provider: sourceProvider!,
         providerPlaylistId: selectedPlaylist!.providerPlaylistId,
       }),
     enabled: sourceConnected && selectedPlaylist !== null,
@@ -232,6 +250,9 @@ export const TransferPage = () => {
 
   const transferMutation = useMutation({
     mutationFn: async () => {
+      if (sourceProvider === null || destinationProvider === null) {
+        throw new Error('missing_provider');
+      }
       if (sourceProvider === destinationProvider) {
         throw new Error('same_provider');
       }
@@ -273,6 +294,10 @@ export const TransferPage = () => {
       if (error instanceof Error && error.message === 'missing_playlist') {
         messageKey = 'transferPage.playlistRequired';
         message = t('transferPage.playlistRequired');
+      }
+      if (error instanceof Error && error.message === 'missing_provider') {
+        messageKey = 'transferPage.statusMissingConnections';
+        message = t('transferPage.statusMissingConnections');
       }
       showToast(messageKey === 'transferPage.error' ? t(messageKey, { message }) : message, {
         variant: 'error',
@@ -334,24 +359,61 @@ export const TransferPage = () => {
   const transferAnimationComplete = transferItem?.status === 'completed';
   const matchedCount = resultCounts?.matchedCount ?? 0;
 
-  const canAdvanceFromStep1 = bothConnected && sourceProvider !== destinationProvider;
+  // A direct transfer reads one library and writes the copy into another, so
+  // both lines of the tunnel are drawn from what Synqit can actually do with a
+  // service: the connectable ones are read *and* write (every one of them has a
+  // createPlaylist adapter), the link sources are read-only and can never be a
+  // destination.
+  const externalSources = externalSourcesQuery.data?.sources ?? null;
+  const linkServices = LINK_SERVICES.map((service) => service.id).filter((service) => {
+    if (externalSources === null) return true;
+    return service === 'deezer' || service === 'youtube' || service === 'qobuz'
+      ? externalSources[service]
+      : false;
+  });
+  // What the right card offers once a source is chosen: everything writable,
+  // minus the service the playlist is already on.
+  const destinationOptions = CONNECTABLE_PROVIDERS.filter(
+    (provider) => provider !== sourceProvider,
+  );
+  const isLinkTransfer = linkSource !== null;
+  const hasSource = sourceProvider !== null || isLinkTransfer;
+
+  const canAdvanceFromStep1 =
+    sourceProvider !== null &&
+    destinationProvider !== null &&
+    bothConnected &&
+    sourceProvider !== destinationProvider;
+  // A link import hands over to the link flow instead of walking steps 2 and 3
+  // here: it needs a preview of a playlist we have not read yet.
+  // The lane belongs to the source: it takes that service's colour and is
+  // drawn once, when the source is picked. Choosing the destination is the
+  // line arriving somewhere, not a new line, so it neither redraws nor
+  // recolours. Services whose mark has no colour of its own leave it as the
+  // text colour.
+  const laneService = sourceProvider ?? linkSource;
+  const laneColor = laneService ? MUSIC_SERVICES[laneService].color : undefined;
+  const laneKey = laneService ?? 'none';
+
+  const canContinueLinkTransfer =
+    isLinkTransfer && destinationProvider !== null && linkUrl.trim().length > 0;
   const canAdvanceFromStep2 = selectedPlaylist !== null;
   const isBusy = isTransferInFlight || isConnectingProvider !== null;
 
   const stepItems = [
-    { value: 1 as const, label: t('transferPage.stepProviders') },
+    { value: 1 as const, label: t('transferPage.stepMode') },
     { value: 2 as const, label: t('transferPage.stepPlaylist') },
     { value: 3 as const, label: t('transferPage.stepTransfer') },
   ] as const;
 
   const stepTitle = useMemo(() => {
-    if (step === 1) return t('transferPage.providersHeading');
+    if (step === 1) return t('transferPage.tunnelHeading');
     if (step === 2) return t('transferPage.playlistTitle');
     return t('transferPage.confirmTitle');
   }, [step, t]);
 
   const stepBody = useMemo(() => {
-    if (step === 1) return t('transferPage.providerBody');
+    if (step === 1) return t('transferPage.tunnelBody');
     if (step === 2) return t('transferPage.playlistBody');
     return t('transferPage.confirmBody');
   }, [step, t]);
@@ -363,6 +425,23 @@ export const TransferPage = () => {
 
   const handleNext = () => {
     if (step === 1) {
+      if (!hasSource || destinationProvider === null) {
+        showToast(t('transferPage.tunnelIncomplete'), { variant: 'error' });
+        return;
+      }
+      if (isLinkTransfer) {
+        // The link flow owns the preview, so hand it the source and destination
+        // this tunnel already collected.
+        if (!canContinueLinkTransfer) {
+          showToast(t('transferPage.linkUrlRequired'), { variant: 'error' });
+          return;
+        }
+        void navigate({
+          to: '/transfer/link',
+          search: { url: linkUrl.trim(), destination: destinationProvider },
+        });
+        return;
+      }
       if (!canAdvanceFromStep1) {
         showToast(
           bothConnected
@@ -405,31 +484,36 @@ export const TransferPage = () => {
     goToStep(1);
   };
 
-  const [swapSpin, setSwapSpin] = useState(0);
-  /** Source and destination must differ; pick any other connectable service. */
-  const otherProvider = (provider: Provider): Provider =>
-    CONNECTABLE_PROVIDERS.find((candidate) => candidate !== provider) ?? provider;
   const handleSelectSourceProvider = (provider: Provider) => {
     setSourceProvider(provider);
+    setLinkSource(null);
+    // The right card is filtered by the source, so a destination that just
+    // became the source is dropped rather than silently moved elsewhere.
     if (provider === destinationProvider) {
-      setDestinationProvider(otherProvider(provider));
+      setDestinationProvider(null);
     }
+  };
+
+  const handleSelectLinkSource = (source: LinkSourceId) => {
+    setLinkSource((current) => (current === source ? null : source));
+    setSourceProvider(null);
+  };
+
+  const handleClearSource = () => {
+    // The destination is only ever offered against a source, so dropping the
+    // source drops it too: no half-set lane can survive the reset.
+    setSourceProvider(null);
+    setLinkSource(null);
+    setLinkUrl('');
+    setDestinationProvider(null);
   };
 
   const handleSelectDestinationProvider = (provider: Provider) => {
     setDestinationProvider(provider);
-    if (provider === sourceProvider) {
-      setSourceProvider(otherProvider(provider));
-    }
   };
 
-  const handleSwapProviders = () => {
-    setSourceProvider(destinationProvider);
-    setDestinationProvider(sourceProvider);
-  };
-
-  const sourceLabel = PROVIDER_LABELS[sourceProvider];
-  const destinationLabel = PROVIDER_LABELS[destinationProvider];
+  const sourceLabel = sourceProvider ? PROVIDER_LABELS[sourceProvider] : '';
+  const destinationLabel = destinationProvider ? PROVIDER_LABELS[destinationProvider] : '';
   // Round-trip: the chosen source playlist was itself created by a previous
   // Synqit transfer from the provider we're now sending it back to.
   const isRoundTrip =
@@ -453,7 +537,9 @@ export const TransferPage = () => {
   const priorTransfer = selectedPlaylist?.priorTransfer ?? null;
   const hasPriorTransfer = priorTransfer != null && priorTransfer.destinationProviders.length > 0;
   const alreadyTransferredToDestination =
-    hasPriorTransfer && priorTransfer.destinationProviders.includes(destinationProvider);
+    hasPriorTransfer &&
+    destinationProvider !== null &&
+    priorTransfer.destinationProviders.includes(destinationProvider);
   const priorTransferDate = priorTransfer?.lastTransferredAt
     ? new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
         new Date(priorTransfer.lastTransferredAt),
@@ -540,105 +626,80 @@ export const TransferPage = () => {
             </div>
 
             {step === 1 ? (
-              <div className="grid gap-5 lg:grid-cols-[1fr_auto_1fr] lg:items-center">
-                <ProviderCard
-                  title={t('transferPage.sourceTitle')}
+              <div className="grid gap-5 lg:grid-cols-[1fr_auto_1fr] lg:items-stretch">
+                <TransferSourceCard
+                  directProviders={CONNECTABLE_PROVIDERS}
+                  linkServices={linkServices}
                   selectedProvider={sourceProvider}
+                  selectedLinkSource={linkSource}
                   providerStatusByType={providerStatusByType}
                   isBusy={isBusy}
-                  onSelect={handleSelectSourceProvider}
-                  connectLabel={t('transferPage.connectSource')}
-                  connectedLabel={t('transferPage.alreadyConnected')}
-                  notConnectedLabel={t('transferPage.notConnected')}
+                  linkUrl={linkUrl}
+                  onSelectProvider={handleSelectSourceProvider}
+                  onSelectLinkSource={handleSelectLinkSource}
+                  onChangeLinkUrl={setLinkUrl}
+                  onClearSelection={handleClearSource}
                   onConnect={connectSelectedProvider}
                 />
 
-                <div className="flex items-center justify-center">
-                  <motion.button
-                    type="button"
-                    onClick={() => {
-                      setSwapSpin((count) => count + 1);
-                      handleSwapProviders();
-                    }}
-                    disabled={isBusy}
-                    aria-label={t('transferPage.swap')}
-                    whileHover={{ scale: 1.08 }}
-                    whileTap={{ scale: 0.92 }}
-                    className="group inline-flex h-14 w-14 cursor-pointer items-center justify-center rounded-full border-2 border-app-text bg-app-elevated text-app-text shadow-sticker transition-colors hover:bg-brand-lime hover:text-brand-dark disabled:cursor-not-allowed disabled:opacity-60 dark:bg-app-card"
-                  >
-                    {/* Two arrows: on hover each nudges outward; on click each flies out its own
-                        way and comes back from the opposite side, so they visibly trade places.
-                        The group is turned 90° while the cards are stacked (below lg). */}
-                    <span
-                      aria-hidden="true"
-                      className="relative block h-7 w-8 rotate-90 lg:rotate-0"
-                    >
-                      <motion.span
-                        key={`left-${swapSpin}`}
-                        initial={false}
-                        animate={
-                          swapSpin > 0
-                            ? { x: [0, -26, 26, 0], opacity: [1, 0, 0, 1] }
-                            : { x: 0, opacity: 1 }
-                        }
-                        transition={{ duration: 0.55, times: [0, 0.4, 0.5, 1], ease: 'easeInOut' }}
-                        className="absolute left-0 top-0"
+                {/* The lane between the cards. Nothing is drawn until a
+                    source is picked: an arrow with no service at either end
+                    points at nothing. Until then the gap holds a prompt to
+                    choose. Nothing to swap here any more either — a source is
+                    changed by clearing it and picking another. */}
+                {/* Stacked, the line is turned on its side, so the row has to
+                    reserve its length as height or it runs over the cards. */}
+                <div className="grid h-20 place-items-center lg:h-auto lg:w-28">
+                  {/* Both states share one cell: the incoming one is mounted
+                      straight away and the outgoing fades under it, so a paused
+                      exit can never leave the lane empty. */}
+                  <AnimatePresence initial={false}>
+                    {hasSource ? (
+                      <motion.div
+                        key="lane-arrow"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="col-start-1 row-start-1 flex w-20 items-center justify-center lg:w-28"
                       >
-                        <ArrowLeft
-                          size={15}
-                          strokeWidth={2.75}
-                          className="transition-transform duration-200 group-hover:-translate-x-1"
+                        <DrawnArrow
+                          replayKey={laneKey}
+                          color={laneColor}
+                          className="w-20 rotate-90 lg:w-28 lg:rotate-0"
                         />
-                      </motion.span>
+                      </motion.div>
+                    ) : (
                       <motion.span
-                        key={`right-${swapSpin}`}
-                        initial={false}
-                        animate={
-                          swapSpin > 0
-                            ? { x: [0, 26, -26, 0], opacity: [1, 0, 0, 1] }
-                            : { x: 0, opacity: 1 }
-                        }
-                        transition={{ duration: 0.55, times: [0, 0.4, 0.5, 1], ease: 'easeInOut' }}
-                        className="absolute bottom-0 right-0"
+                        key="lane-prompt"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        title={t('transferPage.lanePrompt')}
+                        className="col-start-1 row-start-1 inline-flex h-12 w-12 items-center justify-center rounded-full border-2 border-dashed border-app-border text-app-text-muted lg:h-20 lg:w-20"
                       >
-                        <ArrowRight
-                          size={15}
-                          strokeWidth={2.75}
-                          className="transition-transform duration-200 group-hover:translate-x-1"
-                        />
+                        <MousePointerClick className="h-5 w-5 lg:h-8 lg:w-8" aria-hidden="true" />
+                        <span className="sr-only">{t('transferPage.lanePrompt')}</span>
                       </motion.span>
-                    </span>
-                  </motion.button>
+                    )}
+                  </AnimatePresence>
                 </div>
 
-                <ProviderCard
-                  title={t('transferPage.destinationTitle')}
-                  selectedProvider={destinationProvider}
+                <TransferDestinationCard
+                  options={destinationOptions}
+                  selected={destinationProvider}
+                  isWaitingForSource={!hasSource}
                   providerStatusByType={providerStatusByType}
                   isBusy={isBusy}
                   onSelect={handleSelectDestinationProvider}
-                  connectLabel={t('transferPage.connectDestination')}
-                  connectedLabel={t('transferPage.alreadyConnected')}
-                  notConnectedLabel={t('transferPage.notConnected')}
+                  onClearSelection={() => setDestinationProvider(null)}
                   onConnect={connectSelectedProvider}
                 />
-
-                <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-dashed border-app-border px-4 py-3 text-sm text-app-text-secondary lg:col-span-3">
-                  <Link2 size={16} aria-hidden="true" />
-                  <span>{t('transferPage.importFromLinkHint')}</span>
-                  <span className="flex items-center gap-2">
-                    {LINK_SERVICES.map((service) => (
-                      <ServiceLogo key={service.id} service={service.id} className="h-7 w-7" />
-                    ))}
-                  </span>
-                  <CTALink to="/transfer/link" variant="ghost" className="ml-auto">
-                    {t('transferPage.importFromLinkCta')}
-                  </CTALink>
-                </div>
               </div>
             ) : null}
 
-            {step === 2 ? (
+            {step === 2 && sourceProvider !== null ? (
               <article className="rounded-2xl border-2 border-app-text/70 bg-app-surface p-4 dark:bg-app-elevated">
                 {!isShowingPlaylistTracks ? (
                   <div className="grid gap-4">
@@ -737,7 +798,7 @@ export const TransferPage = () => {
               </article>
             ) : null}
 
-            {step === 3 ? (
+            {step === 3 && sourceProvider !== null && destinationProvider !== null ? (
               <div className="grid gap-4">
                 {transferWarnings}
                 <div className="flex items-center justify-between gap-3 rounded-[1.5rem] border border-app-border bg-app-surface/70 px-4 py-4">
@@ -884,7 +945,7 @@ export const TransferPage = () => {
             ) : null}
 
             <div className="flex items-center justify-between gap-3 px-1">
-              {step === 2 ? (
+              {step === 2 && sourceProvider !== null ? (
                 <div />
               ) : step === 1 ? (
                 <div />
@@ -905,14 +966,25 @@ export const TransferPage = () => {
               )}
               {step === 1 ? (
                 <div className="ml-auto pr-2 sm:pr-4">
-                  <CTAButton
-                    variant="primary"
-                    onClick={handleNext}
-                    disabled={isBusy || !canAdvanceFromStep1}
-                  >
-                    {t('transferPage.choosePlaylistCta')}
-                    <ChevronRight size={14} aria-hidden="true" />
-                  </CTAButton>
+                  {isLinkTransfer ? (
+                    <CTAButton
+                      variant="primary"
+                      onClick={handleNext}
+                      disabled={isBusy || !canContinueLinkTransfer}
+                    >
+                      {t('transferPage.previewLinkCta')}
+                      <ChevronRight size={14} aria-hidden="true" />
+                    </CTAButton>
+                  ) : (
+                    <CTAButton
+                      variant="primary"
+                      onClick={handleNext}
+                      disabled={isBusy || !canAdvanceFromStep1}
+                    >
+                      {t('transferPage.choosePlaylistCta')}
+                      <ChevronRight size={14} aria-hidden="true" />
+                    </CTAButton>
+                  )}
                 </div>
               ) : null}
             </div>

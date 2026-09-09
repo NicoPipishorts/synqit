@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
+import { getViewportObstructions } from '../hooks/useFloatingBar';
 import { cn } from '../utils/cn';
 
 export type LanguageOption<L extends string = string> = {
@@ -25,13 +26,16 @@ const FLAG_FRAME_CLASS =
   'h-5 w-7 overflow-hidden rounded-[5px] shadow-[0_1px_2px_rgba(0,0,0,0.22)]';
 const FLAG_IMAGE_CLASS = 'h-full w-full object-cover';
 
-// Approximate rendered menu size, used to decide which way to open so the
-// dropdown never overflows the viewport edges.
-const MENU_WIDTH = 76;
-const MENU_HEIGHT = 120;
 const EDGE_GAP = 8;
 
-type MenuPosition = { openUp: boolean; align: 'left' | 'center' | 'right' };
+type MenuPlacement = {
+  openUp: boolean;
+  align: 'left' | 'center' | 'right';
+  /** False until the menu has been measured, so it never paints mispositioned. */
+  isPlaced: boolean;
+};
+
+const INITIAL_PLACEMENT: MenuPlacement = { openUp: false, align: 'center', isPlaced: false };
 
 /** Flag dropdown for switching locale. Controlled: apps own the locale state. */
 export const LanguageSwitcher = <L extends string>({
@@ -43,11 +47,9 @@ export const LanguageSwitcher = <L extends string>({
   className,
 }: LanguageSwitcherProps<L>) => {
   const [isOpen, setIsOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState<MenuPosition>({
-    openUp: false,
-    align: 'center',
-  });
+  const [placement, setPlacement] = useState<MenuPlacement>(INITIAL_PLACEMENT);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
@@ -68,6 +70,46 @@ export const LanguageSwitcher = <L extends string>({
     };
   }, []);
 
+  // Place the menu against the space the viewport actually leaves free: floating
+  // bars (the mobile dock) cover the bottom edge, so measure the real menu and
+  // flip it above the trigger rather than open it under the dock.
+  useLayoutEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const place = () => {
+      const trigger = containerRef.current?.getBoundingClientRect();
+      const menu = menuRef.current?.getBoundingClientRect();
+      if (!trigger || !menu) {
+        return;
+      }
+
+      const obstructions = getViewportObstructions();
+      const spaceBelow = window.innerHeight - obstructions.bottom - trigger.bottom;
+      const spaceAbove = trigger.top - obstructions.top;
+      const openUp = spaceBelow < menu.height + EDGE_GAP && spaceAbove > spaceBelow;
+
+      const centerX = trigger.left + trigger.width / 2;
+      let align: MenuPlacement['align'] = 'center';
+      if (centerX - menu.width / 2 < EDGE_GAP) {
+        align = 'left';
+      } else if (centerX + menu.width / 2 > window.innerWidth - EDGE_GAP) {
+        align = 'right';
+      }
+
+      setPlacement({ openUp, align, isPlaced: true });
+    };
+
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [isOpen]);
+
   const activeOption = options.find((option) => option.locale === value) ?? options[0];
 
   const toggleOpen = () => {
@@ -75,28 +117,15 @@ export const LanguageSwitcher = <L extends string>({
       setIsOpen(false);
       return;
     }
-
-    const rect = containerRef.current?.getBoundingClientRect();
-    if (rect && typeof window !== 'undefined') {
-      const openUp = window.innerHeight - rect.bottom < MENU_HEIGHT + EDGE_GAP;
-      const centerX = rect.left + rect.width / 2;
-      let align: MenuPosition['align'] = 'center';
-      if (centerX - MENU_WIDTH / 2 < EDGE_GAP) {
-        align = 'left';
-      } else if (centerX + MENU_WIDTH / 2 > window.innerWidth - EDGE_GAP) {
-        align = 'right';
-      }
-      setMenuPosition({ openUp, align });
-    }
-
+    setPlacement(INITIAL_PLACEMENT);
     setIsOpen(true);
   };
 
-  const verticalClass = menuPosition.openUp ? 'bottom-full mb-2' : 'top-full mt-2';
+  const verticalClass = placement.openUp ? 'bottom-full mb-2' : 'top-full mt-2';
   const horizontalClass =
-    menuPosition.align === 'center'
+    placement.align === 'center'
       ? 'left-1/2 -translate-x-1/2'
-      : menuPosition.align === 'left'
+      : placement.align === 'left'
         ? 'left-0'
         : 'right-0';
 
@@ -120,12 +149,16 @@ export const LanguageSwitcher = <L extends string>({
       </button>
       {isOpen ? (
         <div
+          ref={menuRef}
           role="listbox"
           aria-label={openLabel}
           className={cn(
-            'absolute z-30 rounded-2xl border border-brand-white/20 bg-brand-dark p-1.5 shadow-xl dark:border-brand-dark/20 dark:bg-brand-white',
+            // Above the floating mobile dock (z-50): when neither side has room,
+            // an overlapping menu still has to take the taps.
+            'absolute z-[60] rounded-2xl border border-brand-white/20 bg-brand-dark p-1.5 shadow-xl dark:border-brand-dark/20 dark:bg-brand-white',
             verticalClass,
             horizontalClass,
+            !placement.isPlaced && 'invisible',
           )}
         >
           {options.map((option) => {

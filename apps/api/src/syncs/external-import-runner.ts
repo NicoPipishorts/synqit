@@ -81,11 +81,18 @@ export const runExternalImport = async (
 
     await externalImportsStore.update(importId, { status: 'running', lastError: null });
 
-    const playlist = await fetchExternalPlaylist({
-      source: record.source,
-      playlistId: record.sourcePlaylistId,
-    });
-    const tracks = playlist.tracks;
+    // A file import carries its tracks; a link import re-reads its source, which
+    // may have changed since the preview.
+    const tracks =
+      record.source === 'file'
+        ? (record.sourceTracks ?? [])
+        : (
+            await fetchExternalPlaylist({
+              source: record.source,
+              playlistId: record.sourcePlaylistId,
+              url: record.sourceUrl,
+            })
+          ).tracks;
     await externalImportsStore.update(importId, { totalCount: tracks.length });
 
     const recipientProviderPlaylistId = await ops.createRecipientPlaylist({

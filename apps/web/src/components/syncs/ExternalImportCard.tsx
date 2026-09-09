@@ -1,5 +1,5 @@
 import type { ExternalImportItem } from '@synqit/shared';
-import { Link2 } from 'lucide-react';
+import { FileText, Link2 } from 'lucide-react';
 
 import { useI18n } from '../../hooks/useI18n';
 import { ProviderIcon } from '../providers/ProviderIcon';
@@ -18,9 +18,15 @@ const formatTimestamp = (value: string | null): string | null => {
 };
 
 const sourceLabel = (source: ExternalImportItem['source']): string =>
-  source === 'deezer' ? 'Deezer' : 'YouTube';
+  source === 'deezer'
+    ? 'Deezer'
+    : source === 'youtube'
+      ? 'YouTube'
+      : source === 'qobuz'
+        ? 'Qobuz'
+        : 'file';
 
-/** Dashboard card for a playlist imported from a public Deezer or YouTube link. */
+/** Dashboard card for a playlist imported from a public link or an uploaded file. */
 export const ExternalImportCard = ({ item }: { item: ExternalImportItem }) => {
   const { t } = useI18n();
   const formattedDate = formatTimestamp(item.completedAt ?? item.createdAt);
@@ -41,7 +47,7 @@ export const ExternalImportCard = ({ item }: { item: ExternalImportItem }) => {
             aria-hidden="true"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-pink/15 text-brand-pink"
           >
-            <Link2 size={18} />
+            {item.source === 'file' ? <FileText size={18} /> : <Link2 size={18} />}
           </span>
         )}
         <div className="min-w-0 flex-1 overflow-hidden">
@@ -69,7 +75,9 @@ export const ExternalImportCard = ({ item }: { item: ExternalImportItem }) => {
             </span>
           </div>
           <p className="mt-1 truncate text-xs text-app-text-secondary">
-            {t('transferDashboardPage.fromLink', { source: sourceLabel(item.source) })}
+            {item.source === 'file'
+              ? t('transferDashboardPage.fromFile', { name: item.sourceUrl })
+              : t('transferDashboardPage.fromLink', { source: sourceLabel(item.source) })}
             {item.status === 'completed'
               ? ` · ${t('transferLinkPage.matchedCount', { count: item.matchedCount })}`
               : ''}

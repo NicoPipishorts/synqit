@@ -65,11 +65,16 @@ export const processTransferPlaylistJob = async (job: TransferJobLike): Promise<
       await transfersStore.updateItem({ itemId: item.id, status: 'running', syncId: sync.id });
     }
 
-    const { matchedCount, skippedCount } = await importSyncForRecipient({
+    const { matchedCount, skippedCount, tracks } = await importSyncForRecipient({
       sync,
       recipientUserId: batch.userId,
       recipientProvider: batch.destinationProvider,
     });
+
+    // Keep what became of each song: the counts alone cannot say which ones
+    // the destination had no match for, and re-reading both playlists later
+    // would only guess.
+    await transfersStore.replaceItemTracks({ itemId: item.id, tracks });
 
     await transfersStore.updateItem({
       itemId: item.id,

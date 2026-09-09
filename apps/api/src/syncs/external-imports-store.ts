@@ -1,5 +1,12 @@
-import type { ExternalImportStatus, ExternalSourceKind, Provider } from '@synqit/shared';
+import {
+  externalSourceTrackSchema,
+  type ExternalImportStatus,
+  type ExternalSourceKind,
+  type ExternalSourceTrack,
+  type Provider,
+} from '@synqit/shared';
 import { randomUUID } from 'node:crypto';
+import { z } from 'zod';
 
 import { prisma } from '../db/prisma';
 
@@ -13,6 +20,8 @@ export type ExternalImportRecord = {
   coverImageUrl: string | null;
   recipientProvider: Provider;
   recipientProviderPlaylistId: string | null;
+  /** Present for file imports only; link imports re-read their source. */
+  sourceTracks: ExternalSourceTrack[] | null;
   status: ExternalImportStatus;
   totalCount: number;
   matchedCount: number;
@@ -33,6 +42,7 @@ type Row = {
   cover_image_url: string | null;
   recipient_provider: string;
   recipient_provider_playlist_id: string | null;
+  source_tracks_json: unknown;
   status: string;
   total_count: number;
   matched_count: number;
@@ -42,6 +52,8 @@ type Row = {
   updated_at: Date;
   completed_at: Date | null;
 };
+
+const sourceTracksSchema = z.array(externalSourceTrackSchema);
 
 const toRecord = (row: Row): ExternalImportRecord => ({
   id: row.id,
@@ -53,6 +65,10 @@ const toRecord = (row: Row): ExternalImportRecord => ({
   coverImageUrl: row.cover_image_url,
   recipientProvider: row.recipient_provider as Provider,
   recipientProviderPlaylistId: row.recipient_provider_playlist_id,
+  sourceTracks: (() => {
+    const parsed = sourceTracksSchema.safeParse(row.source_tracks_json);
+    return parsed.success ? parsed.data : null;
+  })(),
   status: row.status as ExternalImportStatus,
   totalCount: row.total_count,
   matchedCount: row.matched_count,
@@ -73,6 +89,7 @@ export const externalImportsStore = {
     coverImageUrl: string | null;
     recipientProvider: Provider;
     totalCount: number;
+    sourceTracks?: ExternalSourceTrack[];
   }): Promise<ExternalImportRecord> {
     const now = new Date();
     const row = await prisma.external_imports.create({
@@ -85,6 +102,10 @@ export const externalImportsStore = {
         name: params.name,
         cover_image_url: params.coverImageUrl,
         recipient_provider: params.recipientProvider,
+        // Serialised through JSON so Prisma sees plain values, never class instances.
+        ...(params.sourceTracks
+          ? { source_tracks_json: JSON.parse(JSON.stringify(params.sourceTracks)) }
+          : {}),
         status: 'pending',
         total_count: params.totalCount,
         created_at: now,

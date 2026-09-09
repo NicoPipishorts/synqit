@@ -19,6 +19,8 @@ const MATRIX: Record<MusicServiceId, Record<Capability, boolean>> = {
   deezer: { connect: false, events: false, sync: false, transferIn: false, importFrom: true },
   // Connects like TIDAL, and a public playlist link still imports without signing in.
   youtube: { connect: true, events: false, sync: true, transferIn: true, importFrom: true },
+  // Editorial playlists only, read from the public page; no account, no API.
+  qobuz: { connect: false, events: false, sync: false, transferIn: false, importFrom: true },
 };
 
 /** Entry ids double as URL fragments, so other pages can link to one answer. */

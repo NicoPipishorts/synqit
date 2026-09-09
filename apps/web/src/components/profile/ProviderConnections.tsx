@@ -1,9 +1,8 @@
 import { providerSchema } from '@synqit/shared';
 import {
   CONNECT_SERVICES,
-  LINK_SERVICES,
+  LINK_ONLY_SERVICES,
   MUSIC_SERVICES,
-  ServiceChip,
   ServiceLogo,
   useToast,
 } from '@synqit/ui';
@@ -24,7 +23,7 @@ import {
   queryKeys,
 } from '../../lib/queries';
 import { Provider } from '../../lib/types';
-import { CTAButton, CTALink, CTAMobileIconLabel } from '../ui/cta';
+import { CTAButton, CTAMobileIconLabel } from '../ui/cta';
 
 type ProviderAction = 'connect' | 'refresh' | 'disconnect';
 
@@ -418,12 +417,16 @@ export const ProviderConnections = () => {
         </div>
       ) : null}
 
-      {/* The two link-only services have no account to connect; say so here,
-          where people come looking for a "connect Deezer" button. */}
+      {/* Only the services with nothing to connect belong here. YouTube Music
+          is offered as a connection above, so listing it again as "nothing to
+          connect" contradicted the card people had just read. */}
       <article className="grid gap-4 rounded-3xl border-2 border-dashed border-app-border p-5 sm:p-6">
-        <div className="flex flex-wrap gap-2">
-          {LINK_SERVICES.map((service) => (
-            <ServiceChip key={service.id} service={service.id} />
+        <div className="flex flex-wrap items-center gap-5">
+          {LINK_ONLY_SERVICES.map((service) => (
+            <span key={service.id} className="inline-flex items-center gap-2">
+              <ServiceLogo service={service.id} alt="" className="h-8 w-8" />
+              <span className="text-sm font-black text-app-text">{service.name}</span>
+            </span>
           ))}
         </div>
         <div className="grid gap-1">
@@ -431,11 +434,6 @@ export const ProviderConnections = () => {
             {t('profile.linkSourcesTitle')}
           </h3>
           <p className="text-sm text-app-text-secondary">{t('profile.linkSourcesBody')}</p>
-        </div>
-        <div className="flex justify-end">
-          <CTALink to="/transfer/link" variant="secondary">
-            {t('profile.linkSourcesCta')}
-          </CTALink>
         </div>
       </article>
     </div>

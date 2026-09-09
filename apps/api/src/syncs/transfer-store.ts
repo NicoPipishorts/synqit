@@ -2,10 +2,13 @@ import {
   providerSchema,
   transferBatchStatusSchema,
   transferItemStatusSchema,
+  transferTrackStatusSchema,
   type Provider,
   type TransferBatchStatus,
+  type TransferDetails,
   type TransferItemStatus,
   type TransferPlaylistSelection,
+  type TransferTrackStatus,
 } from '@synqit/shared';
 import { randomUUID } from 'node:crypto';
 
@@ -23,6 +26,18 @@ export type TransferItemRecord = {
   matchedCount: number | null;
   skippedCount: number | null;
   errorMessage: string | null;
+};
+
+export type TransferTrackInput = {
+  position: number;
+  sourceProviderTrackId: string;
+  name: string;
+  artist: string;
+  album: string;
+  artworkUrl: string | null;
+  durationMs: number | null;
+  status: TransferTrackStatus;
+  destinationProviderTrackId: string | null;
 };
 
 export type TransferBatchRecord = {
@@ -213,6 +228,79 @@ export const transfersStore = {
     });
 
     return status;
+  },
+
+  /**
+   * Replaces an item's per-track results. A retry re-runs the whole playlist,
+   * so the last run is the truth rather than something to merge into.
+   */
+  async replaceItemTracks(params: {
+    itemId: string;
+    tracks: readonly TransferTrackInput[];
+  }): Promise<void> {
+    const now = new Date();
+    await prisma.$transaction([
+      prisma.transfer_item_tracks.deleteMany({ where: { transfer_item_id: params.itemId } }),
+      prisma.transfer_item_tracks.createMany({
+        data: params.tracks.map((track) => ({
+          id: randomUUID(),
+          transfer_item_id: params.itemId,
+          position: track.position,
+          source_provider_track_id: track.sourceProviderTrackId,
+          name: track.name,
+          artist: track.artist,
+          album: track.album,
+          artwork_url: track.artworkUrl,
+          duration_ms: track.durationMs,
+          status: track.status,
+          destination_provider_track_id: track.destinationProviderTrackId,
+          created_at: now,
+        })),
+      }),
+    ]);
+  },
+
+  /**
+   * One transferred playlist, by the sync it produced, with the per-track
+   * outcome. `tracks` is empty for transfers made before those were recorded.
+   */
+  async findDetailsBySyncId(params: {
+    syncId: string;
+    userId: string;
+  }): Promise<TransferDetails | null> {
+    const row = await prisma.transfer_items.findFirst({
+      where: { sync_id: params.syncId, transfer_batches: { user_id: params.userId } },
+      orderBy: { updated_at: 'desc' },
+      include: {
+        transfer_batches: true,
+        transfer_item_tracks: { orderBy: { position: 'asc' } },
+      },
+    });
+    if (!row) {
+      return null;
+    }
+
+    return {
+      syncId: params.syncId,
+      name: row.name,
+      sourceProvider: providerSchema.parse(row.transfer_batches.source_provider),
+      destinationProvider: providerSchema.parse(row.transfer_batches.destination_provider),
+      status: transferItemStatusSchema.parse(row.status),
+      trackCount: row.track_count,
+      matchedCount: row.matched_count,
+      skippedCount: row.skipped_count,
+      errorMessage: row.error_message,
+      transferredAt: (row.transfer_batches.completed_at ?? row.updated_at).toISOString(),
+      tracks: row.transfer_item_tracks.map((track) => ({
+        position: track.position,
+        name: track.name,
+        artist: track.artist,
+        album: track.album,
+        artworkUrl: track.artwork_url,
+        durationMs: track.duration_ms,
+        status: transferTrackStatusSchema.parse(track.status),
+      })),
+    };
   },
 
   /** Lifetime playlists this user has transferred. The metering counter. */
