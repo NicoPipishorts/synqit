@@ -107,7 +107,7 @@ export const PlaylistTrackRow = ({
   compact?: boolean;
 }) => (
   <div
-    className={`flex items-center gap-3 rounded-2xl border px-3 py-3 transition ${
+    className={`flex min-w-0 items-center gap-3 rounded-2xl border px-3 py-3 transition ${
       state === 'completed'
         ? 'border-brand-lime/50 bg-brand-lime/10'
         : state === 'active'
@@ -166,11 +166,25 @@ export const TransferViewport = ({
   progressCount,
   matchedCount,
   transferComplete,
+  isRunning = true,
+  outcomes = null,
 }: {
   tracks: ProviderPlaylistTrack[];
   progressCount: number;
   matchedCount: number;
   transferComplete: boolean;
+  /**
+   * What actually became of each track, once the server has reported it.
+   * Without it the finished list can only colour the first `matchedCount` rows
+   * green, which names the wrong songs whenever the misses are not last.
+   */
+  outcomes?: readonly ('matched' | 'skipped')[] | null;
+  /**
+   * False while the list is only being previewed. Without it the first row
+   * spins on a progress count of zero, and the step meant to ask "shall I
+   * start?" looks like it already did.
+   */
+  isRunning?: boolean;
 }) => {
   const viewportHeight = TRANSFER_ROW_HEIGHT * TRANSFER_VISIBLE_ROWS;
   const maxOffset = Math.max(0, tracks.length - TRANSFER_VISIBLE_ROWS) * TRANSFER_ROW_HEIGHT;
@@ -178,13 +192,17 @@ export const TransferViewport = ({
 
   if (transferComplete) {
     return (
-      <div className="max-h-[min(70svh,38rem)] overflow-y-auto rounded-[1.75rem] border border-app-border bg-app-surface/70 p-3">
-        <div className="grid gap-2">
+      <div className="max-h-[min(70svh,38rem)] min-w-0 overflow-y-auto scrollbar-none sm:rounded-[1.75rem] sm:border sm:border-app-border sm:bg-app-surface/70 sm:p-3">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
           {tracks.map((track, index) => (
             <PlaylistTrackRow
               key={`${track.providerTrackId}-${index}`}
               track={track}
-              state={index < matchedCount ? 'completed' : 'skipped'}
+              state={
+                (outcomes?.[index] ?? (index < matchedCount ? 'matched' : 'skipped')) === 'matched'
+                  ? 'completed'
+                  : 'skipped'
+              }
             />
           ))}
         </div>
@@ -193,23 +211,29 @@ export const TransferViewport = ({
   }
 
   return (
-    <div className="rounded-[1.75rem] border border-app-border bg-app-surface/70 p-3">
-      <div className="overflow-hidden" style={{ height: viewportHeight }}>
+    <div className="min-w-0 sm:rounded-[1.75rem] sm:border sm:border-app-border sm:bg-app-surface/70 sm:p-3">
+      <div className="min-w-0 overflow-hidden" style={{ height: viewportHeight }}>
         <motion.div
           animate={{ y: -y }}
           transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-          className="grid gap-2"
+          className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2"
         >
           {tracks.map((track, index) => (
-            <div key={`${track.providerTrackId}-${index}`} style={{ height: TRANSFER_ROW_HEIGHT }}>
+            <div
+              key={`${track.providerTrackId}-${index}`}
+              className="min-w-0"
+              style={{ height: TRANSFER_ROW_HEIGHT }}
+            >
               <PlaylistTrackRow
                 track={track}
                 state={
-                  index < progressCount
-                    ? 'completed'
-                    : index === progressCount
-                      ? 'active'
-                      : 'pending'
+                  !isRunning
+                    ? 'pending'
+                    : index < progressCount
+                      ? 'completed'
+                      : index === progressCount
+                        ? 'active'
+                        : 'pending'
                 }
               />
             </div>

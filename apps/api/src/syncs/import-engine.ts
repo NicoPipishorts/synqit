@@ -2,10 +2,12 @@ import type { Provider } from '@synqit/shared';
 
 import { syncsStore, type SyncRecord } from './store';
 import { buildTrackFingerprint } from './track-fingerprint';
+import { buildSearchQuery, pickBestTrackMatch } from './track-matching';
 import { withAppleMusicUserToken } from '../integrations/apple-client';
 import {
   addAppleTracksToPlaylist,
   createAppleLibraryPlaylist,
+  findAppleCatalogSongByIsrc,
   searchAppleCatalogTracks,
 } from '../integrations/apple-music';
 import { getProviderAdapter } from '../integrations/provider-registry';
@@ -18,6 +20,7 @@ import { isTidalOauthLiveMode } from '../integrations/tidal';
 import {
   addTidalTracksToPlaylist,
   createTidalPlaylist,
+  findTidalTrackByIsrc,
   searchTidalTracks,
 } from '../integrations/tidal-api';
 import { withTidalAccessTokenRetry } from '../integrations/tidal-client';
@@ -33,6 +36,9 @@ import { withYoutubeAccessTokenRetry } from '../integrations/youtube-client';
 // small enough that one big transfer does not starve everyone else.
 const SEARCH_CONCURRENCY = 6;
 
+/** Candidates weighed per track. One was not enough to survive a bad top hit. */
+const SEARCH_CANDIDATES = 5;
+
 type SourceTrack = {
   name: string;
   artist: string;
@@ -40,6 +46,8 @@ type SourceTrack = {
   artworkUrl?: string | null;
   providerTrackId: string;
   durationMs: number;
+  /** Recording id, when the source service exposes one. Enables exact matching. */
+  isrc?: string | null;
 };
 
 /** What became of one source track, in the order the source listed them. */
@@ -53,6 +61,9 @@ export type ImportTrackResult = {
   durationMs: number | null;
   status: 'matched' | 'skipped';
   destinationProviderTrackId: string | null;
+  /** The destination's own title and artist, so a match can be audited later. */
+  destinationName: string | null;
+  destinationArtist: string | null;
 };
 
 export type ImportSyncResult = {
@@ -64,7 +75,13 @@ export type ImportSyncResult = {
 };
 
 type MatchOutcome =
-  | { status: 'matched'; recipientTrackId: string; sourceTrackFingerprint: string }
+  | {
+      status: 'matched';
+      recipientTrackId: string;
+      sourceTrackFingerprint: string;
+      /** What the destination calls it, when the match came from a lookup. */
+      recipientTrack?: { name: string; artist: string };
+    }
   | { status: 'skipped' };
 
 const listSourceTracks = async (sync: SyncRecord): Promise<SourceTrack[]> => {
@@ -147,6 +164,71 @@ export const importSyncForRecipient = async (params: {
               }),
             } as const);
 
+  /** Exact by recording id, when both sides carry one. */
+  const findByIsrc = async (
+    isrc: string,
+  ): Promise<{ providerTrackId: string; name: string; artist: string } | null> => {
+    if (recipientCredentials.provider === 'youtube') {
+      // YouTube exposes no recording ids at all.
+      return null;
+    }
+    if (recipientCredentials.provider === 'tidal') {
+      if (!recipientCredentials.accessToken) return null;
+      return await findTidalTrackByIsrc({ accessToken: recipientCredentials.accessToken, isrc });
+    }
+    if (recipientCredentials.provider === 'spotify') {
+      if (!recipientCredentials.accessToken) return null;
+      // Spotify has no ISRC endpoint; the search grammar carries the filter.
+      const results = await searchSpotifyTracks({
+        accessToken: recipientCredentials.accessToken,
+        query: `isrc:${isrc}`,
+        limit: 1,
+      });
+      return results[0] ?? null;
+    }
+    return await findAppleCatalogSongByIsrc({
+      developerToken: recipientCredentials.tokens.developerToken,
+      storefront: 'us',
+      isrc,
+    });
+  };
+
+  const searchCandidates = async (query: string) => {
+    if (recipientCredentials.provider === 'youtube') {
+      return recipientCredentials.accessToken
+        ? searchYoutubeTracks({
+            accessToken: recipientCredentials.accessToken,
+            query,
+            limit: SEARCH_CANDIDATES,
+          })
+        : [];
+    }
+    if (recipientCredentials.provider === 'tidal') {
+      return recipientCredentials.accessToken
+        ? searchTidalTracks({
+            accessToken: recipientCredentials.accessToken,
+            query,
+            limit: SEARCH_CANDIDATES,
+          })
+        : [];
+    }
+    if (recipientCredentials.provider === 'spotify') {
+      return recipientCredentials.accessToken
+        ? searchSpotifyTracks({
+            accessToken: recipientCredentials.accessToken,
+            query,
+            limit: SEARCH_CANDIDATES,
+          })
+        : [];
+    }
+    return searchAppleCatalogTracks({
+      developerToken: recipientCredentials.tokens.developerToken,
+      storefront: 'us',
+      query,
+      limit: SEARCH_CANDIDATES,
+    });
+  };
+
   const searchForMatch = async (track: SourceTrack): Promise<MatchOutcome> => {
     if (recipientProvider === sync.provider && track.providerTrackId) {
       return {
@@ -156,50 +238,34 @@ export const importSyncForRecipient = async (params: {
       };
     }
 
-    const query = `${track.name} ${track.artist}`;
-    try {
-      const results = await withProviderRetry(() => {
-        if (recipientCredentials.provider === 'youtube') {
-          return recipientCredentials.accessToken
-            ? searchYoutubeTracks({
-                accessToken: recipientCredentials.accessToken,
-                query,
-                limit: 1,
-              })
-            : Promise.resolve([]);
+    // The recording id first: it is the only comparison that cannot be fooled
+    // by a service spelling a title its own way.
+    if (track.isrc) {
+      try {
+        const exact = await withProviderRetry(() => findByIsrc(track.isrc!));
+        if (exact) {
+          return {
+            status: 'matched',
+            recipientTrackId: exact.providerTrackId,
+            sourceTrackFingerprint: buildTrackFingerprint(track),
+            recipientTrack: { name: exact.name, artist: exact.artist },
+          };
         }
-        if (recipientCredentials.provider === 'tidal') {
-          return recipientCredentials.accessToken
-            ? searchTidalTracks({
-                accessToken: recipientCredentials.accessToken,
-                query,
-                limit: 1,
-              })
-            : Promise.resolve([]);
-        }
-        if (recipientCredentials.provider === 'spotify') {
-          return recipientCredentials.accessToken
-            ? searchSpotifyTracks({
-                accessToken: recipientCredentials.accessToken,
-                query,
-                limit: 1,
-              })
-            : Promise.resolve([]);
-        }
-        return searchAppleCatalogTracks({
-          developerToken: recipientCredentials.tokens.developerToken,
-          storefront: 'us',
-          query,
-          limit: 1,
-        });
-      });
+      } catch {
+        // An ISRC lookup that fails is not a failed transfer: fall through to
+        // the text search, which is what services without recording ids use.
+      }
+    }
 
-      const first = results[0];
-      if (first && first.name.toLowerCase().includes(track.name.toLowerCase())) {
+    try {
+      const results = await withProviderRetry(() => searchCandidates(buildSearchQuery(track)));
+      const match = pickBestTrackMatch(track, results);
+      if (match) {
         return {
           status: 'matched',
-          recipientTrackId: first.providerTrackId,
+          recipientTrackId: match.providerTrackId,
           sourceTrackFingerprint: buildTrackFingerprint(track),
+          recipientTrack: { name: match.name, artist: match.artist },
         };
       }
     } catch {
@@ -414,6 +480,10 @@ export const importSyncForRecipient = async (params: {
       status: landed ? 'matched' : 'skipped',
       destinationProviderTrackId:
         landed && outcome?.status === 'matched' ? outcome.recipientTrackId : null,
+      destinationName:
+        landed && outcome?.status === 'matched' ? (outcome.recipientTrack?.name ?? null) : null,
+      destinationArtist:
+        landed && outcome?.status === 'matched' ? (outcome.recipientTrack?.artist ?? null) : null,
     };
   });
 

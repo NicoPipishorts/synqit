@@ -5,11 +5,12 @@ import { useNavigate } from '@tanstack/react-router';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertTriangle,
-  ArrowLeftRight,
+  ArrowRight,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
   MousePointerClick,
+  RefreshCw,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -37,6 +38,7 @@ import {
   createTransfer,
   fetchExternalSources,
   fetchIntegrations,
+  fetchTransferDetails,
   fetchProviderPlaylistTrackCount,
   fetchProviderPlaylistTracks,
   fetchProviderPlaylists,
@@ -356,6 +358,18 @@ export const TransferPage = () => {
     return () => window.clearInterval(intervalId);
   }, [isTransferInFlight, isTransferSettled, transferTracks.length]);
 
+  // Which songs landed, from the record the worker wrote. The batch response
+  // carries counts only, and colouring the first N rows green names the wrong
+  // songs whenever the misses are not at the end — which is the normal case.
+  const settledSyncId = isTransferSettled ? (transferItem?.syncId ?? null) : null;
+  const transferOutcomeQuery = useQuery({
+    queryKey: syncQueryKeys.transferDetails(settledSyncId ?? ''),
+    queryFn: () => fetchTransferDetails(settledSyncId!),
+    enabled: settledSyncId !== null,
+    staleTime: Infinity,
+  });
+  const trackOutcomes = transferOutcomeQuery.data?.tracks.map((track) => track.status) ?? null;
+
   const transferAnimationComplete = transferItem?.status === 'completed';
   const matchedCount = resultCounts?.matchedCount ?? 0;
 
@@ -412,11 +426,9 @@ export const TransferPage = () => {
     return t('transferPage.confirmTitle');
   }, [step, t]);
 
-  const stepBody = useMemo(() => {
-    if (step === 1) return t('transferPage.tunnelBody');
-    if (step === 2) return t('transferPage.playlistBody');
-    return t('transferPage.confirmBody');
-  }, [step, t]);
+  // Only the opening step carries a line under its title: the later ones show
+  // the playlist and the list itself, which explain themselves.
+  const stepBody = useMemo(() => (step === 1 ? t('transferPage.tunnelBody') : null), [step, t]);
 
   const goToStep = (nextStep: TransferStep) => {
     setStepDirection(nextStep > step ? 1 : -1);
@@ -512,7 +524,6 @@ export const TransferPage = () => {
     setDestinationProvider(provider);
   };
 
-  const sourceLabel = sourceProvider ? PROVIDER_LABELS[sourceProvider] : '';
   const destinationLabel = destinationProvider ? PROVIDER_LABELS[destinationProvider] : '';
   // Round-trip: the chosen source playlist was itself created by a previous
   // Synqit transfer from the provider we're now sending it back to.
@@ -616,13 +627,15 @@ export const TransferPage = () => {
             initial="enter"
             animate="center"
             exit="exit"
-            className="grid gap-6"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6"
           >
             <div className="grid gap-1 px-1">
               <h2 className="text-2xl font-black text-brand-dark dark:text-brand-white">
                 {stepTitle}
               </h2>
-              <p className="max-w-3xl text-sm text-app-text-secondary sm:text-base">{stepBody}</p>
+              {stepBody ? (
+                <p className="max-w-3xl text-sm text-app-text-secondary sm:text-base">{stepBody}</p>
+              ) : null}
             </div>
 
             {step === 1 ? (
@@ -700,7 +713,7 @@ export const TransferPage = () => {
             ) : null}
 
             {step === 2 && sourceProvider !== null ? (
-              <article className="rounded-2xl border-2 border-app-text/70 bg-app-surface p-4 dark:bg-app-elevated">
+              <article className="sm:rounded-2xl sm:border-2 sm:border-app-text/70 sm:bg-app-surface sm:p-4 sm:dark:bg-app-elevated">
                 {!isShowingPlaylistTracks ? (
                   <div className="grid gap-4">
                     <div className="flex items-center justify-between gap-3">
@@ -710,7 +723,10 @@ export const TransferPage = () => {
                         onClick={() => goToStep(1)}
                       >
                         <ChevronLeft size={14} aria-hidden="true" />
-                        {t('transferPage.backToProviders')}
+                        <span className="sm:hidden">{t('syncCreatePage.back')}</span>
+                        <span className="hidden sm:inline">
+                          {t('transferPage.backToProviders')}
+                        </span>
                       </CTAButton>
                     </div>
 
@@ -727,8 +743,11 @@ export const TransferPage = () => {
                     />
                   </div>
                 ) : (
-                  <div className="grid gap-4 overflow-hidden">
-                    <div className="flex items-start justify-between gap-3 rounded-2xl border-2 border-app-text/70 bg-app-surface px-4 py-4 dark:bg-app-elevated">
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 overflow-hidden">
+                    {/* No box around it: the card it sits in is already one,
+                        and a frame inside a frame made the header read as a
+                        separate thing from the list it belongs to. */}
+                    <div className="flex items-start justify-between gap-3 px-1">
                       <div className="min-w-0">
                         <p className="truncate text-lg font-black text-brand-dark dark:text-brand-white">
                           {selectedPlaylist.name}
@@ -754,14 +773,19 @@ export const TransferPage = () => {
 
                     {transferWarnings}
 
-                    <div className="flex items-center justify-between gap-3">
+                    {/* The sticker CTA carries its shadow outside its box, so
+                        it needs room on the right or the card clips it. */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 px-1 pr-2">
                       <CTAButton
                         variant="ghost"
                         className="rounded-xl px-3 py-2 text-xs"
                         onClick={() => setSelectedPlaylist(null)}
                       >
                         <ChevronLeft size={14} aria-hidden="true" />
-                        {t('transferPage.backToPlaylists')}
+                        <span className="sm:hidden">{t('syncCreatePage.back')}</span>
+                        <span className="hidden sm:inline">
+                          {t('transferPage.backToPlaylists')}
+                        </span>
                       </CTAButton>
 
                       <CTAButton
@@ -775,7 +799,7 @@ export const TransferPage = () => {
                       </CTAButton>
                     </div>
 
-                    <div className="grid max-h-[calc(5*4.5rem+1.5rem)] gap-2 overflow-y-auto pr-1">
+                    <div className="grid max-h-[calc(5*4.5rem+1.5rem)] min-w-0 grid-cols-[minmax(0,1fr)] gap-2 overflow-y-auto scrollbar-none sm:pr-1">
                       {selectedPlaylistTracksQuery.isLoading ? (
                         Array.from({ length: 6 }).map((_, index) => (
                           <div
@@ -799,44 +823,66 @@ export const TransferPage = () => {
             ) : null}
 
             {step === 3 && sourceProvider !== null && destinationProvider !== null ? (
-              <div className="grid gap-4">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
                 {transferWarnings}
-                <div className="flex items-center justify-between gap-3 rounded-[1.5rem] border border-app-border bg-app-surface/70 px-4 py-4">
-                  <div className="min-w-0">
-                    <div className="inline-flex items-center gap-2 rounded-full bg-brand-dark px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-brand-white">
-                      {t('transferPage.summaryTitle')}
-                    </div>
-                    <p className="mt-3 truncate text-lg font-black text-brand-dark dark:text-brand-white">
-                      {selectedPlaylist?.name ?? t('transferPage.previewTracksEmpty')}
-                    </p>
-                    <p className="mt-1 text-sm text-app-text-secondary">
-                      {sourceLabel} {t('transferPage.toLabel')} {destinationLabel}
-                    </p>
-                  </div>
 
-                  <div className="flex items-center gap-3">
-                    <CTAButton
-                      variant="ghost"
-                      className="rounded-xl px-3 py-2 text-xs"
-                      onClick={() => goToStep(2)}
-                      disabled={isTransferInFlight}
-                    >
-                      <ChevronLeft size={14} aria-hidden="true" />
+                {/* No summary panel: the dark header below already carries the
+                    playlist's name and the two services, and repeating them
+                    above it buried the one thing this step is for. */}
+                <div className="flex flex-wrap items-center justify-between gap-3 px-1 pr-2">
+                  <CTAButton
+                    variant="ghost"
+                    className="rounded-xl px-3 py-2 text-xs"
+                    onClick={() => goToStep(2)}
+                    disabled={isTransferInFlight}
+                  >
+                    <ChevronLeft size={14} aria-hidden="true" />
+                    <span className="sm:hidden">{t('syncCreatePage.back')}</span>
+                    <span className="hidden sm:inline">
                       {t('transferPage.backToPlaylistChoice')}
-                    </CTAButton>
+                    </span>
+                  </CTAButton>
 
-                    {!transferAnimationComplete ? (
-                      <CTAButton
-                        variant="primary"
-                        onClick={handleNext}
-                        disabled={isTransferInFlight}
-                      >
+                  {/* The action reads as the sync it is: a round button wearing
+                      the sync arrows, its label beside it rather than inside a
+                      pill. The arrows turn on hover and spin for real while the
+                      job runs — never at rest, which is what made this step
+                      look like it had already started. */}
+                  {!transferAnimationComplete ? (
+                    <button
+                      type="button"
+                      onClick={handleNext}
+                      disabled={isTransferInFlight}
+                      aria-label={
+                        isTransferInFlight
+                          ? t('transferPage.transferring')
+                          : t('transferPage.startTransfer')
+                      }
+                      className="group inline-flex cursor-pointer items-center gap-3 rounded-full text-left transition focus-ring-brand disabled:cursor-not-allowed"
+                    >
+                      <span className="hidden text-base font-black text-brand-dark dark:text-brand-white sm:inline sm:text-lg">
                         {isTransferInFlight
                           ? t('transferPage.transferring')
                           : t('transferPage.startTransfer')}
-                      </CTAButton>
-                    ) : null}
-                  </div>
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-app-text bg-brand-lime text-brand-dark shadow-sticker transition group-hover:bg-brand-pink group-hover:text-brand-white motion-safe:group-hover:-translate-y-0.5 group-disabled:opacity-60"
+                      >
+                        <RefreshCw
+                          size={22}
+                          strokeWidth={2.75}
+                          className={
+                            isTransferInFlight
+                              ? 'animate-spin'
+                              : 'transition-transform duration-500 group-hover:rotate-180'
+                          }
+                        />
+                      </span>
+                    </button>
+                  ) : (
+                    <span />
+                  )}
                 </div>
 
                 {resultCounts ? (
@@ -850,7 +896,7 @@ export const TransferPage = () => {
                   </div>
                 ) : null}
 
-                <article className="grid gap-3 rounded-2xl border-2 border-app-text bg-app-surface p-4 shadow-sticker-sm dark:bg-app-elevated">
+                <article className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 sm:rounded-2xl sm:border-2 sm:border-app-text sm:bg-app-surface sm:p-4 sm:shadow-sticker-sm sm:dark:bg-app-elevated">
                   <AnimatePresence>
                     {transferAnimationComplete ? (
                       <motion.div
@@ -894,17 +940,13 @@ export const TransferPage = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <ProviderIcon provider={sourceProvider} sizeClassName="h-8 w-8" />
-                        <ArrowLeftRight
-                          size={16}
-                          className="text-brand-white/55"
-                          aria-hidden="true"
-                        />
+                        <ArrowRight size={16} className="text-brand-white/55" aria-hidden="true" />
                         <ProviderIcon provider={destinationProvider} sizeClassName="h-8 w-8" />
                       </div>
                     </div>
                   </div>
 
-                  <p className="mb-4 text-xs font-semibold uppercase tracking-[0.22em] text-app-text-secondary">
+                  <p className="mb-4 px-4 text-xs font-semibold uppercase tracking-[0.22em] text-app-text-secondary">
                     {t('transferPage.trackCount', {
                       count: selectedPlaylist?.trackCount ?? previewTracks.length,
                     })}
@@ -915,6 +957,8 @@ export const TransferPage = () => {
                       progressCount={transferProgressCount}
                       matchedCount={matchedCount}
                       transferComplete={transferAnimationComplete}
+                      isRunning={isTransferInFlight || transferAnimationComplete}
+                      outcomes={trackOutcomes}
                     />
                   ) : (
                     <div className="rounded-2xl border-2 border-dashed border-app-text/50 bg-app-surface px-4 py-10 text-center text-sm text-app-text-secondary dark:bg-app-elevated">

@@ -618,7 +618,6 @@
     "sourceTitle": "From",
     "destinationTitle": "To",
     "playlistTitle": "Choose a source playlist",
-    "playlistBody": "Synqit will read this playlist from the source provider, match tracks, and build a new copy on the destination side.",
     "previewTracksTitle": "Playlist tracks",
     "previewTracksEmpty": "Select a playlist to preview its tracks.",
     "previewTracksLimit": "Showing the first {{count}} tracks out of {{total}}.",
@@ -627,10 +626,7 @@
     "synchronizeNowCta": "Synchronize now",
     "choosePlaylistCta": "Choose your playlist",
     "confirmTitle": "Confirm the transfer",
-    "confirmBody": "Review the lane, then start the transfer. Once it starts, the list scrolls inside the frame while tracks land on the destination provider.",
-    "summaryTitle": "Transfer lane",
     "summaryBody": "The source playlist stays intact. Synqit creates a synced copy so you can keep the transfer visible and reusable.",
-    "toLabel": "to",
     "sourcePlaylist": "Source playlist",
     "destinationPlaylist": "Destination provider",
     "backToPlaylistChoice": "Back to playlist",
@@ -731,7 +727,8 @@
     "tracksTitle": "Songs in this transfer",
     "tracksUnavailable": "This transfer ran before Synqit kept a per-song record, so only its counts are available.",
     "trackMatched": "Transferred",
-    "trackSkipped": "Not found"
+    "trackSkipped": "Not found",
+    "landedAs": "Landed as \"{{name}}\""
   },
   "syncPublicPage": {
     "loading": "Loading...",

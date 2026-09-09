@@ -167,6 +167,18 @@
   }
 }
 
+@utility scrollbar-none {
+  /* Keeps the scroll, drops the bar: lists that scroll inside a card are read
+     as part of the card, and a gutter down their edge cuts the frame in two.
+     The content stays reachable by wheel, trackpad, touch and keyboard. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 @utility text-outline {
   -webkit-text-stroke: 2px color-mix(in srgb, var(--syn-text) 38%, transparent);
   color: transparent;

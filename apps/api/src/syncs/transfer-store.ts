@@ -38,6 +38,8 @@ export type TransferTrackInput = {
   durationMs: number | null;
   status: TransferTrackStatus;
   destinationProviderTrackId: string | null;
+  destinationName: string | null;
+  destinationArtist: string | null;
 };
 
 export type TransferBatchRecord = {
@@ -160,7 +162,12 @@ export const transfersStore = {
     if (!row) {
       return null;
     }
-    const typed = row as unknown as TransferItemRow & { transfer_batches: TransferBatchRow };
+    const typed = row as unknown as TransferItemRow & { transfer_batches: TransferBatchRow | null };
+    if (!typed.transfer_batches) {
+      // The batch went while the job sat in the queue. Treat it as gone rather
+      // than reading an id off nothing.
+      return null;
+    }
     return { ...mapItemRow(typed), batch: mapBatchRow(typed.transfer_batches) };
   },
 
@@ -172,7 +179,7 @@ export const transfersStore = {
     skippedCount?: number | null;
     errorMessage?: string | null;
   }): Promise<void> {
-    await prisma.transfer_items.update({
+    await prisma.transfer_items.updateMany({
       where: { id: params.itemId },
       data: {
         status: params.status,
@@ -205,6 +212,10 @@ export const transfersStore = {
     });
 
     const statuses = items.map((item) => item.status);
+    if (statuses.length === 0) {
+      // Nothing left to summarise: the batch and its items are gone.
+      return 'completed';
+    }
     const settled = statuses.every((status) => status === 'completed' || status === 'failed');
 
     let status: TransferBatchStatus;
@@ -218,7 +229,9 @@ export const transfersStore = {
       status = 'completed';
     }
 
-    await prisma.transfer_batches.update({
+    // updateMany, not update: a deleted batch is a no-op, not a crash that
+    // fails the worker on every retry of a job nobody is waiting for.
+    await prisma.transfer_batches.updateMany({
       where: { id: batchId },
       data: {
         status,
@@ -254,6 +267,8 @@ export const transfersStore = {
           duration_ms: track.durationMs,
           status: track.status,
           destination_provider_track_id: track.destinationProviderTrackId,
+          destination_name: track.destinationName,
+          destination_artist: track.destinationArtist,
           created_at: now,
         })),
       }),
@@ -299,6 +314,8 @@ export const transfersStore = {
         artworkUrl: track.artwork_url,
         durationMs: track.duration_ms,
         status: transferTrackStatusSchema.parse(track.status),
+        destinationName: track.destination_name,
+        destinationArtist: track.destination_artist,
       })),
     };
   },

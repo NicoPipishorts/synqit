@@ -618,7 +618,6 @@
     "sourceTitle": "Depuis",
     "destinationTitle": "Vers",
     "playlistTitle": "Choisir une playlist source",
-    "playlistBody": "Synqit lit cette playlist depuis la plateforme source, rapproche les titres et crée une nouvelle copie côté destination.",
     "previewTracksTitle": "Titres de la playlist",
     "previewTracksEmpty": "Choisis une playlist pour prévisualiser ses titres.",
     "previewTracksLimit": "Affichage des {{count}} premiers titres sur {{total}}.",
@@ -627,10 +626,7 @@
     "synchronizeNowCta": "Synchronise maintenant",
     "choosePlaylistCta": "Choisis ta playlist",
     "confirmTitle": "Confirmer le transfert",
-    "confirmBody": "Vérifie le couloir de transfert puis lance l'opération. Une fois démarrée, la liste défile dans son cadre pendant que les titres arrivent sur la plateforme destination.",
-    "summaryTitle": "Couloir de transfert",
     "summaryBody": "La playlist source reste intacte. Synqit crée une copie synchronisée pour que le transfert reste visible et réutilisable.",
-    "toLabel": "vers",
     "sourcePlaylist": "Playlist source",
     "destinationPlaylist": "Plateforme destination",
     "backToPlaylistChoice": "Retour à la playlist",
@@ -731,7 +727,8 @@
     "tracksTitle": "Titres de ce transfert",
     "tracksUnavailable": "Ce transfert date d'avant l'enregistrement titre par titre : seuls ses totaux sont disponibles.",
     "trackMatched": "Transféré",
-    "trackSkipped": "Introuvable"
+    "trackSkipped": "Introuvable",
+    "landedAs": "Arrivé sous « {{name}} »"
   },
   "syncPublicPage": {
     "loading": "Chargement...",

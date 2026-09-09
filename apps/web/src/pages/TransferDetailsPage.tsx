@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useParams } from '@tanstack/react-router';
-import { AlertTriangle, ArrowLeftRight, Check, Music2, X } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Check, Music2, X } from 'lucide-react';
 
 import { AppPageHeader } from '../components/app/AppPageHeader';
 import { AppPageLayout } from '../components/app/AppPageLayout';
@@ -107,7 +107,7 @@ export const TransferDetailsPage = () => {
 
               <div className="flex items-center gap-3">
                 <ProviderIcon provider={transfer.sourceProvider} sizeClassName="h-10 w-10" />
-                <ArrowLeftRight size={16} className="text-app-text-secondary" aria-hidden="true" />
+                <ArrowRight size={16} className="text-app-text-secondary" aria-hidden="true" />
                 <ProviderIcon provider={transfer.destinationProvider} sizeClassName="h-10 w-10" />
               </div>
             </div>
@@ -155,7 +155,10 @@ export const TransferDetailsPage = () => {
                   return (
                     <li
                       key={`${track.position}-${track.name}`}
-                      className={`flex items-center gap-3 rounded-2xl border-2 px-3 py-3 ${
+                      // A grid item's min-width is auto, so without this the
+                      // row takes its content's min-content width, grows past
+                      // the column and the truncate inside never engages.
+                      className={`flex min-w-0 items-center gap-3 rounded-2xl border-2 px-3 py-3 ${
                         isMatched
                           ? 'border-app-text/70 bg-app-elevated dark:bg-app-card'
                           : 'border-brand-pink/60 bg-brand-pink/10'
@@ -182,6 +185,16 @@ export const TransferDetailsPage = () => {
                         <p className="truncate text-xs text-app-text-secondary">
                           {[track.artist, track.album].filter(Boolean).join(' · ')}
                         </p>
+                        {/* Services name the same recording differently. Saying
+                            so where they disagree is the difference between
+                            "it worked" and "it worked, and here is what landed". */}
+                        {isMatched &&
+                        track.destinationName !== null &&
+                        track.destinationName !== track.name ? (
+                          <p className="truncate text-xs text-app-text-muted">
+                            {t('transferDetailsPage.landedAs', { name: track.destinationName })}
+                          </p>
+                        ) : null}
                       </div>
 
                       {duration ? (
