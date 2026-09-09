@@ -152,7 +152,7 @@ export const HomePage = () => {
       <RevealSection
         revealOnScroll={false}
         trackId="hero"
-        className="relative flex min-h-svh flex-col overflow-visible pb-3 pt-[clamp(6rem,22svh,12rem)] sm:block sm:min-h-0 sm:overflow-hidden sm:pb-24 sm:pt-40"
+        className="relative flex min-h-[calc(100svh+clamp(4rem,20svh,11rem))] flex-col overflow-visible pb-3 pt-[clamp(6rem,22svh,12rem)] sm:block sm:min-h-0 sm:overflow-hidden sm:pb-24 sm:pt-40"
       >
         <div className="pb-5 sm:block sm:pb-0">
           <Container>
@@ -241,13 +241,13 @@ export const HomePage = () => {
           phone's lower half into the first screen.
 
           On a phone that tightness left the hero's cue arrow pointing at a heading
-          almost touching it, so the section opens a screen-relative gap instead —
-          about a fifth of the viewport, which keeps the phone peeking above the fold
-          on a tall screen and stays proportionate on a short one. */}
+          almost touching it. The gap that fixes it lives on the hero's own height
+          rather than here: the cue is drawn into the band the hero has left over, so
+          space added below the hero would have been space the line could not reach. */}
       <RevealSection
         id="how"
         trackId="services"
-        className="relative scroll-mt-12 pb-16 pt-[clamp(4rem,20svh,11rem)] sm:py-24"
+        className="relative scroll-mt-12 pb-16 pt-2 sm:py-24"
       >
         <Container>
           <SectionIntro
