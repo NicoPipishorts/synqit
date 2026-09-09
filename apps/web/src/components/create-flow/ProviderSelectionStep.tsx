@@ -96,16 +96,22 @@ export const ProviderSelectionStep = <P extends Provider>({
                   )}
                   <AnimatePresence initial={false} mode="wait">
                     {isSelected && isConnected ? (
-                      <motion.span
+                      // The check doubles as the way back: with several services
+                      // connected, picking one hides the others, so the badge has
+                      // to undo the pick or the first click would be final.
+                      <motion.button
                         key="check"
+                        type="button"
                         initial={{ opacity: 0, scale: 0.7 }}
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.7 }}
                         transition={{ duration: 0.18, ease: CREATE_FLOW_STEP_SLIDE_EASE }}
-                        className="absolute top-3.75 right-3.75 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 border-app-text bg-brand-lime text-brand-dark shadow-sticker-sm"
+                        onClick={onProviderClear}
+                        aria-label={unselectAriaLabel}
+                        className="absolute top-3.75 right-3.75 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-app-text bg-brand-lime text-brand-dark shadow-sticker-sm transition hover:bg-brand-pink hover:text-white"
                       >
                         <Check size={15} strokeWidth={4} aria-hidden="true" />
-                      </motion.span>
+                      </motion.button>
                     ) : isSelected && !isConnected ? (
                       <motion.button
                         key="close"
