@@ -158,9 +158,9 @@ export const HomePage = () => {
       <RevealSection
         revealOnScroll={false}
         trackId="hero"
-        className="relative flex min-h-svh flex-col overflow-visible pb-3 pt-16 sm:block sm:min-h-0 sm:overflow-hidden sm:pb-24 sm:pt-40"
+        className="relative flex min-h-svh flex-col overflow-visible pb-3 pt-[clamp(4rem,11svh,6.5rem)] sm:block sm:min-h-0 sm:overflow-hidden sm:pb-24 sm:pt-40"
       >
-        <div className="flex flex-1 items-center sm:block">
+        <div className="sm:block">
           <Container>
             <motion.div
               initial={isTouchDevice ? false : 'hidden'}
