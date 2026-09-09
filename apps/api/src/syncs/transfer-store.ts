@@ -172,7 +172,7 @@ export const transfersStore = {
     skippedCount?: number | null;
     errorMessage?: string | null;
   }): Promise<void> {
-    await prisma.transfer_items.update({
+    await prisma.transfer_items.updateMany({
       where: { id: params.itemId },
       data: {
         status: params.status,

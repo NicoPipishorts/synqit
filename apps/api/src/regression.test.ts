@@ -26,6 +26,11 @@ import {
   parseExternalSourceUrl,
 } from './syncs/external-sources';
 import { syncsStore } from './syncs/store';
+import {
+  buildSearchQuery,
+  normalizeTitleForMatch,
+  pickBestTrackMatch,
+} from './syncs/track-matching';
 import { parseTracklist, parseTrackLine } from './syncs/tracklist-parser';
 import { transfersStore } from './syncs/transfer-store';
 import { processTransferPlaylistJob } from './syncs/transfer-worker';
@@ -3101,6 +3106,61 @@ oZ+xDXftVNIci2hGnCpfyhh4VEn2INUhDRWfbhJT8bsKLDWBNkKQfhC3
       artist: 'The Beatles',
       name: 'Hey Jude',
     });
+  });
+
+  it('track matching: the spellings services differ on do not lose the recording', () => {
+    // Every one of these came back skipped from a real Apple Music -> Spotify
+    // transfer, against a matcher that asked the destination's title to
+    // contain the source's verbatim.
+    assert.equal(
+      normalizeTitleForMatch('Ego Death (feat. Aesop Rock & Danny Brown)'),
+      normalizeTitleForMatch('Ego Death'),
+    );
+    assert.equal(
+      normalizeTitleForMatch('argyle sox (Hellfyre 5ever) [feat. BUSDRIVER]'),
+      normalizeTitleForMatch('argyle sox (Hellfyre 5ever)'),
+    );
+    // Apple sends a curly apostrophe where Spotify sends a straight one.
+    assert.equal(
+      normalizeTitleForMatch('Can\u2019t You Tell I\u2019m a Sociopath'),
+      normalizeTitleForMatch("Can't You Tell I'm a Sociopath"),
+    );
+    // The feature credits are noise to a search that already has the artist.
+    assert.equal(
+      buildSearchQuery({ name: 'Ego Death (feat. Aesop Rock & Danny Brown)', artist: 'BUSDRIVER' }),
+      'Ego Death BUSDRIVER',
+    );
+
+    const source = { name: 'Ego Death (feat. Aesop Rock & Danny Brown)', artist: 'BUSDRIVER' };
+    assert.equal(
+      pickBestTrackMatch(source, [
+        { providerTrackId: 'wrong-artist', name: 'Ego Death', artist: 'Someone Else' },
+        {
+          providerTrackId: 'right',
+          name: 'Ego Death (feat. Aesop Rock, Danny Brown)',
+          artist: 'Busdriver',
+        },
+      ])?.providerTrackId,
+      'right',
+    );
+
+    // The recording itself outranks a version that merely contains its title.
+    assert.equal(
+      pickBestTrackMatch({ name: 'Luh You', artist: 'Anderson .Paak' }, [
+        { providerTrackId: 'live', name: 'Luh You (Live at the Roxy)', artist: 'Anderson .Paak' },
+        { providerTrackId: 'studio', name: 'Luh You', artist: 'Anderson .Paak' },
+      ])?.providerTrackId,
+      'studio',
+    );
+
+    // A title agreement alone is not identity: one-word titles collide.
+    assert.equal(
+      pickBestTrackMatch({ name: 'Sniper', artist: 'Folly Rae' }, [
+        { providerTrackId: 'other', name: 'Sniper', artist: 'Some Other Band' },
+      ]),
+      null,
+    );
+    assert.equal(pickBestTrackMatch({ name: 'Anything', artist: 'Nobody' }, []), null);
   });
 
   it('external imports: previews a Deezer playlist and imports it in the background', async () => {

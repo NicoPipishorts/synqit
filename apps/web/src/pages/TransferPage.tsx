@@ -38,6 +38,7 @@ import {
   createTransfer,
   fetchExternalSources,
   fetchIntegrations,
+  fetchTransferDetails,
   fetchProviderPlaylistTrackCount,
   fetchProviderPlaylistTracks,
   fetchProviderPlaylists,
@@ -356,6 +357,18 @@ export const TransferPage = () => {
 
     return () => window.clearInterval(intervalId);
   }, [isTransferInFlight, isTransferSettled, transferTracks.length]);
+
+  // Which songs landed, from the record the worker wrote. The batch response
+  // carries counts only, and colouring the first N rows green names the wrong
+  // songs whenever the misses are not at the end — which is the normal case.
+  const settledSyncId = isTransferSettled ? (transferItem?.syncId ?? null) : null;
+  const transferOutcomeQuery = useQuery({
+    queryKey: syncQueryKeys.transferDetails(settledSyncId ?? ''),
+    queryFn: () => fetchTransferDetails(settledSyncId!),
+    enabled: settledSyncId !== null,
+    staleTime: Infinity,
+  });
+  const trackOutcomes = transferOutcomeQuery.data?.tracks.map((track) => track.status) ?? null;
 
   const transferAnimationComplete = transferItem?.status === 'completed';
   const matchedCount = resultCounts?.matchedCount ?? 0;
@@ -945,6 +958,7 @@ export const TransferPage = () => {
                       matchedCount={matchedCount}
                       transferComplete={transferAnimationComplete}
                       isRunning={isTransferInFlight || transferAnimationComplete}
+                      outcomes={trackOutcomes}
                     />
                   ) : (
                     <div className="rounded-2xl border-2 border-dashed border-app-text/50 bg-app-surface px-4 py-10 text-center text-sm text-app-text-secondary dark:bg-app-elevated">

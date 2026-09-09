@@ -167,11 +167,18 @@ export const TransferViewport = ({
   matchedCount,
   transferComplete,
   isRunning = true,
+  outcomes = null,
 }: {
   tracks: ProviderPlaylistTrack[];
   progressCount: number;
   matchedCount: number;
   transferComplete: boolean;
+  /**
+   * What actually became of each track, once the server has reported it.
+   * Without it the finished list can only colour the first `matchedCount` rows
+   * green, which names the wrong songs whenever the misses are not last.
+   */
+  outcomes?: readonly ('matched' | 'skipped')[] | null;
   /**
    * False while the list is only being previewed. Without it the first row
    * spins on a progress count of zero, and the step meant to ask "shall I
@@ -191,7 +198,11 @@ export const TransferViewport = ({
             <PlaylistTrackRow
               key={`${track.providerTrackId}-${index}`}
               track={track}
-              state={index < matchedCount ? 'completed' : 'skipped'}
+              state={
+                (outcomes?.[index] ?? (index < matchedCount ? 'matched' : 'skipped')) === 'matched'
+                  ? 'completed'
+                  : 'skipped'
+              }
             />
           ))}
         </div>
