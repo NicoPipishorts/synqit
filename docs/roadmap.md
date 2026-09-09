@@ -96,7 +96,9 @@ Order of work:
    and four web components; introduce a provider registry so a third provider is additive.
 3. Import-only sources for the transfer funnel: public Deezer playlists, YouTube playlists, and
    file/paste import (CSV, M3U, tracklist text). No user auth on the source side.
-4. YouTube Music as a full provider once OAuth verification and the quota extension are in hand.
+4. YouTube Music as a full provider. Code landed (connect, sync, transfer; no event hosting).
+   What remains is external: Google OAuth verification of the `youtube` scope, and the quota
+   extension without which one 100-track transfer into YouTube Music exceeds a day's allowance.
 5. Deezer as a full provider if an app id is available.
 
 Not planned: unofficial or cookie-based access to any service.

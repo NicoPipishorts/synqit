@@ -9,21 +9,23 @@ export type MusicServiceId = 'spotify' | 'apple' | 'tidal' | 'deezer' | 'youtube
  *   in sync, and transfer in either direction.
  * - `link` — a public playlist URL read anonymously. One-way import only; the
  *   listener never signs in to that service.
+ * A service can offer both: YouTube Music connects, and a public YouTube
+ * playlist link still imports without signing in.
  */
 export type MusicServiceAccess = 'connect' | 'link';
 
 export type MusicService = {
   id: MusicServiceId;
   name: string;
-  access: MusicServiceAccess;
+  access: readonly MusicServiceAccess[];
 };
 
 export const MUSIC_SERVICES: Record<MusicServiceId, MusicService> = {
-  spotify: { id: 'spotify', name: 'Spotify', access: 'connect' },
-  apple: { id: 'apple', name: 'Apple Music', access: 'connect' },
-  tidal: { id: 'tidal', name: 'TIDAL', access: 'connect' },
-  deezer: { id: 'deezer', name: 'Deezer', access: 'link' },
-  youtube: { id: 'youtube', name: 'YouTube Music', access: 'link' },
+  spotify: { id: 'spotify', name: 'Spotify', access: ['connect'] },
+  apple: { id: 'apple', name: 'Apple Music', access: ['connect'] },
+  tidal: { id: 'tidal', name: 'TIDAL', access: ['connect'] },
+  deezer: { id: 'deezer', name: 'Deezer', access: ['link'] },
+  youtube: { id: 'youtube', name: 'YouTube Music', access: ['connect', 'link'] },
 };
 
 /** Services a listener signs in to, in the order the UI offers them. */
@@ -31,6 +33,7 @@ export const CONNECT_SERVICES: readonly MusicService[] = [
   MUSIC_SERVICES.spotify,
   MUSIC_SERVICES.apple,
   MUSIC_SERVICES.tidal,
+  MUSIC_SERVICES.youtube,
 ];
 
 /** Services that arrive as a pasted public playlist link. */
@@ -38,6 +41,14 @@ export const LINK_SERVICES: readonly MusicService[] = [
   MUSIC_SERVICES.deezer,
   MUSIC_SERVICES.youtube,
 ];
+
+/** Link services that cannot also be connected; what a "link" column adds beyond "connect". */
+export const LINK_ONLY_SERVICES: readonly MusicService[] = LINK_SERVICES.filter(
+  (service) => !service.access.includes('connect'),
+);
+
+/** Every service once, connectable ones first, for strips and footers that just show marks. */
+export const ALL_SERVICES: readonly MusicService[] = [...CONNECT_SERVICES, ...LINK_ONLY_SERVICES];
 
 // Official brand marks, served from the app's public assets. Spotify and Apple
 // Music ship their icon; Deezer is the purple heart from its brand guidelines

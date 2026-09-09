@@ -1190,6 +1190,7 @@
         "sticker": "No account needed",
         "title": "Paste a link, keep the playlist",
         "body": "Found a playlist somewhere else? Paste its public link and Synqit rebuilds it in the service you connected.",
+        "note": "YouTube Music is on both cards: connect it to work inside your own library, or paste any public YouTube playlist link without signing in.",
         "point1": "One-way import: into your library, not back out",
         "point2": "Sources that carry a recording ID, like Deezer, match track for track",
         "point3": "Sources that give only a title, like YouTube, may pick a different version",

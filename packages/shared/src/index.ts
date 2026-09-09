@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const providerSchema = z.enum(['spotify', 'apple', 'tidal']);
+export const providerSchema = z.enum(['spotify', 'apple', 'tidal', 'youtube']);
 export type Provider = z.infer<typeof providerSchema>;
 
 /**

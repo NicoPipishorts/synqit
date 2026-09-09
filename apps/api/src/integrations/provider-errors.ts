@@ -1,4 +1,16 @@
+import type { Provider } from '@synqit/shared';
+
 import { ProviderApiError } from './spotify-tracks';
+import { isYoutubeQuotaError, YOUTUBE_QUOTA_MESSAGE } from './youtube-api';
+
+// Kept local rather than read from the registry so this module stays free of
+// provider clients. Exhaustive: a new Provider fails to compile until named.
+const PROVIDER_LABELS: Record<Provider, string> = {
+  spotify: 'Spotify',
+  apple: 'Apple Music',
+  tidal: 'TIDAL',
+  youtube: 'YouTube Music',
+};
 
 type ProviderMappedError = {
   code: string;
@@ -6,7 +18,14 @@ type ProviderMappedError = {
 };
 
 const getDefaultMappedError = (error: ProviderApiError): ProviderMappedError | null => {
-  const providerLabel = error.provider === 'apple' ? 'Apple Music' : 'Spotify';
+  const providerLabel = PROVIDER_LABELS[error.provider];
+
+  if (isYoutubeQuotaError(error)) {
+    return {
+      code: 'provider_quota_exceeded',
+      message: YOUTUBE_QUOTA_MESSAGE,
+    };
+  }
 
   if (error.statusCode === 401) {
     return {

@@ -1,4 +1,4 @@
-import { CONNECT_SERVICES, LINK_SERVICES, type MusicServiceId, ServiceLogo } from '@synqit/ui';
+import { ALL_SERVICES, type MusicServiceId, ServiceLogo } from '@synqit/ui';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, ChevronDown, Minus } from 'lucide-react';
 import { type ReactNode, useEffect, useState } from 'react';
@@ -17,10 +17,9 @@ const MATRIX: Record<MusicServiceId, Record<Capability, boolean>> = {
   // Apple Music only, so this row is deliberately not all-yes.
   tidal: { connect: true, events: false, sync: true, transferIn: true, importFrom: true },
   deezer: { connect: false, events: false, sync: false, transferIn: false, importFrom: true },
-  youtube: { connect: false, events: false, sync: false, transferIn: false, importFrom: true },
+  // Connects like TIDAL, and a public playlist link still imports without signing in.
+  youtube: { connect: true, events: false, sync: true, transferIn: true, importFrom: true },
 };
-
-const ALL_SERVICES = [...CONNECT_SERVICES, ...LINK_SERVICES];
 
 /** Entry ids double as URL fragments, so other pages can link to one answer. */
 export const FAQ_ENTRY_IDS = [

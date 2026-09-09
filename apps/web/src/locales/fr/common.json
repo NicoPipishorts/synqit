@@ -1190,6 +1190,7 @@
         "sticker": "Sans compte",
         "title": "Collez un lien, gardez la playlist",
         "body": "Une playlist repérée ailleurs ? Collez son lien public et Synqit la reconstruit dans le service que vous avez connecté.",
+        "note": "YouTube Music figure sur les deux cartes : connectez-le pour travailler dans votre propre bibliothèque, ou collez le lien d'une playlist YouTube publique sans vous connecter.",
         "point1": "Import à sens unique : vers votre bibliothèque, jamais dans l'autre sens",
         "point2": "Les sources qui portent un identifiant d'enregistrement, comme Deezer, correspondent titre pour titre",
         "point3": "Les sources qui ne donnent qu'un titre, comme YouTube, peuvent choisir une autre version",

@@ -34,6 +34,16 @@ import {
   searchTidalTracks,
 } from './tidal-api';
 import { withTidalAccessTokenRetry } from './tidal-client';
+import { isYoutubeOauthLiveMode } from './youtube';
+import {
+  addYoutubeTracksToPlaylist,
+  createYoutubePlaylist,
+  listYoutubePlaylistTracks,
+  listYoutubeUserPlaylists,
+  removeYoutubeTrackFromPlaylist,
+  searchYoutubeTracks,
+} from './youtube-api';
+import { withYoutubeAccessTokenRetry } from './youtube-client';
 
 /**
  * One shape for every music service the app writes to.
@@ -43,8 +53,8 @@ import { withTidalAccessTokenRetry } from './tidal-client';
  * list is a compile-time exhaustive record, so adding a service is additive.
  *
  * Each adapter takes a `userId` and resolves its own credentials, because the
- * three services authenticate differently: Spotify refreshes an OAuth token,
- * Apple pairs a developer token with a music-user token, TIDAL uses PKCE.
+ * services authenticate differently: Spotify and YouTube refresh an OAuth
+ * token, Apple pairs a developer token with a music-user token, TIDAL uses PKCE.
  */
 
 export type ProviderTrack = {
@@ -310,11 +320,64 @@ const tidalAdapter: ProviderAdapter = {
   },
 };
 
+const youtubeAdapter: ProviderAdapter = {
+  id: 'youtube',
+  label: 'YouTube Music',
+  isLiveMode: isYoutubeOauthLiveMode,
+  supportsEvents: false,
+  listUserPlaylists: async ({ userId, limit, offset }) => {
+    const { result } = await withYoutubeAccessTokenRetry({
+      userId,
+      run: (accessToken) => listYoutubeUserPlaylists({ accessToken, limit, offset }),
+    });
+    return result;
+  },
+  listPlaylistTracks: async ({ userId, providerPlaylistId }) => {
+    const { result } = await withYoutubeAccessTokenRetry({
+      userId,
+      run: (accessToken) => listYoutubePlaylistTracks({ accessToken, providerPlaylistId }),
+    });
+    return result;
+  },
+  createPlaylist: async ({ userId, name, description }) => {
+    const { result } = await withYoutubeAccessTokenRetry({
+      userId,
+      run: (accessToken) => createYoutubePlaylist({ accessToken, name, description }),
+    });
+    return result.providerPlaylistId;
+  },
+  addTracks: async ({ userId, providerPlaylistId, providerTrackIds }) => {
+    await withYoutubeAccessTokenRetry({
+      userId,
+      run: (accessToken) =>
+        addYoutubeTracksToPlaylist({ accessToken, providerPlaylistId, providerTrackIds }),
+    });
+  },
+  removeTrack: async ({ userId, providerPlaylistId, providerTrackId }) => {
+    await withYoutubeAccessTokenRetry({
+      userId,
+      run: (accessToken) =>
+        removeYoutubeTrackFromPlaylist({ accessToken, providerPlaylistId, providerTrackId }),
+    });
+  },
+  searchTracks: async ({ userId, query, limit }) => {
+    const { result } = await withYoutubeAccessTokenRetry({
+      userId,
+      run: (accessToken) => searchYoutubeTracks({ accessToken, query, limit }),
+    });
+    return result;
+  },
+  // YouTube exposes no recording ids, so exact matching is impossible; the
+  // caller falls back to text search.
+  findTrackByIsrc: async () => null,
+};
+
 /** Exhaustive by construction: a new Provider fails to compile until added. */
 export const PROVIDER_ADAPTERS: Record<Provider, ProviderAdapter> = {
   spotify: spotifyAdapter,
   apple: appleAdapter,
   tidal: tidalAdapter,
+  youtube: youtubeAdapter,
 };
 
 export const getProviderAdapter = (provider: Provider): ProviderAdapter =>
