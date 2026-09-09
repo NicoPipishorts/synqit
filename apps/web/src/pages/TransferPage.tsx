@@ -614,7 +614,7 @@ export const TransferPage = () => {
             initial="enter"
             animate="center"
             exit="exit"
-            className="grid gap-6"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-6"
           >
             <div className="grid gap-1 px-1">
               <h2 className="text-2xl font-black text-brand-dark dark:text-brand-white">
@@ -730,7 +730,7 @@ export const TransferPage = () => {
                     />
                   </div>
                 ) : (
-                  <div className="grid gap-4 overflow-hidden">
+                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4 overflow-hidden">
                     {/* No box around it: the card it sits in is already one,
                         and a frame inside a frame made the header read as a
                         separate thing from the list it belongs to. */}
@@ -786,7 +786,7 @@ export const TransferPage = () => {
                       </CTAButton>
                     </div>
 
-                    <div className="grid max-h-[calc(5*4.5rem+1.5rem)] gap-2 overflow-y-auto sm:pr-1">
+                    <div className="grid max-h-[calc(5*4.5rem+1.5rem)] min-w-0 grid-cols-[minmax(0,1fr)] gap-2 overflow-y-auto scrollbar-none sm:pr-1">
                       {selectedPlaylistTracksQuery.isLoading ? (
                         Array.from({ length: 6 }).map((_, index) => (
                           <div
@@ -810,7 +810,7 @@ export const TransferPage = () => {
             ) : null}
 
             {step === 3 && sourceProvider !== null && destinationProvider !== null ? (
-              <div className="grid gap-4">
+              <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
                 {transferWarnings}
 
                 {/* No summary panel: the dark header below already carries the
@@ -883,7 +883,7 @@ export const TransferPage = () => {
                   </div>
                 ) : null}
 
-                <article className="grid gap-3 sm:rounded-2xl sm:border-2 sm:border-app-text sm:bg-app-surface sm:p-4 sm:shadow-sticker-sm sm:dark:bg-app-elevated">
+                <article className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 sm:rounded-2xl sm:border-2 sm:border-app-text sm:bg-app-surface sm:p-4 sm:shadow-sticker-sm sm:dark:bg-app-elevated">
                   <AnimatePresence>
                     {transferAnimationComplete ? (
                       <motion.div

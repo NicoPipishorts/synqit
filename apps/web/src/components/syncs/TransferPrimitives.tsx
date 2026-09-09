@@ -185,8 +185,8 @@ export const TransferViewport = ({
 
   if (transferComplete) {
     return (
-      <div className="max-h-[min(70svh,38rem)] overflow-y-auto sm:rounded-[1.75rem] sm:border sm:border-app-border sm:bg-app-surface/70 sm:p-3">
-        <div className="grid gap-2">
+      <div className="max-h-[min(70svh,38rem)] min-w-0 overflow-y-auto scrollbar-none sm:rounded-[1.75rem] sm:border sm:border-app-border sm:bg-app-surface/70 sm:p-3">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2">
           {tracks.map((track, index) => (
             <PlaylistTrackRow
               key={`${track.providerTrackId}-${index}`}
@@ -200,15 +200,19 @@ export const TransferViewport = ({
   }
 
   return (
-    <div className="sm:rounded-[1.75rem] sm:border sm:border-app-border sm:bg-app-surface/70 sm:p-3">
-      <div className="overflow-hidden" style={{ height: viewportHeight }}>
+    <div className="min-w-0 sm:rounded-[1.75rem] sm:border sm:border-app-border sm:bg-app-surface/70 sm:p-3">
+      <div className="min-w-0 overflow-hidden" style={{ height: viewportHeight }}>
         <motion.div
           animate={{ y: -y }}
           transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-          className="grid gap-2"
+          className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2"
         >
           {tracks.map((track, index) => (
-            <div key={`${track.providerTrackId}-${index}`} style={{ height: TRANSFER_ROW_HEIGHT }}>
+            <div
+              key={`${track.providerTrackId}-${index}`}
+              className="min-w-0"
+              style={{ height: TRANSFER_ROW_HEIGHT }}
+            >
               <PlaylistTrackRow
                 track={track}
                 state={

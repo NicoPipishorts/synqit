@@ -536,7 +536,7 @@ export const TransferLinkPage = () => {
                   </p>
                 ) : null}
 
-                <div className="grid max-h-[calc(5*4.5rem+1.5rem)] gap-2 overflow-y-auto pr-1">
+                <div className="grid max-h-[calc(5*4.5rem+1.5rem)] min-w-0 grid-cols-[minmax(0,1fr)] gap-2 overflow-y-auto scrollbar-none sm:pr-1">
                   {preview.tracks.map((track, index) => (
                     <PlaylistTrackRow
                       key={`${track.isrc ?? track.name}-${index}`}
