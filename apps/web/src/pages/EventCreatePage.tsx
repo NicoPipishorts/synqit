@@ -231,17 +231,17 @@ export const EventCreatePage = () => {
         }
 
         const popupResult = await openProviderOauthPopup({
-          provider: 'spotify',
+          provider: selectedProvider,
           nextPath: '/auth/provider-connected',
         });
         await queryClient.invalidateQueries({ queryKey: queryKeys.integrations.all() });
         const snapshot = queryClient.getQueryData<Record<Provider, ProviderIntegrationStatus>>(
           queryKeys.integrations.list(),
         );
-        if (snapshot?.spotify === 'connected' || popupResult === 'connected') {
+        if (snapshot?.[selectedProvider] === 'connected' || popupResult === 'connected') {
           showToast(
             t('profile.connectionConnected', {
-              provider: PROVIDER_LABELS.spotify,
+              provider: PROVIDER_LABELS[selectedProvider],
             }),
             { variant: 'success' },
           );
@@ -256,7 +256,7 @@ export const EventCreatePage = () => {
         if (popupResult === 'blocked' || popupResult === 'error' || popupResult === 'timeout') {
           showToast(
             t('profile.connectionFailed', {
-              provider: PROVIDER_LABELS.spotify,
+              provider: PROVIDER_LABELS[selectedProvider],
             }),
             { variant: 'error' },
           );
