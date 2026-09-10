@@ -39,6 +39,7 @@ export { Tooltip } from './components/Tooltip';
 export { RouteLoadingScreen } from './components/RouteLoadingScreen';
 
 // Forms
+export { FIELD_CLASS, FIELD_LABEL_CLASS, FIELD_LOCKED_CLASS } from './components/form-classes';
 export { PasswordField, type PasswordFieldProps } from './components/PasswordField';
 export {
   PasswordStrengthMeter,
@@ -65,7 +66,11 @@ export {
   type ServiceLogoProps,
 } from './components/ServiceLogo';
 export { ThemeToggle, type ThemeToggleVariant } from './components/ThemeToggle';
-export { LanguageSwitcher, type LanguageOption } from './components/LanguageSwitcher';
+export {
+  LanguageChoices,
+  LanguageSwitcher,
+  type LanguageOption,
+} from './components/LanguageSwitcher';
 export { PublicNav, type PublicNavItem } from './components/PublicNav';
 export { NAV_BAR_CLASS, NAV_ITEM_CLASS } from './components/nav-classes';
 export { PublicMobileNav, type PublicMobileNavItem } from './components/PublicMobileNav';

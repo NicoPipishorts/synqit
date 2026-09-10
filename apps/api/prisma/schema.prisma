@@ -385,6 +385,29 @@ model playlist_sync_track_activity {
   @@index([sync_id, first_seen_at], map: "idx_playlist_sync_track_activity_sync_id_first_seen_at")
 }
 
+/// Rolled up rather than one row per call: an admin dashboard wants the shape
+/// of the spend, and a party's worth of guest searches would otherwise be a
+/// party's worth of rows.
+model provider_api_usage {
+  id            String   @id
+  /// Midnight UTC of the day being counted.
+  day           DateTime @db.Date
+  provider      String
+  /// events | shared_list | transfer | link_import | account | other
+  domain        String
+  /// search | write | read | auth
+  operation     String
+  request_count Int      @default(0)
+  /// Quota units where the service publishes them (YouTube), else requests.
+  unit_count    Int      @default(0)
+  created_at    DateTime @db.Timestamptz(6)
+  updated_at    DateTime @db.Timestamptz(6)
+
+  @@unique([day, provider, domain, operation], map: "uniq_provider_api_usage_bucket")
+  @@index([day], map: "idx_provider_api_usage_day")
+  @@index([provider], map: "idx_provider_api_usage_provider")
+}
+
 model notification_runs {
   id         String   @id
   kind       String

@@ -5,6 +5,7 @@ import { syncsStore, type SyncImportRecord, type SyncWithImportsRecord } from '.
 import { buildTrackFingerprint } from './track-fingerprint';
 import { mapProviderApiError } from '../integrations/provider-errors';
 import { getProviderAdapter, getProviderLabel } from '../integrations/provider-registry';
+import { withUsageDomain } from '../integrations/provider-usage';
 import { isSpotifyOauthLiveMode } from '../integrations/spotify';
 import { IntegrationError, withSpotifyAccessTokenRetry } from '../integrations/spotify-client';
 import { getSpotifyPlaylistSummary } from '../integrations/spotify-playlists';
@@ -496,7 +497,11 @@ const syncImportBackToSource = async (params: {
   };
 };
 
-export const runAutoSyncCycle = async (logger: Logger): Promise<void> => {
+export const runAutoSyncCycle = async (logger: Logger): Promise<void> =>
+  // A scheduler tick has no request to inherit an owner from.
+  withUsageDomain('shared_list', () => runAutoSyncCycleInner(logger));
+
+const runAutoSyncCycleInner = async (logger: Logger): Promise<void> => {
   const syncs = await syncsStore.listSyncsForAutoSync();
   logger.info({ syncCount: syncs.length }, '[api][poll] automatic sync tick');
 

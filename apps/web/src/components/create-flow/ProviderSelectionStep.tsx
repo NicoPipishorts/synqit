@@ -48,7 +48,18 @@ export const ProviderSelectionStep = <P extends Provider>({
       <p className="mx-auto max-w-[70%] text-center text-sm text-app-text-secondary sm:max-w-[50%]">
         {body}
       </p>
-      <div className="mt-5 flex items-center justify-center gap-6 sm:gap-8">
+      {/* Four marks in a row are 456px wide before the gaps, so a phone cut the
+          outer two off. They wrap two-up until one is picked, at which point
+          the lone survivor centres itself. */}
+      <div
+        className={`mt-5 gap-6 sm:flex sm:items-center sm:justify-center sm:gap-8 ${
+          provider === null
+            ? 'grid grid-cols-2 place-items-center'
+            : // Wrapping matters for the moment in between: the others are still
+              // fading out when this switches, and four in a row overflow a phone.
+              'flex flex-wrap justify-center'
+        }`}
+      >
         <AnimatePresence initial={false}>
           {providers.map((value) => {
             const isSelected = provider === value;

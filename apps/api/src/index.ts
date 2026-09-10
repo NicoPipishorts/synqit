@@ -10,6 +10,11 @@ import { EnvValidationError, healthResponseSchema } from '@synqit/shared';
 import Fastify from 'fastify';
 
 import { registerAdminRoutes } from './admin/routes';
+import {
+  bufferProviderUsage,
+  startProviderUsageFlusher,
+  stopProviderUsageFlusher,
+} from './analytics/provider-usage-store';
 import { registerAnalyticsRoutes } from './analytics/routes';
 import { registerAuthRoutes } from './auth/routes';
 import { hasValidCsrfToken, shouldEnforceCsrfForRequest } from './auth/session-cookies';
@@ -17,6 +22,7 @@ import { loadApiConfig } from './config';
 import { registerDashboardRoutes } from './dashboard/routes';
 import { initializeDatabase } from './db';
 import { registerEventRoutes } from './events/routes';
+import { setProviderUsageSink, withUsageDomain } from './integrations/provider-usage';
 import { registerIntegrationRoutes } from './integrations/routes';
 import { startAccountDeletionScheduler } from './jobs/account-deletion';
 import { closeNotificationsQueue } from './jobs/notifications-queue';
@@ -167,6 +173,25 @@ export const buildServer = async () => {
     exposeWithoutToken: !config.strictSecrets,
   });
 
+  // Which part of the product a request belongs to, read wherever a provider
+  // call lands. Set once here rather than threaded through every handler: the
+  // store follows the async chain from this hook to the socket.
+  app.addHook('onRequest', (request, _reply, done) => {
+    const url = request.url;
+    const domain = url.startsWith('/v1/syncs/external')
+      ? 'link_import'
+      : url.startsWith('/v1/transfers')
+        ? 'transfer'
+        : url.startsWith('/v1/syncs')
+          ? 'shared_list'
+          : url.startsWith('/v1/playlists')
+            ? 'events'
+            : url.startsWith('/v1/integrations') || url.startsWith('/v1/auth')
+              ? 'account'
+              : 'other';
+    withUsageDomain(domain, done);
+  });
+
   app.register(
     async (v1) => {
       await registerAuthRoutes(v1);
@@ -206,6 +231,10 @@ export const start = async () => {
 
   try {
     await app.listen({ port: PORT, host: HOST });
+    // Counters land in memory and are flushed on a timer, so no provider call
+    // ever waits on a write of its own bookkeeping.
+    setProviderUsageSink(bufferProviderUsage);
+    startProviderUsageFlusher();
     stopAutoSyncScheduler = startAutoSyncScheduler(app.log);
     stopAccountDeletionScheduler = startAccountDeletionScheduler(app.log);
     stopWeeklyRecapScheduler = startWeeklyRecapScheduler(app.log);
@@ -216,6 +245,7 @@ export const start = async () => {
   }
 
   const shutdown = async () => {
+    stopProviderUsageFlusher();
     stopAutoSyncScheduler?.();
     stopAccountDeletionScheduler?.();
     stopWeeklyRecapScheduler?.();

@@ -37,6 +37,56 @@ type MenuPlacement = {
 
 const INITIAL_PLACEMENT: MenuPlacement = { openUp: false, align: 'center', isPlaced: false };
 
+type LanguageChoicesProps<L extends string> = {
+  value: L;
+  options: readonly LanguageOption<L>[];
+  onChange: (locale: L) => void;
+  /** Builds the accessible label of an option from its name. */
+  selectLabel?: (name: string) => string;
+  className?: string;
+};
+
+/**
+ * Every locale on show at once, for surfaces with room for them — the profile's
+ * preferences card, where the language is a setting being read rather than a
+ * control being hunted for. The menu form stays for the places with room for
+ * one flag.
+ */
+export const LanguageChoices = <L extends string>({
+  value,
+  options,
+  onChange,
+  selectLabel = (name) => name,
+  className,
+}: LanguageChoicesProps<L>) => (
+  <div className={cn('flex items-center gap-2', className)} role="radiogroup">
+    {options.map((option) => {
+      const isActive = option.locale === value;
+      return (
+        <button
+          key={option.locale}
+          type="button"
+          role="radio"
+          aria-checked={isActive}
+          aria-label={selectLabel(option.name)}
+          title={option.name}
+          onClick={() => onChange(option.locale)}
+          className={cn(
+            'inline-flex cursor-pointer items-center justify-center rounded-full p-1 transition focus-ring-brand',
+            // Colour is the whole signal, the way the service marks work: the
+            // chosen flag is the one in colour, with no pill around it.
+            isActive ? 'scale-110' : 'opacity-55 grayscale hover:opacity-100 hover:grayscale-0',
+          )}
+        >
+          <span className={FLAG_FRAME_CLASS}>
+            <img src={option.iconSrc} alt="" className={FLAG_IMAGE_CLASS} />
+          </span>
+        </button>
+      );
+    })}
+  </div>
+);
+
 /** Flag dropdown for switching locale. Controlled: apps own the locale state. */
 export const LanguageSwitcher = <L extends string>({
   value,

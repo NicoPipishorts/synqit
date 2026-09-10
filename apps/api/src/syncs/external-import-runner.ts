@@ -10,6 +10,7 @@ import {
 import { externalImportsStore, type ExternalImportRecord } from './external-imports-store';
 import { fetchExternalPlaylist, ExternalSourceError } from './external-sources';
 import { getProviderLabel } from '../integrations/provider-registry';
+import { withUsageDomain } from '../integrations/provider-usage';
 import { IntegrationError } from '../integrations/spotify-client';
 import { ProviderApiError } from '../integrations/spotify-tracks';
 
@@ -65,6 +66,14 @@ const describeError = (error: unknown): string => {
 };
 
 export const runExternalImport = async (
+  importId: string,
+  logger: FastifyBaseLogger,
+): Promise<ExternalImportRecord | null> =>
+  // Started from a request but finished in the background, so it carries its
+  // own owner rather than whatever async context outlives the response.
+  withUsageDomain('link_import', () => runExternalImportInner(importId, logger));
+
+const runExternalImportInner = async (
   importId: string,
   logger: FastifyBaseLogger,
 ): Promise<ExternalImportRecord | null> => {

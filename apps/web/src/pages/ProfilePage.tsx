@@ -14,7 +14,7 @@ import { type ReactNode, ChangeEvent, DragEvent, useRef, useState } from 'react'
 
 import { AppPageLayout } from '../components/app/AppPageLayout';
 import { CTAButton, CTALink } from '../components/ui/cta';
-import { LanguageSwitcher } from '../components/ui/LanguageSwitcher';
+import { LanguageChoices, LanguageSwitcher } from '../components/ui/LanguageSwitcher';
 import { Modal } from '../components/ui/Modal';
 import { ThemeToggle } from '../components/ui/ThemeToggle';
 import { useAuthSession } from '../hooks/useAuthSession';
@@ -202,12 +202,12 @@ export const ProfilePage = () => {
               {t('profile.pill')}
             </Sticker>
             <h1 className="text-3xl font-black leading-[1.02] tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-              {t('profile.pageTitle')}
+              {isProfileComplete ? t('profile.readyTitle') : t('profile.pageTitle')}
             </h1>
-            <p className="text-sm text-app-text-secondary sm:text-base">
-              {t('profile.pageDescription')}
-            </p>
-            <p className="text-sm text-app-text-secondary">
+            {/* No blurb under the title: the panel below says the same thing at
+                more length. The address is the one fact the header carries that
+                nothing else does, so it stands on its own weight. */}
+            <p className="text-sm font-bold text-app-text sm:text-base">
               {auth ? auth.userEmail : t('profile.notLoggedIn')}
             </p>
           </div>
@@ -252,7 +252,6 @@ export const ProfilePage = () => {
       {isProfileComplete ? (
         <OnboardingPanel
           eyebrow={t('profile.readyEyebrow')}
-          title={t('profile.readyTitle')}
           body={t('profile.readyBody')}
           icon={<Sparkles size={24} aria-hidden="true" />}
           actions={
@@ -263,7 +262,7 @@ export const ProfilePage = () => {
                 size="lg"
                 className="justify-center"
               >
-                {t('profile.readyCtaPreferences')}
+                {t('profile.readyCtaPersonalInfo')}
               </CTALink>
               <CTALink
                 to="/profile/security"
@@ -363,8 +362,11 @@ export const ProfilePage = () => {
             <p className="text-xs font-semibold uppercase tracking-wide text-app-text-secondary">
               {t('profile.preferencesLanguageLabel')}
             </p>
+            {/* Room enough on a desktop to show the languages rather than hide
+                them behind a flag that has to be opened to be read. */}
             <div className="flex items-center">
-              <LanguageSwitcher />
+              <LanguageChoices className="hidden sm:flex" />
+              <LanguageSwitcher className="sm:hidden" />
             </div>
           </div>
         </div>

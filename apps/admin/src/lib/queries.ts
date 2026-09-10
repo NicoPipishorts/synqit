@@ -1,6 +1,7 @@
 import {
   adminAnalyticsOverviewResponseSchema,
   adminProviderSettingsResponseSchema,
+  adminProviderUsageResponseSchema,
   type AdminProviderSettingsResponse,
   type Provider,
   adminAnalyticsUserDetailResponseSchema,
@@ -22,6 +23,7 @@ export const adminQueryKeys = {
   analyticsOverview: (filters: AnalyticsFilters) =>
     ['admin', 'analytics', 'overview', filters] as const,
   providerSettings: () => ['admin', 'settings', 'providers'] as const,
+  providerUsage: (range: string) => ['admin', 'analytics', 'providers', range] as const,
 };
 
 export const adminUsersQueryOptions = () =>
@@ -60,6 +62,17 @@ export const adminAnalyticsOverviewQueryOptions = (filters: AnalyticsFilters) =>
         `/v1/admin/analytics/overview?${buildOverviewSearch(filters)}`,
         { method: 'GET' },
         (payload) => adminAnalyticsOverviewResponseSchema.parse(payload),
+      ),
+  });
+
+export const adminProviderUsageQueryOptions = (range: AnalyticsFilters['range']) =>
+  queryOptions({
+    queryKey: adminQueryKeys.providerUsage(range),
+    queryFn: () =>
+      callApi(
+        `/v1/admin/analytics/providers?range=${encodeURIComponent(range)}`,
+        { method: 'GET' },
+        (payload) => adminProviderUsageResponseSchema.parse(payload),
       ),
   });
 
