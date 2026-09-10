@@ -5,6 +5,7 @@ import {
   Activity,
   ArrowLeft,
   BarChart3,
+  Gauge,
   LayoutDashboard,
   ListMusic,
   LogOut,
@@ -36,6 +37,12 @@ const NAV_ITEMS = [
     icon: BarChart3,
     labelKey: 'admin.navAnalytics',
     matches: (pathname: string) => pathname === '/analytics',
+  },
+  {
+    to: '/analytics/providers',
+    icon: Gauge,
+    labelKey: 'admin.navProviderUsage',
+    matches: (pathname: string) => pathname === '/analytics/providers',
   },
   {
     to: '/emails',

@@ -4,6 +4,7 @@ import {
   adminAnalyticsOverviewRangeSchema,
   analyticsTargetSchema,
   adminAnalyticsOverviewResponseSchema,
+  adminProviderUsageResponseSchema,
   adminAnalyticsUserDetailResponseSchema,
   adminAnalyticsUsersListResponseSchema,
   adminLoginRequestSchema,
@@ -36,6 +37,8 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 
+import { readProviderMix } from '../analytics/provider-mix-store';
+import { flushProviderUsage, readProviderUsage } from '../analytics/provider-usage-store';
 import { buildAvatarUrl, deleteAvatarImage } from '../auth/avatar-storage';
 import { createRefreshToken, hashToken, verifyPassword } from '../auth/crypto';
 import {
@@ -78,6 +81,20 @@ const adminEventAnalyticsParamsSchema = z.object({
 const adminUserAnalyticsParamsSchema = z.object({
   userId: z.string().uuid(),
 });
+
+/** The overview's ranges, in days; 'all' is capped at the widest of them. */
+const ANALYTICS_RANGE_DAYS = {
+  '24h': 1,
+  '7d': 7,
+  '14d': 14,
+  '30d': 30,
+  '45d': 45,
+  '90d': 90,
+  all: 365,
+} as const;
+
+/** Google's default daily allowance, for reading a day's units against. */
+const YOUTUBE_DAILY_QUOTA_UNITS = 10_000;
 
 const adminAnalyticsOverviewQuerySchema = z.object({
   range: adminAnalyticsOverviewRangeSchema.optional().default('24h'),
@@ -706,6 +723,49 @@ export const registerAdminRoutes = async (app: FastifyInstance): Promise<void> =
         updatedAt: row.updated_at.toISOString(),
       })),
     });
+  });
+
+  // GET /admin/analytics/providers — what each service's API cost us, and
+  // which services people move between. Same access scope as the rest of
+  // analytics.
+  app.get('/admin/analytics/providers', async (request, reply) => {
+    const access = await resolveAdminAccess(request, reply, {
+      scope: 'analytics',
+      level: 'read',
+    });
+    if (!access) {
+      return;
+    }
+
+    const parsedQuery = adminAnalyticsOverviewQuerySchema.safeParse(request.query ?? {});
+    if (!parsedQuery.success) {
+      reply.status(400);
+      return { code: 'invalid_request', message: 'Invalid analytics range.' };
+    }
+
+    // 'all' is not unbounded here: usage only starts the day it was first
+    // counted, so the widest window the page offers is enough.
+    const rangeDays = ANALYTICS_RANGE_DAYS[parsedQuery.data.range];
+    const since = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+
+    // Anything still buffered belongs on the page the operator is looking at.
+    await flushProviderUsage();
+    const [usage, mix] = await Promise.all([
+      readProviderUsage({ since }),
+      readProviderMix({ since }),
+    ]);
+
+    return reply.send(
+      adminProviderUsageResponseSchema.parse({
+        rangeDays,
+        usage: usage.rows,
+        usageByDay: usage.byDay,
+        transferLanes: mix.transferLanes,
+        eventProviders: mix.eventProviders,
+        subscriptionLanes: mix.subscriptionLanes,
+        youtubeDailyQuotaUnits: YOUTUBE_DAILY_QUOTA_UNITS,
+      }),
+    );
   });
 
   app.get('/admin/analytics/overview', async (request, reply) => {

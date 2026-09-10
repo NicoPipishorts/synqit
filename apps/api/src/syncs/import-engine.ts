@@ -12,6 +12,7 @@ import {
 } from '../integrations/apple-music';
 import { getProviderAdapter } from '../integrations/provider-registry';
 import { mapWithConcurrency, withProviderRetry } from '../integrations/provider-throttle';
+import { recordProviderCall } from '../integrations/provider-usage';
 import { isSpotifyOauthLiveMode } from '../integrations/spotify';
 import { withSpotifyAccessTokenRetry } from '../integrations/spotify-client';
 import { createSpotifyPlaylist } from '../integrations/spotify-playlists';
@@ -168,6 +169,14 @@ export const importSyncForRecipient = async (params: {
   const findByIsrc = async (
     isrc: string,
   ): Promise<{ providerTrackId: string; name: string; artist: string } | null> => {
+    // Counted here rather than by the registry: this path holds its own
+    // credentials and calls the services directly.
+    if (recipientCredentials.provider !== 'youtube') {
+      recordProviderCall({
+        provider: recipientProvider,
+        operation: recipientCredentials.provider === 'spotify' ? 'search' : 'read',
+      });
+    }
     if (recipientCredentials.provider === 'youtube') {
       // YouTube exposes no recording ids at all.
       return null;
@@ -194,6 +203,7 @@ export const importSyncForRecipient = async (params: {
   };
 
   const searchCandidates = async (query: string) => {
+    recordProviderCall({ provider: recipientProvider, operation: 'search' });
     if (recipientCredentials.provider === 'youtube') {
       return recipientCredentials.accessToken
         ? searchYoutubeTracks({
@@ -327,6 +337,7 @@ export const importSyncForRecipient = async (params: {
     const { accessToken } = recipientCredentials;
     if (accessToken) {
       if (!recipientProviderPlaylistId) {
+        recordProviderCall({ provider: 'youtube', operation: 'write' });
         const created = await createYoutubePlaylist({ accessToken, name: playlistName });
         recipientProviderPlaylistId = created.providerPlaylistId;
         await syncsStore.upsertImport({
@@ -345,6 +356,11 @@ export const importSyncForRecipient = async (params: {
       // and checkpoint on failure, so the retry after the quota resets tops
       // the playlist up instead of starting over.
       try {
+        recordProviderCall({
+          provider: 'youtube',
+          operation: 'write',
+          requests: providerTrackIds.length,
+        });
         await addYoutubeTracksToPlaylist({
           accessToken,
           providerPlaylistId: recipientProviderPlaylistId,
@@ -371,6 +387,7 @@ export const importSyncForRecipient = async (params: {
     const { accessToken } = recipientCredentials;
     if (accessToken) {
       if (!recipientProviderPlaylistId) {
+        recordProviderCall({ provider: 'tidal', operation: 'write' });
         const created = await createTidalPlaylist({ accessToken, name: playlistName });
         recipientProviderPlaylistId = created.providerPlaylistId;
         await syncsStore.upsertImport({
@@ -386,6 +403,7 @@ export const importSyncForRecipient = async (params: {
 
       // TIDAL's add endpoint has no partial-success payload, so on success
       // every requested id counts as added.
+      recordProviderCall({ provider: 'tidal', operation: 'write' });
       await addTidalTracksToPlaylist({
         accessToken,
         providerPlaylistId: recipientProviderPlaylistId,
@@ -397,6 +415,7 @@ export const importSyncForRecipient = async (params: {
     const { accessToken } = recipientCredentials;
     if (accessToken) {
       if (!recipientProviderPlaylistId) {
+        recordProviderCall({ provider: 'spotify', operation: 'write' });
         const created = await createSpotifyPlaylist({
           accessToken,
           name: playlistName,
@@ -416,6 +435,7 @@ export const importSyncForRecipient = async (params: {
         });
       }
 
+      recordProviderCall({ provider: 'spotify', operation: 'write' });
       const { addedTrackIds } = await addSpotifyTracksToPlaylist({
         accessToken,
         providerPlaylistId: recipientProviderPlaylistId,
@@ -426,6 +446,7 @@ export const importSyncForRecipient = async (params: {
   } else {
     const { tokens } = recipientCredentials;
     if (!recipientProviderPlaylistId) {
+      recordProviderCall({ provider: 'apple', operation: 'write' });
       const created = await createAppleLibraryPlaylist({
         ...tokens,
         name: playlistName,
@@ -443,6 +464,7 @@ export const importSyncForRecipient = async (params: {
       });
     }
 
+    recordProviderCall({ provider: 'apple', operation: 'write' });
     const { addedTrackIds } = await addAppleTracksToPlaylist({
       ...tokens,
       providerPlaylistId: recipientProviderPlaylistId,

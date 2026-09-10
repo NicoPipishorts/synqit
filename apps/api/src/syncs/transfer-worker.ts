@@ -6,6 +6,7 @@ import { importSyncForRecipient } from './import-engine';
 import { syncsStore } from './store';
 import { transfersStore } from './transfer-store';
 import { mapProviderApiError } from '../integrations/provider-errors';
+import { withUsageDomain } from '../integrations/provider-usage';
 import { ProviderApiError } from '../integrations/spotify-tracks';
 import { createTransfersConnection } from '../jobs/transfers-queue';
 
@@ -31,7 +32,10 @@ const describeError = (error: unknown): string => {
 };
 
 /** Exported for the regression suite, which drives it without a live queue. */
-export const processTransferPlaylistJob = async (job: TransferJobLike): Promise<void> => {
+export const processTransferPlaylistJob = async (job: TransferJobLike): Promise<void> =>
+  withUsageDomain('transfer', () => runTransferPlaylistJob(job));
+
+const runTransferPlaylistJob = async (job: TransferJobLike): Promise<void> => {
   const payload = transferPlaylistJobSchema.parse(job.data);
   const item = await transfersStore.findItem(payload.itemId);
   if (!item) {

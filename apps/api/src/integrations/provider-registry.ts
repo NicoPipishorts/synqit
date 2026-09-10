@@ -14,6 +14,7 @@ import {
   removeAppleTrackFromPlaylist,
   searchAppleCatalogTracks,
 } from './apple-music';
+import { recordProviderCall, type UsageOperation } from './provider-usage';
 import { isSpotifyOauthLiveMode } from './spotify';
 import { withSpotifyAccessTokenRetry } from './spotify-client';
 import { createSpotifyPlaylist, listSpotifyUserPlaylists } from './spotify-playlists';
@@ -430,12 +431,72 @@ const youtubeAdapter: ProviderAdapter = {
   findTrackByIsrc: async () => null,
 };
 
+/**
+ * Counts what each adapter call costs its service, so the admin panel can show
+ * where a day's quota went. Wrapped here rather than at the HTTP layer because
+ * this is where a call still knows what it *is*: an insert and a search are the
+ * same POST to a socket, and 100 units apart to Google.
+ *
+ * `addTracks` stands for one insert per track, which is the difference between
+ * a playlist costing 50 units and 5,000.
+ */
+const withUsageAccounting = (adapter: ProviderAdapter): ProviderAdapter => {
+  const count = (operation: UsageOperation, requests = 1) =>
+    recordProviderCall({ provider: adapter.id, operation, requests });
+
+  return {
+    ...adapter,
+    listUserPlaylists: (params) => {
+      count('read');
+      return adapter.listUserPlaylists(params);
+    },
+    listPlaylistTracks: (params) => {
+      count('read');
+      return adapter.listPlaylistTracks(params);
+    },
+    createPlaylist: (params) => {
+      count('write');
+      return adapter.createPlaylist(params);
+    },
+    addTracks: (params) => {
+      count('write', params.providerTrackIds.length);
+      return adapter.addTracks(params);
+    },
+    addTrack: (params) => {
+      count('write');
+      return adapter.addTrack(params);
+    },
+    removeTrack: (params) => {
+      count('write');
+      return adapter.removeTrack(params);
+    },
+    searchTracks: (params) => {
+      count('search');
+      return adapter.searchTracks(params);
+    },
+    findTrackByIsrc: (params) => {
+      // Spotify has no ISRC endpoint and spends a search on it; the others
+      // filter a catalogue read, and YouTube never calls out at all.
+      if (adapter.id !== 'youtube') {
+        count(adapter.id === 'spotify' ? 'search' : 'read');
+      }
+      return adapter.findTrackByIsrc(params);
+    },
+    getPlaylistDetails: adapter.getPlaylistDetails
+      ? (params) => {
+          count('read');
+          return adapter.getPlaylistDetails!(params);
+        }
+      : undefined,
+  };
+};
+
 /** Exhaustive by construction: a new Provider fails to compile until added. */
 export const PROVIDER_ADAPTERS: Record<Provider, ProviderAdapter> = {
-  spotify: spotifyAdapter,
-  apple: appleAdapter,
-  tidal: tidalAdapter,
-  youtube: youtubeAdapter,
+  spotify: withUsageAccounting(spotifyAdapter),
+  apple: withUsageAccounting(appleAdapter),
+  tidal: withUsageAccounting(tidalAdapter),
+  youtube: withUsageAccounting(youtubeAdapter),
 };
 
 export const getProviderAdapter = (provider: Provider): ProviderAdapter =>

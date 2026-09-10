@@ -421,6 +421,67 @@ export type AdminAnalyticsUserDetailResponse = z.infer<
   typeof adminAnalyticsUserDetailResponseSchema
 >;
 
+export const providerUsageDomainSchema = z.enum([
+  'events',
+  'shared_list',
+  'transfer',
+  'link_import',
+  'account',
+  'other',
+]);
+export type ProviderUsageDomain = z.infer<typeof providerUsageDomainSchema>;
+
+export const providerUsageOperationSchema = z.enum(['search', 'write', 'read', 'auth']);
+export type ProviderUsageOperation = z.infer<typeof providerUsageOperationSchema>;
+
+export const adminProviderUsageRowSchema = z.object({
+  provider: z.string(),
+  domain: z.string(),
+  operation: z.string(),
+  requestCount: z.number().int().nonnegative(),
+  /** Quota units where the service publishes them (YouTube), else requests. */
+  unitCount: z.number().int().nonnegative(),
+});
+export type AdminProviderUsageRow = z.infer<typeof adminProviderUsageRowSchema>;
+
+export const adminProviderUsageResponseSchema = z.object({
+  rangeDays: z.number().int().positive(),
+  usage: z.array(adminProviderUsageRowSchema),
+  usageByDay: z.array(
+    z.object({
+      day: z.string(),
+      requests: z.number().int().nonnegative(),
+      units: z.number().int().nonnegative(),
+    }),
+  ),
+  transferLanes: z.array(
+    z.object({
+      sourceProvider: z.string(),
+      destinationProvider: z.string(),
+      playlistCount: z.number().int().nonnegative(),
+      matchedCount: z.number().int().nonnegative(),
+      skippedCount: z.number().int().nonnegative(),
+    }),
+  ),
+  eventProviders: z.array(
+    z.object({
+      provider: z.string(),
+      eventCount: z.number().int().nonnegative(),
+      trackCount: z.number().int().nonnegative(),
+    }),
+  ),
+  subscriptionLanes: z.array(
+    z.object({
+      sourceProvider: z.string(),
+      recipientProvider: z.string(),
+      subscriptionCount: z.number().int().nonnegative(),
+    }),
+  ),
+  /** YouTube's published daily allowance, for reading the units against. */
+  youtubeDailyQuotaUnits: z.number().int().positive(),
+});
+export type AdminProviderUsageResponse = z.infer<typeof adminProviderUsageResponseSchema>;
+
 export const adminAnalyticsOverviewResponseSchema = z.object({
   totals: z.object({
     usersCount: z.number().int().nonnegative(),
