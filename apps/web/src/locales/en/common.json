@@ -50,9 +50,9 @@
     "registerPasswordMissingCriteria": "Your password is still missing: {{criteria}}.",
     "submitting": "Submitting...",
     "authenticated": "Authenticated as {{email}}. Redirecting...",
-    "noAccount": "Haven't shared a playlist yet?",
-    "alreadyAccount": "Already sharing a playlist?",
-    "createOne": "Share one now",
+    "noAccount": "No account yet?",
+    "alreadyAccount": "Already have an account?",
+    "createOne": "Create an account",
     "forgotPassword": "Forgot password?",
     "forgotPasswordTitle": "Reset your password",
     "forgotPasswordDescription": "Enter your account email and we will send you a reset link.",
@@ -355,7 +355,7 @@
     "readyEyebrow": "Profile complete",
     "readyTitle": "Here is your profile.",
     "readyBody": "Everything is in place. From here you can adjust your preferences, change your password, or manage your connected platforms.",
-    "readyCtaPreferences": "Preferences",
+    "readyCtaPersonalInfo": "Personal info",
     "readyCtaPassword": "Password & security",
     "readyCtaConnections": "Connections",
     "linkSourcesTitle": "Deezer and Qobuz don't need connecting",
@@ -985,7 +985,7 @@
   "home": {
     "nav": {
       "product": "Product",
-      "share": "Share a playlist",
+      "share": "Get started",
       "faq": "FAQ"
     },
     "hero": {

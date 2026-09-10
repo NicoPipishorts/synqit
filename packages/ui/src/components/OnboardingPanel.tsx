@@ -13,7 +13,8 @@ export type OnboardingStep = {
 
 type OnboardingPanelProps = {
   eyebrow: string;
-  title: string;
+  /** Optional: a page whose own heading already says it can leave it out. */
+  title?: string;
   body: string;
   icon: ReactNode;
   actions?: ReactNode;
@@ -52,9 +53,11 @@ export const OnboardingPanel = ({
         <Sticker tone="paper" tilt="-rotate-2">
           {eyebrow}
         </Sticker>
-        <p className="max-w-xl text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
-          {title}
-        </p>
+        {title ? (
+          <p className="max-w-xl text-3xl font-black tracking-tight text-brand-dark dark:text-brand-white sm:text-5xl">
+            {title}
+          </p>
+        ) : null}
         <p className="max-w-xl text-sm text-app-text-secondary sm:text-base">{body}</p>
       </div>
 

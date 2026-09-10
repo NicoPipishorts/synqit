@@ -1,5 +1,13 @@
 import { personalInfoResponseSchema } from '@synqit/shared';
-import { NotificationDot, SurfaceCard, Tooltip, useToast } from '@synqit/ui';
+import {
+  FIELD_CLASS,
+  FIELD_LABEL_CLASS,
+  FIELD_LOCKED_CLASS,
+  NotificationDot,
+  SurfaceCard,
+  Tooltip,
+  useToast,
+} from '@synqit/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import countries from 'i18n-iso-countries';
 import enCountryNames from 'i18n-iso-countries/langs/en.json';
@@ -151,6 +159,12 @@ export const ProfilePersonalInfoPage = () => {
     }));
   };
 
+  /** Zero-padded to match what the stored date splits into. */
+  const dayOptions = useMemo(
+    () => Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, '0')),
+    [],
+  );
+
   const monthOptions = useMemo(() => {
     const formatter = new Intl.DateTimeFormat(locale, { month: 'long' });
     return Array.from({ length: 12 }, (_, index) => {
@@ -257,17 +271,17 @@ export const ProfilePersonalInfoPage = () => {
           </div>
         ) : null}
         <form onSubmit={savePersonalInfo} className="grid gap-4 md:grid-cols-2">
-          <label className="grid gap-1 text-sm">
+          <label className={FIELD_LABEL_CLASS}>
             <span>{t('profile.displayNameLabel')}</span>
             <input
               value={draft.displayName}
               onChange={(event) => updateField('displayName', event.target.value)}
               placeholder={t('profile.displayNamePlaceholder')}
               disabled={isLoading || isSaving}
-              className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
+              className={FIELD_CLASS}
             />
           </label>
-          <label className="grid gap-1 text-sm">
+          <label className={FIELD_LABEL_CLASS}>
             <span className="inline-flex items-center gap-1.5">
               {t('profile.emailLabel')}
               <Tooltip
@@ -281,47 +295,50 @@ export const ProfilePersonalInfoPage = () => {
               value={auth?.userEmail ?? ''}
               readOnly
               aria-readonly="true"
-              className="rounded-xl border-2 border-dashed border-app-text/40 bg-app-surface px-3 py-2 text-app-text-secondary outline-none dark:bg-app-elevated"
+              className={FIELD_LOCKED_CLASS}
             />
           </label>
-          <label className="grid gap-1 text-sm">
+          <label className={FIELD_LABEL_CLASS}>
             <span>{t('profile.firstNameLabel')}</span>
             <input
               value={draft.firstName}
               onChange={(event) => updateField('firstName', event.target.value)}
               placeholder={t('profile.firstNamePlaceholder')}
               disabled={isLoading || isSaving}
-              className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
+              className={FIELD_CLASS}
             />
           </label>
-          <label className="grid gap-1 text-sm">
+          <label className={FIELD_LABEL_CLASS}>
             <span>{t('profile.lastNameLabel')}</span>
             <input
               value={draft.lastName}
               onChange={(event) => updateField('lastName', event.target.value)}
               placeholder={t('profile.lastNamePlaceholder')}
               disabled={isLoading || isSaving}
-              className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
+              className={FIELD_CLASS}
             />
           </label>
-          <label className="grid gap-1 text-sm md:col-span-2">
+          <label className={`${FIELD_LABEL_CLASS} md:col-span-2`}>
             <span>{t('profile.birthDateLabel')}</span>
             <div className="grid grid-cols-3 gap-2">
-              <input
-                inputMode="numeric"
+              <select
                 value={draft.birthDay}
-                onChange={(event) =>
-                  updateField('birthDay', event.target.value.replace(/\D/g, '').slice(0, 2))
-                }
-                placeholder={t('profile.birthDayPlaceholder')}
+                onChange={(event) => updateField('birthDay', event.target.value)}
                 disabled={isLoading || isSaving}
-                className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
-              />
+                className={FIELD_CLASS}
+              >
+                <option value="">{t('profile.birthDayPlaceholder')}</option>
+                {dayOptions.map((day) => (
+                  <option key={day} value={day}>
+                    {Number(day)}
+                  </option>
+                ))}
+              </select>
               <select
                 value={draft.birthMonth}
                 onChange={(event) => updateField('birthMonth', event.target.value)}
                 disabled={isLoading || isSaving}
-                className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
+                className={FIELD_CLASS}
               >
                 <option value="">{t('profile.birthMonthPlaceholder')}</option>
                 {monthOptions.map((monthOption) => (
@@ -338,11 +355,11 @@ export const ProfilePersonalInfoPage = () => {
                 }
                 placeholder={t('profile.birthYearPlaceholder')}
                 disabled={isLoading || isSaving}
-                className="rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
+                className={FIELD_CLASS}
               />
             </div>
           </label>
-          <label className="grid gap-1 text-sm">
+          <label className={FIELD_LABEL_CLASS}>
             <span>{t('profile.countryLabel')}</span>
             <div className="relative">
               <input
@@ -359,7 +376,7 @@ export const ProfilePersonalInfoPage = () => {
                 }}
                 placeholder={t('profile.countryPlaceholder')}
                 disabled={isLoading || isSaving}
-                className="w-full rounded-xl border-2 border-app-border-strong bg-app-bg px-3 py-2 text-app-text outline-none transition focus:border-app-text focus:shadow-sticker-sm dark:bg-app-elevated"
+                className={FIELD_CLASS}
               />
               {isCountryMenuOpen ? (
                 <div className="absolute z-[120] mt-1 max-h-32 w-full overflow-auto rounded-xl border-2 border-app-text bg-app-elevated p-1 shadow-sticker-sm dark:bg-app-card">
