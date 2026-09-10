@@ -8,14 +8,15 @@ import {
 import { ReactNode } from 'react';
 
 import en from '../../../web/src/locales/en/common.json';
+import es from '../../../web/src/locales/es/common.json';
 import fr from '../../../web/src/locales/fr/common.json';
 
 // Keep in sync with lib/app-url.ts, which forwards this choice to the app via `?lang=`.
 const LOCALE_STORAGE_KEY = 'synqit.site.locale.v1';
 
-const messages = { en, fr } as const;
+const messages = { en, fr, es } as const;
 export type Locale = keyof typeof messages;
-const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'fr'];
+const SUPPORTED_LOCALES: readonly Locale[] = ['en', 'fr', 'es'];
 
 const detectInitialLocale = (): Locale => {
   const stored = safeStorageGet(LOCALE_STORAGE_KEY);

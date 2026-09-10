@@ -614,4 +614,316 @@ export const privacyDocument: LegalDocumentSet = {
       },
     ],
   },
+
+  es: {
+    title: 'Política de privacidad',
+    subtitle: `Cómo ${ENTITY.brand} recopila, usa y protege tus datos personales.`,
+    updated: LEGAL_UPDATED_AT,
+    tocLabel: 'En esta página',
+    sections: [
+      {
+        id: 'controller',
+        heading: 'Quién es responsable de tus datos',
+        blocks: [
+          {
+            kind: 'p',
+            text: `${ENTITY.brand} está operado por ${ENTITY.publisher}, micro-entreprise francesa inscrita con el SIREN ${ENTITY.siren}, con domicilio en ${ENTITY.address}. Conforme al Reglamento General de Protección de Datos (RGPD), somos el responsable del tratamiento de los datos personales que se describen en esta página.`,
+          },
+          {
+            kind: 'p',
+            text: `Para cualquier cuestión relativa a tus datos, escribe a ${ENTITY.email.privacy}. Respondemos en el plazo de un mes, tal y como exige el RGPD.`,
+          },
+        ],
+      },
+      {
+        id: 'what-we-collect',
+        heading: 'Qué recopilamos',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Solo recopilamos lo que el servicio necesita para funcionar. En Synqit no hay ningún intermediario de datos, ninguna red publicitaria ni ningún rastreador de terceros.',
+          },
+          {
+            kind: 'table',
+            head: ['Categoría', 'Qué contiene', 'De dónde procede'],
+            rows: [
+              [
+                'Cuenta',
+                'Dirección de correo, contraseña cifrada mediante hash, estado de la cuenta, fecha de registro y avatar opcional.',
+                'De ti, al registrarte.',
+              ],
+              [
+                'Perfil',
+                'Nombre público, nombre y apellidos, fecha de nacimiento y país, todos opcionales.',
+                'De ti, si decides rellenarlos.',
+              ],
+              [
+                'Preferencias',
+                'Tema e idioma de la interfaz.',
+                'De ti, desde los ajustes de la aplicación.',
+              ],
+              [
+                'Conexiones con plataformas de música',
+                'Tokens de acceso y de renovación cifrados, los permisos concedidos y su fecha de caducidad. Nunca vemos ni almacenamos tu contraseña de Spotify o de Apple Music.',
+                'De Spotify o de Apple, después de que autorices la conexión.',
+              ],
+              [
+                'Playlists y eventos',
+                'Títulos y ajustes de los eventos, las canciones añadidas, quién las añadió, los seguimientos y las visitas a la página de un evento.',
+                'De ti y, en el caso de un evento, de tus invitados.',
+              ],
+              [
+                'Actividad de sincronización',
+                'Qué playlists sincronizas, con quién, y un registro por canción de lo que se añadió, se encontró o se omitió.',
+                'Se genera al ejecutarse las sincronizaciones.',
+              ],
+              [
+                'Analítica de uso',
+                'Ruta de la página, nombre del evento, referente, idioma y un identificador de sesión aleatorio que solo existe hasta que cierras la pestaña.',
+                'De tu navegador, mientras usas el sitio y la aplicación.',
+              ],
+              [
+                'Registros de seguridad',
+                'Tokens de sesión y de restablecimiento de contraseña cifrados mediante hash y, en las cuentas sobre las que actúa un administrador, un registro de auditoría de la acción y su motivo.',
+                'Se generan automáticamente.',
+              ],
+            ],
+          },
+          {
+            kind: 'note',
+            text: 'No registramos direcciones IP, no aplicamos ninguna huella digital a tu dispositivo y nuestra analítica no instala ninguna cookie. El identificador de sesión es aleatorio, se guarda en sessionStorage y desaparece al cerrar la pestaña: no puede seguirte de una visita a otra ni de un sitio a otro.',
+          },
+        ],
+      },
+      {
+        id: 'why',
+        heading: 'Para qué los usamos y con qué base jurídica',
+        blocks: [
+          {
+            kind: 'table',
+            head: ['Finalidad', 'Base jurídica (art. 6 del RGPD)'],
+            rows: [
+              [
+                'Crear y gestionar tu cuenta, sincronizar playlists y alojar tus eventos.',
+                'Ejecución de nuestro contrato contigo (art. 6.1.b).',
+              ],
+              [
+                'Conectarnos a Spotify o Apple Music en tu nombre.',
+                'Ejecución del contrato: la conexión es el servicio que has solicitado (art. 6.1.b).',
+              ],
+              [
+                'Correos transaccionales: restablecimiento de contraseña, notificaciones de eventos y resultados de sincronización.',
+                'Ejecución del contrato (art. 6.1.b).',
+              ],
+              [
+                'Medir qué páginas y funciones se usan, para poder mejorarlas.',
+                'Nuestro interés legítimo en conocer y mejorar el producto, equilibrado con tu privacidad al mantener la medición anónima y sin cookies (art. 6.1.f).',
+              ],
+              [
+                'Mantener las cuentas seguras, prevenir abusos y conservar una pista de auditoría de administración.',
+                'Nuestro interés legítimo en la seguridad del servicio (art. 6.1.f).',
+              ],
+              [
+                'Cumplir las obligaciones contables y fiscales de los planes de pago.',
+                'Cumplimiento de una obligación legal (art. 6.1.c).',
+              ],
+            ],
+          },
+          {
+            kind: 'p',
+            text: 'Puedes oponerte en cualquier momento a los tratamientos basados en el interés legítimo: consulta «Tus derechos» más abajo.',
+          },
+        ],
+      },
+      {
+        id: 'music-platforms',
+        heading: 'Qué le pedimos a tu plataforma de música',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'La conexión con una plataforma usa OAuth. Autorizas a Synqit en la propia pantalla de Spotify o de Apple; tu contraseña nunca se nos envía. Solicitamos los permisos mínimos que permiten que el producto funcione:',
+          },
+          {
+            kind: 'table',
+            head: ['Plataforma', 'Permisos solicitados', 'Qué permiten'],
+            rows: [
+              [
+                'Spotify',
+                'playlist-read-private, playlist-read-collaborative, playlist-modify-private, playlist-modify-public',
+                'Leer las playlists que decidas sincronizar y crear o actualizar las playlists que Synqit mantiene para ti.',
+              ],
+              [
+                'Apple Music',
+                'music-library-read, music-library-modify',
+                'Leer tu biblioteca para encontrar las canciones y escribir las playlists que Synqit mantiene para ti.',
+              ],
+            ],
+          },
+          {
+            kind: 'p',
+            text: 'No solicitamos acceso a tu historial de escucha, a tus canciones guardadas, a tus seguidores ni a tus datos de pago. No reproducimos música en tu nombre y no modificamos playlists que Synqit no haya creado, salvo aquellas que selecciones expresamente como destino de una sincronización.',
+          },
+          {
+            kind: 'p',
+            text: 'Los tokens de acceso y de renovación se cifran antes de escribirse en nuestra base de datos. Puedes desconectar una plataforma en cualquier momento desde los ajustes de tu cuenta, lo que elimina los tokens almacenados; también puedes revocar el acceso de Synqit desde los ajustes de tu cuenta de Spotify o de Apple.',
+          },
+        ],
+      },
+      {
+        id: 'sharing',
+        heading: 'Quién más ve tus datos',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'No vendemos datos personales ni los compartimos con fines publicitarios. Un número reducido de proveedores trata datos por cuenta nuestra, bajo contrato y siguiendo únicamente nuestras instrucciones:',
+          },
+          {
+            kind: 'table',
+            head: ['Proveedor', 'Qué trata', 'Dónde'],
+            rows: [
+              [
+                'Spotify AB / Apple Inc.',
+                'Los datos de playlists y de biblioteca necesarios para ejecutar una sincronización que hayas solicitado.',
+                'Conforme a sus propias políticas de privacidad, ver más abajo.',
+              ],
+              [
+                'Resend',
+                'Tu dirección de correo y el contenido de los correos transaccionales que te enviamos.',
+                'Estados Unidos, con un mecanismo de transferencia de datos de la UE.',
+              ],
+              [
+                ENTITY.host.name,
+                'Alojamiento de los servidores de la aplicación y de la base de datos.',
+                ENTITY.host.address,
+              ],
+            ],
+          },
+          {
+            kind: 'p',
+            text: 'Cuando conectas una plataforma de música, esa plataforma también trata tus datos como responsable propio, con arreglo a sus propias condiciones. Consulta las políticas de privacidad de Spotify y de Apple para saber qué hacen con ellos: esa parte queda fuera de nuestro control.',
+          },
+          {
+            kind: 'p',
+            text: 'También podemos comunicar datos cuando la ley lo exija, o para formular o defender una reclamación legal.',
+          },
+        ],
+      },
+      {
+        id: 'guests',
+        heading: 'Si eres invitado en el evento de otra persona',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Los invitados que añaden canciones a través del enlace de un evento son visibles para el anfitrión: el anfitrión ve qué canciones se han añadido y quién las ha añadido, porque moderar esa lista es justamente el sentido de la función. El anfitrión decide si conserva después un resumen del evento.',
+          },
+          {
+            kind: 'p',
+            text: `En cuanto a las canciones que aportas al evento de otra persona, el anfitrión decide cómo se gestiona el evento y cuánto tiempo se conserva el resumen. Puedes pedirnos que eliminemos tus aportaciones escribiendo a ${ENTITY.email.privacy}.`,
+          },
+        ],
+      },
+      {
+        id: 'retention',
+        heading: 'Cuánto tiempo los conservamos',
+        blocks: [
+          {
+            kind: 'table',
+            head: ['Datos', 'Se conservan'],
+            rows: [
+              ['Cuenta, perfil y preferencias', 'Mientras exista tu cuenta.'],
+              [
+                'Tokens de las plataformas de música',
+                'Hasta que desconectes la plataforma o elimines tu cuenta.',
+              ],
+              ['Tokens de sesión (renovación)', 'Hasta 30 días, o hasta que cierres sesión.'],
+              ['Tokens de restablecimiento de contraseña', '30 minutos.'],
+              [
+                'Resúmenes de eventos en el nivel gratuito',
+                'Se eliminan unos 30 días después del evento. Los planes de pago los conservan hasta que los elimines.',
+              ],
+              [
+                'Analítica de uso',
+                'Se conserva de forma agregada para seguir la evolución del producto; el identificador de sesión ya ha desaparecido cuando cierras la pestaña.',
+              ],
+              [
+                'Facturas y registros contables',
+                'Diez años, como exige el derecho mercantil francés.',
+              ],
+            ],
+          },
+          {
+            kind: 'p',
+            text: 'Cuando nos pides que eliminemos tu cuenta, la programamos para su eliminación y después borramos tus datos personales; los registros que estamos legalmente obligados a conservar, como las facturas, se guardan durante el plazo que fija la ley y nada más.',
+          },
+        ],
+      },
+      {
+        id: 'security',
+        heading: 'Cómo los protegemos',
+        blocks: [
+          {
+            kind: 'list',
+            items: [
+              'Las contraseñas se cifran mediante hash y nunca se almacenan en un formato legible.',
+              'Los tokens de las plataformas de música se cifran en reposo con una clave guardada fuera de la base de datos.',
+              'Las sesiones usan cookies HTTP-only, Secure y SameSite, además de un token CSRF, de modo que una sesión no puede ser leída por scripts ni reutilizada desde otro sitio.',
+              'El tráfico se sirve mediante HTTPS de extremo a extremo.',
+              'Las acciones administrativas sobre las cuentas de usuario se registran junto con su autor y su motivo.',
+            ],
+          },
+          {
+            kind: 'p',
+            text: 'Ningún sistema es perfectamente seguro. Si alguna vez una brecha afectara a tus derechos, lo notificaremos a la CNIL en un plazo de 72 horas y te lo comunicaremos directamente cuando la ley así lo exija.',
+          },
+        ],
+      },
+      {
+        id: 'rights',
+        heading: 'Tus derechos',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Conforme al RGPD, en cualquier momento puedes:',
+          },
+          {
+            kind: 'list',
+            items: [
+              'Acceder a los datos personales que tenemos sobre ti y obtener una copia.',
+              'Rectificar cualquier dato inexacto o incompleto.',
+              'Suprimir tus datos, cuando ninguna obligación legal nos exija conservarlos.',
+              'Limitar el tratamiento mientras se resuelve una controversia.',
+              'Recibir tus datos en un formato portátil y legible por máquina.',
+              'Oponerte a los tratamientos basados en nuestro interés legítimo, incluida la analítica.',
+              'Retirar tu consentimiento cuando lo hayas prestado, sin que ello afecte a lo anterior.',
+              'Dar instrucciones sobre qué debe ocurrir con tus datos tras tu fallecimiento (Ley de Protección de Datos francesa, art. 85).',
+            ],
+          },
+          {
+            kind: 'p',
+            text: `Escribe a ${ENTITY.email.privacy} y te responderemos en el plazo de un mes. Si no te satisface nuestra respuesta, puedes presentar una reclamación ante la CNIL, la autoridad francesa de protección de datos: 3 place de Fontenoy, 75007 París, cnil.fr.`,
+          },
+        ],
+      },
+      {
+        id: 'children',
+        heading: 'Edad',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Synqit no está dirigido a menores de 15 años, la edad del consentimiento digital en Francia. Si crees que un menor ha creado una cuenta, avísanos y la eliminaremos.',
+          },
+        ],
+      },
+      {
+        id: 'changes',
+        heading: 'Cambios en esta política',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Cuando modificamos esta política actualizamos la fecha que aparece en la parte superior de la página. Si un cambio afecta de forma sustancial al uso que hacemos de tus datos, te lo comunicaremos por correo o en la aplicación antes de que entre en vigor.',
+          },
+        ],
+      },
+    ],
+  },
 };

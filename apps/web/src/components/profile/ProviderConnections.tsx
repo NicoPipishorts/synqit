@@ -15,6 +15,7 @@ import { useI18n } from '../../hooks/useI18n';
 import { trackAnalyticsEvent } from '../../lib/analytics';
 import { toApiError } from '../../lib/api';
 import { connectAppleMusic } from '../../lib/appleMusic';
+import { intlLocale } from '../../lib/i18n/messages';
 import { openProviderOauthPopup, ProviderOauthPopupResult } from '../../lib/providerOauthPopup';
 import {
   disconnectProvider,
@@ -80,7 +81,7 @@ export const ProviderConnections = () => {
       if (!value) return null;
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return null;
-      return new Intl.DateTimeFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+      return new Intl.DateTimeFormat(intlLocale(locale), {
         dateStyle: 'medium',
         timeStyle: 'short',
       }).format(date);

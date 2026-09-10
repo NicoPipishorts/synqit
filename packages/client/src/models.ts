@@ -3,8 +3,8 @@ import type { AccountRole, AdminPermission, ApiError } from '@synqit/shared';
 export type { AccountRole, AdminPermission, ApiError };
 
 export type Theme = 'light' | 'dark' | 'auto';
-export type SupportedLocale = 'en' | 'fr';
-export const SUPPORTED_LOCALES: readonly SupportedLocale[] = ['en', 'fr'];
+export type SupportedLocale = 'en' | 'fr' | 'es';
+export const SUPPORTED_LOCALES: readonly SupportedLocale[] = ['en', 'fr', 'es'];
 
 export type StoredAuth = {
   userId: string;

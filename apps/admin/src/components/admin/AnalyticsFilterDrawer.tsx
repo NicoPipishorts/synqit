@@ -10,7 +10,7 @@ export type AnalyticsFilters = {
   source: 'web' | 'site' | null;
   target: string | null;
   page: string | null;
-  locale: 'en' | 'fr' | null;
+  locale: 'en' | 'fr' | 'es' | null;
   visitor: 'anonymous' | 'authenticated' | null;
 };
 
@@ -168,13 +168,14 @@ export const AnalyticsFilterDrawer = ({
           </FilterSection>
 
           <FilterSection title={t('admin.analyticsFiltersLanguage')}>
-            <Segmented<'en' | 'fr'>
+            <Segmented<'en' | 'fr' | 'es'>
               value={draft.locale}
               onChange={(next) => set({ locale: next })}
               options={[
                 { value: null, label: t('admin.analyticsFiltersAll') },
                 { value: 'en', label: 'EN' },
                 { value: 'fr', label: 'FR' },
+                { value: 'es', label: 'ES' },
               ]}
             />
           </FilterSection>

@@ -41,11 +41,17 @@ export const getAppOrigin = (): string => {
 // can pick it up and stay consistent with the site.
 const LOCALE_STORAGE_KEY = 'synqit.site.locale.v1';
 
-const resolveLocale = (): 'en' | 'fr' | null => {
+const FORWARDED_LOCALES = ['en', 'fr', 'es'] as const;
+type ForwardedLocale = (typeof FORWARDED_LOCALES)[number];
+
+const isForwardedLocale = (value: unknown): value is ForwardedLocale =>
+  (FORWARDED_LOCALES as readonly unknown[]).includes(value);
+
+const resolveLocale = (): ForwardedLocale | null => {
   if (typeof window !== 'undefined') {
     try {
       const stored = window.localStorage.getItem(LOCALE_STORAGE_KEY);
-      if (stored === 'en' || stored === 'fr') {
+      if (isForwardedLocale(stored)) {
         return stored;
       }
     } catch {
@@ -53,8 +59,15 @@ const resolveLocale = (): 'en' | 'fr' | null => {
     }
   }
 
-  if (typeof navigator !== 'undefined' && navigator.language.toLowerCase().startsWith('fr')) {
-    return 'fr';
+  if (typeof navigator !== 'undefined') {
+    const language = navigator.language.toLowerCase();
+    // English is the app's own default, so only the others are worth forwarding.
+    const detected = FORWARDED_LOCALES.filter((locale) => locale !== 'en').find((locale) =>
+      language.startsWith(locale),
+    );
+    if (detected) {
+      return detected;
+    }
   }
 
   return null;

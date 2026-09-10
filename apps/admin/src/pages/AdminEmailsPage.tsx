@@ -7,19 +7,24 @@ import { useI18n } from '../hooks/useI18n';
 import { callApi, toApiError } from '../lib/api';
 import { clearAuth } from '../lib/auth';
 
+type PreviewLocale = 'en' | 'fr' | 'es';
+
+const toPreviewLocale = (value: string): PreviewLocale =>
+  value === 'fr' || value === 'es' ? value : 'en';
+
 export const AdminEmailsPage = () => {
   const { t } = useI18n();
   const navigate = useNavigate();
   const [previewEmail, setPreviewEmail] = useState('');
-  const [previewLocale, setPreviewLocale] = useState<'en' | 'fr'>('en');
+  const [previewLocale, setPreviewLocale] = useState<'en' | 'fr' | 'es'>('en');
   const [isSendingPreview, setIsSendingPreview] = useState(false);
   const [previewStatus, setPreviewStatus] = useState<string | null>(null);
   const [resetPreviewEmail, setResetPreviewEmail] = useState('');
-  const [resetPreviewLocale, setResetPreviewLocale] = useState<'en' | 'fr'>('en');
+  const [resetPreviewLocale, setResetPreviewLocale] = useState<'en' | 'fr' | 'es'>('en');
   const [isSendingResetPreview, setIsSendingResetPreview] = useState(false);
   const [resetPreviewStatus, setResetPreviewStatus] = useState<string | null>(null);
   const [recapPreviewEmail, setRecapPreviewEmail] = useState('');
-  const [recapPreviewLocale, setRecapPreviewLocale] = useState<'en' | 'fr'>('en');
+  const [recapPreviewLocale, setRecapPreviewLocale] = useState<'en' | 'fr' | 'es'>('en');
   const [isSendingRecapPreview, setIsSendingRecapPreview] = useState(false);
   const [recapPreviewStatus, setRecapPreviewStatus] = useState<string | null>(null);
 
@@ -168,11 +173,12 @@ export const AdminEmailsPage = () => {
           />
           <select
             value={previewLocale}
-            onChange={(event) => setPreviewLocale(event.target.value === 'fr' ? 'fr' : 'en')}
+            onChange={(event) => setPreviewLocale(toPreviewLocale(event.target.value))}
             className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text"
           >
             <option value="en">EN</option>
             <option value="fr">FR</option>
+            <option value="es">ES</option>
           </select>
           <CTAButton
             type="button"
@@ -203,11 +209,12 @@ export const AdminEmailsPage = () => {
           />
           <select
             value={resetPreviewLocale}
-            onChange={(event) => setResetPreviewLocale(event.target.value === 'fr' ? 'fr' : 'en')}
+            onChange={(event) => setResetPreviewLocale(toPreviewLocale(event.target.value))}
             className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text"
           >
             <option value="en">EN</option>
             <option value="fr">FR</option>
+            <option value="es">ES</option>
           </select>
           <CTAButton
             type="button"
@@ -238,11 +245,12 @@ export const AdminEmailsPage = () => {
           />
           <select
             value={recapPreviewLocale}
-            onChange={(event) => setRecapPreviewLocale(event.target.value === 'fr' ? 'fr' : 'en')}
+            onChange={(event) => setRecapPreviewLocale(toPreviewLocale(event.target.value))}
             className="rounded-xl border border-app-border bg-app-bg px-3 py-2 text-sm text-app-text"
           >
             <option value="en">EN</option>
             <option value="fr">FR</option>
+            <option value="es">ES</option>
           </select>
           <CTAButton
             type="button"

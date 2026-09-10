@@ -15,7 +15,7 @@ export const analyticsStore = {
     eventName: AnalyticsEventName;
     target: AnalyticsTarget;
     path: string;
-    locale: 'en' | 'fr' | null;
+    locale: 'en' | 'fr' | 'es' | null;
     source: 'web' | 'site';
     referrer: string | null;
     properties: Record<string, unknown>;

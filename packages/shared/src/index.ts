@@ -175,7 +175,7 @@ export const refreshResponseSchema = z.object({
     .object({
       avatarUrl: z.string().url().nullable().default(null),
       theme: z.enum(['light', 'dark', 'auto']).nullable().optional(),
-      locale: z.enum(['en', 'fr']).nullable().optional(),
+      locale: z.enum(['en', 'fr', 'es']).nullable().optional(),
     })
     .optional(),
 });
@@ -613,7 +613,7 @@ export const analyticsTrackRequestSchema = z.object({
   target: analyticsTargetSchema,
   sessionId: z.string().min(8).max(128),
   path: z.string().min(1).max(512),
-  locale: z.enum(['en', 'fr']).optional(),
+  locale: z.enum(['en', 'fr', 'es']).optional(),
   source: z.enum(['web', 'site']).default('web'),
   /**
    * Where this session came from, sent once on its first event. The `Referer`
@@ -662,7 +662,7 @@ export type UpdatePersonalInfoRequest = z.infer<typeof updatePersonalInfoRequest
 export const userPreferencesThemeSchema = z.enum(['light', 'dark', 'auto']);
 export type UserPreferencesTheme = z.infer<typeof userPreferencesThemeSchema>;
 
-export const userPreferencesLocaleSchema = z.enum(['en', 'fr']);
+export const userPreferencesLocaleSchema = z.enum(['en', 'fr', 'es']);
 export type UserPreferencesLocale = z.infer<typeof userPreferencesLocaleSchema>;
 
 export const userPreferencesSchema = z.object({
@@ -1435,7 +1435,7 @@ export const apiErrorSchema = z.object({
 
 export type ApiError = z.infer<typeof apiErrorSchema>;
 
-export const emailLocaleSchema = z.enum(['en', 'fr']);
+export const emailLocaleSchema = z.enum(['en', 'fr', 'es']);
 export type EmailLocale = z.infer<typeof emailLocaleSchema>;
 
 export const registrationConfirmationEmailJobSchema = z.object({

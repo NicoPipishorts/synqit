@@ -98,6 +98,14 @@ export const I18nProvider = <L extends string>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale]);
 
+  // Keep <html lang> on the active locale: assistive tech uses it to pick a
+  // pronunciation, and search engines to label the page's language.
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = locale;
+    }
+  }, [locale]);
+
   const setLocale = (nextLocale: L) => {
     // Resolve the fallback together with the target dictionary so both land in the same
     // render; otherwise keys missing from the new locale flash as raw keys until the effect
