@@ -26,7 +26,7 @@ yarn prisma:migrate:deploy   # apply migrations to the local DB
 yarn dev                     # everything; or dev:api / dev:web / dev:admin / dev:site / dev:worker
 yarn typecheck               # all workspaces
 yarn lint
-yarn i18n:check              # en/fr parity + every literal t('key') in web/admin exists (site warns)
+yarn i18n:check              # en/fr/es parity + every literal t('key') in web/admin exists (site warns)
 yarn test:api:regression     # needs the DB up + migrated
 yarn test:web:e2e            # Playwright smoke test
 ```
@@ -97,7 +97,9 @@ yarn test:web:e2e            # Playwright smoke test
   base URL. Admin data loading goes through TanStack Query (`apps/admin/src/lib/queries.ts`).
 - When two sessions work in the same checkout, use `git worktree add` instead: concurrent edits in
   one working tree produce interleaved commits and iCloud "name 2.ext" duplicates.
-- Web copy is translated: every string goes in `apps/web/src/locales/{en,fr}/common.json`.
+- Web copy is translated: every string goes in `apps/web/src/locales/{en,fr,es}/common.json`, which the
+  marketing site and the back office read too. The back office UI stays EN/FR; its keys are still
+  translated so `i18n:check` parity holds.
 - Sync UX stays one-way in the frontend even though the backend supports bidirectional.
 
 ## Docs to read first

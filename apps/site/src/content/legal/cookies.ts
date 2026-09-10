@@ -259,4 +259,133 @@ export const cookiesDocument: LegalDocumentSet = {
       },
     ],
   },
+
+  es: {
+    title: 'Aviso sobre cookies',
+    subtitle: 'Qué guarda Synqit en tu navegador y por qué no hay ningún banner de cookies.',
+    updated: LEGAL_UPDATED_AT,
+    tocLabel: 'En esta página',
+    sections: [
+      {
+        id: 'summary',
+        heading: 'En resumen',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Synqit no instala ninguna cookie publicitaria, no incorpora ningún rastreador de terceros y no realiza ninguna medición entre sitios. Las únicas cookies que instalamos son las que te mantienen con la sesión iniciada, y se instalan después de que inicies sesión, nunca antes.',
+          },
+        ],
+      },
+      {
+        id: 'essential',
+        heading: 'Cookies estrictamente necesarias',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Las instala la aplicación de Synqit en cuanto inicias sesión. Sin ellas no puedes mantener la sesión abierta.',
+          },
+          {
+            kind: 'table',
+            head: ['Cookie', 'Finalidad', 'Duración'],
+            rows: [
+              [
+                'synqit_web_access',
+                'Contiene tu sesión de corta duración para autenticar cada solicitud. Es HTTP-only, así que los scripts no pueden leerla.',
+                '15 minutos',
+              ],
+              [
+                'synqit_web_refresh',
+                'Permite a la aplicación renovar tu sesión sin pedirte que vuelvas a iniciar sesión. HTTP-only.',
+                'Hasta 30 días',
+              ],
+              [
+                'synqit_web_csrf',
+                'Un token que la aplicación devuelve en cada escritura, para que ningún otro sitio pueda actuar en tu nombre.',
+                'La misma que la cookie de renovación',
+              ],
+            ],
+          },
+          {
+            kind: 'p',
+            text: 'Las tres llevan los atributos Secure y SameSite y se eliminan al cerrar sesión. El back office usa esas mismas tres cookies con el prefijo synqit_admin_.',
+          },
+        ],
+      },
+      {
+        id: 'storage',
+        heading: 'Almacenamiento del navegador',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Algunas preferencias se guardan en tu navegador en lugar de en una cookie. Se quedan en tu dispositivo y nunca se envían a nuestros servidores como señal de seguimiento.',
+          },
+          {
+            kind: 'table',
+            head: ['Clave', 'Qué contiene', 'Dónde'],
+            rows: [
+              ['synqit.theme.v1', 'Tema claro u oscuro.', 'localStorage'],
+              [
+                'synqit.locale.v1 / synqit.site.locale.v1',
+                'El idioma que has elegido.',
+                'localStorage',
+              ],
+              ['synqit.preferences.v1', 'Preferencias de la interfaz.', 'localStorage'],
+              [
+                'synqit.auth.v1',
+                'Estado de sesión no sensible, para que la aplicación sepa que la sesión está iniciada antes de que llegue la primera respuesta. Aquí no se guarda ningún token.',
+                'localStorage',
+              ],
+              [
+                'synqit.analytics.session.v1',
+                'Un identificador aleatorio que agrupa las páginas vistas de una misma visita.',
+                'sessionStorage',
+              ],
+            ],
+          },
+        ],
+      },
+      {
+        id: 'analytics',
+        heading: 'Cómo medimos la audiencia',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Nuestra medición de audiencia está desarrollada internamente y funciona en nuestros propios servidores. Registra la ruta de la página, el nombre del evento, el referente y el idioma, junto con un identificador de sesión aleatorio guardado en sessionStorage, que el navegador descarta en cuanto cierras la pestaña.',
+          },
+          {
+            kind: 'p',
+            text: 'No registramos direcciones IP, no aplicamos ninguna huella digital de dispositivo y ningún dato se transmite a una empresa de analítica externa. Como el identificador no puede seguirte de una visita a otra ni de un sitio a otro, la medición se limita estrictamente a producir estadísticas anónimas para nuestro uso exclusivo.',
+          },
+        ],
+      },
+      {
+        id: 'no-banner',
+        heading: 'Por qué no ves ningún banner de consentimiento',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'La legislación francesa (art. 82 de la Ley de Protección de Datos) exige consentimiento para cualquier almacenamiento que no sea estrictamente necesario para el servicio que has solicitado. Nuestras cookies de sesión son estrictamente necesarias, así que están exentas. Nuestra medición de audiencia cumple los criterios de exención que fija la CNIL para la analítica de origen: un solo sitio, sin seguimiento entre servicios, estadísticas anónimas y sin transmisión a terceros.',
+          },
+          {
+            kind: 'p',
+            text: 'Si algún día añadimos algo que sí requiera consentimiento, podrás elegir de verdad antes de que se instale, y no con un banner que da por hecha tu respuesta.',
+          },
+        ],
+      },
+      {
+        id: 'control',
+        heading: 'Cómo controlarlo',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Puedes borrar en cualquier momento las cookies y los datos del sitio de synqit.fr desde los ajustes de tu navegador: al hacerlo se cerrará tu sesión y se restablecerán tu tema y tu idioma. Si bloqueas las cookies por completo, no podrás mantener la sesión iniciada.',
+          },
+          {
+            kind: 'p',
+            text: `Cualquier duda sobre esta página: ${ENTITY.email.privacy}.`,
+          },
+        ],
+      },
+    ],
+  },
 };

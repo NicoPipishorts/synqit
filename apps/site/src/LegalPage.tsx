@@ -6,7 +6,7 @@ import { HeroLink } from './components/ui/HeroLink';
 import { LEGAL_DOCUMENTS, LEGAL_ROUTES, type LegalSlug } from './content/legal';
 import { useI18n } from './lib/i18n';
 
-const LOCALE_TAGS: Record<string, string> = { en: 'en-GB', fr: 'fr-FR' };
+const LOCALE_TAGS: Record<string, string> = { en: 'en-GB', fr: 'fr-FR', es: 'es-ES' };
 
 const formatUpdated = (iso: string, locale: string): string => {
   const date = new Date(`${iso}T00:00:00Z`);

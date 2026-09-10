@@ -479,4 +479,243 @@ export const termsDocument: LegalDocumentSet = {
       },
     ],
   },
+
+  es: {
+    title: 'Condiciones del servicio',
+    subtitle: `El acuerdo entre tú y ${ENTITY.brand} cuando usas el servicio.`,
+    updated: LEGAL_UPDATED_AT,
+    tocLabel: 'En esta página',
+    sections: [
+      {
+        id: 'parties',
+        heading: 'Con quién firmas estas condiciones',
+        blocks: [
+          {
+            kind: 'p',
+            text: `${ENTITY.brand} está operado por ${ENTITY.publisher}, micro-entreprise francesa inscrita con el SIREN ${ENTITY.siren}, con domicilio en ${ENTITY.address} («nosotros»). Estas condiciones rigen tu uso de ${ENTITY.siteUrl} y de la aplicación Synqit.`,
+          },
+          {
+            kind: 'p',
+            text: `Al crear una cuenta o usar el servicio aceptas estas condiciones. Si no las aceptas, no uses Synqit. Para cualquier duda, escribe a ${ENTITY.email.legal}.`,
+          },
+        ],
+      },
+      {
+        id: 'service',
+        heading: 'Qué hace Synqit',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Synqit hace dos cosas. Sincroniza playlists entre plataformas de música, de modo que una playlist que sigues en un servicio se mantiene al día en otro. Y aloja playlists colaborativas de evento, en las que los invitados añaden canciones a través de un enlace y el anfitrión modera el resultado.',
+          },
+          {
+            kind: 'p',
+            text: 'Synqit es una herramienta que actúa sobre las cuentas de música que conectas. No es un servicio de música: no aloja, no reproduce en streaming ni suministra ninguna grabación. La reproducción ocurre íntegramente dentro de Spotify o Apple Music, bajo tu suscripción con ellos.',
+          },
+        ],
+      },
+      {
+        id: 'account',
+        heading: 'Tu cuenta',
+        blocks: [
+          {
+            kind: 'list',
+            items: [
+              'Debes tener al menos 15 años para crear una cuenta.',
+              'La información que nos facilites debe ser exacta, y debes mantener tu dirección de correo actualizada para que podamos contactar contigo.',
+              'Eres responsable de mantener tu contraseña en secreto y de lo que ocurra en tu cuenta.',
+              'Una cuenta corresponde a una persona. No compartas tus credenciales.',
+              'Avísanos cuanto antes si crees que tu cuenta ha quedado comprometida.',
+            ],
+          },
+        ],
+      },
+      {
+        id: 'platforms',
+        heading: 'Conectar plataformas de música',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Synqit no está afiliado a Spotify ni a Apple, ni cuenta con su respaldo o patrocinio. Spotify y Apple Music son marcas de sus respectivos titulares, utilizadas aquí únicamente para identificar los servicios a los que Synqit se conecta.',
+          },
+          {
+            kind: 'p',
+            text: 'Usar Synqit con una plataforma no te exime de cumplir las condiciones de esa plataforma. Necesitas tu propia cuenta válida en ella, y algunas funciones pueden requerir una suscripción de pago por su parte. Si una plataforma modifica o retira su API, restringe nuestro acceso o suspende tu cuenta, las funciones que dependan de ella pueden dejar de funcionar: eso escapa a nuestro control y no se nos puede exigir responsabilidad por ello.',
+          },
+          {
+            kind: 'p',
+            text: 'Nos autorizas a actuar en las cuentas que conectes estrictamente dentro de los permisos que hayas concedido, y únicamente para llevar a cabo las sincronizaciones y los eventos que hayas configurado.',
+          },
+        ],
+      },
+      {
+        id: 'matching',
+        heading: 'Qué podemos y qué no podemos prometer sobre la sincronización',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Los catálogos cambian de una plataforma a otra. Una canción disponible en una puede faltar en otra, estar publicada en una versión distinta o tener restricciones regionales. Synqit busca las canciones con la mayor precisión posible e informa de las que no ha podido encontrar, pero no podemos garantizar que todas las playlists se transfieran por completo ni que cada coincidencia sea exactamente la grabación que tenías en mente.',
+          },
+          {
+            kind: 'p',
+            text: 'Las sincronizaciones se ejecutan de forma periódica y no instantánea, y una sincronización puede fallar si una plataforma no está disponible o si una conexión ha caducado. Synqit se ofrece como una comodidad, no como un servicio de copia de seguridad: guarda tu propia copia de todo aquello que no puedas permitirte perder.',
+          },
+        ],
+      },
+      {
+        id: 'content',
+        heading: 'Tus contenidos y tus eventos',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Conservas todos los derechos sobre los contenidos que creas: nombres de eventos, descripciones y las playlists que compones. Solo nos concedes el permiso que necesitamos para alojar y mostrar esos contenidos con el fin de prestarte el servicio y, en el caso de un evento, para los invitados a los que invites.',
+          },
+          {
+            kind: 'p',
+            text: 'Si organizas un evento, eres responsable del enlace que distribuyes y de moderar lo que añaden tus invitados. Debes tener derecho a invitar a las personas que invitas y debes respetar su privacidad, lo que incluye explicarles, si lo preguntan, cómo se usarán el evento y su resumen.',
+          },
+        ],
+      },
+      {
+        id: 'acceptable-use',
+        heading: 'Uso aceptable',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Te comprometes a no:',
+          },
+          {
+            kind: 'list',
+            items: [
+              'Usar Synqit para infringir derechos de autor, ni para descargar, extraer o redistribuir grabaciones.',
+              'Eludir a través de Synqit los límites de uso, las condiciones o las protecciones técnicas de una plataforma.',
+              'Automatizar el acceso al servicio fuera de las interfaces que ponemos a tu disposición, ni extraer sus datos de forma masiva.',
+              'Subir o compartir contenidos ilícitos, que constituyan acoso, que inciten al odio o que vulneren los derechos de terceros.',
+              'Intentar acceder a la cuenta o a los datos de otro usuario, ni sondear el servicio en busca de vulnerabilidades sin nuestro permiso por escrito.',
+              'Revender el servicio o comercializarlo bajo otra marca sin un acuerdo por escrito con nosotros.',
+            ],
+          },
+          {
+            kind: 'p',
+            text:
+              'Si encuentras una vulnerabilidad de seguridad, comunícanosla en ' +
+              ENTITY.email.legal +
+              ' antes de divulgarla públicamente. No emprenderemos acciones contra quienes informen de buena fe y nos den un plazo razonable para corregir el problema.',
+          },
+        ],
+      },
+      {
+        id: 'plans',
+        heading: 'Planes, precios y pago',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Synqit tiene un nivel gratuito y opciones de pago. Los planes de evento se compran una sola vez, para un evento. Los planes para compartir desbloquean funciones en tu cuenta. Las funciones de cada plan y sus precios son los que se muestran en nuestra página de precios en el momento de la compra.',
+          },
+          {
+            kind: 'p',
+            text: 'Los precios están en euros e incluyen el IVA cuando corresponde. Como micro-entreprise acogida a la franquicia de IVA francesa, podemos facturar sin IVA: en ese caso la factura incluye la mención «TVA non applicable, art. 293 B du CGI».',
+          },
+          {
+            kind: 'p',
+            text: 'Podemos modificar los precios de cara al futuro. Un cambio nunca afecta a un plan de evento que ya hayas pagado. Si modificamos el precio de un plan recurrente, te lo comunicaremos con antelación y podrás cancelarlo antes de que entre en vigor.',
+          },
+        ],
+      },
+      {
+        id: 'withdrawal',
+        heading: 'Derecho de desistimiento',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Si eres consumidor en la Unión Europea, dispones normalmente de catorce días desde la compra para desistir de ella, sin necesidad de justificación (Código de Consumo francés, art. L221-18).',
+          },
+          {
+            kind: 'note',
+            text: 'Dado que Synqit es contenido digital suministrado de forma inmediata, te pedimos que confirmes durante el pago que quieres acceder de inmediato y que reconoces que pierdes tu derecho de desistimiento una vez que el servicio se haya prestado por completo (art. L221-28, 13.º). Si no das esa confirmación, tus catorce días transcurren con normalidad y las funciones de pago comienzan después de ese plazo.',
+          },
+          {
+            kind: 'p',
+            text: `Para desistir, escribe a ${ENTITY.email.legal} dentro del plazo. Te reembolsamos por el mismo medio de pago, en un plazo de catorce días desde la recepción de tu solicitud.`,
+          },
+        ],
+      },
+      {
+        id: 'availability',
+        heading: 'Disponibilidad y cambios',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Trabajamos para mantener Synqit disponible, pero no prometemos un servicio ininterrumpido. Podemos suspenderlo por mantenimiento y podemos añadir, modificar o retirar funciones a medida que el producto evoluciona. Si retiramos una función esencial de un plan que hayas pagado, te ofreceremos una solución justa: una alternativa o un reembolso proporcional.',
+          },
+        ],
+      },
+      {
+        id: 'termination',
+        heading: 'Suspensión y cierre de tu cuenta',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Puedes cerrar tu cuenta en cualquier momento desde tus ajustes. Al cerrarla se eliminan tus datos personales según se describe en nuestra política de privacidad.',
+          },
+          {
+            kind: 'p',
+            text: 'Podemos suspender o cerrar una cuenta que incumpla estas condiciones, que se esté usando de forma ilícita o que ponga en riesgo el servicio o a sus demás usuarios. Salvo que el incumplimiento sea grave o que la ley exija actuar de inmediato, te avisaremos primero y te daremos la oportunidad de corregirlo. Si cerramos una cuenta de pago sin causa justificada, reembolsamos la parte no utilizada.',
+          },
+        ],
+      },
+      {
+        id: 'liability',
+        heading: 'Responsabilidad',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Nada en estas condiciones excluye nuestra responsabilidad por fallecimiento o daños personales causados por nuestra negligencia, por dolo, por vicios ocultos ni por cualquier otro supuesto que la legislación francesa no permita excluir. Los consumidores conservan íntegramente la garantía legal de conformidad (art. L217-3 y siguientes del Código de Consumo).',
+          },
+          {
+            kind: 'p',
+            text: 'Más allá de eso, no respondemos de daños indirectos o imprevisibles, de la pérdida de datos de los que hubieras podido conservar una copia, ni de un fallo causado por una plataforma de música, por tu conexión a internet o por cualquier otro acontecimiento ajeno a nuestro control razonable. Cuando nuestra responsabilidad pueda limitarse, se limita al importe que nos hayas pagado en los doce meses anteriores al hecho que motive la reclamación.',
+          },
+        ],
+      },
+      {
+        id: 'ip',
+        heading: 'Nuestra propiedad intelectual',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'El nombre Synqit, su logotipo, su interfaz y el software que hay detrás nos pertenecen. Estas condiciones te otorgan un derecho de uso del servicio personal, no exclusivo e intransferible, y nada más. No puedes copiarlo, descompilarlo ni crear obras derivadas a partir de él, salvo en los casos expresamente permitidos por la ley.',
+          },
+        ],
+      },
+      {
+        id: 'law',
+        heading: 'Legislación aplicable y controversias',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Estas condiciones se rigen por la legislación francesa. Si eres consumidor, esto no te priva de la protección que te otorgan las normas imperativas del país en el que resides.',
+          },
+          {
+            kind: 'p',
+            text: `Si algo va mal, escribe primero a ${ENTITY.email.legal}: la mayoría de las cuestiones se resuelven así. Si no logramos solucionarlo, un consumidor puede someter la controversia de forma gratuita a un mediador de consumo o usar la plataforma de resolución de litigios en línea de la Comisión Europea en ec.europa.eu/consumers/odr. A falta de acuerdo, la controversia se someterá a los tribunales franceses competentes.`,
+          },
+          {
+            kind: 'note',
+            text: 'TODO(legal): la legislación francesa exige que un profesional que vende a consumidores designe a un mediador de consumo inscrito (Código de Consumo, art. L612-1). Añade aquí el nombre, la dirección y el sitio web de tu mediador en cuanto contrates uno.',
+          },
+        ],
+      },
+      {
+        id: 'changes',
+        heading: 'Cambios en estas condiciones',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Podemos actualizar estas condiciones a medida que el servicio evoluciona. La fecha que aparece en la parte superior de la página indica la versión vigente. En caso de cambio sustancial te avisaremos con al menos treinta días de antelación; si no lo aceptas, puedes cerrar tu cuenta antes de que entre en vigor.',
+          },
+        ],
+      },
+    ],
+  },
 };

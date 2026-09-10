@@ -26,7 +26,8 @@
     "ariaOpen": "Ouvrir le menu de langue",
     "ariaSelect": "Changer la langue vers {{language}}",
     "english": "Anglais",
-    "french": "Français"
+    "french": "Français",
+    "spanish": "Espagnol"
   },
   "auth": {
     "loginTitle": "Connexion",
@@ -1007,7 +1008,8 @@
     "trackingPending": "Mise à jour...",
     "trackSuccess": "Playlist ajoutée à votre dashboard.",
     "untrackSuccess": "Playlist retirée de votre dashboard.",
-    "trackError": "Impossible de mettre à jour le suivi du dashboard : {{message}}"
+    "trackError": "Impossible de mettre à jour le suivi du dashboard : {{message}}",
+    "madeWithSynqit": "Créé avec Synqit"
   },
   "home": {
     "nav": {
@@ -1119,7 +1121,6 @@
       "row": {
         "magicLink": "Contributions des invités via lien magique",
         "moderation": "Modération par l’hôte",
-        "guestCap": "Invités",
         "branding": "Mention « Made with Synqit »",
         "cohosts": "Co-hôtes",
         "exportPlaylist": "Export du tracklist final vers une playlist",
@@ -1142,10 +1143,11 @@
         "transferTrackCap": "Titres par playlist",
         "transferBatch": "Sélectionner plusieurs playlists à la fois",
         "transferResume": "Reprise et nouvelle tentative automatiques",
-        "transferReport": "Rapport de correspondance (transférés / ignorés)"
+        "transferReport": "Rapport de correspondance (transférés / ignorés)",
+        "eventsPerYear": "Événements inclus",
+        "guestsAndSongs": "Invités et morceaux"
       },
       "val": {
-        "cap25": "25",
         "unlimited": "Illimité",
         "shown": "Affichée",
         "removed": "Retirée",
@@ -1156,7 +1158,10 @@
         "basic": "Basiques",
         "advanced": "Avancées",
         "count3": "3 au total",
-        "tracks100": "Jusqu’à 100"
+        "tracks100": "Jusqu’à 100",
+        "perYear2": "2 par an",
+        "thisEvent": "Cet événement",
+        "cap25": "25"
       },
       "events": {
         "free": {
@@ -1165,18 +1170,18 @@
           "note": "par événement",
           "cta": "Commencer",
           "feat1": "Contributions des invités via lien magique",
-          "feat2": "Modération par l’hôte",
-          "feat3": "Jusqu’à 25 invités",
-          "feat4": "Mention « Made with Synqit » sur la page invité"
+          "feat2": "Modération par l’organisateur",
+          "feat3": "Invités et morceaux illimités",
+          "feat4": "2 événements par an, gratuits"
         },
         "party": {
           "name": "Party",
           "price": "15 €",
           "note": "paiement unique par événement",
           "cta": "Choisir Party",
-          "feat1": "Invités illimités",
-          "feat2": "Sans marque Synqit",
-          "feat3": "Page souvenir récap",
+          "feat1": "Un événement, quand vous voulez",
+          "feat2": "Aucune marque Synqit",
+          "feat3": "Page souvenir",
           "feat4": "Export vers votre playlist"
         },
         "celebration": {
@@ -1224,7 +1229,7 @@
       },
       "teaserTitle": "Gratuit pour commencer. Paie seulement [[quand ça compte]].",
       "teaserEvents": "Événements",
-      "teaserEventsBody": "Gratuit jusqu’à 25 invités, puis un prix unique par événement.",
+      "teaserEventsBody": "Deux événements par an gratuits, invités et morceaux illimités. Ensuite, un prix unique par événement.",
       "teaserSharing": "Partage",
       "teaserSharingBody": "Gratuit pour les petits cercles. 5 € débloquent une playlist pour toujours.",
       "teaserTransfer": "Transfert",
@@ -1408,5 +1413,72 @@
     "fileMatchNote": "Les lignes sans ISRC sont associées par titre. Certains morceaux peuvent correspondre à une autre version ou être ignorés.",
     "invalidFile": "Aucun titre reconnu. Utilisez un « Artiste - Titre » par ligne, un M3U ou un CSV avec une colonne titre.",
     "qobuzMatchNote": "Les pages Qobuz donnent le titre, l’artiste et l’album mais pas d’identifiant d’enregistrement : les morceaux sont recherchés par nom. Seules les playlists éditoriales Qobuz sont publiées en pages ; exportez une playlist personnelle vers un fichier."
+  },
+  "paywall": {
+    "upgradeCta": "Passer à l'offre supérieure",
+    "dismiss": "Pas maintenant",
+    "pending": "Ouverture du paiement…",
+    "comingSoon": "Les paiements ne sont pas encore actifs — c'est ici que le paiement s'ouvrira.",
+    "error": "Impossible de démarrer le paiement. Veuillez réessayer.",
+    "seePricing": "Voir toutes les offres et les prix",
+    "pricingUrl": "/pricing",
+    "reason": {
+      "event_annual_cap": {
+        "title": "Vous avez utilisé vos événements gratuits",
+        "body": "Les comptes gratuits organisent {{limit}} événements par an, et le nombre de morceaux n'est jamais limité — il suffit de débloquer celui-ci. Achetez-le maintenant et il s'appliquera à l'événement que vous allez créer."
+      },
+      "event_cohosts": {
+        "title": "Les co-organisateurs, c'est l'offre Célébration",
+        "body": "Invitez quelqu'un à vous aider à modérer la playlist avant et pendant la fête."
+      },
+      "event_keepsake_export": {
+        "title": "Gardez la tracklist finale",
+        "body": "Exportez tout ce que vos invités ont ajouté vers une playlist permanente qui vous appartient."
+      },
+      "event_keepsake_recap": {
+        "title": "Débloquez la page souvenir",
+        "body": "Une page à partager : qui a ajouté quoi, vos meilleurs contributeurs et la date."
+      },
+      "event_keepsake_pdf": {
+        "title": "Souvenir imprimable",
+        "body": "Une version prête à imprimer de la tracklist de la soirée, incluse dans l'offre Célébration."
+      },
+      "event_branding": {
+        "title": "Retirez le badge Synqit",
+        "body": "Enlevez « Made with Synqit » de la page que voient vos invités."
+      },
+      "sync_subscriber_cap": {
+        "title": "Cette playlist a atteint sa limite d'abonnés",
+        "body": "Les playlists gratuites sont suivies par {{limit}} personnes au maximum. Débloquez-la une fois et il n'y a plus de limite."
+      },
+      "sync_expired": {
+        "title": "Cette playlist ne se synchronise plus",
+        "body": "Les playlists gratuites se synchronisent pendant une durée limitée. Débloquez-la pour tenir vos abonnés à jour définitivement — rien n'a été supprimé."
+      },
+      "sync_branded_page": {
+        "title": "Page de partage personnalisée",
+        "body": "Donnez à cette playlist sa propre page, sans l'habillage Synqit."
+      },
+      "sync_stats": {
+        "title": "Voyez qui vous suit",
+        "body": "Le nombre d'abonnés par plateforme et dans le temps est inclus dans le déblocage."
+      },
+      "curator_only": {
+        "title": "Réservé à l'offre Curateurs",
+        "body": "La diffusion miroir, la page de chaîne personnalisée et les statistiques de croissance sont conçues pour ceux qui programment en continu."
+      },
+      "transfer_playlist_cap": {
+        "title": "Vous avez utilisé vos transferts gratuits",
+        "body": "L'essai gratuit déplace {{limit}} playlists. Le Pack Transfert déplace toute votre bibliothèque, en une fois."
+      },
+      "transfer_track_cap": {
+        "title": "Cette playlist est trop longue pour l'essai gratuit",
+        "body": "Les transferts gratuits couvrent les playlists jusqu'à {{limit}} morceaux. Le Pack Transfert n'a pas de limite."
+      },
+      "transfer_batch": {
+        "title": "Déplacez-en plusieurs à la fois",
+        "body": "L'essai gratuit déplace une playlist à la fois. Le Pack Transfert vous laisse sélectionner toute votre bibliothèque."
+      }
+    }
   }
 }

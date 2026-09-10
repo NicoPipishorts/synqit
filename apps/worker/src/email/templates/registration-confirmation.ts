@@ -85,6 +85,24 @@ export const renderRegistrationConfirmationTemplate = (params: {
     };
   }
 
+  if (params.locale === 'es') {
+    return {
+      subject: 'Confirmación de registro en Synqit',
+      html: renderHtml({
+        title: 'Te damos la bienvenida a Synqit',
+        intro: `Tu cuenta se ha creado correctamente para <strong>${safeEmail}</strong>.`,
+        body: 'Ya puedes crear tus playlists compartidas e invitar a quien quieras.',
+        cta: 'Abrir Synqit',
+        outro: 'Si no has creado esta cuenta, puedes ignorar este correo sin problema.',
+      }),
+      text:
+        `Te damos la bienvenida a Synqit.\n\n` +
+        `Tu cuenta se ha creado correctamente para ${params.recipientEmail}.\n` +
+        `Abrir Synqit: ${params.webAppUrl}\n\n` +
+        `Si no has creado esta cuenta, puedes ignorar este correo sin problema.`,
+    };
+  }
+
   return {
     subject: 'Synqit registration confirmed',
     html: renderHtml({

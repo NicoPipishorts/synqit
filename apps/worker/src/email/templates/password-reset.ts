@@ -87,6 +87,23 @@ export const renderPasswordResetTemplate = (params: {
     };
   }
 
+  if (params.locale === 'es') {
+    return {
+      subject: 'Restablece tu contraseña de Synqit',
+      html: renderHtml({
+        title: 'Restablece tu contrase&ntilde;a',
+        intro: `Hemos recibido una solicitud para restablecer la contrase&ntilde;a de <strong>${safeEmail}</strong>.`,
+        body: 'Usa el bot&oacute;n de abajo para definir una nueva contrase&ntilde;a.',
+        cta: 'Restablecer la contrase&ntilde;a',
+        outro: 'Si no has solicitado esto, puedes ignorar este correo sin problema.',
+      }),
+      text:
+        `Hemos recibido una solicitud para restablecer la contraseña de ${params.recipientEmail}.\n\n` +
+        `Restablecer tu contraseña: ${resetUrl}\n\n` +
+        `Si no has solicitado esto, puedes ignorar este correo sin problema.`,
+    };
+  }
+
   return {
     subject: 'Reset your Synqit password',
     html: renderHtml({

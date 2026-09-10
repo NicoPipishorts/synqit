@@ -26,7 +26,8 @@
     "ariaOpen": "Open language menu",
     "ariaSelect": "Switch language to {{language}}",
     "english": "English",
-    "french": "French"
+    "french": "French",
+    "spanish": "Spanish"
   },
   "auth": {
     "loginTitle": "Login",
@@ -1007,7 +1008,8 @@
     "trackingPending": "Updating...",
     "trackSuccess": "Playlist added to your dashboard.",
     "untrackSuccess": "Playlist removed from your dashboard.",
-    "trackError": "Could not update dashboard tracking: {{message}}"
+    "trackError": "Could not update dashboard tracking: {{message}}",
+    "madeWithSynqit": "Made with Synqit"
   },
   "home": {
     "nav": {
@@ -1119,7 +1121,6 @@
       "row": {
         "magicLink": "Magic-link guest contributions",
         "moderation": "Host moderation",
-        "guestCap": "Guests",
         "branding": "\"Made with Synqit\" badge",
         "cohosts": "Co-hosts",
         "exportPlaylist": "Export final tracklist to a playlist",
@@ -1142,10 +1143,11 @@
         "transferTrackCap": "Tracks per playlist",
         "transferBatch": "Select several playlists at once",
         "transferResume": "Auto-retry & resume",
-        "transferReport": "Match report (moved vs. skipped)"
+        "transferReport": "Match report (moved vs. skipped)",
+        "eventsPerYear": "Events included",
+        "guestsAndSongs": "Guests and songs"
       },
       "val": {
-        "cap25": "25",
         "unlimited": "Unlimited",
         "shown": "Shown",
         "removed": "Removed",
@@ -1156,7 +1158,10 @@
         "basic": "Basic",
         "advanced": "Advanced",
         "count3": "3 in total",
-        "tracks100": "Up to 100"
+        "tracks100": "Up to 100",
+        "perYear2": "2 per year",
+        "thisEvent": "This event",
+        "cap25": "25"
       },
       "events": {
         "free": {
@@ -1166,15 +1171,15 @@
           "cta": "Start free",
           "feat1": "Guest contributions via magic link",
           "feat2": "Host moderation",
-          "feat3": "Up to 25 guests",
-          "feat4": "\"Made with Synqit\" on the guest page"
+          "feat3": "Unlimited guests and songs",
+          "feat4": "2 events a year, free"
         },
         "party": {
           "name": "Party",
           "price": "€15",
           "note": "one-time per event",
           "cta": "Choose Party",
-          "feat1": "Unlimited guests",
+          "feat1": "One event, whenever you need it",
           "feat2": "No Synqit branding",
           "feat3": "Keepsake recap page",
           "feat4": "Export to your playlist"
@@ -1224,7 +1229,7 @@
       },
       "teaserTitle": "Free to start. Pay only when [[it matters]].",
       "teaserEvents": "Events",
-      "teaserEventsBody": "Free up to 25 guests, then a one-time price per event.",
+      "teaserEventsBody": "Two events a year free, with unlimited guests and songs. Then a one-time price per event.",
       "teaserSharing": "Sharing",
       "teaserSharingBody": "Free for small circles. €5 unlocks a playlist for good.",
       "teaserTransfer": "Moving over",
@@ -1408,5 +1413,72 @@
     "fileMatchNote": "Lines without an ISRC are matched by title. Some tracks may match a different version or be skipped.",
     "invalidFile": "No tracks were recognised. Use one \"Artist - Title\" per line, an M3U, or a CSV with a title column.",
     "qobuzMatchNote": "Qobuz pages list title, artist and album but no recording ID, so tracks are matched by search. Only Qobuz editorial playlists are published as pages; export a personal playlist to a file instead."
+  },
+  "paywall": {
+    "upgradeCta": "Upgrade",
+    "dismiss": "Not now",
+    "pending": "Opening checkout…",
+    "comingSoon": "Payments are not live yet — this is where checkout will open.",
+    "error": "Something went wrong starting checkout. Please try again.",
+    "seePricing": "See all plans and prices",
+    "pricingUrl": "/pricing",
+    "reason": {
+      "event_annual_cap": {
+        "title": "You have used your free events",
+        "body": "Free accounts run {{limit}} events a year, and songs are never capped — this one just needs unlocking. Buy it now and it applies to the event you are about to create."
+      },
+      "event_cohosts": {
+        "title": "Co-hosts are a Celebration feature",
+        "body": "Invite someone to help you moderate the playlist before and during the party."
+      },
+      "event_keepsake_export": {
+        "title": "Keep the final tracklist",
+        "body": "Export everything your guests added to a permanent playlist you own."
+      },
+      "event_keepsake_recap": {
+        "title": "Unlock the recap page",
+        "body": "A shareable page showing who added what, your top contributors, and the date."
+      },
+      "event_keepsake_pdf": {
+        "title": "Printable keepsake",
+        "body": "A print-ready version of the night's tracklist, part of the Celebration tier."
+      },
+      "event_branding": {
+        "title": "Remove the Synqit badge",
+        "body": "Take \"Made with Synqit\" off the page your guests see."
+      },
+      "sync_subscriber_cap": {
+        "title": "This playlist has reached its followers limit",
+        "body": "Free playlists are followed by up to {{limit}} people. Unlock it once and there is no limit."
+      },
+      "sync_expired": {
+        "title": "This playlist has stopped syncing",
+        "body": "Free playlists sync for a limited time. Unlock it to keep followers up to date for good — nothing has been deleted."
+      },
+      "sync_branded_page": {
+        "title": "Branded share page",
+        "body": "Give this playlist its own page, without the Synqit chrome."
+      },
+      "sync_stats": {
+        "title": "See who is following",
+        "body": "Subscriber numbers by platform and over time come with the unlock."
+      },
+      "curator_only": {
+        "title": "Part of the Curator plan",
+        "body": "Mirroring, a branded channel page and growth analytics are built for people curating continuously."
+      },
+      "transfer_playlist_cap": {
+        "title": "You have used your free transfers",
+        "body": "The free trial moves {{limit}} playlists. The Transfer Pack moves your whole library, once."
+      },
+      "transfer_track_cap": {
+        "title": "This playlist is too long for the free trial",
+        "body": "Free transfers cover playlists up to {{limit}} tracks. The Transfer Pack has no limit."
+      },
+      "transfer_batch": {
+        "title": "Move several at once",
+        "body": "The free trial moves one playlist at a time. The Transfer Pack lets you select your whole library."
+      }
+    }
   }
 }

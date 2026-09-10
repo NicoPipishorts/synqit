@@ -67,6 +67,37 @@ const toTimestamp = (value: string | null | undefined): number => {
   return Number.isNaN(ts) ? 0 : ts;
 };
 
+// Short relative labels, kept inline rather than in common.json: they are three
+// fragments per locale that only this table uses.
+const TIME_AGO_LABELS: Record<
+  string,
+  {
+    now: string;
+    minutes: (n: number) => string;
+    hours: (n: number) => string;
+    days: (n: number) => string;
+  }
+> = {
+  en: {
+    now: 'Just now',
+    minutes: (n) => `${n}m ago`,
+    hours: (n) => `${n}h ago`,
+    days: (n) => `${n}d ago`,
+  },
+  fr: {
+    now: "À l'instant",
+    minutes: (n) => `Il y a ${n} min`,
+    hours: (n) => `Il y a ${n} h`,
+    days: (n) => `Il y a ${n} j`,
+  },
+  es: {
+    now: 'Ahora mismo',
+    minutes: (n) => `Hace ${n} min`,
+    hours: (n) => `Hace ${n} h`,
+    days: (n) => `Hace ${n} d`,
+  },
+};
+
 const formatTimeAgo = (value: string | null, locale: string): string | null => {
   if (!value) return null;
   try {
@@ -74,11 +105,11 @@ const formatTimeAgo = (value: string | null, locale: string): string | null => {
     const mins = Math.floor(diff / 60_000);
     const hours = Math.floor(diff / 3_600_000);
     const days = Math.floor(diff / DAY_MS);
-    const fr = locale === 'fr';
-    if (mins < 1) return fr ? "À l'instant" : 'Just now';
-    if (mins < 60) return fr ? `Il y a ${mins} min` : `${mins}m ago`;
-    if (hours < 24) return fr ? `Il y a ${hours} h` : `${hours}h ago`;
-    return fr ? `Il y a ${days} j` : `${days}d ago`;
+    const labels = TIME_AGO_LABELS[locale] ?? TIME_AGO_LABELS.en;
+    if (mins < 1) return labels.now;
+    if (mins < 60) return labels.minutes(mins);
+    if (hours < 24) return labels.hours(hours);
+    return labels.days(days);
   } catch {
     return value;
   }

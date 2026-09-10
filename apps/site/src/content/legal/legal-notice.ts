@@ -163,4 +163,84 @@ export const legalNoticeDocument: LegalDocumentSet = {
       },
     ],
   },
+
+  es: {
+    title: 'Aviso legal',
+    subtitle: 'Editor, alojamiento y datos de contacto de este sitio web.',
+    updated: LEGAL_UPDATED_AT,
+    tocLabel: 'En esta página',
+    sections: [
+      {
+        id: 'publisher',
+        heading: 'Editor del sitio',
+        blocks: [
+          {
+            kind: 'table',
+            head: ['', ''],
+            rows: [
+              ['Editor', `${ENTITY.publisher}, empresario individual (micro-entreprise)`],
+              ['Nombre comercial', ENTITY.brand],
+              ['SIREN', ENTITY.siren],
+              ['Domicilio declarado', ENTITY.address],
+              ['IVA', 'No aplicable — art. 293 B del Código General de Impuestos francés'],
+              ['Director de la publicación', ENTITY.publicationDirector],
+              ['Contacto', ENTITY.email.legal],
+            ],
+          },
+        ],
+      },
+      {
+        id: 'host',
+        heading: 'Alojamiento',
+        blocks: [
+          {
+            kind: 'p',
+            text: 'Este sitio y la aplicación Synqit están alojados por:',
+          },
+          {
+            kind: 'table',
+            head: ['', ''],
+            rows: [
+              ['Proveedor de alojamiento', ENTITY.host.name],
+              ['Dirección', ENTITY.host.address],
+            ],
+          },
+        ],
+      },
+      {
+        id: 'ip',
+        heading: 'Propiedad intelectual',
+        blocks: [
+          {
+            kind: 'p',
+            text: `La estructura, el diseño, los textos, los elementos gráficos y el software de ${ENTITY.domain} están protegidos por el derecho de propiedad intelectual y pertenecen a ${ENTITY.publisher}, salvo que se indique lo contrario. Queda prohibida cualquier reproducción o reutilización sin autorización previa por escrito.`,
+          },
+          {
+            kind: 'p',
+            text: 'Spotify y Apple Music son marcas de sus respectivos titulares. Synqit no está afiliado a ellos ni cuenta con su respaldo o patrocinio; sus nombres y logotipos aparecen aquí únicamente para identificar los servicios a los que Synqit se conecta.',
+          },
+        ],
+      },
+      {
+        id: 'data',
+        heading: 'Datos personales y cookies',
+        blocks: [
+          {
+            kind: 'p',
+            text: `El tratamiento de datos personales se describe en nuestra política de privacidad, y el almacenamiento en el navegador, en nuestro aviso sobre cookies. Para cualquier solicitud relativa a tus datos, escribe a ${ENTITY.email.privacy}. Puedes presentar una reclamación ante la CNIL — 3 place de Fontenoy, 75007 París, cnil.fr.`,
+          },
+        ],
+      },
+      {
+        id: 'report',
+        heading: 'Denunciar un contenido ilícito',
+        blocks: [
+          {
+            kind: 'p',
+            text: `Para denunciar un contenido de Synqit que consideres ilícito, escribe a ${ENTITY.email.legal} indicando el contenido, dónde se encuentra y el motivo por el que lo consideras ilícito. Revisamos todas las denuncias.`,
+          },
+        ],
+      },
+    ],
+  },
 };

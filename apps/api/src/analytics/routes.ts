@@ -24,6 +24,10 @@ const normalizeLocaleHeader = (headerValue: string | string[] | undefined): Emai
     return 'fr';
   }
 
+  if (firstLocale.startsWith('es')) {
+    return 'es';
+  }
+
   if (firstLocale.startsWith('en')) {
     return 'en';
   }
@@ -31,7 +35,7 @@ const normalizeLocaleHeader = (headerValue: string | string[] | undefined): Emai
   return null;
 };
 
-const resolveOptionalLocale = (request: FastifyRequest): 'en' | 'fr' | null => {
+const resolveOptionalLocale = (request: FastifyRequest): EmailLocale | null => {
   const explicitLocale = normalizeLocaleHeader(request.headers['x-synqit-locale']);
   if (explicitLocale) {
     return explicitLocale;
