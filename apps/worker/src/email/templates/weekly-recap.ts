@@ -49,6 +49,21 @@ const COPY: Record<EmailLocale, Copy> = {
     cta: 'Ouvrir Synqit',
     outro: 'Vous recevez ce recap car vous possedez ou suivez des playlists actives sur Synqit.',
   },
+  es: {
+    subject: 'Tu resumen semanal de Synqit',
+    title: 'Canciones nuevas en tus playlists',
+    intro: (total, days) =>
+      `${total === 1 ? 'Se ha añadido 1 canción nueva' : `Se han añadido ${total} canciones nuevas`} a las playlists que sigues en los últimos ${days} días.`,
+    groupLabels: {
+      owned_sync: 'Playlists sincronizadas que te pertenecen',
+      subscribed_sync: 'Playlists sincronizadas que sigues',
+      hosted_event: 'Playlists de evento que organizas',
+      followed_event: 'Playlists de evento que sigues',
+    },
+    songs: (count) => `${count} ${count === 1 ? 'canción nueva' : 'canciones nuevas'}`,
+    cta: 'Abrir Synqit',
+    outro: 'Recibes este resumen porque tienes o sigues playlists activas en Synqit.',
+  },
 };
 
 const GROUP_ORDER: WeeklyRecapPlaylistKind[] = [

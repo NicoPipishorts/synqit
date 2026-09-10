@@ -23,6 +23,12 @@ const useLanguageOptions = (): LanguageOption<Locale>[] => {
       iconAlt: 'French flag',
       name: t('languageSwitcher.french'),
     },
+    {
+      locale: 'es',
+      iconSrc: '/assets/flags/ES.png',
+      iconAlt: 'Spanish flag',
+      name: t('languageSwitcher.spanish'),
+    },
   ];
 };
 

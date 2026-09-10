@@ -63,7 +63,7 @@ const DEFAULT_ACCOUNT_DELETION_GRACE_DAYS = 30;
 
 const previewEmailRequestSchema = z.object({
   toEmail: z.string().email(),
-  locale: z.enum(['en', 'fr']).optional().default('en'),
+  locale: z.enum(['en', 'fr', 'es']).optional().default('en'),
 });
 
 const previewJobParamsSchema = z.object({
@@ -101,7 +101,7 @@ const adminAnalyticsOverviewQuerySchema = z.object({
   source: z.enum(['web', 'site']).optional(),
   target: analyticsTargetSchema.optional(),
   page: z.string().min(1).max(512).optional(),
-  locale: z.enum(['en', 'fr']).optional(),
+  locale: z.enum(['en', 'fr', 'es']).optional(),
   visitor: z.enum(['anonymous', 'authenticated']).optional(),
 });
 

@@ -11,6 +11,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import countries from 'i18n-iso-countries';
 import enCountryNames from 'i18n-iso-countries/langs/en.json';
+import esCountryNames from 'i18n-iso-countries/langs/es.json';
 import frCountryNames from 'i18n-iso-countries/langs/fr.json';
 import { Info } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
@@ -26,6 +27,7 @@ import { queryKeys } from '../lib/queries';
 
 countries.registerLocale(enCountryNames);
 countries.registerLocale(frCountryNames);
+countries.registerLocale(esCountryNames);
 
 const birthDatePattern = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -180,8 +182,7 @@ export const ProfilePersonalInfoPage = () => {
   }, [locale]);
 
   const countryOptions = useMemo(() => {
-    const countryLocale = locale === 'fr' ? 'fr' : 'en';
-    const names = countries.getNames(countryLocale, { select: 'official' });
+    const names = countries.getNames(locale, { select: 'official' });
     return Object.values(names).sort((left, right) => left.localeCompare(right, locale));
   }, [locale]);
 

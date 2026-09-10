@@ -4,6 +4,7 @@ import {
   authUserSchema,
   changePasswordRequestSchema,
   type EmailLocale,
+  emailLocaleSchema,
   forgotPasswordRequestSchema,
   forgotPasswordResponseSchema,
   getPasswordCriteria,
@@ -203,6 +204,10 @@ const normalizeLocaleHeader = (headerValue: string | string[] | undefined): Emai
     return 'fr';
   }
 
+  if (firstLocale.startsWith('es')) {
+    return 'es';
+  }
+
   if (firstLocale.startsWith('en')) {
     return 'en';
   }
@@ -229,8 +234,9 @@ const resolveUserPreferredEmailLocale = async (
   request: FastifyRequest,
 ): Promise<EmailLocale> => {
   const preferences = await authStore.findUserPreferencesByUserId(userId);
-  if (preferences?.locale === 'fr' || preferences?.locale === 'en') {
-    return preferences.locale;
+  const storedLocale = emailLocaleSchema.safeParse(preferences?.locale);
+  if (storedLocale.success) {
+    return storedLocale.data;
   }
 
   return resolveRequestEmailLocale(request);

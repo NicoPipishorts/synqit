@@ -2,7 +2,7 @@ import { LanguageSwitcher, type LanguageOption } from '@synqit/ui';
 
 import { useI18n } from '../../lib/i18n';
 
-type Locale = 'en' | 'fr';
+type Locale = 'en' | 'fr' | 'es';
 
 const LANGUAGE_OPTIONS: LanguageOption<Locale>[] = [
   {
@@ -12,6 +12,7 @@ const LANGUAGE_OPTIONS: LanguageOption<Locale>[] = [
     name: 'English',
   },
   { locale: 'fr', iconSrc: '/assets/flags/FR.png', iconAlt: 'French flag', name: 'Français' },
+  { locale: 'es', iconSrc: '/assets/flags/ES.png', iconAlt: 'Spanish flag', name: 'Español' },
 ];
 
 /** Site-bound language toggle over the shared LanguageSwitcher. */
